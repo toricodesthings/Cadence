@@ -15,6 +15,7 @@ export function reason(error: unknown): string {
     }
     if (error.status === 409) return "It was changed somewhere else. Showing the latest version.";
     if (error.status === 404) return "It may have been deleted.";
+    if (error.code === "VIEW_ONLY") return "This list is view-only for you. Its owner can let you edit.";
     if (error.status === 403) return "You don't have access to that.";
     if (error.status === 401) return "Your session ended. Sign in again.";
     return "Check the details and try again.";

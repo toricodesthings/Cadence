@@ -7,12 +7,12 @@ import { IdentityBlock, TagPill } from "./ProposalCard";
 import { ApprovalCard, DeleteApprovalCard, type RetiredRenderContext, type ToolRenderContext } from "./ApprovalCard";
 import { useTagsLookup } from "./card-lookups";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
-import { useProjects } from "../../../hooks/projects/use-projects";
+import { useOwnProjects } from "../../../hooks/projects/use-own-projects";
 import { useFocusViews } from "../../../hooks/core/use-focus-views";
 import { PRIORITY_OPTIONS, EFFORT_OPTIONS } from "../../tasks/task-choice-options";
 
 function useProjectName() {
-    const { data } = useProjects();
+    const { data } = useOwnProjects();
     return (id?: string) => data?.find((project) => project.id === id)?.name;
 }
 

@@ -1,3 +1,4 @@
+import type { LiveChange } from "@cadence/contracts/live";
 import { createMiddleware } from "hono/factory";
 import type { Context } from "hono";
 import type { Env } from "../types/env";
@@ -24,6 +25,10 @@ export type AuthVariables = {
     requestId: string;
     requestStartedAt: number;
     errorCode?: string;
+    /** Everyone who should hear of this write (the owner and members of a list it touched). See `noteAudience`. */
+    liveAudience?: string[];
+    /** Rows this write returned, pushed live to people who can read them. See `noteChange`. */
+    liveChanges?: LiveChange[];
 };
 
 function parseCsvList(value?: string | null) {

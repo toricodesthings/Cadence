@@ -35,6 +35,8 @@ export function useCreateProject() {
                 name: input.name,
                 colorAccent: input.colorAccent || "luminous-amber",
                 emoji: input.emoji || null,
+                access: "owner",
+                members: [],
                 createdAt: new Date().toISOString(),
             };
 

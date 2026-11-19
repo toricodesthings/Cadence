@@ -6,7 +6,7 @@ import { useProcessInboxToTask } from "../../hooks/inbox/use-process-inbox-to-ta
 import { useUpdateInboxItem } from "../../hooks/inbox/use-update-inbox-item";
 import { useCaptureActions } from "../../hooks/inbox/use-capture-actions";
 import { useSettings } from "../../hooks/core/use-settings";
-import { useProjects } from "../../hooks/projects/use-projects";
+import { useOwnProjects } from "../../hooks/projects/use-own-projects";
 import { useSections } from "../../hooks/sections/use-sections";
 import { PRIORITY_ICON, PRIORITY_OPTIONS } from "../tasks/task-choice-options";
 import {
@@ -49,7 +49,7 @@ export function ClarifySheet({
     const update = useUpdateInboxItem();
     const process = useProcessInboxToTask();
     const status = useCaptureActions();
-    const { data: projects = [] } = useProjects();
+    const { data: projects = [] } = useOwnProjects();
     const stored = overridesOf(item);
     // Read once: a suggestion that arrives after the sheet is open never changes a field under the user.
     const [suggestion] = useState(() => storedSuggestion(item));

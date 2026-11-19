@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { instantSchema } from "./common";
+import { listMemberSchema, listRoleSchema } from "./sharing";
 
 // No .default()s on create schemas: an omitted field takes its DB column default, and
 // a default here would leak into the .partial() update schema and overwrite data.
@@ -28,7 +29,12 @@ export type ProjectRow = z.infer<typeof projectRowSchema>;
 
 // Entity mirrors the DB truthfully: `colorAccent`/`emoji` are nullable. Consumers
 // coalesce to a fallback at the presentation edge.
-export const projectSchema = projectRowSchema;
+export const projectSchema = projectRowSchema.extend({
+    /** The caller's role in this list. */
+    access: listRoleSchema,
+    /** Everyone the list is shared with (the owner is `userId`); empty when unshared. */
+    members: z.array(listMemberSchema),
+});
 export type Project = z.infer<typeof projectSchema>;
 
 export type CreateProjectInput = z.input<typeof insertProjectSchema>;

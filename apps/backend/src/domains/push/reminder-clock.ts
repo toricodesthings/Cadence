@@ -5,13 +5,19 @@
  * `setAlarm` overwrites, so an edit or delete simply replaces the plan and the old alert is gone.
  *
  * It also holds the person's live-sync WebSockets (hibernated, so idle sockets cost nothing). After every write it
- * sends each one `{ v }`, a counter that carries no content: the client refetches when `v` changed, which replaces polling.
+ * sends each one `{ v, changes? }`: `v` is a counter, and `changes` carries the rows the write returned to people who
+ * can read them (never stored here, only `v` is). The client applies them, or refetches when `v` jumped or there are none.
  */
 import { DurableObject } from "cloudflare:workers";
 import type { MiddlewareHandler } from "hono";
+import { inArray } from "drizzle-orm";
 import { z } from "zod";
+import { LIVE_MAX_BYTES, LIVE_MAX_CHANGES, type LiveChange } from "@cadence/contracts/live";
 import { LATE_ALERT_MS } from "@cadence/domain/reminders";
+import { taskTags } from "../../db/schema";
 import { getDbClient } from "../../platform/db";
+import { withRls } from "../../platform/rls";
+import { shapeFor } from "../../platform/list-access";
 import { logger, hashIdentifier, issuesFromError } from "../../platform/log";
 import { sendWebPush, vapidConfigured } from "./web-push";
 import {
@@ -69,6 +75,9 @@ function refuse(code: number, reason: string) {
     server.close(code, reason);
     return new Response(null, { status: 101, webSocket: client, headers: { "Sec-WebSocket-Protocol": LIVE_PROTOCOL } });
 }
+
+/** How a write is told to a person's open copies: not to the one that wrote (`origin`), not at all (`quiet`), with the rows (`changes`). */
+type LiveOptions = { origin?: string; quiet?: boolean; changes?: LiveChange[] };
 
 export class ReminderClock extends DurableObject<Env> {
     private dirty = false;
@@ -137,13 +146,17 @@ export class ReminderClock extends DurableObject<Env> {
      * Tell every open socket that something changed, except the copy of Cadence that made the change (`origin`):
      * it already shows it. Always bumps, so a reconnect can see what it missed.
      */
-    async ping(origin?: string) {
+    async ping(origin?: string, changes?: LiveChange[]) {
         const v = ((await this.ctx.storage.get<number>("liveVersion")) ?? 0) + 1;
         await this.ctx.storage.put("liveVersion", v);
+        // Too many rows, or too big to be worth carrying: a bare `{ v }`, and the client refetches.
+        const withRows = changes?.length && changes.length <= LIVE_MAX_CHANGES ? JSON.stringify({ v, changes }) : null;
+        const message =
+            withRows && new TextEncoder().encode(withRows).length <= LIVE_MAX_BYTES ? withRows : JSON.stringify({ v });
         for (const ws of this.ctx.getWebSockets()) {
             if (origin && this.ctx.getTags(ws).includes(origin)) continue;
             try {
-                ws.send(JSON.stringify({ v }));
+                ws.send(message);
             } catch {
                 /* closing */
             }
@@ -156,10 +169,10 @@ export class ReminderClock extends DurableObject<Env> {
      * so an edit or delete is never left to a 7-day-old plan. `quiet` skips the ping (nothing another device shows
      * changed); `origin` is the copy of Cadence that wrote. `now` is for tests.
      */
-    async replan(userId: string, now?: Date, live: { origin?: string; quiet?: boolean } = {}): Promise<void> {
+    async replan(userId: string, now?: Date, live: LiveOptions = {}): Promise<void> {
         await this.ctx.storage.put("userId", userId);
         // The write has committed: other devices needn't wait for (or depend on) VAPID or Neon.
-        if (!live.quiet) await this.ping(live.origin);
+        if (!live.quiet) await this.ping(live.origin, live.changes);
         this.dirty = true;
         this.building ??= (async () => {
             try {
@@ -337,11 +350,7 @@ export class ReminderClock extends DurableObject<Env> {
  * Ask a person's clock to rebuild (and ping their open devices). Best-effort and never throws: the clock rebuilds itself when its plan runs out.
  * Call it after a write has committed, inside `waitUntil`.
  */
-export async function replanReminders(
-    env: Env,
-    userId: string,
-    live?: { origin?: string; quiet?: boolean },
-): Promise<void> {
+export async function replanReminders(env: Env, userId: string, live?: LiveOptions): Promise<void> {
     if (!env.REMINDER_CLOCK) return;
     try {
         await env.REMINDER_CLOCK.get(env.REMINDER_CLOCK.idFromName(userId)).replan(userId, undefined, live);
@@ -353,11 +362,15 @@ export async function replanReminders(
     }
 }
 
-/** A write made outside a request (a background suggestion): the person's other devices refetch, every one of them. No replan. */
-export async function pingLive(env: Env, userId: string): Promise<void> {
+/** A write made outside a request (a background suggestion) or by someone else in a shared list: the person's devices hear of it, every one of them. No replan. */
+export async function pingLive(
+    env: Env,
+    userId: string,
+    live: Pick<LiveOptions, "origin" | "changes"> = {},
+): Promise<void> {
     if (!env.REMINDER_CLOCK) return;
     try {
-        await env.REMINDER_CLOCK.get(env.REMINDER_CLOCK.idFromName(userId)).ping();
+        await env.REMINDER_CLOCK.get(env.REMINDER_CLOCK.idFromName(userId)).ping(live.origin, live.changes);
     } catch (err) {
         logger.warn("cron", "live_ping_failed", {
             userHash: await hashIdentifier(userId),
@@ -379,10 +392,59 @@ export const replanAfterWrites: MiddlewareHandler<{ Bindings: Env; Variables: Au
     if (["/api/v1/events", "/api/v1/search"].some((prefix) => path.startsWith(prefix))) return;
     // A device saying hello changes who gets reminders (replan) but nothing another device shows (no ping).
     const quiet = c.req.method === "PUT" && path === "/api/v1/push/devices";
+    const callerId = c.get("userId");
+    const origin = originOf(c.req.header(ORIGIN_HEADER));
+    const changes = c.get("liveChanges") ?? [];
     c.executionCtx.waitUntil(
-        replanReminders(c.env, c.get("userId"), { origin: originOf(c.req.header(ORIGIN_HEADER)), quiet }),
+        replanReminders(c.env, callerId, {
+            origin,
+            quiet,
+            ...(changes.length > 0 && { changes: changes.map((change) => shapeFor(change, callerId)) }),
+        }),
     );
+    // Everyone else who can read what changed hears of it: the list's owner replans too (their reminders may have changed).
+    const others = (c.get("liveAudience") ?? []).filter((id) => id !== callerId);
+    if (others.length)
+        c.executionCtx.waitUntil(Promise.all(others.map((id) => tellPerson(c.env, id, callerId, origin, changes))));
 };
+
+/** One person who isn't the writer: their own tasks replan their clock (with their tags), anything else is a ping. */
+async function tellPerson(env: Env, id: string, writerId: string, origin: string | undefined, changes: LiveChange[]) {
+    const owns = changes.some((change) => change.type === "task" && change.task.userId === id);
+    const shaped = owns ? await withOwnerTags(env, id, changes) : changes.map((change) => shapeFor(change, id));
+    if (owns) return replanReminders(env, id, { origin, changes: shaped });
+    return pingLive(env, id, { origin, changes: shaped });
+}
+
+/** A collaborator's row has no tags (RLS hides the owner's); the owner's copy gets the real ones. Best-effort: on failure the row goes without. */
+async function withOwnerTags(env: Env, ownerId: string, changes: LiveChange[]): Promise<LiveChange[]> {
+    const theirs = changes.flatMap((change) =>
+        change.type === "task" && change.task.userId === ownerId ? [change.task.id] : [],
+    );
+    if (!theirs.length) return changes;
+    try {
+        const links = await withRls(getDbClient(env), ownerId, (tx) =>
+            tx
+                .select({ taskId: taskTags.taskId, tagId: taskTags.tagId })
+                .from(taskTags)
+                .where(inArray(taskTags.taskId, theirs)),
+        );
+        return changes.map((change) =>
+            change.type === "task" && change.task.userId === ownerId
+                ? {
+                      ...change,
+                      task: {
+                          ...change.task,
+                          tagIds: links.filter((link) => link.taskId === change.task.id).map((link) => link.tagId),
+                      },
+                  }
+                : change,
+        );
+    } catch {
+        // Without the tags the row would erase the owner's: tell them to refetch instead.
+        return [];
+    }
+}
 
 /** Account deletion: stop the clock and drop what it holds. Never throws: if it fails, the replan after the request finds no account and forgets. */
 export async function forgetReminders(env: Env, userId: string): Promise<void> {

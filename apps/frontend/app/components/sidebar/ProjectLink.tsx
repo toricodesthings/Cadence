@@ -2,7 +2,10 @@ import { PlainNavCount } from "./PlainNavCount";
 import { EditListDialog } from "../shared/EditListDialog";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { EllipsisVertical, Pencil, Trash2 } from "lucide-react";
+import { EllipsisVertical, Pencil, Trash2, Users } from "lucide-react";
+import type { Project } from "@cadence/contracts/project";
+import { isOwnList } from "../../hooks/sharing/use-list-access";
+import { ShareListDialog } from "../sharing/ShareListDialog";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { useDeleteProject } from "../../hooks/projects/use-delete-project";
@@ -15,16 +18,24 @@ interface ProjectLinkProps {
     href: string;
     emoji?: string | null;
     count?: number;
+    /** The list, for sharing it (owner) or seeing who is in it (member). */
+    project?: Project;
+    /** Stands in for the colour dot (a shared list shows its owner), never for an emoji. */
+    avatar?: React.ReactNode;
 }
 
-export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLinkProps) {
+export function ProjectLink({ id, label, color, href, emoji, count, project, avatar }: ProjectLinkProps) {
     const location = useLocation();
     const navigate = useNavigate();
     const active = location.pathname === href;
     const deleteProject = useDeleteProject();
 
     const [renameOpen, setRenameOpen] = useState(false);
+    const [shareOpen, setShareOpen] = useState(false);
     const openRename = () => setRenameOpen(true);
+    const openShare = () => setShareOpen(true);
+    // Only the owner renames, restyles and deletes; someone let in sees who is here (and can leave there).
+    const owner = !project || isOwnList(project);
 
     const handleDelete = () => {
         deleteProject.mutate({ id, name: label });
@@ -33,11 +44,14 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
 
     return (
         <>
-            <EditListDialog
-                open={renameOpen}
-                onOpenChange={setRenameOpen}
-                list={{ id, name: label, colorAccent: color, emoji }}
-            />
+            {owner && (
+                <EditListDialog
+                    open={renameOpen}
+                    onOpenChange={setRenameOpen}
+                    list={{ id, name: label, colorAccent: color, emoji }}
+                />
+            )}
+            {project && <ShareListDialog project={project} open={shareOpen} onOpenChange={setShareOpen} />}
 
             {/* Row */}
             <ContextMenu.Root
@@ -72,10 +86,12 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                             {emoji ? (
                                 <span className="text-[14px] shrink-0 w-4 pl-0.5">{emoji}</span>
                             ) : (
-                                <span
-                                    className="w-2 h-2 ml-1 rounded-full shrink-0"
-                                    style={{ backgroundColor: color }}
-                                />
+                                (avatar ?? (
+                                    <span
+                                        className="w-2 h-2 ml-1 rounded-full shrink-0"
+                                        style={{ backgroundColor: color }}
+                                    />
+                                ))
                             )}
                             <span className="flex-1 truncate">{label}</span>
                             <PlainNavCount count={count} />
@@ -92,37 +108,59 @@ export function ProjectLink({ id, label, color, href, emoji, count }: ProjectLin
                                 </button>
                             </DropdownMenu.Trigger>
                             <DropdownMenu.Content align="end" side="right">
-                                <DropdownMenu.Item className="text-[13px]" onSelect={openRename}>
-                                    <Pencil size={12} aria-hidden="true" />
-                                    Rename
-                                </DropdownMenu.Item>
-                                <DropdownMenu.Separator />
-                                <DropdownMenu.Item
-                                    className="text-[13px] text-red-400 focus:text-red-400 focus:bg-red-500/10"
-                                    onSelect={handleDelete}
-                                >
-                                    <Trash2 size={12} aria-hidden="true" />
-                                    Delete
-                                </DropdownMenu.Item>
+                                {project && (
+                                    <DropdownMenu.Item className="text-[13px]" onSelect={openShare}>
+                                        <Users size={12} aria-hidden="true" />
+                                        {owner ? "Share…" : "People"}
+                                    </DropdownMenu.Item>
+                                )}
+                                {owner && (
+                                    <>
+                                        <DropdownMenu.Item className="text-[13px]" onSelect={openRename}>
+                                            <Pencil size={12} aria-hidden="true" />
+                                            Rename
+                                        </DropdownMenu.Item>
+                                        <DropdownMenu.Separator />
+                                        <DropdownMenu.Item
+                                            className="text-[13px] text-red-400 focus:text-red-400 focus:bg-red-500/10"
+                                            onSelect={handleDelete}
+                                        >
+                                            <Trash2 size={12} aria-hidden="true" />
+                                            Delete
+                                        </DropdownMenu.Item>
+                                    </>
+                                )}
                             </DropdownMenu.Content>
                         </DropdownMenu.Root>
                     </div>
                 </ContextMenu.Trigger>
                 <ContextMenu.Content>
-                    <ContextMenu.Item onSelect={openRename}>
-                        <div className="flex items-center gap-2">
-                            <Pencil size={16} />
-                            <span>Rename / Edit</span>
-                            <kbd className="ml-auto text-[10px] opacity-40 font-mono">e</kbd>
-                        </div>
-                    </ContextMenu.Item>
-                    <ContextMenu.Separator />
-                    <ContextMenu.Item variant="danger" onSelect={handleDelete}>
-                        <div className="flex items-center gap-2">
-                            <Trash2 size={16} />
-                            <span>Delete list</span>
-                        </div>
-                    </ContextMenu.Item>
+                    {project && (
+                        <ContextMenu.Item onSelect={openShare}>
+                            <div className="flex items-center gap-2">
+                                <Users size={16} />
+                                <span>{owner ? "Share…" : "People"}</span>
+                            </div>
+                        </ContextMenu.Item>
+                    )}
+                    {owner && (
+                        <>
+                            <ContextMenu.Item onSelect={openRename}>
+                                <div className="flex items-center gap-2">
+                                    <Pencil size={16} />
+                                    <span>Rename / Edit</span>
+                                    <kbd className="ml-auto text-[10px] opacity-40 font-mono">e</kbd>
+                                </div>
+                            </ContextMenu.Item>
+                            <ContextMenu.Separator />
+                            <ContextMenu.Item variant="danger" onSelect={handleDelete}>
+                                <div className="flex items-center gap-2">
+                                    <Trash2 size={16} />
+                                    <span>Delete list</span>
+                                </div>
+                            </ContextMenu.Item>
+                        </>
+                    )}
                 </ContextMenu.Content>
             </ContextMenu.Root>
         </>

@@ -183,7 +183,7 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
                             </div>
                             <p className="text-sm font-medium text-twilight-text">Search your workspace</p>
                             <p className="mx-auto mt-1.5 max-w-[260px] text-[13px] leading-relaxed text-twilight-text-muted">
-                                Find tasks, lists, captures, habits, and pages — all in one place.
+                                Find tasks, lists, captures, routines, and pages — all in one place.
                             </p>
                             <div className="mt-4 flex flex-wrap justify-center gap-2">
                                 {EXAMPLE_CHIPS.map((chip) => (

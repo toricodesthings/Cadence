@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskContextMenu } from "./TaskContextMenu";
+import { useTaskAccess } from "../../hooks/sharing/use-list-access";
+import { PersonAvatar } from "../sharing/PersonAvatar";
 import { RenameTaskDialog } from "./RenameTaskDialog";
 import { EFFORT_OPTIONS, PRIORITY_OPTIONS } from "./task-choice-options";
 import { InlineSubtaskPanel, SUBTASK_RAIL, SubtaskChip, useInlineSubtasks } from "./InlineSubtasks";
@@ -221,6 +223,8 @@ export function TaskCard({
     dragHandleProps,
 }: TaskCardProps) {
     const isComplete = task.state === "COMPLETE";
+    // A list you can only view: no check-off, drag or renaming. A shared one shows who made each task.
+    const access = useTaskAccess(task);
     const priorityConfig = PRIORITY_CONFIG[task.priority];
     const showUrgentIcon = task.priority >= 3;
     const PriorityIcon = PRIORITY_OPTIONS[task.priority].icon;
@@ -321,7 +325,7 @@ export function TaskCard({
             )}
 
             {/* Drag handle — scoped drag target so card body stays free for selection & context menu */}
-            {dragHandleProps && (
+            {dragHandleProps && access.canEdit && (
                 <div
                     ref={dragHandleProps.ref}
                     role={dragHandleProps.attributes?.role}
@@ -389,7 +393,7 @@ export function TaskCard({
                                     className={`block line-clamp-2 ${
                                         // Board cards float the ⋮ over the corner; keep the title clear of it.
                                         isBoardCard
-                                            ? "pr-5 pointer-coarse:pr-6 text-[15px] leading-[1.4]"
+                                            ? `${access.isShared ? "pr-10 pointer-coarse:pr-11" : "pr-5 pointer-coarse:pr-6"} text-[15px] leading-[1.4]`
                                             : COLLECTION_ROW_TITLE
                                     } ${isComplete ? "line-through text-twilight-text-muted" : "text-twilight-text"}`}
                                 >
@@ -467,32 +471,48 @@ export function TaskCard({
                         </div>
                     ) : null}
 
-                    <InlineSubtaskPanel
-                        id={subtaskPanelId}
-                        taskId={task.id}
-                        subtasks={orderedSubtasks}
-                        open={subtaskUi.open}
-                        adding={subtaskUi.adding}
-                        onAddingChange={subtaskUi.setAdding}
-                    />
+                    <fieldset disabled={!access.canEdit} className="contents">
+                        <InlineSubtaskPanel
+                            id={subtaskPanelId}
+                            taskId={task.id}
+                            subtasks={orderedSubtasks}
+                            open={subtaskUi.open}
+                            adding={subtaskUi.adding}
+                            onAddingChange={subtaskUi.setAdding}
+                        />
+                    </fieldset>
                 </div>
             </div>
 
-            {/* Context menu — subtly visible, full opacity on hover */}
+            {/* Board cards float the creator and the ⋮ together in the top corner, so neither covers the other. */}
             <div
-                data-no-dnd="true"
                 className={
                     isBoardCard
-                        ? "absolute right-1.5 top-2 pointer-coarse:right-2 pointer-fine:top-2.5 pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
-                        : `-mr-2.5 shrink-0 sm:-mr-3.5 pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${isCompactCard ? "" : "pt-0.5"}`
+                        ? "absolute right-1.5 top-2 flex items-center pointer-coarse:right-2 pointer-fine:top-2.5"
+                        : "contents"
                 }
             >
-                <TaskContextMenu
-                    task={task}
-                    onAddSubtask={holdingContext ? undefined : subtaskUi.startAdding}
-                    onRename={handleRename}
-                    holdingContext={holdingContext}
-                />
+                {access.isShared && task.projectId ? (
+                    <div data-no-open="true" data-no-dnd="true" className="flex shrink-0 self-center">
+                        <PersonAvatar projectId={task.projectId} userId={task.createdBy} size={16} />
+                    </div>
+                ) : null}
+
+                {/* Context menu — subtly visible, full opacity on hover */}
+                <div
+                    data-no-dnd="true"
+                    className={`pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${
+                        isBoardCard ? "" : `-mr-2.5 shrink-0 sm:-mr-3.5 ${isCompactCard ? "" : "pt-0.5"}`
+                    }`}
+                >
+                    <TaskContextMenu
+                        task={task}
+                        onAddSubtask={holdingContext ? undefined : subtaskUi.startAdding}
+                        onRename={handleRename}
+                        onOpen={() => onSelect?.(task.id)}
+                        holdingContext={holdingContext}
+                    />
+                </div>
             </div>
 
             <RenameTaskDialog

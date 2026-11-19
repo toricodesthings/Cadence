@@ -142,6 +142,12 @@ describe("auth route", () => {
         });
     });
 
+    it("keeps where the person was going when they switch to creating an account", () => {
+        renderAuthPage("/auth/sign-in?redirectTo=%2Fjoin%2Fabc");
+        const link = screen.getByRole("link", { name: "Create an account" });
+        expect(link.getAttribute("href")).toBe("/auth/sign-up?redirectTo=%2Fjoin%2Fabc");
+    });
+
     it("swaps to the sign-up editorial heading without reintroducing marketing split copy", () => {
         renderAuthPage("/auth/sign-up");
 

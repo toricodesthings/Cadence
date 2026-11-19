@@ -20,9 +20,13 @@ export function useCreateTag() {
     /** Open tasks already in a place named like this tag? Offer to tag them. The offer is optional, so failures are silent. */
     async function offerTagging(tag: Tag) {
         try {
-            const { places, taskIds } = await unwrapResponse(await client.api.tags[":id"]["place-matches"].$get({ param: { id: tag.id } }));
+            const { places, taskIds } = await unwrapResponse(
+                await client.api.tags[":id"]["place-matches"].$get({ param: { id: tag.id } }),
+            );
             if (taskIds.length)
-                useAutoTagOfferStore.getState().show({ tagId: tag.id, tagName: tag.name, places: places.map((p) => p.name), taskIds });
+                useAutoTagOfferStore
+                    .getState()
+                    .show({ tagId: tag.id, tagName: tag.name, places: places.map((p) => p.name), taskIds });
         } catch {
             // Nothing to offer.
         }

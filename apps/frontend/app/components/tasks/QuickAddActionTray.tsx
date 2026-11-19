@@ -2,7 +2,7 @@ import { Calendar, FolderOpen, Tag } from "lucide-react";
 import * as Popover from "../primitives/Popover";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import type { ScheduleUpdates } from "./QuickScheduleSurface";
-import { useProjects } from "../../hooks/projects/use-projects";
+import { useOwnProjects } from "../../hooks/projects/use-own-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { resolveQuickAddActions } from "../../lib/utils/quick-add-parser";
 import type { Instant, LocalDate } from "@cadence/domain/time";
@@ -140,7 +140,7 @@ function PriorityAction({ priority, onPriorityChange, iconOnly }: PriorityAction
 type ProjectActionProps = Pick<QuickAddActionTrayProps, "projectId" | "onProjectChange"> & { iconOnly: boolean };
 
 function ProjectAction({ projectId, onProjectChange, iconOnly }: ProjectActionProps) {
-    const { data: projects = [] } = useProjects();
+    const { data: projects = [] } = useOwnProjects();
     const selectedProject = projectId ? projects.find((item) => item.id === projectId) : null;
     return (
         <Popover.Root>

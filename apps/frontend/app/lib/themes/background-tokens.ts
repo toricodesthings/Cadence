@@ -15,16 +15,16 @@ import {
     modeOklch,
     modeRgb,
     samples,
-    useMode,
+    useMode as registerMode,
     wcagLuminance,
 } from "culori/fn";
 
 // Registered once here: image-palette.ts imports this file, so registration always runs first.
-useMode(modeRgb);
-useMode(modeLrgb);
-useMode(modeHsl);
-useMode(modeOklab);
-useMode(modeOklch);
+registerMode(modeRgb);
+registerMode(modeLrgb);
+registerMode(modeHsl);
+registerMode(modeOklab);
+registerMode(modeOklch);
 
 const toOklch = converter("oklch");
 

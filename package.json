@@ -14,7 +14,7 @@
         "build:desktop": "pnpm --filter @cadence/desktop build",
         "typecheck": "turbo run typecheck",
         "typecheck:desktop": "pnpm --filter @cadence/desktop typecheck",
-        "lint": "node scripts/check-time.mjs && jscpd --silent && turbo run lint",
+        "lint": "node scripts/check-time.mjs && oxfmt --check && jscpd --silent && turbo run lint",
         "check:time": "node scripts/check-time.mjs",
         "check:dupes": "jscpd",
         "test": "turbo run test",

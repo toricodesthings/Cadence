@@ -6,10 +6,13 @@ import { makeTask } from "../../helpers";
 
 const qc = new QueryClient();
 qc.setQueryData(queryKeys.projects.all, [{ id: "uni", name: "University" }]);
-qc.setQueryData(["sections", "uni"], [
-    { id: "c2", name: "COMPUTER2000" },
-    { id: "c1", name: "COMPUTER1000" },
-]);
+qc.setQueryData(
+    ["sections", "uni"],
+    [
+        { id: "c2", name: "COMPUTER2000" },
+        { id: "c1", name: "COMPUTER1000" },
+    ],
+);
 qc.setQueryData(queryKeys.tags.all, [
     { id: "tu", name: "University", sortOrder: 1 },
     { id: "t2", name: "COMPUTER 2000", sortOrder: 2 },

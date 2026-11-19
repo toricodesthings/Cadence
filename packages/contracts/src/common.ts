@@ -83,6 +83,11 @@ export const ERROR_CODES = [
     "AI_UPSTREAM_UNAVAILABLE",
     "AI_TOOL_FAILED",
     "AI_CONTENT_BLOCKED",
+    // Sharing
+    "VIEW_ONLY",
+    "OWNER_ONLY",
+    "LINK_EXPIRED",
+    "SHARE_LIMIT",
     // Push
     "PUSH_UNAVAILABLE",
     // Server

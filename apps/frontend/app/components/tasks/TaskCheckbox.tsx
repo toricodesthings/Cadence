@@ -9,11 +9,15 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { supportsManualTaskCompletion } from "../../lib/utils/task/task-scheduling";
 import { trackUsageEvent } from "../../lib/api/track-event";
+import { useTaskAccess } from "../../hooks/sharing/use-list-access";
+import { Tip } from "../primitives/Tooltip";
 
 interface TaskCheckboxProps {
     task?: Task;
     subtask?: Subtask;
     compact?: boolean;
+    /** A list you can only view: the box shows the state and can't change it. A task works this out itself; a step is told. */
+    readOnly?: boolean;
 }
 
 /** What the box checks off: a task (a Fixed one can't be) or a subtask. */
@@ -186,7 +190,9 @@ const MARK_POP = {
     exit: { opacity: 0, scale: 0.8 },
 };
 
-export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxProps) {
+export function TaskCheckbox({ task, subtask, compact = false, readOnly }: TaskCheckboxProps) {
+    const taskAccess = useTaskAccess(task);
+    const locked = readOnly ?? (task ? !taskAccess.canEdit : false);
     const updateTask = useUpdateTask();
     const updateSubtask = useUpdateSubtask(subtask?.taskId ?? "");
     const { data: userSettings } = useSettings();
@@ -233,7 +239,7 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
 
     const handleToggle = (e: React.MouseEvent) => {
         e.stopPropagation(); // prevent card expansion click
-        if (fixed) {
+        if (fixed || locked) {
             return;
         }
 
@@ -279,16 +285,20 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
         }
     };
 
-    return (
+    const box = (
         <button
             onClick={handleToggle}
             type="button"
             data-no-dnd="true"
-            disabled={fixed}
+            disabled={fixed || locked}
             className={`group relative flex shrink-0 items-center justify-center rounded-full transition-colors duration-200 ${
-                fixed ? "cursor-default" : "cursor-pointer"
+                fixed || locked ? "cursor-default" : "cursor-pointer"
             } ${compact ? "h-8 w-8" : "mt-0.5 h-11 w-11 lg:h-8 lg:w-8"}`}
-            aria-label={checkboxLabel({ fixed, title, isComplete, isPendingComplete, isWaiting })}
+            aria-label={
+                locked
+                    ? `${title}: view only`
+                    : checkboxLabel({ fixed, title, isComplete, isPendingComplete, isWaiting })
+            }
         >
             {fixed ? (
                 <FixedMark compact={compact} />
@@ -304,6 +314,14 @@ export function TaskCheckbox({ task, subtask, compact = false }: TaskCheckboxPro
                 />
             )}
         </button>
+    );
+    // A disabled button takes no pointer events: the tip sits on a wrapper so it still shows.
+    return locked ? (
+        <Tip label="View only">
+            <span className="inline-flex">{box}</span>
+        </Tip>
+    ) : (
+        box
     );
 }
 

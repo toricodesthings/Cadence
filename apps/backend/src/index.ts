@@ -9,6 +9,7 @@ import { createErrorBody, formatErrorResponse } from "./platform/errors";
 import { createRequestContext, getRequestId, logErrorResponse, setRequestErrorCode } from "./platform/request-log";
 import { taskRoutes } from "./domains/tasks/tasks.route";
 import { projectRoutes } from "./domains/projects/projects.route";
+import { sharingRoutes } from "./domains/sharing/sharing.route";
 import { inboxRoutes } from "./domains/inbox/inbox.route";
 import { searchRoutes } from "./domains/decisions/search.route";
 import { decisionRoutes } from "./domains/decisions/reset.route";
@@ -180,6 +181,7 @@ app.use("/api/v1/debug/*", async (c, next) => {
 const apiApp = app
     .route("/api/v1/tasks", taskRoutes)
     .route("/api/v1/projects", projectRoutes)
+    .route("/api/v1/lists", sharingRoutes)
     .route("/api/v1/inbox", inboxRoutes)
     .route("/api/v1/search", searchRoutes)
     .route("/api/v1/tags", tagRoutes)

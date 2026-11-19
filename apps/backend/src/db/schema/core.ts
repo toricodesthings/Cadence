@@ -11,12 +11,13 @@ import {
     jsonb,
     index,
     uniqueIndex,
+    primaryKey,
     check,
     pgPolicy,
 } from "drizzle-orm/pg-core";
 import { userSettingsSchema, type UserSettings } from "@cadence/contracts/settings";
 import { relations, sql } from "drizzle-orm";
-import { createdAt, timestamptz, rlsUserId, rlsUsing } from "./columns";
+import { createdAt, timestamptz, rlsUserId, rlsUsing, memberView, memberEdit } from "./columns";
 
 // Settings schema is defined once in the settings domain and imported here.
 export { userSettingsSchema as UserSettingsSchema, type UserSettings };
@@ -55,6 +56,9 @@ export const sourceSurfaceEnum = pgEnum("source_surface", [
     "inbox_card",
     "inbox",
 ]);
+// Ordered: each check compares `role >= min_role`, so a new role goes in ascending order
+// (`ALTER TYPE share_role ADD VALUE 'comment' BEFORE 'edit'`).
+export const shareRoleEnum = pgEnum("share_role", ["view", "edit"]);
 export const focusViewSourceEnum = pgEnum("focus_view_source", ["preset", "composed", "manual"]);
 
 // AI assistant enums (see docs/ai_upgrade 08 — persistence)
@@ -124,6 +128,16 @@ export const ownerId = () =>
         .references(() => users.id, { onDelete: "cascade" })
         .notNull();
 
+/** Who made the row. NULL = the owner (system inserts, rows from before sharing) or a deleted account. */
+export const createdBy = () =>
+    uuid("created_by")
+        .references(() => users.id, { onDelete: "set null" })
+        // A column default can't hold a sub-select, so this reads the claim directly.
+        .default(sql`(NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid`);
+
+/** Who last changed the row; set by the `cadence_set_updated_by` trigger. */
+export const updatedBy = () => uuid("updated_by").references(() => users.id, { onDelete: "set null" });
+
 // 2. The Adaptive State Engine (Burnout/Stress Tracker)
 export const userMetrics = pgTable(
     "user_metrics",
@@ -153,6 +167,30 @@ export const userMetrics = pgTable(
     },
 ).enableRLS();
 
+/** A member writes a row only into a list they can edit, and it stays the list owner's row. */
+const memberOwned = sql`(project_id IN ${memberEdit} AND user_id = (SELECT p.user_id FROM projects p WHERE p.id = project_id))`;
+
+/**
+ * A row's owner must be the owner of the list (or task) it sits in. Permissive policies OR together, so without
+ * this a collaborator could pass the owner policy's `user_id = me` check by writing a row as themselves into someone
+ * else's list, or by re-owning one. Restrictive policies AND with them, and an invisible list or task never matches.
+ */
+const sameOwnerAs = (name: string, owner: ReturnType<typeof sql>) => ({
+    [`${name}SameOwnerInsert`]: pgPolicy(`${name}_same_owner_insert`, {
+        as: "restrictive",
+        for: "insert",
+        withCheck: owner,
+    }),
+    [`${name}SameOwnerUpdate`]: pgPolicy(`${name}_same_owner_update`, {
+        as: "restrictive",
+        for: "update",
+        using: sql`true`,
+        withCheck: owner,
+    }),
+});
+const sameOwnerAsList = sql`(project_id IS NULL OR user_id = (SELECT p.user_id FROM projects p WHERE p.id = project_id))`;
+const sameOwnerAsTask = sql`(user_id = (SELECT t.user_id FROM tasks t WHERE t.id = task_id))`;
+
 // 4a. Task Sections (User-defined grouping headers, scoped to a project)
 // In kanban view each section becomes a column.
 export const taskSections = pgTable(
@@ -163,6 +201,7 @@ export const taskSections = pgTable(
         projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
         name: text("name").notNull(),
         orderIndex: doublePrecision("order_index").notNull(),
+        createdBy: createdBy(),
         createdAt: createdAt(),
     },
     (table) => ({
@@ -173,6 +212,23 @@ export const taskSections = pgTable(
             for: "all",
             using: rlsUsing,
             withCheck: rlsUsing,
+        }),
+        ...sameOwnerAs("task_sections", sameOwnerAsList),
+        memberRead: pgPolicy("task_sections_member_read", {
+            as: "permissive",
+            for: "select",
+            using: sql`project_id IN ${memberView}`,
+        }),
+        memberInsert: pgPolicy("task_sections_member_insert", {
+            as: "permissive",
+            for: "insert",
+            withCheck: memberOwned,
+        }),
+        memberUpdate: pgPolicy("task_sections_member_update", {
+            as: "permissive",
+            for: "update",
+            using: sql`project_id IN ${memberEdit}`,
+            withCheck: memberOwned,
         }),
     }),
 ).enableRLS();
@@ -195,6 +251,75 @@ export const projects = pgTable(
             for: "all",
             using: rlsUsing,
             withCheck: rlsUsing,
+        }),
+        memberRead: pgPolicy("projects_member_read", {
+            as: "permissive",
+            for: "select",
+            using: sql`id IN ${memberView}`,
+        }),
+    }),
+).enableRLS();
+
+// 5a. List members (who a list is shared with). The owner is `projects.user_id`, never a row here.
+// One membership table per shareable thing, with real foreign keys, so cascades and plain indexes work.
+export const listMembers = pgTable(
+    "list_members",
+    {
+        listId: uuid("list_id")
+            .references(() => projects.id, { onDelete: "cascade" })
+            .notNull(),
+        userId: uuid("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        role: shareRoleEnum("role").default("view").notNull(),
+        invitedBy: uuid("invited_by").references(() => users.id, { onDelete: "set null" }),
+        joinedAt: createdAt(),
+    },
+    (table) => ({
+        pk: primaryKey({ columns: [table.listId, table.userId] }),
+        userIdIdx: index("list_members_user_id_idx").on(table.userId),
+        readPolicy: pgPolicy("list_members_read", {
+            as: "permissive",
+            for: "select",
+            using: sql`(user_id = ${rlsUserId} OR list_id IN (SELECT id FROM projects WHERE user_id = ${rlsUserId}) OR list_id IN ${memberView})`,
+        }),
+        ownerUpdate: pgPolicy("list_members_owner_update", {
+            as: "permissive",
+            for: "update",
+            using: sql`list_id IN (SELECT id FROM projects WHERE user_id = ${rlsUserId})`,
+            withCheck: sql`list_id IN (SELECT id FROM projects WHERE user_id = ${rlsUserId})`,
+        }),
+        deletePolicy: pgPolicy("list_members_delete", {
+            as: "permissive",
+            for: "delete",
+            using: sql`(user_id = ${rlsUserId} OR list_id IN (SELECT id FROM projects WHERE user_id = ${rlsUserId}))`,
+        }),
+        // No INSERT policy: only `cadence_join_list` inserts.
+    }),
+).enableRLS();
+
+// 5b. Invite links. Each target is a nullable foreign key; sharing a new kind of thing adds a column and widens the check.
+export const shareInvites = pgTable(
+    "share_invites",
+    {
+        id: uuid("id").defaultRandom().primaryKey(),
+        tokenHash: text("token_hash").notNull().unique(),
+        role: shareRoleEnum("role").default("view").notNull(),
+        listId: uuid("list_id").references(() => projects.id, { onDelete: "cascade" }),
+        createdBy: uuid("created_by")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        expiresAt: timestamptz("expires_at").notNull(),
+        createdAt: createdAt(),
+    },
+    (table) => ({
+        listIdIdx: index("share_invites_list_id_idx").on(table.listId),
+        oneTarget: check("share_invites_one_target", sql`num_nonnulls(list_id) = 1`),
+        ownerAccess: pgPolicy("share_invites_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: sql`list_id IN (SELECT id FROM projects WHERE user_id = ${rlsUserId})`,
+            withCheck: sql`list_id IN (SELECT id FROM projects WHERE user_id = ${rlsUserId})`,
         }),
     }),
 ).enableRLS();
@@ -261,6 +386,8 @@ export const tasks = pgTable(
         // names one completion, which is what a "how long did it take?" answer belongs to.
         completedAt: timestamptz("completed_at"),
 
+        createdBy: createdBy(),
+        updatedBy: updatedBy(),
         createdAt: createdAt(),
         updatedAt: timestamptz("updated_at")
             .default(sql`now()`)
@@ -321,6 +448,24 @@ export const tasks = pgTable(
                 for: "all",
                 using: rlsUsing,
                 withCheck: rlsUsing,
+            }),
+            ...sameOwnerAs("tasks", sameOwnerAsList),
+            // Members reach a shared list's tasks; they never delete (trashing is a state change).
+            memberRead: pgPolicy("tasks_member_read", {
+                as: "permissive",
+                for: "select",
+                using: sql`project_id IN ${memberView}`,
+            }),
+            memberInsert: pgPolicy("tasks_member_insert", {
+                as: "permissive",
+                for: "insert",
+                withCheck: memberOwned,
+            }),
+            memberUpdate: pgPolicy("tasks_member_update", {
+                as: "permissive",
+                for: "update",
+                using: sql`project_id IN ${memberEdit}`,
+                withCheck: memberOwned,
             }),
         };
     },
@@ -603,6 +748,11 @@ export const habitLogs = pgTable(
     },
 ).enableRLS();
 
+// Child rows (subtasks, notes) follow their task's list; `user_id` must stay the task's owner.
+const taskInView = sql`task_id IN (SELECT id FROM tasks WHERE project_id IN ${memberView})`;
+const taskInEdit = sql`task_id IN (SELECT id FROM tasks WHERE project_id IN ${memberEdit})`;
+const taskOwnedEdit = sql`(task_id IN (SELECT id FROM tasks WHERE project_id IN ${memberEdit}) AND user_id = (SELECT t.user_id FROM tasks t WHERE t.id = task_id))`;
+
 // 11. Subtasks
 export const subtasks = pgTable(
     "subtasks",
@@ -615,6 +765,7 @@ export const subtasks = pgTable(
         title: text("title").notNull(),
         isComplete: boolean("is_complete").default(false).notNull(),
         orderIndex: doublePrecision("order_index").notNull(),
+        createdBy: createdBy(),
         createdAt: createdAt(),
     },
     (table) => ({
@@ -625,6 +776,28 @@ export const subtasks = pgTable(
             for: "all",
             using: rlsUsing,
             withCheck: rlsUsing,
+        }),
+        ...sameOwnerAs("subtasks", sameOwnerAsTask),
+        memberRead: pgPolicy("subtasks_member_read", {
+            as: "permissive",
+            for: "select",
+            using: taskInView,
+        }),
+        memberInsert: pgPolicy("subtasks_member_insert", {
+            as: "permissive",
+            for: "insert",
+            withCheck: taskOwnedEdit,
+        }),
+        memberUpdate: pgPolicy("subtasks_member_update", {
+            as: "permissive",
+            for: "update",
+            using: taskInEdit,
+            withCheck: taskOwnedEdit,
+        }),
+        memberDelete: pgPolicy("subtasks_member_delete", {
+            as: "permissive",
+            for: "delete",
+            using: taskInEdit,
         }),
     }),
 ).enableRLS();
@@ -643,6 +816,7 @@ export const taskNotes = pgTable(
         wordCount: integer("word_count").default(0).notNull(),
         headingCount: integer("heading_count").default(0).notNull(),
         version: integer("version").default(1).notNull(),
+        updatedBy: updatedBy(),
         createdAt: createdAt(),
         updatedAt: timestamptz("updated_at")
             .default(sql`now()`)
@@ -656,6 +830,23 @@ export const taskNotes = pgTable(
             for: "all",
             using: rlsUsing,
             withCheck: rlsUsing,
+        }),
+        ...sameOwnerAs("task_notes", sameOwnerAsTask),
+        memberRead: pgPolicy("task_notes_member_read", {
+            as: "permissive",
+            for: "select",
+            using: taskInView,
+        }),
+        memberInsert: pgPolicy("task_notes_member_insert", {
+            as: "permissive",
+            for: "insert",
+            withCheck: taskOwnedEdit,
+        }),
+        memberUpdate: pgPolicy("task_notes_member_update", {
+            as: "permissive",
+            for: "update",
+            using: taskInEdit,
+            withCheck: taskOwnedEdit,
         }),
     }),
 ).enableRLS();

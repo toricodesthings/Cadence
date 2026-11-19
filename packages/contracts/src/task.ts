@@ -197,6 +197,9 @@ export const taskRowSchema = z.object({
     linkedUrl: z.string().nullable(),
     /** The moment the task entered Done (null while it isn't): with the id, one completion. */
     completedAt: instantSchema.nullable(),
+    /** Who made the task; null = the list owner (or a deleted account). */
+    createdBy: z.uuid().nullable(),
+    updatedBy: z.uuid().nullable(),
     createdAt: instantSchema,
     updatedAt: instantSchema,
 });
@@ -222,6 +225,9 @@ export const taskSchema = taskRowSchema.omit({ effortOrigin: true, effortChosenA
     /** Re-checked with `parseWebsite` before any link renders. */
     linkedUrl: z.string().nullable().optional(),
     tagIds: z.array(z.uuid()),
+    /** Optional: optimistic rows and data cached before sharing don't carry them. */
+    createdBy: z.uuid().nullable().optional(),
+    updatedBy: z.uuid().nullable().optional(),
     isHabit: z.boolean().optional(),
     seriesId: z.uuid().optional(),
     isRecurringInstance: z.boolean().optional(),

@@ -38,11 +38,15 @@ export const subtaskRowSchema = z.object({
     title: z.string(),
     isComplete: z.boolean(),
     orderIndex: z.number(),
+    createdBy: z.uuid().nullable(),
     createdAt: instantSchema,
 });
 export type SubtaskRow = z.infer<typeof subtaskRowSchema>;
 
 // `userId` is optional on the client entity (optimistic caches build subtasks
 // without it); the Row keeps it required for DB parity.
-export const subtaskSchema = subtaskRowSchema.extend({ userId: z.uuid().optional() });
+export const subtaskSchema = subtaskRowSchema.extend({
+    userId: z.uuid().optional(),
+    createdBy: z.uuid().nullable().optional(),
+});
 export type Subtask = z.infer<typeof subtaskSchema>;

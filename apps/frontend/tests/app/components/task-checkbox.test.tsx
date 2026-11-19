@@ -2,12 +2,19 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { TaskCheckbox } from "../../../app/components/tasks/TaskCheckbox";
 import type { Task } from "@cadence/contracts/task";
+import { Provider } from "../../../app/components/primitives/Tooltip";
 import { makeTask } from "../../helpers";
 
 const updateTaskMutateMock = vi.fn();
 const updateSubtaskMutateMock = vi.fn();
 const queueCompletionMock = vi.fn();
 const noop = vi.fn();
+
+let access = { role: "owner", isShared: false, canEdit: true, isOwner: true };
+vi.mock("../../../app/hooks/sharing/use-list-access", () => ({
+    useTaskAccess: () => access,
+    useListAccess: () => access,
+}));
 
 vi.mock("../../../app/hooks/tasks/use-update-task", () => ({
     useUpdateTask: () => ({
@@ -81,5 +88,19 @@ describe("TaskCheckbox", () => {
                 taskId: "task-1",
             }),
         );
+    });
+
+    it("shows a task in a list you can only view, and doesn't let it be checked off", () => {
+        access = { role: "view", isShared: true, canEdit: false, isOwner: false };
+        render(
+            <Provider>
+                <TaskCheckbox task={makeTask({ title: "Buy milk" })} />
+            </Provider>,
+        );
+        const checkbox = screen.getByRole("button", { name: "Buy milk: view only" });
+        expect(checkbox.hasAttribute("disabled")).toBe(true);
+        fireEvent.click(checkbox);
+        expect(queueCompletionMock).not.toHaveBeenCalled();
+        access = { role: "owner", isShared: false, canEdit: true, isOwner: true };
     });
 });

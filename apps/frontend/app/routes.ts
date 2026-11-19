@@ -17,6 +17,7 @@ export default [
     route("terms", "routes/legal-redirect.tsx", { id: "terms-redirect" }),
     route("auth/:pathname", "routes/auth.tsx"),
     route("connect", "routes/connect.tsx"),
+    route("join/:token", "routes/join.tsx"),
     route("routines", "routes/routines.tsx"),
     route("habits", "routes/habits-redirect.tsx"),
     route("help-feedback", "routes/help-feedback.tsx"),

@@ -366,7 +366,7 @@ function WipeConfirm({ onConfirm }: { onConfirm: () => void }) {
                 <AlertDialog.Title>Wipe all test workspace data?</AlertDialog.Title>
                 <AlertDialog.Description>
                     This deletes every user-scoped record except the `users` table entry and its saved settings. Lists,
-                    tasks, habits, inbox items, sections, tags, metrics, and AI memory will all be removed.
+                    tasks, routines, inbox items, sections, tags, metrics, and AI memory will all be removed.
                 </AlertDialog.Description>
             </AlertDialog.Header>
             <AlertDialog.Footer>

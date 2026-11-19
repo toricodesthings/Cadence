@@ -180,6 +180,7 @@ export function TaskList({
                         <TaskContextMenuWrapper
                             key={task.id}
                             task={task}
+                            onOpen={() => onSelectTask?.(task.id)}
                             onRename={() => {
                                 onSelectTask?.(task.id);
                                 setTimeout(

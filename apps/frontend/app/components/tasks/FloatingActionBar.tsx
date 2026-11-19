@@ -20,7 +20,7 @@ import {
     useTrashTasks,
 } from "../../hooks/tasks/use-batch-state";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
-import { useProjects } from "../../hooks/projects/use-projects";
+import { useOwnProjects } from "../../hooks/projects/use-own-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useAddTaskTag } from "../../hooks/tags/use-task-tags";
 import * as Popover from "../primitives/Popover";
@@ -64,7 +64,7 @@ export function FloatingActionBar() {
     const batchReschedule = useBatchRescheduleTasks();
     const updateTask = useUpdateTask();
     const addTaskTag = useAddTaskTag();
-    const { data: projects = [] } = useProjects();
+    const { data: projects = [] } = useOwnProjects();
     const { data: tags = [] } = useTags();
 
     if (count === 0) return null;

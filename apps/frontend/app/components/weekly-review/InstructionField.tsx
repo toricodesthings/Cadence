@@ -10,7 +10,7 @@ import {
 } from "@cadence/domain/task-instruction";
 import { useNlpParse, useParseModule } from "../../hooks/use-nlp-parse";
 import { nlpClock } from "../../lib/utils/date-format";
-import { useProjects } from "../../hooks/projects/use-projects";
+import { useOwnProjects } from "../../hooks/projects/use-own-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useAllSections } from "../../hooks/sections/use-sections";
 import { useSettings } from "../../hooks/core/use-settings";
@@ -50,7 +50,7 @@ export function InstructionField({
     listId?: string | null;
 }) {
     const [text, setText] = useState("");
-    const { data: projects = [] } = useProjects();
+    const { data: projects = [] } = useOwnProjects();
     const { data: tags = [] } = useTags();
     const { data: settings } = useSettings();
     const sections = useAllSections(

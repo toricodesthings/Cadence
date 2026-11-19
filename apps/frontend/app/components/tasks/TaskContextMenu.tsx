@@ -17,6 +17,7 @@ import {
     ChevronLeft,
     ChevronRight,
     Sunrise,
+    SlidersHorizontal,
     type LucideIcon,
 } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
@@ -35,6 +36,8 @@ import { MoveToSubmenu } from "./MoveToSubmenu";
 import { MoveToSectionSubmenu } from "./MoveToSectionSubmenu";
 import { TagPickerSubmenu } from "./TagPickerSubmenu";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { useTaskAccess } from "../../hooks/sharing/use-list-access";
+import { CreatedBy } from "../sharing/CreatedBy";
 import type { Task, UpdateTaskInput } from "@cadence/contracts/task";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import { addDays, atLocal, formatInZone, weekdayOf } from "@cadence/domain/time";
@@ -48,6 +51,8 @@ export interface TaskMenuItemsProps {
     task: Task;
     onAddSubtask?: () => void;
     onRename?: () => void;
+    /** Opens the task's details: all a list you can only view offers besides who made the task. */
+    onOpen?: () => void;
     MenuComponents: GenericMenu;
     onCloseMenu?: () => void;
     /** When true, renders a simplified shallow menu for Holding context (Phase 5) */
@@ -112,10 +117,12 @@ export function TaskMenuItems({
     task,
     onAddSubtask,
     onRename,
+    onOpen,
     MenuComponents: Menu,
     onCloseMenu,
     holdingContext,
 }: TaskMenuItemsProps) {
+    const access = useTaskAccess(task);
     // Place lists tasks for one chosen day: Find a time looks there, not at the task's own day.
     const findDay = useContext(FindTimeDayContext);
     const archiveTask = useArchiveTask();
@@ -251,6 +258,24 @@ export function TaskMenuItems({
         handleOpenReminder,
     );
 
+    // Who made a task in a shared list, always the menu's last line.
+    const madeBy = access.isShared ? (
+        <>
+            <Menu.Separator />
+            <div className="px-3 py-2">
+                <CreatedBy task={task} />
+            </div>
+        </>
+    ) : null;
+
+    if (!access.canEdit)
+        return (
+            <>
+                {onOpen && menuRow(Menu, SlidersHorizontal, "Open", onOpen)}
+                {madeBy}
+            </>
+        );
+
     return (
         <>
             {holdingContext ? (
@@ -285,13 +310,15 @@ export function TaskMenuItems({
 
                     {findTimeItem}
 
-                    {reminderItem}
+                    {/* Reminders and tags on a shared task are its owner's. */}
+                    {access.isOwner && reminderItem}
 
                     <Menu.Separator />
 
                     <OrganizeItems
                         Menu={Menu}
                         task={task}
+                        isOwner={access.isOwner}
                         onUpdate={(patch) => updateTask.mutate({ id: task.id, ...patch })}
                         onAddTag={(tagId) => addTaskTag.mutate({ taskId: task.id, tagId })}
                         onRemoveTag={(tagId) => removeTaskTag.mutate({ taskId: task.id, tagId })}
@@ -319,6 +346,8 @@ export function TaskMenuItems({
                     })}
 
                     {suggestedItem}
+
+                    {madeBy}
                 </>
             )}
         </>
@@ -437,13 +466,15 @@ function ReschedulePresets({ onPick, onCustom, onClear }: ReschedulePresetsProps
 type OrganizeItemsProps = {
     Menu: GenericMenu;
     task: Task;
+    /** Tags and the list a task sits in are its owner's; a collaborator only moves it between sections. */
+    isOwner: boolean;
     onUpdate: (patch: UpdateTaskInput) => void;
     onAddTag: (tagId: string) => void;
     onRemoveTag: (tagId: string) => void;
 };
 
 /** Priority, effort, tags, list and section. */
-function OrganizeItems({ Menu, task, onUpdate, onAddTag, onRemoveTag }: OrganizeItemsProps) {
+function OrganizeItems({ Menu, task, isOwner, onUpdate, onAddTag, onRemoveTag }: OrganizeItemsProps) {
     return (
         <>
             {/* ── Priority ── */}
@@ -466,19 +497,23 @@ function OrganizeItems({ Menu, task, onUpdate, onAddTag, onRemoveTag }: Organize
             <Menu.Separator />
 
             {/* ── Organization ── */}
-            <TagPickerSubmenu
-                MenuComponents={Menu}
-                activeTagIds={task.tagIds ?? []}
-                onAdd={onAddTag}
-                onRemove={onRemoveTag}
-            />
+            {isOwner && (
+                <>
+                    <TagPickerSubmenu
+                        MenuComponents={Menu}
+                        activeTagIds={task.tagIds ?? []}
+                        onAdd={onAddTag}
+                        onRemove={onRemoveTag}
+                    />
 
-            <MoveToSubmenu
-                MenuComponents={Menu}
-                currentProjectId={task.projectId}
-                currentSectionId={task.sectionId ?? null}
-                onSelect={(projectId, sectionId) => onUpdate({ projectId, sectionId })}
-            />
+                    <MoveToSubmenu
+                        MenuComponents={Menu}
+                        currentProjectId={task.projectId}
+                        currentSectionId={task.sectionId ?? null}
+                        onSelect={(projectId, sectionId) => onUpdate({ projectId, sectionId })}
+                    />
+                </>
+            )}
 
             <MoveToSectionSubmenu
                 MenuComponents={Menu}
@@ -495,6 +530,13 @@ function TaskQuickActions({ task }: { task: Task }) {
     const updateTask = useUpdateTask();
     const duplicateTask = useDuplicateTask();
     const archiveTask = useArchiveTask();
+    const access = useTaskAccess(task);
+    if (!access.canEdit)
+        return (
+            <div className="px-3 py-2">
+                <CreatedBy task={task} />
+            </div>
+        );
     return (
         <>
             {menuRow(
@@ -516,10 +558,11 @@ export interface TaskContextMenuProps {
     task: Task;
     onAddSubtask?: () => void;
     onRename?: () => void;
+    onOpen?: () => void;
     holdingContext?: boolean;
 }
 
-export function TaskContextMenu({ task, onAddSubtask, onRename, holdingContext }: TaskContextMenuProps) {
+export function TaskContextMenu({ task, onAddSubtask, onRename, onOpen, holdingContext }: TaskContextMenuProps) {
     const [open, setOpen] = useState(false);
     const shell = useShellMode();
 
@@ -548,6 +591,7 @@ export function TaskContextMenu({ task, onAddSubtask, onRename, holdingContext }
                         task={task}
                         onAddSubtask={onAddSubtask}
                         onRename={onRename}
+                        onOpen={onOpen}
                         MenuComponents={DropdownMenu}
                         onCloseMenu={() => setOpen(false)}
                         holdingContext={holdingContext}

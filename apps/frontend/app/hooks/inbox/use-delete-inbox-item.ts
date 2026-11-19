@@ -33,7 +33,6 @@ export function useDeleteInboxItem() {
             toastError(err, "Couldn't delete inbox item");
         },
 
-        onSettled: (data, error) =>
-            !wasQueued(data, error) && refetchAfterWrites(queryClient, queryKeys.inbox.all),
+        onSettled: (data, error) => !wasQueued(data, error) && refetchAfterWrites(queryClient, queryKeys.inbox.all),
     });
 }

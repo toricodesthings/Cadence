@@ -12,7 +12,13 @@ import { makeTask, testQueryClient, withClient } from "../../helpers";
 const api = vi.hoisted(() => ({ create: vi.fn(), reschedule: vi.fn(), patch: vi.fn() }));
 vi.mock("../../../app/hooks/auth/use-api-client", () => ({
     useApiClient: () => ({
-        api: { tasks: { $post: api.create, ":id": { $patch: api.patch }, batch: { reschedule: { $post: api.reschedule } } } },
+        api: {
+            tasks: {
+                $post: api.create,
+                ":id": { $patch: api.patch },
+                batch: { reschedule: { $post: api.reschedule } },
+            },
+        },
     }),
 }));
 vi.mock("../../../app/lib/api/offline-mutation", () => ({

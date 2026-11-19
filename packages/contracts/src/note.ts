@@ -18,9 +18,10 @@ export const taskNoteRowSchema = z.object({
     wordCount: z.number().int(),
     headingCount: z.number().int(),
     version: z.number().int(),
+    updatedBy: z.uuid().nullable(),
     createdAt: instantSchema,
     updatedAt: instantSchema,
 });
 
-export const taskNoteSchema = taskNoteRowSchema;
+export const taskNoteSchema = taskNoteRowSchema.extend({ updatedBy: z.uuid().nullable().optional() });
 export type TaskNote = z.infer<typeof taskNoteSchema>;

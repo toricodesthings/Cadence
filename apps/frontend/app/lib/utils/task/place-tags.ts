@@ -13,9 +13,9 @@ type Place = { projectId?: string | null; sectionId?: string | null };
  */
 export function placeTagIdsFromCache(queryClient: QueryClient, { projectId, sectionId }: Place): string[] {
     if (!projectId) return [];
-    const project = queryClient.getQueryData<{ id: string; name: string }[]>(queryKeys.projects.all)?.find(
-        (p) => p.id === projectId,
-    );
+    const project = queryClient
+        .getQueryData<{ id: string; name: string }[]>(queryKeys.projects.all)
+        ?.find((p) => p.id === projectId);
     const section = sectionId
         ? queryClient.getQueryData<TaskSection[]>(["sections", projectId])?.find((s) => s.id === sectionId)
         : undefined;

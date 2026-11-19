@@ -11,6 +11,12 @@ const mocks = vi.hoisted(() => {
     return { mutation, useSections: vi.fn(), useCreateSection: vi.fn(() => mutation) };
 });
 
+const ownerAccess = { role: "owner", isShared: false, canEdit: true, isOwner: true };
+vi.mock("../../../app/hooks/sharing/use-list-access", () => ({
+    useTaskAccess: () => ownerAccess,
+    useListAccess: () => ownerAccess,
+}));
+
 vi.mock("../../../app/hooks/sections/use-sections", () => ({
     useSections: mocks.useSections,
     useCreateSection: mocks.useCreateSection,
@@ -38,6 +44,7 @@ const section = (overrides: Partial<TaskSection>): TaskSection => ({
     projectId: null,
     name: "Section",
     orderIndex: 1,
+    createdBy: null,
     createdAt: "2026-03-15T00:00:00.000Z",
     ...overrides,
 });

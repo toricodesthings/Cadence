@@ -16,6 +16,7 @@ import { groupTasksBySection } from "../../lib/utils/task/group-by-section";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Button } from "../primitives/Button";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { useListAccess } from "../../hooks/sharing/use-list-access";
 import { Tip } from "../primitives/Tooltip";
 import { useDeviceValue } from "../../hooks/ui/use-device-flag";
 import { ManageSectionsButton } from "./ProjectSheets";
@@ -59,11 +60,13 @@ export function SectionedTaskList({
     const updateSection = useUpdateSection(projectId);
     const deleteSection = useDeleteSection(projectId);
     const shell = useShellMode();
+    // Someone who can only view a shared list adds, moves and renames nothing; only its owner deletes a section.
+    const access = useListAccess(projectId);
     const reorder = useSectionReorder(projectId, sections);
     const sensors = useSortSensors();
     // Compact shells add through the route's orb and sections sheet instead of inline fields.
-    const inlineAdd = !shell.isCompact;
-    const manageInSheet = shell.isCompact && onManageSections;
+    const inlineAdd = !shell.isCompact && access.canEdit;
+    const manageInSheet = shell.isCompact && access.canEdit && onManageSections;
     const addSectionChip = manageInSheet ? (
         <div className="mt-2">
             <ManageSectionsButton wide onClick={() => onManageSections("")} />
@@ -111,7 +114,7 @@ export function SectionedTaskList({
 
     const hasCustomSections = sections.length > 0;
     // Drag lives on wide screens; compact moves sections from its sheet.
-    const draggable = !manageInSheet;
+    const draggable = !manageInSheet && access.canEdit;
     const onSectionDragEnd = ({ active, over }: DragEndEvent) => {
         if (!over || active.id === over.id) return;
         reorder.moveTo(
@@ -274,18 +277,21 @@ export function SectionedTaskList({
                                             <div className={lineClass} />
 
                                             {/* Section context menu */}
-                                            <SectionMenu
-                                                section={section}
-                                                compact={shell.isCompact}
-                                                onManage={manageInSheet || undefined}
-                                                onRename={() => setEditingSection(section.id)}
-                                                onDelete={() =>
-                                                    deleteSection.mutate({ id: section.id, name: section.name })
-                                                }
-                                                onMove={(by) => reorder.move(section.id, by)}
-                                                first={index === 0}
-                                                last={index === sections.length - 1}
-                                            />
+                                            {access.canEdit && (
+                                                <SectionMenu
+                                                    canDelete={access.isOwner}
+                                                    section={section}
+                                                    compact={shell.isCompact}
+                                                    onManage={manageInSheet || undefined}
+                                                    onRename={() => setEditingSection(section.id)}
+                                                    onDelete={() =>
+                                                        deleteSection.mutate({ id: section.id, name: section.name })
+                                                    }
+                                                    onMove={(by) => reorder.move(section.id, by)}
+                                                    first={index === 0}
+                                                    last={index === sections.length - 1}
+                                                />
+                                            )}
                                         </div>
 
                                         {/* Section tasks */}
@@ -335,6 +341,8 @@ function PlainSection({
 
 type SectionMenuProps = {
     section: TaskSection;
+    /** Only the owner of a shared list deletes a section. */
+    canDelete: boolean;
     compact: boolean;
     /** Compact with a sections sheet: one button opens it instead of the menu. */
     onManage?: (focus: string) => void;
@@ -345,7 +353,17 @@ type SectionMenuProps = {
     last: boolean;
 };
 
-function SectionMenu({ section, compact, onManage, onRename, onDelete, onMove, first, last }: SectionMenuProps) {
+function SectionMenu({
+    section,
+    canDelete,
+    compact,
+    onManage,
+    onRename,
+    onDelete,
+    onMove,
+    first,
+    last,
+}: SectionMenuProps) {
     if (onManage) {
         return (
             <Tip label="Edit section">
@@ -388,11 +406,15 @@ function SectionMenu({ section, compact, onManage, onRename, onDelete, onMove, f
                         <ArrowDown size={14} className="text-twilight-text-muted" />
                         Move down
                     </DropdownMenu.Item>
-                    <DropdownMenu.Separator />
-                    <DropdownMenu.Item onClick={onDelete} className="text-red-400 focus:text-red-400">
-                        <Trash2 size={14} />
-                        Delete section
-                    </DropdownMenu.Item>
+                    {canDelete && (
+                        <>
+                            <DropdownMenu.Separator />
+                            <DropdownMenu.Item onClick={onDelete} className="text-red-400 focus:text-red-400">
+                                <Trash2 size={14} />
+                                Delete section
+                            </DropdownMenu.Item>
+                        </>
+                    )}
                 </DropdownMenu.Content>
             </DropdownMenu.Root>
         </div>

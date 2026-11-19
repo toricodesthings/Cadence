@@ -9,6 +9,7 @@ export function DetailTitle({
     label,
     maxLength,
     textareaRef,
+    readOnly = false,
 }: {
     value: string;
     onSave: (value: string) => void;
@@ -17,6 +18,8 @@ export function DetailTitle({
     label: string;
     maxLength?: number;
     textareaRef?: RefObject<HTMLTextAreaElement | null>;
+    /** A list you can only view: the title shows, and can be selected, but not changed. */
+    readOnly?: boolean;
 }) {
     const [draft, setDraft] = useState(value);
     const localRef = useRef<HTMLTextAreaElement>(null);
@@ -50,6 +53,7 @@ export function DetailTitle({
                 value={draft}
                 maxLength={maxLength}
                 aria-label={label}
+                readOnly={readOnly}
                 onChange={(e) => {
                     setDraft(e.target.value);
                     onDraftChange?.(e.target.value);

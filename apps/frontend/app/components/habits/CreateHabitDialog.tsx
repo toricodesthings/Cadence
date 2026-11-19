@@ -3,7 +3,7 @@ import { Bell, CalendarClock, Flame, FolderOpen, ListChecks, StickyNote, Tag } f
 import { toast } from "sonner";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useCreateHabit } from "../../hooks/habits/use-create-habit";
-import { useProjects } from "../../hooks/projects/use-projects";
+import { useOwnProjects } from "../../hooks/projects/use-own-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useSettings } from "../../hooks/core/use-settings";
 import { useNlpParse, type NlpParseOutput } from "../../hooks/use-nlp-parse";
@@ -132,7 +132,7 @@ export function useRoutineComposer({
 }): ComposerDraft {
     const shell = useShellMode();
     const { mutate: createHabit, isPending } = useCreateHabit();
-    const { data: projects = [] } = useProjects();
+    const { data: projects = [] } = useOwnProjects();
     const { data: allTags = [] } = useTags();
 
     const [title, setTitle] = useState("");

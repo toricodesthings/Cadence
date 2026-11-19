@@ -1,6 +1,6 @@
 import { TASK_FIELDS, useNlpParse } from "../../hooks/use-nlp-parse";
 import { resolvedNlp } from "../../lib/utils/task/resolved-nlp";
-import { useProjects } from "../../hooks/projects/use-projects";
+import { useOwnProjects } from "../../hooks/projects/use-own-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useSettings } from "../../hooks/core/use-settings";
 import {
@@ -110,7 +110,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
     }, []);
     const create = useCreateInboxItem();
     const process = useProcessInboxToTask();
-    const { data: projects = [] } = useProjects();
+    const { data: projects = [] } = useOwnProjects();
     const { data: tags = [] } = useTags();
     const { data: settings } = useSettings();
     const nlpEnabled = settings?.tasks?.intelligence?.nlpEnabled !== false;

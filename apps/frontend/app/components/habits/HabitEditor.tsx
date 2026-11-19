@@ -30,7 +30,7 @@ import type { Habit } from "@cadence/contracts/habit";
 import { useUpdateHabit } from "../../hooks/habits/use-update-habit";
 import { useRoutineActions } from "../../hooks/habits/use-routine-actions";
 import { useHabitsRange } from "../../hooks/habits/use-habits";
-import { useProjects } from "../../hooks/projects/use-projects";
+import { useOwnProjects } from "../../hooks/projects/use-own-projects";
 import { useSettings } from "../../hooks/core/use-settings";
 import { DetailPanelLayout } from "../shared/DetailPanelLayout";
 import { DetailTitle } from "../shared/DetailTitle";
@@ -189,7 +189,7 @@ export function HabitEditor({
     const update = (patch: Omit<Parameters<typeof updateHabit.mutate>[0], "id">) =>
         updateHabit.mutate({ id: habit.id, ...patch });
     const actions = useRoutineActions(habit, { onGone: onClose });
-    const { data: projects = [] } = useProjects();
+    const { data: projects = [] } = useOwnProjects();
 
     const today = useToday();
     const checkDay = day ?? today;

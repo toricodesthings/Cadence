@@ -10,6 +10,7 @@ export interface TaskContextMenuWrapperProps {
     children: React.ReactNode;
     onAddSubtask?: () => void;
     onRename?: () => void;
+    onOpen?: () => void;
     /** When true, renders a simplified shallow menu for Holding context */
     holdingContext?: boolean;
 }
@@ -21,6 +22,7 @@ export function TaskContextMenuWrapper({
     children,
     onAddSubtask,
     onRename,
+    onOpen,
     holdingContext,
 }: TaskContextMenuWrapperProps) {
     const shell = useShellMode();
@@ -41,6 +43,7 @@ export function TaskContextMenuWrapper({
                     task={task}
                     onAddSubtask={onAddSubtask}
                     onRename={onRename}
+                    onOpen={onOpen}
                     MenuComponents={ContextMenu}
                     holdingContext={holdingContext}
                 />

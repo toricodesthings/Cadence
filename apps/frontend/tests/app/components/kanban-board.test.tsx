@@ -14,6 +14,9 @@ vi.mock("../../../app/hooks/sections/use-sections", () => {
     };
 });
 
+const access = vi.hoisted(() => ({ canEdit: true }));
+vi.mock("../../../app/hooks/sharing/use-list-access", () => ({ useListAccess: () => access }));
+
 vi.mock("../../../app/hooks/tasks/use-subtasks", () => {
     const subtasks = { data: {} };
     return { useSubtasksByTaskIds: () => subtasks };
@@ -76,5 +79,19 @@ describe("KanbanBoard", () => {
         expect(screen.getByText("Unsectioned")).toBeTruthy();
         expect(screen.getByTestId("add-task-ungrouped")).toBeTruthy();
         expect(container.querySelector("[data-add-section-trigger]")).toBeTruthy();
+    });
+
+    it("offers no add-task or add-section on a list shared with you as view-only", () => {
+        access.canEdit = false;
+        const { container } = render(
+            <MemoryRouter>
+                <KanbanBoard tasks={[]} projectId="project-1" />
+            </MemoryRouter>,
+        );
+        access.canEdit = true;
+
+        expect(screen.getByText("Unsectioned")).toBeTruthy();
+        expect(screen.queryByTestId("add-task-ungrouped")).toBeNull();
+        expect(container.querySelector("[data-add-section-trigger]")?.closest("[hidden]")).toBeTruthy();
     });
 });

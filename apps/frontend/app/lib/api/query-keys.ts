@@ -16,6 +16,12 @@ export const queryKeys = {
         all: ["projects"] as const,
         detail: (id: string) => ["projects", id] as const,
     },
+    /**
+     * Who is in a shared list (names, pictures, pronouns). Keyed by the sorted member ids from the list row, so it
+     * refetches when membership changes and never on a live ping. Not under a live root: pictures are base64.
+     */
+    listPeople: (listId: string, memberIds: readonly string[]) => ["list-people", listId, memberIds] as const,
+    invitePreview: (token: string) => ["invite-preview", token] as const,
     inbox: {
         all: ["inbox"] as const,
         notes: ["inbox", "kept"] as const,
@@ -95,6 +101,7 @@ export const STALE_TIMES = {
     PROJECTS: 5 * 60 * 1000, // 5min — projects rarely change
     INBOX: 60 * 1000, // 1min — inbox items moderate frequency
     TAGS: 10 * 60 * 1000, // 10min — tags very rarely change
+    PEOPLE: Infinity, // who is in a shared list: its key changes when membership does
     NOTIFICATIONS: 60 * 1000, // 1min — shared reminder state across surfaces
     HABITS: 60 * 1000, // 1min — habits have moderate frequency
     HOLIDAYS: 7 * 24 * 60 * 60 * 1000, // 7 days — reuse a year's dates across calendar views

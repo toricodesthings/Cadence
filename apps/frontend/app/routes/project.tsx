@@ -4,10 +4,15 @@ import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
 import { useState, useCallback, useMemo } from "react";
 import { MainLayout } from "../components/layout/MainLayout";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
-import { Pencil, Trash2, Repeat, Check, X, Plus, Columns3, FolderOpen } from "lucide-react";
+import { Pencil, Trash2, Repeat, Check, X, Plus, Columns3, FolderOpen, Users, LogOut } from "lucide-react";
 import { useParams, useNavigate } from "react-router";
 import { useProjects } from "../hooks/projects/use-projects";
 import { useDeleteProject } from "../hooks/projects/use-delete-project";
+import { useListAccess } from "../hooks/sharing/use-list-access";
+import { ShareHeader, ViewOnlyBadge } from "../components/sharing/ShareHeader";
+import { ShareListDialog } from "../components/sharing/ShareListDialog";
+import { ConfirmDanger } from "../components/shared/ConfirmDanger";
+import { useLeaveList } from "../hooks/sharing/use-share-list";
 import { useTasks } from "../hooks/tasks/use-tasks";
 import { useTagFilterStore } from "../stores/tag-filter-store";
 import { ActiveFilterBar } from "../components/shared/ActiveFilterBar";
@@ -94,12 +99,17 @@ export default function ProjectView() {
     const { selectedTaskId, setSelectedTaskId, handleSelectTask } = selection;
 
     const [renameOpen, setRenameOpen] = useState(false);
+    const [shareOpen, setShareOpen] = useState(false);
+    const [leaveOpen, setLeaveOpen] = useState(false);
+    const leaveList = useLeaveList();
     const [addOpen, setAddOpen] = useState(false);
     const [sectionsFocus, setSectionsFocus] = useState<string | null>(null);
     const { data: sections = [] } = useSections(projectId);
     const [activeSectionId, setActiveSectionId] = useState(UNSECTIONED_ID);
 
     const project = projects?.find((p) => p.id === projectId);
+    // A list someone else shared: add and change what the role allows; only its owner renames, deletes or shares it on.
+    const access = useListAccess(projectId);
     const projectAccent = project ? resolveAccentColor(project.colorAccent) : "var(--accent-primary)";
 
     const { data: rawTasks, isLoading } = useTasks({ projectId, state: "ACTIVE" });
@@ -200,7 +210,19 @@ export default function ProjectView() {
 
     return (
         <>
-            {project && (
+            {project && <ShareListDialog project={project} open={shareOpen} onOpenChange={setShareOpen} />}
+            {project && !access.isOwner && (
+                <ConfirmDanger
+                    open={leaveOpen}
+                    onOpenChange={setLeaveOpen}
+                    trigger={<span hidden />}
+                    title={`Leave ${project.name}?`}
+                    description="You lose this list and its tasks. You can only come back with a new link."
+                    confirmLabel="Leave list"
+                    onConfirm={() => leaveList.mutate({ listId: project.id, name: project.name })}
+                />
+            )}
+            {project && access.isOwner && (
                 <EditListDialog
                     open={renameOpen}
                     onOpenChange={setRenameOpen}
@@ -223,41 +245,76 @@ export default function ProjectView() {
                 compactHeaderRightInline
                 headerRight={
                     project ? (
-                        <TaskRouteControls
-                            routeKey={`project:${projectId ?? "unknown"}`}
-                            title={project.name}
-                            view={view}
-                            onViewChange={setView}
-                            sortMode={sortMode}
-                            onSortModeChange={setSortMode}
-                            actionsLabel="List"
-                            actions={[
-                                {
-                                    label: "New task",
-                                    icon: Plus,
-                                    onSelect: focusAddTask,
-                                    compact: { onSelect: () => setAddOpen(true) },
-                                },
-                                {
-                                    label: "Add section",
-                                    icon: Columns3,
-                                    onSelect: triggerAddSection,
-                                    compact: { label: "Sections", onSelect: () => setSectionsFocus("") },
-                                },
-                                {
-                                    label: "Rename / Edit list",
-                                    icon: Pencil,
-                                    onSelect: handleRenameOpen,
-                                    compact: { label: "Rename / edit list" },
-                                },
-                                { label: "Delete list", icon: Trash2, onSelect: handleDelete, danger: true },
-                            ]}
-                        />
+                        <>
+                            {(access.isShared || access.isOwner) && (
+                                <ShareHeader project={project} onOpen={() => setShareOpen(true)} />
+                            )}
+                            <TaskRouteControls
+                                routeKey={`project:${projectId ?? "unknown"}`}
+                                title={project.name}
+                                view={view}
+                                onViewChange={setView}
+                                sortMode={sortMode}
+                                onSortModeChange={setSortMode}
+                                actionsLabel="List"
+                                actions={[
+                                    ...(access.canEdit
+                                        ? [
+                                              {
+                                                  label: "New task",
+                                                  icon: Plus,
+                                                  onSelect: focusAddTask,
+                                                  compact: { onSelect: () => setAddOpen(true) },
+                                              },
+                                              {
+                                                  label: "Add section",
+                                                  icon: Columns3,
+                                                  onSelect: triggerAddSection,
+                                                  compact: { label: "Sections", onSelect: () => setSectionsFocus("") },
+                                              },
+                                          ]
+                                        : []),
+                                    ...(access.isOwner
+                                        ? [
+                                              { label: "Share…", icon: Users, onSelect: () => setShareOpen(true) },
+                                              {
+                                                  label: "Rename / Edit list",
+                                                  icon: Pencil,
+                                                  onSelect: handleRenameOpen,
+                                                  compact: { label: "Rename / edit list" },
+                                              },
+                                              {
+                                                  label: "Delete list",
+                                                  icon: Trash2,
+                                                  onSelect: handleDelete,
+                                                  danger: true,
+                                              },
+                                          ]
+                                        : [
+                                              { label: "People", icon: Users, onSelect: () => setShareOpen(true) },
+                                              {
+                                                  label: "Leave list",
+                                                  icon: LogOut,
+                                                  onSelect: () => setLeaveOpen(true),
+                                                  danger: true,
+                                              },
+                                          ]),
+                                ]}
+                            />
+                        </>
                     ) : undefined
                 }
                 pageTitle={project?.name ?? "List"}
                 shellHeader={{
-                    title: project?.name ?? "List",
+                    title:
+                        project && access.isShared && !access.canEdit ? (
+                            <span className="inline-flex min-w-0 items-center gap-2.5">
+                                <span className="truncate">{project.name}</span>
+                                <ViewOnlyBadge />
+                            </span>
+                        ) : (
+                            (project?.name ?? "List")
+                        ),
                     icon: project?.emoji ? (
                         <span className="text-xl leading-none">{project.emoji}</span>
                     ) : (
@@ -283,7 +340,7 @@ export default function ProjectView() {
                                 onSelectTask={handleSelectTask}
                                 activeSectionId={activeSectionId}
                                 onActiveSectionChange={setActiveSectionId}
-                                onManageSections={() => setSectionsFocus("")}
+                                onManageSections={access.canEdit ? () => setSectionsFocus("") : undefined}
                                 hideEmptySections={!!activeTagId}
                             />
                         )}
@@ -291,7 +348,7 @@ export default function ProjectView() {
                 ) : (
                     <ScrollAreaWrapper>
                         <PageContent width="default">
-                            {projectId && !shell.isCompact && (
+                            {projectId && !shell.isCompact && access.canEdit && (
                                 <div className="mb-4">
                                     <AddTaskInput projectId={projectId} tasks={tasks ?? []} />
                                 </div>
@@ -350,7 +407,7 @@ export default function ProjectView() {
                     </ScrollAreaWrapper>
                 )}
 
-                {shell.isCompact && projectId && project && (
+                {shell.isCompact && projectId && project && access.canEdit && (
                     <>
                         <ContextualAddOrb directCapture directLabel="Add task" onOpen={() => setAddOpen(true)} />
                         <ProjectTaskSheet

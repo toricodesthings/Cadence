@@ -21,7 +21,16 @@ import { copyNote } from "./note/note-export";
  * The note on the task panel: the same editor and session as the writing room, quieter. It is always
  * the document (no preview/edit switch); the formatting bar appears while writing; the full room is one tap away.
  */
-export function TaskNoteInline({ taskId, onOpenRoom }: { taskId: string; onOpenRoom?: () => void }) {
+export function TaskNoteInline({
+    taskId,
+    onOpenRoom,
+    readOnly = false,
+}: {
+    taskId: string;
+    onOpenRoom?: () => void;
+    /** A list you can only view: the note reads and cannot be changed. */
+    readOnly?: boolean;
+}) {
     const { task, session, state, status, isLoading, loadFailed } = useTaskNote(taskId);
     const openRoom = useNoteRoomStore((s) => s.open);
     const [editor, setEditor] = useState<Editor | null>(null);
@@ -47,7 +56,7 @@ export function TaskNoteInline({ taskId, onOpenRoom }: { taskId: string; onOpenR
     // A note the visual editor can't carry whole is edited as Markdown, never trimmed.
     if (state?.loaded && !checked) {
         setChecked(true);
-        if (!isFaithful(body)) setSource(true);
+        if (!isFaithful(body) && !readOnly) setSource(true);
     }
     const scope = task && isSeriesScopedNote(task) ? getNoteScopeLabel(task) : null;
     const lines = extractActionableLines(body).length;
@@ -85,7 +94,8 @@ export function TaskNoteInline({ taskId, onOpenRoom }: { taskId: string; onOpenR
                                 session={session}
                                 viewId="inline"
                                 variant="inline"
-                                placeholder="Write your notes here…"
+                                editable={!readOnly}
+                                placeholder={readOnly ? "" : "Write your notes here…"}
                                 onEditor={setEditor}
                                 onSave={() => void session.flush()}
                                 onUnfaithful={() => setSource(true)}

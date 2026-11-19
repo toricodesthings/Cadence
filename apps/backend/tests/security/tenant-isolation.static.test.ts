@@ -60,6 +60,8 @@ const USER_SCOPED_TABLES = [
     "planningRecords",
     "devices",
     "pushDeliveries",
+    "listMembers",
+    "shareInvites",
 ];
 
 /**
@@ -92,6 +94,10 @@ const ALLOWED_WITHOUT_USERID: Array<{ fragment: string; reason: string }> = [
     {
         fragment: "eq(inboxItems.id, id",
         reason: "inbox item ownership verified earlier in the same tx (process route)",
+    },
+    {
+        fragment: "eq(listMembers.listId, access.listId",
+        reason: "stopSharing runs after requireOwner on the same list, and RLS lets only the owner delete other people's rows",
     },
     {
         fragment: "eq(taskMetrics.id, existing[0].id",

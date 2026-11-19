@@ -33,7 +33,10 @@ Within each group, the primary resource comes before sub-resources.
 - User work runs inside `withRls(db, userId, fn)`.
 - RLS policies compare against `rlsUserId`. Never inline `current_setting`.
 - Never trust a `userId` sent by the client.
-- Another user's row is a 404 under RLS. Check referenced ids with the `platform/ownership.ts` asserts.
+- Another user's row is a 404 under RLS, except rows in a list shared with the caller (`cadence_member_lists`).
+- A route touching a list or its tasks resolves `listAccess`/`tasksByOwner` (`platform/list-access.ts`), enforces the role and passes `ownerId` to services. Never relax a service's `user_id` filter. Check referenced ids with the `platform/ownership.ts` asserts.
+- Shared-list writes call `noteAudience`; writes that return a row call `noteChange`.
+- Personal data on a shared row goes in a `(row_id, user_id)` table, never a column on the row. New shareable things get their own `<thing>_members` table on `share_role`, and a target column on `share_invites`.
 - Every new create path calls `assertRowRoom`, and `assertStorageRoom` for long text (`platform/storage-ceiling.ts`).
 - Every write that creates a row (creates, duplicate, process) honours `Idempotency-Key`: `checkIdempotency` → mutate → `recordMutation`. PATCH, PUT, DELETE and set-style action POSTs (resolve, link, reschedule, batch) are idempotent by nature and take no key. Usage telemetry is exempt.
 - A replayed key returns the first result whatever the new body says; keys are per queued mutation, so a mismatch is a client bug.

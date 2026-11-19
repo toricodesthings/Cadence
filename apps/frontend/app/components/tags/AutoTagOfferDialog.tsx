@@ -17,7 +17,10 @@ function patchTagIds(queryClient: QueryClient, tagId: string, taskIds: string[],
         transformListCache(old, (items) =>
             items.map((t) =>
                 ids.has(t.id)
-                    ? { ...t, tagIds: linked ? [...new Set([...t.tagIds, tagId])] : t.tagIds.filter((x) => x !== tagId) }
+                    ? {
+                          ...t,
+                          tagIds: linked ? [...new Set([...t.tagIds, tagId])] : t.tagIds.filter((x) => x !== tagId),
+                      }
                     : t,
             ),
         ),

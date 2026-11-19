@@ -25,7 +25,9 @@ import { useEffortGuess } from "../../hooks/tasks/use-effort-guess";
 import { EffortSuggestionRow } from "./TaskWeightFields";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useArchiveTask } from "../../hooks/tasks/use-archive-task";
-import { useProjects } from "../../hooks/projects/use-projects";
+import { useOwnProjects } from "../../hooks/projects/use-own-projects";
+import { useTaskAccess } from "../../hooks/sharing/use-list-access";
+import { CreatedBy } from "../sharing/CreatedBy";
 import { useSections } from "../../hooks/sections/use-sections";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import { useSettings } from "../../hooks/core/use-settings";
@@ -146,6 +148,8 @@ type TaskEditorBodyProps = Omit<TaskEditorProps, "taskId"> & { task: Task };
 
 function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange }: TaskEditorBodyProps) {
     const taskId = task.id;
+    // A list you can only view: everything reads, nothing changes.
+    const readOnly = !useTaskAccess(task).canEdit;
     // Below the wide layout this panel is a modal overlay (everything behind it is inert): it steps aside so the room above it is usable.
     const { isWide } = useShellMode();
     const updateTask = useUpdateTask();
@@ -237,6 +241,7 @@ function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange
                 value={task.title}
                 label="Task title"
                 textareaRef={titleTextareaRef}
+                readOnly={readOnly}
                 onSave={(title) => updateTask.mutate({ id: task.id, title })}
             />
 
@@ -257,7 +262,11 @@ function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange
                 {activePanel === "notes" ? (
                     <motion.div key="notes-panel" {...PANE_IN} className="flex shrink-0 flex-col gap-3">
                         <Suspense fallback={<Skeleton className="h-40 w-full rounded-2xl" />}>
-                            <TaskNoteInline taskId={task.id} onOpenRoom={isWide ? undefined : onClose} />
+                            <TaskNoteInline
+                                taskId={task.id}
+                                onOpenRoom={isWide ? undefined : onClose}
+                                readOnly={readOnly}
+                            />
                         </Suspense>
                     </motion.div>
                 ) : null}
@@ -276,7 +285,9 @@ function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange
             ) : null}
 
             <Reveal open={activePanel === "details"} className={`${CARD} flex flex-col`}>
-                <TaskDetailsFields task={task} onDone={() => setActivePanel("notes")} onClose={onClose} />
+                <fieldset disabled={readOnly} className="contents">
+                    <TaskDetailsFields task={task} onDone={() => setActivePanel("notes")} onClose={onClose} />
+                </fieldset>
             </Reveal>
 
             {/* ── Subtasks pane ── */}
@@ -303,44 +314,49 @@ function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange
                                 onDone={() => setActivePanel("notes")}
                             />
                         </div>
-                        <div className="min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-thin">
+                        <fieldset disabled={readOnly} className="min-h-0 flex-1 overflow-y-auto pr-1 scrollbar-thin">
                             <SubtaskList
                                 taskId={task.id}
                                 focusAdd={stepsAsked}
                                 onFocused={() => consumeStepsAsk(task.id)}
                             />
-                        </div>
+                        </fieldset>
                     </motion.div>
                 ) : null}
             </AnimatePresence>
 
-            <Button
-                variant="ghost"
-                size="none"
-                type="button"
-                onClick={handleDelete}
-                disabled={archiveTask.isPending}
-                className={`${PANEL_TRIGGER} shrink-0 font-normal text-feedback-error disabled:cursor-not-allowed disabled:opacity-50`}
-            >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-feedback-error/10">
-                    <Trash2 size={16} aria-hidden="true" />
-                </span>
-                <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium">
-                        {task.recurrenceRule ? "Move series to Trash" : "Move to Trash"}
+            {readOnly ? null : (
+                <Button
+                    variant="ghost"
+                    size="none"
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={archiveTask.isPending}
+                    className={`${PANEL_TRIGGER} shrink-0 font-normal text-feedback-error disabled:cursor-not-allowed disabled:opacity-50`}
+                >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-feedback-error/10">
+                        <Trash2 size={16} aria-hidden="true" />
                     </span>
-                    <span className="block text-xs text-twilight-text-muted">
-                        {task.recurrenceRule
-                            ? "Removes every occurrence. Restore from Trash."
-                            : "You can restore this task from Trash."}
+                    <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium">
+                            {task.recurrenceRule ? "Move series to Trash" : "Move to Trash"}
+                        </span>
+                        <span className="block text-xs text-twilight-text-muted">
+                            {task.recurrenceRule
+                                ? "Removes every occurrence. Restore from Trash."
+                                : "You can restore this task from Trash."}
+                        </span>
                     </span>
-                </span>
-            </Button>
+                </Button>
+            )}
 
-            <p className="shrink-0 px-1 text-xs leading-relaxed text-twilight-text-muted" aria-label="Task metadata">
-                Created {formatDateTime(task.createdAt)}
-                {task.updatedAt !== task.createdAt && <> · Updated {formatDateTime(task.updatedAt)}</>}
-            </p>
+            <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-1">
+                <CreatedBy task={task} />
+                <p className="text-xs leading-relaxed text-twilight-text-muted" aria-label="Task metadata">
+                    Created {formatDateTime(task.createdAt)}
+                    {task.updatedAt !== task.createdAt && <> · Updated {formatDateTime(task.updatedAt)}</>}
+                </p>
+            </div>
         </DetailPanelLayout>
     );
 }
@@ -533,6 +549,7 @@ function scheduleFieldLabelOf(
 
 /** When it happens, how long it takes, its repeat, hide-until and reminder. */
 function WhenGroup({ task }: { task: Task }) {
+    const { isOwner } = useTaskAccess(task);
     const updateTask = useUpdateTask();
     const [reminderOpen, setReminderOpen] = useState(false);
     const { data: settings } = useSettings();
@@ -619,31 +636,34 @@ function WhenGroup({ task }: { task: Task }) {
                 </FieldRow>
             ) : null}
 
-            <FieldRow icon={Bell} label="Reminder">
-                <div className="flex items-center gap-2">
-                    <DeadlinePickerPopover
-                        variant="moment"
-                        open={reminderOpen}
-                        onOpenChange={setReminderOpen}
-                        dueDate={null}
-                        scheduledStart={task.reminderAt ?? deadlineInstant}
-                        recurrenceRule={null}
-                        onChange={(updates) => setReminder(updates.scheduledStart)}
-                    >
-                        <button
-                            type="button"
-                            className={`${VALUE_BTN} ${task.reminderAt ? "" : "text-twilight-text-muted"}`}
+            {/* Reminders on a shared task ring for its owner only. */}
+            {isOwner ? (
+                <FieldRow icon={Bell} label="Reminder">
+                    <div className="flex items-center gap-2">
+                        <DeadlinePickerPopover
+                            variant="moment"
+                            open={reminderOpen}
+                            onOpenChange={setReminderOpen}
+                            dueDate={null}
+                            scheduledStart={task.reminderAt ?? deadlineInstant}
+                            recurrenceRule={null}
+                            onChange={(updates) => setReminder(updates.scheduledStart)}
                         >
-                            {task.reminderAt ? formatShortDateTime(task.reminderAt) : "None"}
-                        </button>
-                    </DeadlinePickerPopover>
-                    <Switch
-                        checked={Boolean(task.reminderAt)}
-                        onCheckedChange={handleReminderSwitch}
-                        aria-label={task.reminderAt ? "Remove reminder" : "Set reminder"}
-                    />
-                </div>
-            </FieldRow>
+                            <button
+                                type="button"
+                                className={`${VALUE_BTN} ${task.reminderAt ? "" : "text-twilight-text-muted"}`}
+                            >
+                                {task.reminderAt ? formatShortDateTime(task.reminderAt) : "None"}
+                            </button>
+                        </DeadlinePickerPopover>
+                        <Switch
+                            checked={Boolean(task.reminderAt)}
+                            onCheckedChange={handleReminderSwitch}
+                            aria-label={task.reminderAt ? "Remove reminder" : "Set reminder"}
+                        />
+                    </div>
+                </FieldRow>
+            ) : null}
         </DetailGroup>
     );
 }
@@ -740,7 +760,9 @@ function WeightGroup({ task }: { task: Task }) {
 
 /** Its list and section, tags, and pin. */
 function OrganizeGroup({ task }: { task: Task }) {
-    const { data: projects } = useProjects();
+    // Tags and the list a task is in belong to its owner; a collaborator works in place.
+    const { isOwner } = useTaskAccess(task);
+    const { data: projects } = useOwnProjects();
     const { data: sections = [] } = useSections(task.projectId);
     const updateTask = useUpdateTask();
     const addTagAssoc = useAddTaskTag();
@@ -752,17 +774,19 @@ function OrganizeGroup({ task }: { task: Task }) {
 
     return (
         <DetailGroup title="Organize">
-            <FieldRow icon={FolderOpen} label="List">
-                <ValueSelect
-                    label="List"
-                    value={task.projectId ?? ""}
-                    onChange={(id) => updateTask.mutate({ id: task.id, projectId: id || null, sectionId: null })}
-                    options={[
-                        { value: "", label: "None" },
-                        ...(projects ?? []).map((p) => ({ value: p.id, label: p.name })),
-                    ]}
-                />
-            </FieldRow>
+            {isOwner ? (
+                <FieldRow icon={FolderOpen} label="List">
+                    <ValueSelect
+                        label="List"
+                        value={task.projectId ?? ""}
+                        onChange={(id) => updateTask.mutate({ id: task.id, projectId: id || null, sectionId: null })}
+                        options={[
+                            { value: "", label: "None" },
+                            ...(projects ?? []).map((p) => ({ value: p.id, label: p.name })),
+                        ]}
+                    />
+                </FieldRow>
+            ) : null}
 
             {sections.length > 0 ? (
                 <FieldRow icon={Columns3} label="Section">
@@ -778,13 +802,15 @@ function OrganizeGroup({ task }: { task: Task }) {
                 </FieldRow>
             ) : null}
 
-            <FieldBlock icon={Tag} label="Tags">
-                <TagField
-                    tagIds={task.tagIds ?? []}
-                    onAdd={(id) => addTagAssoc.mutate({ taskId: task.id, tagId: id })}
-                    onRemove={(id) => removeTagAssoc.mutate({ taskId: task.id, tagId: id })}
-                />
-            </FieldBlock>
+            {isOwner ? (
+                <FieldBlock icon={Tag} label="Tags">
+                    <TagField
+                        tagIds={task.tagIds ?? []}
+                        onAdd={(id) => addTagAssoc.mutate({ taskId: task.id, tagId: id })}
+                        onRemove={(id) => removeTagAssoc.mutate({ taskId: task.id, tagId: id })}
+                    />
+                </FieldBlock>
+            ) : null}
 
             <FieldRow icon={Pin} label="Pin to top">
                 <Switch

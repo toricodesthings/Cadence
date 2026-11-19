@@ -5,6 +5,8 @@ import { API_BASE_URL } from "../../lib/env";
 import { dropAuthJwt, getAuthJwt, isSessionHeld, PAGE_ORIGIN } from "../../lib/api/client";
 import { getWalSnapshot, subscribeWal } from "../../lib/api/offline-wal";
 import { WAKE_EVENT } from "./use-wake-refresh";
+import { liveMessageSchema, type LiveChange } from "@cadence/contracts/live";
+import { reconcileTaskInCaches, removeTaskFromCaches } from "../../lib/api/cache-sync";
 
 /** Query roots a change on another device can touch. Weather, holidays, location, appearance, auth and assistant data stay out. */
 const LIVE_ROOTS = new Set(["tasks", "projects", "inbox", "tags", "habits", "sections", "subtasks", "settings"]);
@@ -20,12 +22,16 @@ const ACCOUNT_GONE = 4001;
 
 const liveUrl = () => `${API_BASE_URL.replace(/^http/, "ws")}/api/v1/live`;
 const isLive = (q: { queryKey: readonly unknown[] }) => LIVE_ROOTS.has(String(q.queryKey[0]));
+/** What a list-level change (sections, who is in it) makes stale: the lists themselves, their sections, and every task read. */
+const isListRead = (q: { queryKey: readonly unknown[] }) =>
+    ["projects", "sections", "tasks"].includes(String(q.queryKey[0]));
 
 /**
  * Cross-device freshness without polling. The server keeps one WebSocket per open copy of Cadence and sends
- * `{ v }` (a counter, never content) after any write of the account. A changed `v` refetches what is on screen,
- * so a routine logged on the phone reaches the desktop at once, even hidden in the tray, and nothing asks the
- * database on a timer. A dropped socket reconnects with backoff; an unchanged `v` after a reconnect costs no refetch.
+ * `{ v, changes? }` after any write of the account, or of a list shared with it: `v` is a counter, `changes` the rows
+ * the write returned. The next `v` with its rows is applied straight to the caches; any other changed `v` (no rows,
+ * a gap, the first after a reconnect, a write still in flight here) refetches what is on screen. So a routine logged
+ * on the phone reaches the desktop at once, even hidden in the tray, and nothing asks the database on a timer. A dropped socket reconnects with backoff; an unchanged `v` after a reconnect costs no refetch.
  * A reconnect uses the ticket the server handed this page (kept in memory only): fetching a JWT, and the server
  * checking one, both reach Neon Auth, which wakes the database.
  */
@@ -56,10 +62,19 @@ export function useLiveSync() {
         let maxTimer: number | undefined;
 
         // ── Refresh: wait out local writes, then refetch what's on screen once ──
+        const writing = () =>
+            queryClient.isMutating() > 0 || getWalSnapshot().some((entry) => entry.status !== "failed");
+        const apply = (changes: LiveChange[]) => {
+            for (const change of changes) {
+                if (change.type === "task") reconcileTaskInCaches(queryClient, change.task);
+                else if (change.type === "task.gone") removeTaskFromCaches(queryClient, change.id);
+                else void queryClient.invalidateQueries({ predicate: isListRead, refetchType: "active" });
+            }
+        };
         const flush = () => {
             if (!pending) return;
             // A refetch now could undo an edit on screen; stay pending and retry as writes settle.
-            if (queryClient.isMutating() > 0 || getWalSnapshot().some((entry) => entry.status !== "failed")) return;
+            if (writing()) return;
             window.clearTimeout(debounceTimer);
             window.clearTimeout(maxTimer);
             debounceTimer = maxTimer = undefined;
@@ -167,6 +182,9 @@ export function useLiveSync() {
                     if (typeof message.ticket === "string") ticket = message.ticket;
                     const { v } = message;
                     if (typeof v !== "number") return;
+                    // Rows this build can't read are the same as no rows: refetch.
+                    const parsed = liveMessageSchema.safeParse(message);
+                    const changes = parsed.success ? parsed.data.changes : undefined;
                     authRetried = false;
                     // A socket's first answer refreshes only if something changed while it was away, or a live read failed
                     // then (startup offline, a dropped connection: nothing else refetches on reconnect). Startup itself already read.
@@ -176,8 +194,11 @@ export function useLiveSync() {
                             .getQueryCache()
                             .findAll({ type: "active", predicate: isLive })
                             .some((q) => q.state.status === "error");
+                    const wasFirst = first;
                     first = false;
-                    if ((lastV !== null && v !== lastV) || missed) markPending();
+                    // The very next version, with its rows, and nothing of ours in flight: show them as they are.
+                    if (changes?.length && !wasFirst && lastV !== null && v === lastV + 1 && !writing()) apply(changes);
+                    else if ((lastV !== null && v !== lastV) || missed) markPending();
                     lastV = v;
                 };
                 ws.onclose = (event) => closed(ws, event.code, token);

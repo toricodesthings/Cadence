@@ -1,15 +1,14 @@
 import { Hono } from "hono";
-import { eq, and } from "drizzle-orm";
 import { getIdempotencyKey } from "../../platform/idempotency";
 import { withCallerRls } from "../../platform/caller-rls";
-import { projects } from "../../db/schema";
 import { insertProjectSchema, updateProjectSchema } from "@cadence/contracts/project";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
+import { listAccess, noteAudience, noteChange, requireOwner } from "../../platform/list-access";
 import { apiValidator } from "../../platform/validation";
-import { createProject, deleteProject, updateProject } from "./projects.service";
+import { createProject, deleteProject, readProjects, updateProject } from "./projects.service";
 
 export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/", apiValidator("json", insertProjectSchema), async (c) => {
@@ -18,32 +17,33 @@ export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
 
         const project = await withCallerRls(c, (tx, userId) => createProject(tx, userId, body, idempotencyKey));
 
-        return c.json({ data: project }, 201);
+        return c.json({ data: { ...project, access: "owner" as const, members: [] } }, 201);
     })
     .patch("/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateProjectSchema), async (c) => {
         const { id } = c.req.valid("param");
         const body = c.req.valid("json");
 
-        const updated = await withCallerRls(c, (tx, userId) => updateProject(tx, userId, id, body));
+        const { updated, access } = await withCallerRls(c, async (tx, userId) => {
+            const access = await listAccess(tx, userId, id);
+            requireOwner(access);
+            await updateProject(tx, userId, id, body);
+            const [updated] = await readProjects(tx, userId, id);
+            return { updated, access };
+        });
 
+        noteAudience(c, access);
+        noteChange(c, { type: "list", listId: id });
         return c.json({ data: updated });
     })
     .get("/", async (c) => {
-        const userProjects = await withCallerRls(c, (tx, userId) =>
-            tx.select().from(projects).where(eq(projects.userId, userId)).orderBy(projects.createdAt),
-        );
+        const userProjects = await withCallerRls(c, (tx, userId) => readProjects(tx, userId));
 
         return c.json({ data: userProjects });
     })
     .get("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
 
-        const [project] = await withCallerRls(c, (tx, userId) =>
-            tx
-                .select()
-                .from(projects)
-                .where(and(eq(projects.id, id), eq(projects.userId, userId))),
-        );
+        const [project] = await withCallerRls(c, (tx, userId) => readProjects(tx, userId, id));
 
         throwIfNotFound(project, "Project");
 
@@ -52,7 +52,14 @@ export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
     .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
 
-        const { project } = await withCallerRls(c, (tx, userId) => deleteProject(tx, userId, id));
+        const { project, access } = await withCallerRls(c, async (tx, userId) => {
+            // The audience is read before the list goes, so the people losing it hear of it too.
+            const access = await listAccess(tx, userId, id);
+            requireOwner(access);
+            return { ...(await deleteProject(tx, userId, id)), access };
+        });
 
-        return c.json({ data: project });
+        noteAudience(c, access);
+        noteChange(c, { type: "list", listId: id });
+        return c.json({ data: { ...project, access: "owner" as const, members: [] } });
     });

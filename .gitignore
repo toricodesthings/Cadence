@@ -2,6 +2,7 @@
 /developer-docs/
 /admin/
 /.agents/
+/apps/*/.agents/
 
 # Dependencies
 node_modules
@@ -45,4 +46,5 @@ output/
 
 # Agent skills (installed from skills-lock.json) and editor AI rules
 /.claude/skills/
+/apps/*/.claude/skills/
 .github/instructions/codacy.instructions.md

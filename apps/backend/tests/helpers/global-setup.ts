@@ -25,6 +25,10 @@ export default async function setup(project: TestProject) {
     const pg = new PGlite({ extensions: { vector, pg_trgm } });
     // As on Neon, the worker's role exists before the first migration, which grants it table access.
     await pg.exec("CREATE ROLE api_worker NOLOGIN;");
+    // Neon Auth's user table lives in this database on Neon; the sharing functions read name and image from it.
+    await pg.exec(
+        'CREATE SCHEMA neon_auth; CREATE TABLE neon_auth."user" (id uuid PRIMARY KEY, name text, image text, email text);',
+    );
     const journal = JSON.parse(readFileSync(join(MIGRATIONS_DIR, "meta/_journal.json"), "utf8")) as {
         entries: { tag: string }[];
     };

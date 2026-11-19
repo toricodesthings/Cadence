@@ -6,6 +6,9 @@ import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
 import { Reveal } from "../shared/Reveal";
 import { NavLink } from "./NavLink";
 import { ProjectLink } from "./ProjectLink";
+import type { Project } from "@cadence/contracts/project";
+import { isOwnList } from "../../hooks/sharing/use-list-access";
+import { ListOwnerFace } from "../sharing/PersonAvatar";
 import { CreateProjectPopover } from "./CreateProjectPopover";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useCaptureFeed } from "../../hooks/inbox/use-capture-feed";
@@ -36,6 +39,21 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
         }
         return counts;
     }, [listTasks]);
+    const own = useMemo(() => (projects ?? []).filter(isOwnList), [projects]);
+    const shared = useMemo(() => (projects ?? []).filter((project) => !isOwnList(project)), [projects]);
+    const renderList = (project: Project) => (
+        <ProjectLink
+            key={project.id}
+            id={project.id}
+            label={project.name}
+            count={listTasks ? (listCounts.get(project.id) ?? 0) : undefined}
+            emoji={project.emoji}
+            color={resolveAccentColor(project.colorAccent)}
+            href={`/project/${project.id}`}
+            project={project}
+            avatar={isOwnList(project) ? undefined : <ListOwnerFace project={project} />}
+        />
+    );
     const { count: captureCount, isLoading: captureLoading } = useCaptureFeed();
     const { data: tags = [], isLoading: tagsLoading } = useTags();
     const tagOrder = useTagReorder(tags);
@@ -157,17 +175,15 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
                                 </p>
                             ) : (
                                 <div className="flex flex-col gap-0.5">
-                                    {projects.map((project) => (
-                                        <ProjectLink
-                                            key={project.id}
-                                            id={project.id}
-                                            label={project.name}
-                                            count={listTasks ? (listCounts.get(project.id) ?? 0) : undefined}
-                                            emoji={project.emoji}
-                                            color={resolveAccentColor(project.colorAccent)}
-                                            href={`/project/${project.id}`}
-                                        />
-                                    ))}
+                                    {own.map((project) => renderList(project))}
+                                    {shared.length > 0 && (
+                                        <>
+                                            <p className="px-3 pb-1 pt-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-twilight-text-muted">
+                                                Shared with me
+                                            </p>
+                                            {shared.map((project) => renderList(project))}
+                                        </>
+                                    )}
                                 </div>
                             )}
                         </Reveal>

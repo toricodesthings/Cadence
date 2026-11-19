@@ -24,6 +24,7 @@ export const taskSectionRowSchema = z.object({
     projectId: z.uuid().nullable(),
     name: z.string(),
     orderIndex: z.number(),
+    createdBy: z.uuid().nullable(),
     createdAt: instantSchema,
 });
 

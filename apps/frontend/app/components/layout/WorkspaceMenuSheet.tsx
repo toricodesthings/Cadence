@@ -12,6 +12,8 @@ import { Button } from "../primitives/Button";
 import { Skeleton } from "../primitives/Skeleton";
 import { useCreateProject } from "../../hooks/projects/use-create-project";
 import { useProjects } from "../../hooks/projects/use-projects";
+import type { Project } from "@cadence/contracts/project";
+import { isOwnList } from "../../hooks/sharing/use-list-access";
 import { useCreateTag } from "../../hooks/tags/use-create-tag";
 import { useTags } from "../../hooks/tags/use-tags";
 import { PROJECT_ACCENT_OPTIONS } from "../../lib/constants/colors";
@@ -149,6 +151,28 @@ export function WorkspaceMenuSheet({ open, onClose }: { open: boolean; onClose: 
         ),
     };
 
+    const listRow = (project: Project) => (
+        <NavigationRow
+            key={project.id}
+            to={`/project/${project.id}`}
+            onClick={close}
+            leading={
+                project.emoji ? (
+                    <span className="text-[17px] leading-none">{project.emoji}</span>
+                ) : (
+                    <span
+                        className="size-2.5 rounded-full"
+                        style={{
+                            backgroundColor: resolveAccentColor(project.colorAccent),
+                        }}
+                    />
+                )
+            }
+        >
+            {project.name}
+        </NavigationRow>
+    );
+
     return (
         <UtilitySheet
             title={view === "project" ? "New list" : view === "tag" ? "New tag" : "Workspace"}
@@ -212,29 +236,19 @@ export function WorkspaceMenuSheet({ open, onClose }: { open: boolean; onClose: 
                                     No lists yet. Create one to organize your tasks.
                                 </p>
                             ) : (
-                                <nav aria-label="Lists" className={NAV_GROUP}>
-                                    {projects.map((project) => (
-                                        <NavigationRow
-                                            key={project.id}
-                                            to={`/project/${project.id}`}
-                                            onClick={close}
-                                            leading={
-                                                project.emoji ? (
-                                                    <span className="text-[17px] leading-none">{project.emoji}</span>
-                                                ) : (
-                                                    <span
-                                                        className="size-2.5 rounded-full"
-                                                        style={{
-                                                            backgroundColor: resolveAccentColor(project.colorAccent),
-                                                        }}
-                                                    />
-                                                )
-                                            }
-                                        >
-                                            {project.name}
-                                        </NavigationRow>
-                                    ))}
-                                </nav>
+                                <>
+                                    <nav aria-label="Lists" className={NAV_GROUP}>
+                                        {projects.filter(isOwnList).map(listRow)}
+                                    </nav>
+                                    {projects.some((p) => !isOwnList(p)) && (
+                                        <>
+                                            <h3 className={NAV_GROUP_LABEL}>Shared with me</h3>
+                                            <nav aria-label="Shared with me" className={NAV_GROUP}>
+                                                {projects.filter((p) => !isOwnList(p)).map(listRow)}
+                                            </nav>
+                                        </>
+                                    )}
+                                </>
                             )}
                         </section>
 

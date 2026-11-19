@@ -340,7 +340,7 @@ export function NoteEditor({
     if (!editor) return null;
 
     return (
-        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+        // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
             onClick={onWrapperClick}
             data-note-surface={variant}

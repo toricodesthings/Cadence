@@ -1,11 +1,22 @@
 import { Hono } from "hono";
 import { assertTaskOwnership } from "../../platform/ownership";
+import {
+    assertListRoom,
+    listAccess,
+    noteAudience,
+    noteChange,
+    requireEdit,
+    requireOwner,
+    taskAccess,
+    tasksByOwner,
+    type ListAccess,
+} from "../../platform/list-access";
+import { AppError, throwIfNotFound } from "../../platform/errors";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { parseCanonicalNlpEnvelope, type CanonicalNlpEnvelope } from "@cadence/nlp";
 import { tasks, tags, taskTags, taskNlpMetadata } from "../../db/schema";
 import { getDbClient } from "../../platform/db";
-import { throwIfNotFound } from "../../platform/errors";
 import { checkIdempotency, getIdempotencyKey, recordMutation, storedResult } from "../../platform/idempotency";
 import { withRls } from "../../platform/rls";
 import { withCallerRls } from "../../platform/caller-rls";
@@ -51,7 +62,9 @@ import {
     type TaskSlot,
 } from "./tasks.service";
 import { userZone } from "../../platform/user-zone";
+import type { Context } from "hono";
 import type { Zone } from "@cadence/domain/time";
+import type { Task, TaskRow } from "@cadence/contracts/task";
 
 const taskTagParamSchema = z.object({
     id: z.uuid(),
@@ -76,7 +89,7 @@ const nlpReparseSchema = z.object({
 });
 
 /** The task an earlier attempt of this same request already made, if any. */
-async function replayedTask(tx: Tx, userId: string, idempotencyKey: string | undefined) {
+async function replayedTask(tx: Tx, userId: string, idempotencyKey: string | undefined, ownerId = userId) {
     const existingId = await checkIdempotency(tx, userId, idempotencyKey);
     if (!existingId) return undefined;
     const [existing] = await withTagIds(
@@ -84,9 +97,58 @@ async function replayedTask(tx: Tx, userId: string, idempotencyKey: string | und
         await tx
             .select()
             .from(tasks)
-            .where(and(eq(tasks.id, existingId), eq(tasks.userId, userId))),
+            .where(and(eq(tasks.id, existingId), eq(tasks.userId, ownerId))),
     );
     return existing;
+}
+
+type RouteContext = Context<{ Bindings: Env; Variables: AuthVariables }>;
+
+/** Who a write acts as: the list's owner (the rows stay theirs). Anyone else may only edit within the list. */
+function actingAs(access: ListAccess | null, userId: string) {
+    requireEdit(access);
+    const ownerId = access?.ownerId ?? userId;
+    return { ownerId, guest: ownerId !== userId };
+}
+
+/** Tags and reminders on a shared task belong to its owner. */
+function requireOwnerFields(
+    guest: boolean,
+    body: { tagIds?: unknown[]; reminderAt?: unknown; reminderSilenced?: unknown },
+) {
+    if (guest && (body.tagIds?.length || body.reminderAt != null || body.reminderSilenced === true))
+        throw new AppError(403, "OWNER_ONLY", "Only the owner of this list can set tags or reminders on its tasks.");
+}
+
+/** Tell everyone who can read the list, and push the rows this write returned. */
+function announce(c: RouteContext, accesses: (ListAccess | null)[], rows: Task[]) {
+    noteAudience(c, ...accesses);
+    for (const task of rows) noteChange(c, { type: "task", task });
+}
+
+type Group = { access: ListAccess | null; ids: string[]; ownerId: string; guest: boolean };
+
+/**
+ * Write batches of task ids once per list they sit in, as that list's owner, then announce the rows. Unknown ids, and
+ * other people's tasks outside shared lists, are skipped as they always were. `own` is what the caller owns: the
+ * only rows their learning may see.
+ */
+async function batchWrite(c: RouteContext, taskIds: string[], write: (tx: Tx, group: Group) => Promise<TaskRow[]>) {
+    const userId = c.get("userId");
+    const done = await withRls(getDbClient(c.env), userId, async (tx) => {
+        const groups = await tasksByOwner(tx, userId, taskIds, { skipMissing: true });
+        const rows: Task[] = [];
+        const own: Task[] = [];
+        for (const { access, ids } of groups) {
+            const acting = actingAs(access, userId);
+            const written = await withTagIds(tx, await write(tx, { access, ids, ...acting }));
+            rows.push(...written);
+            if (!acting.guest) own.push(...written);
+        }
+        return { rows, own, accesses: groups.map((group) => group.access) };
+    });
+    announce(c, done.accesses, done.rows);
+    return done;
 }
 
 type CreateTaskBody = Omit<z.infer<typeof insertTaskSchema>, "tagIds" | "nlp">;
@@ -132,15 +194,19 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { id } = c.req.valid("param");
         const idempotencyKey = getIdempotencyKey(c);
 
-        const duplicate = await withCallerRls(c, async (tx, userId) => {
-            const replayed = await replayedTask(tx, userId, idempotencyKey);
-            if (replayed) return replayed;
+        const { duplicate, access } = await withCallerRls(c, async (tx, userId) => {
+            const [{ access }] = await tasksByOwner(tx, userId, [id]);
+            const { ownerId, guest } = actingAs(access, userId);
+            const replayed = await replayedTask(tx, userId, idempotencyKey, ownerId);
+            if (replayed) return { duplicate: replayed, access };
 
-            const dup = await duplicateTask(tx, userId, id);
+            if (guest) await assertListRoom(tx, access!.listId);
+            const dup = await duplicateTask(tx, ownerId, id);
             await recordMutation(tx, userId, idempotencyKey, dup.id);
-            return dup;
+            return { duplicate: dup, access };
         });
 
+        announce(c, [access], [duplicate]);
         return c.json({ data: duplicate }, 201);
     })
     .post("/:id/reparse", apiValidator("param", uuidParamSchema), apiValidator("json", nlpReparseSchema), async (c) => {
@@ -159,6 +225,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 if (existing) return existing;
             }
 
+            requireOwner(await taskAccess(tx, userId, id));
             await assertTaskOwnership(tx, userId, id);
 
             const nlpRuntime = await loadNlpRuntime(tx, userId);
@@ -228,17 +295,21 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const idempotencyKey = getIdempotencyKey(c);
         const db = getDbClient(c.env);
 
-        const task = await withRls(db, userId, async (tx) => {
+        const { task, access, guest } = await withRls(db, userId, async (tx) => {
+            let access = body.projectId ? await listAccess(tx, userId, body.projectId) : null;
+            const { ownerId, guest } = actingAs(access, userId);
+            requireOwnerFields(guest, { tagIds, ...body });
             // Idempotency: return existing result if this mutation was already processed
-            const replayed = await replayedTask(tx, userId, idempotencyKey);
-            if (replayed) return replayed;
+            const replayed = await replayedTask(tx, userId, idempotencyKey, ownerId);
+            if (replayed) return { task: replayed, access, guest };
+            if (guest) await assertListRoom(tx, access!.listId);
 
             const fromWords = nlp ? await parseCreateNlp(tx, userId, nlp) : null;
             const parsed = fromWords?.parsed ?? null;
 
             const zone = await userZone(tx, userId);
             // `resolved`: the client sent the user's final fields; they are stored as sent and never re-inferred.
-            const inferred =
+            const inferredFromWords =
                 fromWords && !nlp?.resolved
                     ? inferTaskFieldsFromParse(
                           fromWords.parsed,
@@ -256,6 +327,11 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                           zone,
                       )
                     : null;
+            // The words name the caller's own lists and tags: in someone else's list they place nothing.
+            const inferred =
+                inferredFromWords && guest
+                    ? { ...inferredFromWords, projectId: undefined, tagIds: [] }
+                    : inferredFromWords;
 
             const allTagIds = Array.from(new Set([...(tagIds ?? []), ...(inferred?.tagIds ?? [])]));
             const taskBody = inferred
@@ -265,18 +341,25 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                       ...temporalColumns(body, zone),
                   };
 
-            const { row, tagIds: storedTagIds } = await createTask(tx, userId, taskBody, allTagIds);
+            // A list named in the words is the caller's own, but it may be one they share.
+            if (taskBody.projectId && taskBody.projectId !== body.projectId)
+                access = await listAccess(tx, userId, taskBody.projectId);
+            const { row, tagIds: storedTagIds } = await createTask(tx, ownerId, taskBody, allTagIds);
 
-            if (parsed) {
+            // Someone else's actions never train the owner's models (and the row isn't the caller's own).
+            if (parsed && !guest) {
                 await persistNlpSnapshot(tx, parsed, row.id, userId);
             }
 
             await recordMutation(tx, userId, idempotencyKey, row.id);
-            return toTask(row, storedTagIds);
+            return { task: toTask(row, storedTagIds), access, guest };
         });
 
-        trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, { created: [task.id] });
-        c.executionCtx.waitUntil(suggestEffortGuess(c.env, userId, task.id));
+        announce(c, [access], [task]);
+        if (!guest) {
+            trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, { created: [task.id] });
+            c.executionCtx.waitUntil(suggestEffortGuess(c.env, userId, task.id));
+        }
 
         return c.json({ data: task }, 201);
     })
@@ -285,6 +368,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { tagId } = c.req.valid("json");
 
         const association = await withCallerRls(c, async (tx, userId) => {
+            requireOwner(await taskAccess(tx, userId, id));
             await assertTaskOwnership(tx, userId, id);
 
             const [tag] = await tx
@@ -312,18 +396,12 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const body = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        let from = new Map<string, TaskSlot>();
-        const updatedTasks = await withRls(db, userId, async (tx) => {
-            from = await slotsOf(tx, userId, body.taskIds);
-            return withTagIds(tx, await rescheduleTasks(tx, userId, body));
+        const from = new Map<string, TaskSlot>();
+        const { rows: updatedTasks, own } = await batchWrite(c, body.taskIds, async (tx, { ids, ownerId }) => {
+            for (const [id, slot] of await slotsOf(tx, ownerId, ids)) from.set(id, slot);
+            return rescheduleTasks(tx, ownerId, { ...body, taskIds: ids });
         });
-        trackTaskChanges(
-            (p) => c.executionCtx.waitUntil(p),
-            db,
-            userId,
-            { rescheduled: updatedTasks, from },
-            { env: c.env },
-        );
+        trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, { rescheduled: own, from }, { env: c.env });
 
         return c.json({ data: updatedTasks });
     })
@@ -335,13 +413,30 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const result = await withRls(getDbClient(c.env), userId, async (tx) => {
             if (await checkIdempotency(tx, userId, key)) {
                 const replay = await storedResult(tx, userId, key!);
-                if (replay) return replay as Awaited<ReturnType<typeof placeTasks>>;
+                if (replay)
+                    return replay as Awaited<ReturnType<typeof placeTasks>> & { accesses?: (ListAccess | null)[] };
             }
-            const placed = await placeTasks(tx, userId, items);
+            const groups = await tasksByOwner(
+                tx,
+                userId,
+                items.map((item) => item.id),
+            );
+            const placed = { tasks: [] as Task[], previous: [] as Awaited<ReturnType<typeof placeTasks>>["previous"] };
+            for (const { access, ids } of groups) {
+                const { ownerId } = actingAs(access, userId);
+                const part = await placeTasks(
+                    tx,
+                    ownerId,
+                    items.filter((item) => ids.includes(item.id)),
+                );
+                placed.tasks.push(...part.tasks);
+                placed.previous.push(...part.previous);
+            }
             await recordMutation(tx, userId, key, items[0].id, placed);
-            return placed;
+            return { ...placed, accesses: groups.map((group) => group.access) };
         });
-        return c.json({ data: result });
+        announce(c, result.accesses ?? [], result.tasks);
+        return c.json({ data: { tasks: result.tasks, previous: result.previous } });
     })
     .patch("/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateTaskSchema), async (c) => {
         const userId = c.get("userId");
@@ -351,10 +446,31 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
 
         const moving = hasTaskTemporalMutation(body);
         let from = new Map<string, TaskSlot>();
-        const [updated] = await withRls(db, userId, async (tx) => {
-            if (moving || findTime) from = await slotsOf(tx, userId, [id]);
-            return withTagIds(tx, [await updateTask(tx, userId, id, body, expectedUpdatedAt)]);
+        const {
+            task: updated,
+            access,
+            guest,
+        } = await withRls(db, userId, async (tx) => {
+            const [{ access }] = await tasksByOwner(tx, userId, [id]);
+            const { ownerId, guest } = actingAs(access, userId);
+            if (guest) {
+                requireOwnerFields(guest, {
+                    reminderAt: body.reminderAt,
+                    reminderSilenced: body.reminderSilenced === undefined ? false : true,
+                });
+                if (body.projectId !== undefined && body.projectId !== access!.listId)
+                    throw new AppError(
+                        403,
+                        "OWNER_ONLY",
+                        "Only the owner of this list can move its tasks to another list.",
+                    );
+            }
+            if (moving || findTime) from = await slotsOf(tx, ownerId, [id]);
+            const [task] = await withTagIds(tx, [await updateTask(tx, ownerId, id, body, expectedUpdatedAt)]);
+            return { task, access, guest };
         });
+        announce(c, [access], [updated]);
+        if (guest) return c.json({ data: updated });
         trackTaskChanges(
             (p) => c.executionCtx.waitUntil(p),
             db,
@@ -398,7 +514,9 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             const { id } = c.req.valid("param");
             const { orderIndex, orderedTaskIds } = c.req.valid("json");
 
-            const updated = await withCallerRls(c, async (tx, userId) => {
+            const { updated, access } = await withCallerRls(c, async (tx, callerId) => {
+                const [{ access }] = await tasksByOwner(tx, callerId, [id]);
+                const { ownerId: userId } = actingAs(access, callerId);
                 // If the client sent the full ordered list, rebalance all affected tasks
                 if (orderedTaskIds && orderedTaskIds.length > 1) {
                     // Batch all reorder updates into a single UPDATE with CASE. The cast is
@@ -422,7 +540,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                         .select()
                         .from(tasks)
                         .where(and(eq(tasks.id, id), eq(tasks.userId, userId)));
-                    return withTagIds(tx, rows);
+                    return { updated: (await withTagIds(tx, rows))[0], access };
                 }
 
                 // Fallback: only update the single moved task
@@ -431,10 +549,13 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                     .set({ orderIndex, updatedAt: sql`NOW()` })
                     .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
                     .returning();
-                return withTagIds(tx, rows);
-            }).then(([row]) => row);
+                return { updated: (await withTagIds(tx, rows))[0], access };
+            });
 
             throwIfNotFound(updated, "Task");
+            // Siblings moved too, which the one row can't show: the list refetches.
+            noteAudience(c, access);
+            if (updated.projectId) noteChange(c, { type: "list", listId: updated.projectId });
             return c.json({ data: updated });
         },
     )
@@ -443,15 +564,15 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { taskIds, state } = c.req.valid("json");
         const db = getDbClient(c.env);
 
-        const updatedTasks = await withRls(db, userId, async (tx) =>
-            withTagIds(tx, await setTaskState(tx, userId, taskIds, state)),
+        const { rows: updatedTasks, own } = await batchWrite(c, taskIds, (tx, { ids, ownerId }) =>
+            setTaskState(tx, ownerId, ids, state),
         );
         trackTaskChanges(
             (p) => c.executionCtx.waitUntil(p),
             db,
             userId,
             {
-                completed: updatedTasks.filter(justCompleted).map((task) => task.id),
+                completed: own.filter(justCompleted).map((task) => task.id),
             },
             { env: c.env },
         );
@@ -461,7 +582,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
     .get("/", apiValidator("query", taskListQuerySchema), async (c) => {
         const query = c.req.valid("query");
 
-        const items = await withCallerRls(c, (tx, userId) => readTasks(tx, userId, query));
+        const items = await withCallerRls(c, (tx, userId) => readTasks(tx, userId, query, { shared: true }));
 
         c.header("Cache-Control", "private, no-store");
         return c.json({ data: items });
@@ -469,7 +590,9 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
     .get("/batch", apiValidator("query", taskBatchQuerySchema), async (c) => {
         const userId = c.get("userId");
         const { queries } = c.req.valid("query");
-        const items = await withRls(getDbClient(c.env), userId, (tx) => readTaskBatch(tx, userId, queries));
+        const items = await withRls(getDbClient(c.env), userId, (tx) =>
+            readTaskBatch(tx, userId, queries, { shared: true }),
+        );
         c.header("Cache-Control", "private, no-store");
         return c.json({ data: items });
     })
@@ -482,14 +605,9 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
     .get("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
 
-        const [task] = await withCallerRls(c, async (tx, userId) =>
-            withTagIds(
-                tx,
-                await tx
-                    .select()
-                    .from(tasks)
-                    .where(and(eq(tasks.id, id), eq(tasks.userId, userId))),
-            ),
+        // RLS limits this to the caller's own tasks and those of lists shared with them.
+        const [task] = await withCallerRls(c, async (tx) =>
+            withTagIds(tx, await tx.select().from(tasks).where(eq(tasks.id, id))),
         );
 
         throwIfNotFound(task, "Task");
@@ -501,6 +619,8 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { id } = c.req.valid("param");
 
         const associations = await withCallerRls(c, async (tx, userId) => {
+            // Tags on a shared task belong to its owner: everyone else sees none.
+            if (await taskAccess(tx, userId, id).then((access) => access && access.role !== "owner")) return [];
             await assertTaskOwnership(tx, userId, id);
 
             return tx
@@ -522,7 +642,13 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
     .post("/batch/delete", apiValidator("json", batchDeleteSchema), async (c) => {
         const { taskIds } = c.req.valid("json");
 
-        const deleted = await withCallerRls(c, (tx, userId) => deleteTasks(tx, userId, taskIds));
+        const { deleted, accesses } = await withCallerRls(c, async (tx, userId) => {
+            const groups = await tasksByOwner(tx, userId, taskIds, { skipMissing: true });
+            for (const { access } of groups) requireOwner(access);
+            return { deleted: await deleteTasks(tx, userId, taskIds), accesses: groups.map((group) => group.access) };
+        });
+        noteAudience(c, ...accesses);
+        for (const row of deleted) noteChange(c, { type: "task.gone", id: row.id });
         return c.json({ data: deleted.map((row) => toTask(row, [])) });
     })
     // Empty Trash. Registered before `/:id` so "trash" never reaches the id route.
@@ -533,15 +659,22 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
     .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
 
-        const [deleted] = await withCallerRls(c, (tx, userId) => deleteTasks(tx, userId, [id]));
+        const { deleted, accesses } = await withCallerRls(c, async (tx, userId) => {
+            const groups = await tasksByOwner(tx, userId, [id], { skipMissing: true });
+            for (const { access } of groups) requireOwner(access);
+            return { deleted: (await deleteTasks(tx, userId, [id]))[0], accesses: groups.map((group) => group.access) };
+        });
 
         throwIfNotFound(deleted, "Task");
+        noteAudience(c, ...accesses);
+        noteChange(c, { type: "task.gone", id });
         return c.json({ data: toTask(deleted, []) });
     })
     .delete("/:id/tags/:tagId", apiValidator("param", taskTagParamSchema), async (c) => {
         const { id: taskId, tagId } = c.req.valid("param");
 
         const deleted = await withCallerRls(c, async (tx, userId) => {
+            requireOwner(await taskAccess(tx, userId, taskId));
             await assertTaskOwnership(tx, userId, taskId);
 
             const [row] = await tx

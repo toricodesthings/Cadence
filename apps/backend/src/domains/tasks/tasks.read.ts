@@ -1,10 +1,11 @@
 /** Task list reads shared by the single-list route and offline batch. */
-import { and, asc, desc, eq, isNotNull, isNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { tracing } from "cloudflare:workers";
 import type { EffortEvidenceRow, Task, TaskBatch, TaskBatchFilters, TaskFilters } from "@cadence/contracts/task";
 import type { Zone } from "@cadence/domain/time";
 import { expandScheduleScopedTasks, isScheduleScopedTaskQuery } from "@cadence/domain/task-recurrence";
 import { tasks } from "../../db/schema";
+import { memberView } from "../../db/schema/columns";
 import type { Tx } from "../../types/db";
 import { userZone } from "../../platform/user-zone";
 import { hasNoDay, inDayWindow, onOrBefore } from "./task-filters";
@@ -12,8 +13,23 @@ import { toTask } from "./tasks.service";
 
 type ReadFilters = TaskFilters & { limit?: number; offset?: number };
 
-export function buildTaskWhereClause(userId: string, filters: ReadFilters, zone: Zone): (SQL<unknown> | undefined)[] {
-    const conditions: (SQL<unknown> | undefined)[] = [eq(tasks.userId, userId)];
+/**
+ * `shared`: the REST reads also take in tasks of lists shared with the caller (RLS limits them to those lists).
+ * Trash stays each person's own. AI, MCP, planning, reminders, metrics and export never pass it.
+ */
+export type ReadOptions = { shared?: boolean };
+
+export function buildTaskWhereClause(
+    userId: string,
+    filters: ReadFilters,
+    zone: Zone,
+    { shared = false }: ReadOptions = {},
+): (SQL<unknown> | undefined)[] {
+    const conditions: (SQL<unknown> | undefined)[] = [
+        shared && filters.state !== "ARCHIVED"
+            ? or(eq(tasks.userId, userId), inArray(tasks.projectId, memberView))
+            : eq(tasks.userId, userId),
+    ];
 
     if (filters.state) {
         conditions.push(eq(tasks.state, filters.state));
@@ -60,11 +76,11 @@ function finishTaskList(rows: Task[], filters: ReadFilters, zone: Zone) {
     return isScheduleScopedTaskQuery(filters) ? expandScheduleScopedTasks(rows, filters, zone) : rows;
 }
 
-export async function readTasks(tx: Tx, userId: string, filters: ReadFilters): Promise<Task[]> {
+export async function readTasks(tx: Tx, userId: string, filters: ReadFilters, opts?: ReadOptions): Promise<Task[]> {
     const zone = await userZone(tx, userId);
     const newestFirst = filters.state === "COMPLETE" || filters.state === "ARCHIVED";
     const rows = await tx.query.tasks.findMany({
-        where: and(...buildTaskWhereClause(userId, filters, zone)),
+        where: and(...buildTaskWhereClause(userId, filters, zone, opts)),
         orderBy: newestFirst ? [desc(tasks.updatedAt), desc(tasks.id)] : manualOrder,
         ...(isScheduleScopedTaskQuery(filters) ? {} : { limit: filters.limit, offset: filters.offset }),
         with: tagLinks,
@@ -86,10 +102,15 @@ export async function readTasks(tx: Tx, userId: string, filters: ReadFilters): P
  * Membership uses the exact single-read WHERE clauses; recurrence and paging
  * are applied per list afterwards. Completed/Trash paging stays on single reads.
  */
-export async function readTaskBatch(tx: Tx, userId: string, queries: TaskBatchFilters): Promise<TaskBatch> {
+export async function readTaskBatch(
+    tx: Tx,
+    userId: string,
+    queries: TaskBatchFilters,
+    opts?: ReadOptions,
+): Promise<TaskBatch> {
     const zone = await userZone(tx, userId);
     const filters: ReadFilters[] = queries;
-    const predicates = filters.map((filter) => and(...buildTaskWhereClause(userId, filter, zone))!);
+    const predicates = filters.map((filter) => and(...buildTaskWhereClause(userId, filter, zone, opts))!);
     const rows = await tracing.enterSpan("tasks.batch.read", async () =>
         tx.query.tasks.findMany({
             where: or(...predicates),

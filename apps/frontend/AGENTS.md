@@ -18,6 +18,7 @@ React Router SPA (`ssr: false`, on purpose) served as Cloudflare Workers static 
 - Creates pick their id with `clientIdFor(input)` and send it as both `id` and `Idempotency-Key`. The optimistic row is then the real row.
 - Show only the end state, never an intermediate step.
 - Order with fractional indexes (`lib/utils/order-index.ts`). Never renumber a whole list.
+- A list shared with the caller carries `access` and `members`. Role checks use `useListAccess` / `useTaskAccess` (never `project.access` inline); list pickers use `useOwnProjects`. Rows pushed over the live socket go through `reconcileTaskInCaches`.
 
 ## Code rules
 
@@ -48,6 +49,8 @@ A toast answers "where did it go?"
 
 ## Design
 
+`tools/oxlint-cadence.mjs` enforces these as `cadence/*` errors in `app/**`: `ui-words` (Routines/Lists in copy), `no-dom-title` (use `Tip`), `focus-visible` (no bare `outline-none`), `surface-tokens` (no raw white/black, palette or hex classes), `no-z-index` (`.layer-*`; `z-0`/`z-10` allowed). Files that predate a rule sit in its `"off"` override in `.oxlintrc.json`. Never add a file there; clean one and remove it.
+
 **Hierarchy**
 - The next step is obvious. Routine info is quiet; exceptions stand out.
 - Every line of text costs reading. No eyebrows, kickers, or labels that repeat the title, icon or sidebar.
@@ -72,6 +75,7 @@ A toast answers "where did it go?"
 | list / section / tag | `FolderOpen` / `Columns3` / `Tag` | routine (`Repeat` = repeating task only) | `Flame` |
 | event / reminder / time / takes | `CalendarHeart` / `Bell` / `Clock` / `Hourglass` | waiting / focus view / assistant | `UserCheck` / `Zap` / `Sparkles` |
 | Today / Tomorrow / later / next week | `Sun` / `Sunrise` / `Moon` / `ArrowRight` | pick a day / trash | `Calendar` / `Trash2` |
+| shared / people | `Users` | | |
 
 **Motion**
 - Motion explains what opened, moved or changed. It is interruptible and never delays input.
@@ -102,7 +106,7 @@ A toast answers "where did it go?"
 
 **Compact**
 - Creation is always the bottom-right orb.
-- Bottom sheets are touch-only (`isCompact && isTouch`).
+- Bottom sheets are touch-only (`useShellMode()` `isPhone && isTouch`).
 - Every sheet is a `UtilitySheet` over `ResponsiveOverlayPanel`: X left, heading centred, ✓ right. No bottom Cancel/submit.
 - Sheet drag uses `use-sheet-gesture.ts`. Never hand-roll drag-to-dismiss.
 - Pickers use `shared/PickerSurface`.

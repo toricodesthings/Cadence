@@ -12,7 +12,11 @@ const storedZone = (zone: unknown): Zone => (isZone(zone) ? zone : "UTC");
 /** The user's IANA zone. `UTC` only if the stored value is somehow invalid. */
 export async function userZone(tx: Tx, userId: string): Promise<Zone> {
     const [row] = await tx.select({ zone: users.timeZone }).from(users).where(eq(users.id, userId));
-    return storedZone(row?.zone);
+    if (row) return storedZone(row.zone);
+    // A list owner's row is invisible to a collaborator under RLS, which shows only their own: use their zone,
+    // so "tomorrow 6pm" means the tomorrow they read.
+    const [own] = await tx.select({ zone: users.timeZone }).from(users).limit(1);
+    return storedZone(own?.zone);
 }
 
 /**

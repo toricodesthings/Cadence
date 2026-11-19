@@ -70,6 +70,8 @@ describe("Habit cache isolation", () => {
         expect(statuses()).toEqual(["COMPLETED", "COMPLETED"]);
         expect(refetch).not.toHaveBeenCalledWith(expect.objectContaining({ queryKey: queryKeys.habits.all }));
         await act(async () => second.resolve(response({ habit })));
-        await waitFor(() => expect(refetch).toHaveBeenCalledWith(expect.objectContaining({ queryKey: queryKeys.habits.all })));
+        await waitFor(() =>
+            expect(refetch).toHaveBeenCalledWith(expect.objectContaining({ queryKey: queryKeys.habits.all })),
+        );
     });
 });

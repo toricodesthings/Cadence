@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Plus, CalendarHeart } from "lucide-react";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
-import { useProjects } from "../../hooks/projects/use-projects";
+import { useOwnProjects } from "../../hooks/projects/use-own-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { computeNextOrderIndex } from "../../lib/utils/order-index";
 import { useSettings } from "../../hooks/core/use-settings";
@@ -73,7 +73,7 @@ export function AddTaskInput({ projectId, sectionId, tasks, compact = false, pla
     const submitting = useRef(false);
 
     const createTask = useCreateTask();
-    const { data: projects = [] } = useProjects();
+    const { data: projects = [] } = useOwnProjects();
     const { data: tags = [] } = useTags();
     const { data: userSettings } = useSettings();
     const taskDefaults = userSettings?.tasks;

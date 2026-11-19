@@ -37,6 +37,9 @@ vi.mock("../../../app/hooks/auth/use-auth-state", () => ({
 }));
 
 import { useLiveSync } from "../../../app/hooks/core/use-live-sync";
+import { queryKeys } from "../../../app/lib/api/query-keys";
+import { makeTask } from "../../helpers";
+import type { Task } from "@cadence/contracts/task";
 import { WAKE_EVENT } from "../../../app/hooks/core/use-wake-refresh";
 
 class FakeSocket {
@@ -155,6 +158,75 @@ describe("useLiveSync", () => {
         wal.length = 0;
         act(() => walListeners.forEach((cb) => cb()));
         expect(invalidate).toHaveBeenCalledOnce();
+    });
+
+    describe("pushed rows", () => {
+        const cached = () => client.getQueryData<Task[]>(queryKeys.tasks.list({ state: "ACTIVE" }));
+        const owner = "22222222-2222-4222-8222-222222222222";
+        const change = (task: Task) => ({
+            type: "task",
+            task: {
+                ...task,
+                id: task.id === "task-1" ? "33333333-3333-4333-8333-333333333333" : task.id,
+                userId: owner,
+            },
+        });
+
+        it("a consecutive version with a row puts it in the caches and refetches nothing", async () => {
+            client.setQueryData(queryKeys.tasks.list({ state: "ACTIVE" }), []);
+            await mount();
+            last().message({ v: 1 });
+            last().message({
+                v: 2,
+                changes: [change(makeTask({ id: "11111111-1111-4111-8111-111111111111", title: "Buy milk" }))],
+            });
+            await advance(10_000);
+            expect(cached()?.map((task) => task.title)).toEqual(["Buy milk"]);
+            expect(invalidate).not.toHaveBeenCalled();
+        });
+
+        it("drops a task that was deleted", async () => {
+            const id = "11111111-1111-4111-8111-111111111111";
+            client.setQueryData(queryKeys.tasks.list({ state: "ACTIVE" }), [makeTask({ id })]);
+            await mount();
+            last().message({ v: 1 });
+            last().message({ v: 2, changes: [{ type: "task.gone", id }] });
+            expect(cached()).toEqual([]);
+            expect(invalidate).not.toHaveBeenCalled();
+        });
+
+        it("a list-level change refetches the lists, sections and tasks on screen", async () => {
+            await mount();
+            last().message({ v: 1 });
+            last().message({ v: 2, changes: [{ type: "list", listId: "11111111-1111-4111-8111-111111111111" }] });
+            const filters = invalidate.mock.calls[0][0] as { predicate: (q: { queryKey: unknown[] }) => boolean };
+            expect(["projects", "sections", "tasks"].map((root) => filters.predicate({ queryKey: [root] }))).toEqual([
+                true,
+                true,
+                true,
+            ]);
+            expect(filters.predicate({ queryKey: ["tags"] })).toBe(false);
+        });
+
+        it("refetches instead when a version was missed, the rows can't be read, or a write is in flight", async () => {
+            client.setQueryData(queryKeys.tasks.list({ state: "ACTIVE" }), []);
+            await mount();
+            last().message({ v: 1 });
+            last().message({ v: 3, changes: [change(makeTask({ title: "Gap" }))] }); // skipped v 2
+            await advance(1_000);
+            expect(invalidate).toHaveBeenCalledTimes(1);
+            last().message({ v: 4, changes: [{ type: "task", task: { nope: true } }] });
+            await advance(1_000);
+            expect(invalidate).toHaveBeenCalledTimes(2);
+            wal.push({ status: "pending" });
+            last().message({ v: 5, changes: [change(makeTask({ title: "Mid-write" }))] });
+            await advance(10_000);
+            expect(cached()).toEqual([]);
+            expect(invalidate).toHaveBeenCalledTimes(2);
+            wal.length = 0;
+            act(() => walListeners.forEach((cb) => cb()));
+            expect(invalidate).toHaveBeenCalledTimes(3);
+        });
     });
 
     it("an unchanged version after a reconnect costs no refetch; a changed one does", async () => {

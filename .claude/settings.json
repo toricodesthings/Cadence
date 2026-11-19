@@ -28,7 +28,7 @@
     "javascript-typescript@claude-code-workflows": true,
     "ui-design@claude-code-workflows": true,
     "playwright@claude-plugins-official": true,
-    "marketing-skills@marketingskills": true,
+    "marketing-skills@marketingskills": false,
     "claude-security@claude-plugins-official": true,
     "codacy@anthropic-plugin-directory": true,
     "andrej-karpathy-skills@karpathy-skills": true

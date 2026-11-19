@@ -22,6 +22,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { Columns3, Plus, EllipsisVertical, Pencil, Trash2, ArrowLeft, ArrowRight } from "lucide-react";
 import { useSections, useCreateSection, useDeleteSection, useUpdateSection } from "../../hooks/sections/use-sections";
 import { useSectionReorder } from "../../hooks/sections/use-section-reorder";
+import { useListAccess } from "../../hooks/sharing/use-list-access";
 import { FoldColumn, SECTION_SORT, SortableSection } from "../tasks/SortableSection";
 import { useSubtasksByTaskIds } from "../../hooks/tasks/use-subtasks";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
@@ -72,6 +73,7 @@ function KanbanColumn({
     last,
     grip,
     projectId,
+    canEdit = true,
 }: {
     section: TaskSection | { id: "ungrouped"; name: string };
     tasks: Task[];
@@ -87,6 +89,7 @@ function KanbanColumn({
     /** The column's drag grip (sections only). */
     grip?: React.ReactNode;
     projectId?: string | null;
+    canEdit?: boolean;
 }) {
     const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
     const { setNodeRef } = useDroppable({
@@ -176,7 +179,12 @@ function KanbanColumn({
             >
                 <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
                     {tasks.map((task) => (
-                        <TaskContextMenuWrapper key={task.id} task={task} onRename={() => setRenamingTask(task)}>
+                        <TaskContextMenuWrapper
+                            key={task.id}
+                            task={task}
+                            onOpen={() => onSelectTask?.(task.id)}
+                            onRename={() => setRenamingTask(task)}
+                        >
                             <SortableTaskCard
                                 task={task}
                                 tags={tagsByTaskId[task.id] ?? []}
@@ -193,21 +201,22 @@ function KanbanColumn({
                     <EmptyState
                         icon={Columns3}
                         title={`Nothing in ${section.name} yet.`}
-                        description="Drop a task here."
+                        description={canEdit ? "Drop a task here." : null}
                         compact
                     />
                 )}
             </div>
 
-            {/* Footer / Add task area */}
-            <div className="px-3 py-3 shrink-0 border-t border-twilight-border/30">
-                <AddTaskInput
-                    projectId={projectId || undefined}
-                    sectionId={section.id === "ungrouped" ? undefined : section.id}
-                    tasks={tasks}
-                    compact={true}
-                />
-            </div>
+            {canEdit && (
+                <div className="px-3 py-3 shrink-0 border-t border-twilight-border/30">
+                    <AddTaskInput
+                        projectId={projectId || undefined}
+                        sectionId={section.id === "ungrouped" ? undefined : section.id}
+                        tasks={tasks}
+                        compact={true}
+                    />
+                </div>
+            )}
 
             <RenameTaskDialog
                 taskId={renamingTask?.id ?? null}
@@ -236,6 +245,7 @@ export function KanbanBoard({
     hideEmptySections = false,
 }: KanbanBoardProps) {
     const shell = useShellMode();
+    const { canEdit } = useListAccess(projectId);
     const { data: sections = [] } = useSections(projectId);
     const createSection = useCreateSection(projectId);
     const updateSection = useUpdateSection(projectId);
@@ -391,11 +401,14 @@ export function KanbanBoard({
         tagsByTaskId,
         selectedTaskId,
         projectId,
+        canEdit,
         onSelectTask,
         onRename:
-            column.id === "ungrouped" ? undefined : (name: string) => updateSection.mutate({ id: column.id, name }),
+            column.id === "ungrouped" || !canEdit
+                ? undefined
+                : (name: string) => updateSection.mutate({ id: column.id, name }),
         onDelete:
-            column.id === "ungrouped"
+            column.id === "ungrouped" || !canEdit
                 ? undefined
                 : () => deleteSection.mutate({ id: column.id, name: column.section.name }),
     });
@@ -455,7 +468,7 @@ export function KanbanBoard({
 
     return (
         <DndContext
-            sensors={sensors}
+            sensors={canEdit ? sensors : []}
             collisionDetection={collision}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
@@ -495,7 +508,7 @@ export function KanbanBoard({
                                         {(grip) => (
                                             <KanbanColumn
                                                 {...columnProps(column)}
-                                                grip={grip}
+                                                grip={canEdit ? grip : undefined}
                                                 onMove={(by) => reorder.move(column.id, by)}
                                                 first={index === 0}
                                                 last={index === columns.length - 1}
@@ -507,7 +520,7 @@ export function KanbanBoard({
                     </SortableContext>
 
                     {/* Add column button */}
-                    <div ref={addColumnRef} className="w-[min(20rem,70vw)] shrink-0">
+                    <div ref={addColumnRef} className="w-[min(20rem,70vw)] shrink-0" hidden={!canEdit}>
                         {isAddingColumn ? (
                             <div className="bg-twilight-backdrop/20 rounded-2xl border border-twilight-border/40 p-4">
                                 <input

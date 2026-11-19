@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { assertTaskOwnership } from "../../platform/ownership";
+import { noteAudience, requireEdit, taskAccess } from "../../platform/list-access";
 import { eq, and } from "drizzle-orm";
 import { withCallerRls } from "../../platform/caller-rls";
 import { taskNotes } from "../../db/schema";
@@ -31,6 +32,10 @@ export const noteRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             // the same key with a different edit is a client bug.
             let learnsNotes = false;
             const result = await withCallerRls(c, async (tx, userId) => {
+                const access = await taskAccess(tx, userId, taskId);
+                requireEdit(access);
+                const ownerId = access?.ownerId ?? userId;
+                noteAudience(c, access);
                 if (key && (await checkIdempotency(tx, userId, key))) {
                     const first = (await storedResult(tx, userId, key)) as {
                         fingerprint: string;
@@ -44,9 +49,10 @@ export const noteRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                         );
                     return first.row;
                 }
-                const row = await writeNote(tx, userId, taskId, body, { expectedVersion, expectedUpdatedAt });
+                const row = await writeNote(tx, ownerId, taskId, body, { expectedVersion, expectedUpdatedAt });
                 await recordMutation(tx, userId, key, row.id, { fingerprint, row });
-                learnsNotes = (await readMemoryState(tx, userId)).mode === "full";
+                // Someone else's words never train the owner's memory.
+                learnsNotes = ownerId === userId && (await readMemoryState(tx, userId)).mode === "full";
                 return row;
             });
             // Full learns from notes: the reading is queued for when this note goes quiet.
@@ -59,7 +65,8 @@ export const noteRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
     .get("/tasks/:taskId/note", apiValidator("param", taskIdParamSchema), async (c) => {
         const { taskId } = c.req.valid("param");
 
-        const note = await withCallerRls(c, async (tx, userId) => {
+        const note = await withCallerRls(c, async (tx, callerId) => {
+            const userId = (await taskAccess(tx, callerId, taskId))?.ownerId ?? callerId;
             await assertTaskOwnership(tx, userId, taskId);
 
             const [row] = await tx

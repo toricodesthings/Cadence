@@ -4,6 +4,12 @@ import { Provider } from "../../../app/components/primitives/Tooltip";
 import { TaskCard } from "../../../app/components/tasks/TaskCard";
 import { makeTask } from "../../helpers";
 
+const ownerAccess = { role: "owner", isShared: false, canEdit: true, isOwner: true };
+vi.mock("../../../app/hooks/sharing/use-list-access", () => ({
+    useTaskAccess: () => ownerAccess,
+    useListAccess: () => ownerAccess,
+}));
+
 vi.mock("../../../app/components/tasks/TaskCheckbox", () => ({
     TaskCheckbox: ({ task, subtask }: { task?: { title: string }; subtask?: { title: string } }) => (
         <div>{task?.title ?? subtask?.title ?? "checkbox"}</div>

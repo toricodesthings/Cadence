@@ -3,7 +3,7 @@ import { ChevronRight, FolderOpen } from "lucide-react";
 import type { Project } from "@cadence/contracts/project";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import type { GenericMenu } from "../primitives/menu-styles";
-import { useProjects } from "../../hooks/projects/use-projects";
+import { useOwnProjects } from "../../hooks/projects/use-own-projects";
 import { useSections } from "../../hooks/sections/use-sections";
 
 const CURRENT = "bg-white/[0.04] text-accent-primary";
@@ -71,7 +71,7 @@ export const MoveToSubmenu: React.FC<MoveToSubmenuProps> = ({
     hideNoList = false,
     MenuComponents: Menu = DropdownMenu,
 }) => {
-    const { data: projects = [] } = useProjects();
+    const { data: projects = [] } = useOwnProjects();
 
     return (
         <Menu.Sub>

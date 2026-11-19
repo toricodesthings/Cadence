@@ -6,6 +6,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Share a list with someone and work on it together, live.
+
+### Added
+
+- Share a list by link; people you invite can view it, or edit it if you let them.
+- Shared lists update live on everyone's screen, and each task shows who added it.
+- Tap someone's picture in a shared list to see their profile.
+
+### Changed
+
+- Search and About now say "routines" instead of "habits", matching the rest of the app.
+
 ## [1.2.1] - 2026-11-18
 
 - Renaming a Focus View now opens a proper in-app field instead of a browser pop-up.

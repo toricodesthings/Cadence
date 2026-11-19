@@ -36,7 +36,7 @@ import { today } from "../../lib/utils/user-zone";
 import { ThoughtMark } from "../tasks/ThoughtMark";
 import { TagSignal } from "../tasks/TagSignal";
 import { useTags } from "../../hooks/tags/use-tags";
-import { useProjects } from "../../hooks/projects/use-projects";
+import { useOwnProjects } from "../../hooks/projects/use-own-projects";
 import { useSections } from "../../hooks/sections/use-sections";
 import { overridesOf, placementFor } from "../../lib/utils/task/suggested-placement";
 import { useAddTaskTag } from "../../hooks/tags/use-task-tags";
@@ -78,7 +78,7 @@ function rowSubject(item: InboxItem | undefined, task: Task | undefined) {
 function usePlacementChip(item: InboxItem | undefined, cueProjectId: string | null | undefined) {
     const placement = item ? placementFor(item, { cue: cueProjectId }) : null;
     const chip = item?.captureStatus !== "kept" && placement?.projectId !== cueProjectId ? placement : null;
-    const { data: lists = [] } = useProjects();
+    const { data: lists = [] } = useOwnProjects();
     const { data: listSections = [] } = useSections(chip?.projectId);
     const listName = chip ? lists.find((list) => list.id === chip.projectId)?.name : undefined;
     const sectionName = chip?.sectionId
@@ -417,7 +417,7 @@ export function CaptureRow({
         complete,
         nlp: resolvedNlp(item!.rawText, "inbox", dateStyle, dismissedIds, overrides ?? {}),
     });
-    const { data: lists = [] } = useProjects();
+    const { data: lists = [] } = useOwnProjects();
     /** A thought becomes a task with no day in that list; a task just changes list. Either way it leaves Capture. */
     const moveToList = (projectId: string | null, sectionId: string | null) => {
         if (disabled || !projectId) return;

@@ -104,6 +104,7 @@ export function useCreateSection(projectId?: string | null) {
                 projectId: projectId ?? null,
                 name: newSection.name,
                 orderIndex: newSection.orderIndex,
+                createdBy: null,
                 createdAt: new Date().toISOString(),
             };
             return beginEdit(queryClient, key, (items) => [...items, optimistic], true);

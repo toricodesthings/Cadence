@@ -6,7 +6,7 @@ import type { InboxItem } from "@cadence/contracts/inbox";
 import type { InstructionPatch } from "@cadence/domain/task-instruction";
 import { today } from "../../../lib/utils/user-zone";
 import { useThoughtParse } from "../../../hooks/inbox/use-thought-parse";
-import { useProjects } from "../../../hooks/projects/use-projects";
+import { useOwnProjects } from "../../../hooks/projects/use-own-projects";
 import { toDay, formatShortDate, formatShortDateTime } from "../../../lib/utils/date-format";
 import { storedSuggestion } from "../../../lib/utils/task/suggested-placement";
 import { ResolvingRow, StepEmpty, StepShell } from "../StepShell";
@@ -29,7 +29,7 @@ export function CaptureReviewRow({
     review: ReviewActions;
 }) {
     const parse = useThoughtParse(item.rawText, (item.analysis?.dismissedEntityIds ?? []) as string[]);
-    const { data: projects = [] } = useProjects();
+    const { data: projects = [] } = useOwnProjects();
     const suggestion = storedSuggestion(item);
     const list = suggestion ? projects.find((p) => p.id === suggestion.projectId) : undefined;
     const [useList, setUseList] = useState(false);

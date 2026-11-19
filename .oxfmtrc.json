@@ -19,6 +19,7 @@
         "admin/**",
         "output/**",
         "graphify-out/**",
-        ".agents/**"
+        ".agents/**",
+        ".claude/**"
     ]
 }

@@ -11,7 +11,7 @@ import { ClaimHeaderMenu, LayoutScaleMenuRow } from "../layout/LayoutScaleMenu";
 interface SortMenuAction {
     label: string;
     onSelect: () => void;
-    icon?: typeof Sparkles;
+    icon: typeof Sparkles;
     danger?: boolean;
     /** Shown in place, greyed out with this reason, rather than hidden: the menu keeps its shape. */
     disabledReason?: string;
@@ -80,7 +80,7 @@ export function SortMenu({ mode, onModeChange, view, onViewChange, actions = [] 
                                     disabled={!!disabledReason}
                                     className={`flex items-center gap-2 ${danger ? "text-red-400 focus:text-red-400 focus:bg-red-500/10" : ""}`}
                                 >
-                                    {Icon ? <Icon size={14} aria-hidden="true" className="shrink-0" /> : null}
+                                    <Icon size={14} aria-hidden="true" className="shrink-0" />
                                     <span className="flex flex-col">
                                         <span>{label}</span>
                                         {disabledReason ? (

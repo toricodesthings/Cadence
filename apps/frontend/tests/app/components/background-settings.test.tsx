@@ -19,34 +19,33 @@ vi.mock("../../../app/lib/utils/image", () => ({
 // the media size, the frame size, and the pixel area for the current zoom (centred, in source pixels).
 vi.mock("react-easy-crop", async () => {
     const { useEffect } = await import("react");
-    return {
-        default: ({
-            image,
-            zoom,
-            mediaProps,
-            onMediaLoaded,
-            onCropSizeChange,
-            onCropComplete,
-        }: {
-            image: string;
-            zoom: number;
-            mediaProps?: { alt?: string };
-            onMediaLoaded: (m: object) => void;
-            onCropSizeChange: (s: object) => void;
-            onCropComplete: (a: object, p: object) => void;
-        }) => {
-            useEffect(() => {
-                onMediaLoaded({ width: 480, height: 270, naturalWidth: 1600, naturalHeight: 900 });
-                onCropSizeChange({ width: 480, height: 270 });
-            }, []);
-            useEffect(() => {
-                const width = 1600 / zoom;
-                const height = 900 / zoom;
-                onCropComplete({}, { x: (1600 - width) / 2, y: (900 - height) / 2, width, height });
-            }, [zoom]);
-            return <img src={image} alt={mediaProps?.alt} />;
-        },
-    };
+    function Cropper({
+        image,
+        zoom,
+        mediaProps,
+        onMediaLoaded,
+        onCropSizeChange,
+        onCropComplete,
+    }: {
+        image: string;
+        zoom: number;
+        mediaProps?: { alt?: string };
+        onMediaLoaded: (m: object) => void;
+        onCropSizeChange: (s: object) => void;
+        onCropComplete: (a: object, p: object) => void;
+    }) {
+        useEffect(() => {
+            onMediaLoaded({ width: 480, height: 270, naturalWidth: 1600, naturalHeight: 900 });
+            onCropSizeChange({ width: 480, height: 270 });
+        }, []);
+        useEffect(() => {
+            const width = 1600 / zoom;
+            const height = 900 / zoom;
+            onCropComplete({}, { x: (1600 - width) / 2, y: (900 - height) / 2, width, height });
+        }, [zoom]);
+        return <img src={image} alt={mediaProps?.alt} />;
+    }
+    return { default: Cropper };
 });
 
 function setup() {

@@ -171,7 +171,7 @@ export function AboutTab() {
                 <div>
                     <h2 className="text-2xl font-bold text-twilight-text">About Cadence</h2>
                     <p className="mt-1 text-sm leading-relaxed text-twilight-text-soft">
-                        Calm planning for tasks, habits, and weekly resets.
+                        Calm planning for tasks, routines, and weekly resets.
                     </p>
                 </div>
                 <div className="flex flex-wrap justify-center gap-2">
@@ -202,7 +202,7 @@ export function AboutTab() {
                                 always be free and open source.
                             </p>
                             <p>
-                                If you find it valuable and want to support the project, the best way is to star the
+                                If you find it valuable and want to support Cadence, the best way is to star the
                                 repository and share it with people who might enjoy it. Thanks for being here!
                             </p>
                         </div>

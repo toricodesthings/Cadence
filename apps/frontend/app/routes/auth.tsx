@@ -529,7 +529,8 @@ export default function AuthPage() {
                     {isSignUp ? "Already have an account?" : "Don't have an account?"}
                 </span>
                 <Link
-                    to={isSignUp ? "/auth/sign-in" : "/auth/sign-up"}
+                    to={{ pathname: isSignUp ? "/auth/sign-in" : "/auth/sign-up", search }}
+                    state={state}
                     className="font-medium text-accent-primary transition-colors hover:text-accent-primary/80"
                 >
                     {isSignUp ? "Sign in" : "Create an account"}

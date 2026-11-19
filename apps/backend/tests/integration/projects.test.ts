@@ -6,6 +6,7 @@ vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../h
 
 import { projectRoutes } from "../../src/domains/projects/projects.route";
 import { sectionRoutes } from "../../src/domains/sections/sections.route";
+import { sharingRoutes } from "../../src/domains/sharing/sharing.route";
 
 let projects: ReturnType<typeof apiAs>;
 let sections: ReturnType<typeof apiAs>;
@@ -69,5 +70,45 @@ describe("projects", () => {
         expect((await projects("PATCH", `/${id}`, { name: "hijacked" })).status).toBe(404);
         expect((await projects("DELETE", `/${id}`)).status).toBe(404);
         expect((await otherUser("GET", `/${id}`)).body.data.name).toBe("Theirs");
+    });
+});
+
+describe("shared lists", () => {
+    it("lists the caller's own lists first, then the ones shared with them, with their role and who it is shared with", async () => {
+        const owner = await createUser();
+        const me = await createUser();
+        const mine = apiAs(me, "/projects", projectRoutes);
+        const theirs = apiAs(owner, "/projects", projectRoutes);
+        const shared = (await theirs("POST", "", { name: "Theirs" })).body.data;
+        const own = (await mine("POST", "", { name: "Mine" })).body.data;
+        const { body: invite } = await apiAs(owner, "/lists", sharingRoutes)("POST", `/${shared.id}/invites`);
+        await apiAs(me, "/lists", sharingRoutes)("POST", "/join", { token: invite.data.url.slice(-43) });
+
+        expect((await mine("GET", "")).body.data).toMatchObject([
+            { id: own.id, access: "owner", members: [] },
+            { id: shared.id, access: "view", members: [{ userId: me, role: "view", invitedBy: owner }] },
+        ]);
+        expect((await theirs("GET", `/${shared.id}`)).body.data).toMatchObject({
+            access: "owner",
+            members: [{ userId: me }],
+        });
+        expect((await mine("GET", `/${shared.id}`)).body.data.access).toBe("view");
+    });
+
+    it("tells a member they can't rename or delete a list they were let into, and the other users 404", async () => {
+        const owner = await createUser();
+        const me = await createUser();
+        const theirs = apiAs(owner, "/projects", projectRoutes);
+        const shared = (await theirs("POST", "", { name: "Theirs" })).body.data;
+        const { body: invite } = await apiAs(owner, "/lists", sharingRoutes)("POST", `/${shared.id}/invites`);
+        await apiAs(me, "/lists", sharingRoutes)("POST", "/join", { token: invite.data.url.slice(-43) });
+        const mine = apiAs(me, "/projects", projectRoutes);
+        expect((await mine("PATCH", `/${shared.id}`, { name: "Mine now" })).status).toBe(403);
+        expect((await mine("DELETE", `/${shared.id}`)).status).toBe(403);
+        expect(
+            (await apiAs(await createUser(), "/projects", projectRoutes)("PATCH", `/${shared.id}`, { name: "x" }))
+                .status,
+        ).toBe(404);
+        expect((await theirs("PATCH", `/${shared.id}`, { name: "Renamed" })).body.data.name).toBe("Renamed");
     });
 });

@@ -175,7 +175,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                                     <Search size={28} className="mb-1 text-accent-primary" aria-hidden="true" />
                                     <p className="text-sm">Start typing to search your workspace</p>
                                     <p className="text-xs text-twilight-text-muted">
-                                        Tasks, habits, captures, lists, and pages
+                                        Tasks, routines, captures, lists, and pages
                                     </p>
                                 </div>
                             )}

@@ -43,10 +43,13 @@ export async function buildExport(tx: Tx, identity: { userId: string; email: str
                 ? eq(all.userId, userId)
                 : name === "users"
                   ? eq(all.id, userId)
-                  : // task_tags is the one table without a user id: owned through its task
-                    "taskId" in all
-                    ? inArray(all.taskId, tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.userId, userId)))
-                    : undefined;
+                  : // the links the person made for their shared lists
+                    name === "share_invites"
+                    ? eq(all.createdBy, userId)
+                    : // task_tags is the one table without a user id: owned through its task
+                      "taskId" in all
+                      ? inArray(all.taskId, tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.userId, userId)))
+                      : undefined;
         if (!scope) throw new Error(`data export doesn't know how to scope ${name}`);
         data[name] = await tx
             .select(columns as never)

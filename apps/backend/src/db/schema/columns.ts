@@ -25,3 +25,8 @@ export const createdAt = () =>
     timestamptz("created_at")
         .default(sql`now()`)
         .notNull();
+
+/** List ids the caller belongs to at `view` or above (SECURITY DEFINER, so policies on `projects` don't recurse). */
+export const memberView = sql`(select cadence_member_lists('view'::share_role))`;
+/** List ids the caller can edit. */
+export const memberEdit = sql`(select cadence_member_lists('edit'::share_role))`;
