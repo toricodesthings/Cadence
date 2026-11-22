@@ -133,7 +133,7 @@
     "vars": {
         "DEPLOYMENT_STAGE": "production",
         // Public key set Neon Auth signs app tokens with (production branch).
-        "NEON_AUTH_JWKS_URL": "https://ep-silent-grass-adfk8oeg.neonauth.c-2.us-east-1.aws.neon.tech/neondb/auth/.well-known/jwks.json",
+        "NEON_AUTH_JWKS_URL": "https://ep-orange-frost-bbu28rxx.neonauth.c-15.us-east-1.aws.neon.tech/neondb/auth/.well-known/jwks.json",
         // Public half of the Web Push key pair. The private half is the VAPID_PRIVATE_KEY secret.
         "VAPID_PUBLIC_KEY": "BPQMDLo4FUNgt4CTWVPFeqAxGU7ni1Cn8trfCiq5N3antgRnaL3QI34L4Fykn3buTQ9Nv_YlmOg3nGVCsQ2WJw4",
         "AI_CHAT_MODEL": "anthropic/claude-haiku-5.5",
