@@ -357,7 +357,6 @@
                 "apps/frontend/app/components/command-palette/DidYouMean.tsx",
                 "apps/frontend/app/components/command-palette/MobileSearchSheet.tsx",
                 "apps/frontend/app/components/desktop/SyncInspectorDialog.tsx",
-                "apps/frontend/app/components/desktop/UpdateDialog.tsx",
                 "apps/frontend/app/components/events/EventCard.tsx",
                 "apps/frontend/app/components/focus-views/FocusViewBar.tsx",
                 "apps/frontend/app/components/habits/DayTimes.tsx",

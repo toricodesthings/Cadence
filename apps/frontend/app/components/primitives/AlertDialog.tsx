@@ -35,6 +35,15 @@ const Content = ({ className, ...props }: React.ComponentProps<typeof AlertDialo
     </Portal>
 );
 
+const FullscreenContent = ({ className, ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Content>) => (
+    <Portal>
+        <AlertDialogPrimitive.Content
+            className={cn("layer-system-dialog fixed inset-0 overflow-y-auto", className)}
+            {...props}
+        />
+    </Portal>
+);
+
 const Header = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
     <div className={cn(DIALOG_HEADER, className)} {...props} />
 );
@@ -51,4 +60,4 @@ const Description = ({ className, ...props }: React.ComponentProps<typeof AlertD
     <AlertDialogPrimitive.Description className={cn(DIALOG_DESCRIPTION, className)} {...props} />
 );
 
-export { Root, Trigger, Content, Header, Footer, Title, Description, Cancel, Action };
+export { Root, Trigger, Content, FullscreenContent, Header, Footer, Title, Description, Cancel, Action };

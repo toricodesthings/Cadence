@@ -12,6 +12,7 @@ import { AuthStateProvider, useAuthState } from "./hooks/auth/use-auth-state";
 import { BackgroundLayer } from "./components/settings/appearance/BackgroundLayer";
 import { Toaster } from "./components/feedback/Toaster";
 import { AutoTagOfferDialog } from "./components/tags/AutoTagOfferDialog";
+import { UpdateDialog } from "./components/desktop/UpdateDialog";
 import { WorkspaceStartup } from "./components/layout/WorkspaceStartup";
 import { OfflineBanner } from "./components/shared/OfflineBanner";
 import { Provider as TooltipProvider } from "./components/primitives/Tooltip";
@@ -25,7 +26,7 @@ import { SPRINGS } from "./lib/constants/motion";
 import { getWalSnapshot, initWal } from "./lib/api/offline-wal";
 import { startWalSync } from "./lib/api/mutation-executor";
 import { log, reportError } from "./lib/log";
-import { CADENCE_BUILD_ID } from "./lib/constants/app-info";
+import { CADENCE_BUILD_ID, CADENCE_VERSION } from "./lib/constants/app-info";
 import {
     beginSocialSignIn,
     checkForAppUpdate,
@@ -40,7 +41,14 @@ import { flushHeldRefetches } from "./lib/api/write-gate";
 import {
     announceDesktopUpdate,
     confirmDesktopUpdate,
+    fetchMinDesktopVersion,
+    isVersionBelow,
     publishAvailableDesktopUpdate,
+    publishRequiredDesktopVersion,
+    setCheckingDesktopUpdate,
+    useAvailableDesktopUpdate,
+    useCheckingDesktopUpdate,
+    useRequiredDesktopVersion,
 } from "./platform/desktop-update-state";
 
 /**
@@ -219,32 +227,44 @@ function AccountProviders({ children }: { children: ReactNode }) {
     useEffect(() => installDesktopE2EBridge(), []);
 
     useEffect(() => {
-        if (!IS_DESKTOP_RUNTIME || !authReady || hasCheckedForUpdates.current) {
+        if (!IS_DESKTOP_RUNTIME || hasCheckedForUpdates.current) {
             return;
         }
 
         hasCheckedForUpdates.current = true;
         confirmDesktopUpdate(() => void navigate("/changelog"));
         let active = true;
+        setCheckingDesktopUpdate(true);
 
-        void checkForAppUpdate()
+        const minCheck = fetchMinDesktopVersion().then((minVersion) => {
+            if (!active) return false;
+            const required = Boolean(minVersion && isVersionBelow(CADENCE_VERSION, minVersion));
+            publishRequiredDesktopVersion(required ? minVersion : null);
+            return required;
+        });
+
+        const updateCheck = checkForAppUpdate()
             .then((update) => {
-                if (!active || !update) {
-                    publishAvailableDesktopUpdate(null);
-                    return;
-                }
-
+                if (!active) return null;
                 publishAvailableDesktopUpdate(update);
-                announceDesktopUpdate(update);
+                return update;
             })
             .catch(() => {
                 hasCheckedForUpdates.current = false;
+                return null;
+            })
+            .finally(() => {
+                if (active) setCheckingDesktopUpdate(false);
             });
+
+        void Promise.all([minCheck, updateCheck]).then(([required, update]) => {
+            if (active && !required && update) announceDesktopUpdate(update);
+        });
 
         return () => {
             active = false;
         };
-    }, [authReady, navigate]);
+    }, [navigate]);
 
     // Web only (desktop ships its own updater): when a newer build is live, keep a
     // Reload toast up until the user acts on it.
@@ -397,6 +417,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
                             <TooltipProvider delayDuration={300}>
                                 <WorkspaceStartup>{children}</WorkspaceStartup>
                                 <OfflineBanner />
+                                <RequiredDesktopUpdateGate />
                                 {/* The quick-capture window is a second copy of the app: the main window keeps things in sync. */}
                                 {!pathname.startsWith("/desktop/") && <AccountSync />}
                             </TooltipProvider>
@@ -407,6 +428,27 @@ function AccountProviders({ children }: { children: ReactNode }) {
                 </AuthUIBoundary>
             </div>
         </PersistQueryClientProvider>
+    );
+}
+
+/** Blocks outdated desktop builds behind the required-update screen before workspace or sign-in use. */
+function RequiredDesktopUpdateGate() {
+    const minVersion = useRequiredDesktopVersion();
+    const update = useAvailableDesktopUpdate();
+    const checking = useCheckingDesktopUpdate();
+
+    if (!IS_DESKTOP_RUNTIME || !minVersion) return null;
+
+    const retry = () => {
+        setCheckingDesktopUpdate(true);
+        void checkForAppUpdate()
+            .then((found) => publishAvailableDesktopUpdate(found))
+            .catch(() => undefined)
+            .finally(() => setCheckingDesktopUpdate(false));
+    };
+
+    return (
+        <UpdateDialog variant="required" update={update} minVersion={minVersion} checking={checking} onRetry={retry} />
     );
 }
 

@@ -1,22 +1,95 @@
 import { useState } from "react";
-import { ArrowRight, Download } from "lucide-react";
+import { ArrowRight, Download, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { Button } from "../primitives/Button";
+import { CardPage } from "../shared/CardPage";
+import { ExternalLink } from "../shared/ExternalLink";
+import { CADENCE_REPOSITORY_URL, CADENCE_VERSION } from "../../lib/constants/app-info";
 import { formatShortDate } from "../../lib/utils/date-format";
 import { log } from "../../lib/log";
 import type { AvailableAppUpdate } from "../../platform/runtime";
 
 const VERSION_PILL =
-    "rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs font-semibold text-twilight-text";
+    "rounded-full border border-twilight-border-light bg-twilight-surface/40 px-3 py-1 text-xs font-semibold text-twilight-text";
 
-/** The "update ready" prompt: what's new, then Install (restarts the app) or Later. */
-export function UpdateDialog({ update, onClose }: { update: AvailableAppUpdate; onClose: () => void }) {
+const NOTES_BOX = "rounded-[1rem] border border-twilight-border-light bg-twilight-surface/40 p-4 text-left";
+
+function installLabel(installing: boolean, progress: number | null) {
+    if (!installing) return "Install update";
+    if (progress === 100) return "Restarting…";
+    return `Downloading${progress === null ? "…" : ` ${progress}%`}`;
+}
+
+function VersionSummary({
+    currentVersion,
+    targetVersion,
+    date,
+}: {
+    currentVersion: string;
+    targetVersion: string;
+    date?: string;
+}) {
+    return (
+        <div className="flex flex-wrap items-center justify-center gap-2">
+            <span className={VERSION_PILL}>{currentVersion}</span>
+            <ArrowRight size={14} className="text-twilight-text-muted" aria-hidden="true" />
+            <span className={`${VERSION_PILL} border-accent-primary/30 bg-accent-primary/10 text-accent-primary`}>
+                {targetVersion}
+            </span>
+            {date && (
+                <span className="w-full text-center text-xs text-twilight-text-muted">
+                    Released {formatShortDate(date)}
+                </span>
+            )}
+        </div>
+    );
+}
+
+function ReleaseNotesBox({ body }: { body?: string }) {
+    return (
+        <div className={NOTES_BOX}>
+            <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-twilight-text-soft">
+                Release notes
+            </h4>
+            {body ? (
+                <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap font-sans text-sm leading-relaxed text-twilight-text-soft">
+                    {body}
+                </pre>
+            ) : (
+                <p className="text-sm text-twilight-text-muted">No release notes were included with this update.</p>
+            )}
+        </div>
+    );
+}
+
+type SettingsUpdateDialogProps = {
+    variant?: "settings";
+    update: AvailableAppUpdate;
+    onClose: () => void;
+};
+
+type RequiredUpdateDialogProps = {
+    variant: "required";
+    update: AvailableAppUpdate | null;
+    minVersion: string;
+    checking?: boolean;
+    onRetry?: () => void;
+};
+
+export type UpdateDialogProps = SettingsUpdateDialogProps | RequiredUpdateDialogProps;
+
+/**
+ * Desktop update prompt:
+ * - `settings`: optional modal in Settings > About (Install or Later).
+ * - `required`: non-dismissible full-screen card matching Sign In (`CardPage`) when the running build is below `MIN_DESKTOP_VERSION`.
+ */
+export function UpdateDialog(props: UpdateDialogProps) {
     const [installing, setInstalling] = useState(false);
     // 0–100 while downloading, null while the size is unknown; 100 means it's restarting.
     const [progress, setProgress] = useState<number | null>(null);
 
-    const install = async () => {
+    const install = async (update: AvailableAppUpdate) => {
         setInstalling(true);
         setProgress(null);
         try {
@@ -27,6 +100,98 @@ export function UpdateDialog({ update, onClose }: { update: AvailableAppUpdate; 
             setInstalling(false);
         }
     };
+
+    if (props.variant === "required") {
+        const { update, minVersion, checking = false, onRetry } = props;
+        const currentVersion = update?.currentVersion ?? CADENCE_VERSION;
+        const targetVersion = update?.version ?? minVersion;
+
+        return (
+            <AlertDialog.Root open>
+                <AlertDialog.FullscreenContent onEscapeKeyDown={(event) => event.preventDefault()}>
+                    <CardPage
+                        as="div"
+                        title={
+                            <AlertDialog.Title asChild>
+                                <span>Update required</span>
+                            </AlertDialog.Title>
+                        }
+                        description={
+                            <AlertDialog.Description asChild>
+                                <span>
+                                    This version of Cadence is no longer supported. Update to continue where you left
+                                    off.
+                                </span>
+                            </AlertDialog.Description>
+                        }
+                    >
+                        <div className="space-y-4">
+                            <VersionSummary
+                                currentVersion={currentVersion}
+                                targetVersion={targetVersion}
+                                date={update?.date}
+                            />
+
+                            {update ? (
+                                <>
+                                    <ReleaseNotesBox body={update.body} />
+                                    <AlertDialog.Action asChild>
+                                        <Button
+                                            variant="primary"
+                                            size="md"
+                                            className="min-h-10 w-full rounded-[1rem] font-semibold"
+                                            disabled={installing}
+                                            onClick={(event) => {
+                                                event.preventDefault();
+                                                void install(update);
+                                            }}
+                                        >
+                                            {installLabel(installing, progress)}
+                                        </Button>
+                                    </AlertDialog.Action>
+                                </>
+                            ) : checking ? (
+                                <div className="flex flex-col items-center gap-3 py-4 text-sm text-twilight-text-soft">
+                                    <LoaderCircle
+                                        className="animate-spin text-twilight-text-soft"
+                                        aria-label="Checking for updates"
+                                    />
+                                    <span>Checking for the latest update…</span>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    <p className="text-center text-sm leading-relaxed text-twilight-text-soft">
+                                        Cadence {minVersion} or newer is required, but the update could not be reached
+                                        right now.
+                                    </p>
+                                    {onRetry && (
+                                        <Button
+                                            variant="primary"
+                                            size="md"
+                                            className="min-h-10 w-full rounded-[1rem] font-semibold"
+                                            onClick={onRetry}
+                                        >
+                                            Check again
+                                        </Button>
+                                    )}
+                                    <p className="text-center text-sm text-twilight-text-soft">
+                                        <ExternalLink
+                                            href={`${CADENCE_REPOSITORY_URL}/releases/latest`}
+                                            className="font-medium text-accent-primary transition-colors hover:text-accent-primary/80"
+                                        >
+                                            Download the latest installer
+                                        </ExternalLink>
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </CardPage>
+                </AlertDialog.FullscreenContent>
+            </AlertDialog.Root>
+        );
+    }
+
+    const { update, onClose } = props;
 
     return (
         <AlertDialog.Root
@@ -47,35 +212,13 @@ export function UpdateDialog({ update, onClose }: { update: AvailableAppUpdate; 
                     </AlertDialog.Description>
                 </AlertDialog.Header>
 
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                    <span className={VERSION_PILL}>{update.currentVersion}</span>
-                    <ArrowRight size={14} className="text-twilight-text-muted" aria-hidden="true" />
-                    <span
-                        className={`${VERSION_PILL} border-accent-primary/30 bg-accent-primary/10 text-accent-primary`}
-                    >
-                        {update.version}
-                    </span>
-                    {update.date && (
-                        <span className="w-full text-center text-xs text-twilight-text-muted">
-                            Released {formatShortDate(update.date)}
-                        </span>
-                    )}
-                </div>
+                <VersionSummary
+                    currentVersion={update.currentVersion}
+                    targetVersion={update.version}
+                    date={update.date}
+                />
 
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
-                    <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-twilight-text-soft">
-                        Release notes
-                    </h4>
-                    {update.body ? (
-                        <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap font-sans text-sm leading-relaxed text-twilight-text-soft">
-                            {update.body}
-                        </pre>
-                    ) : (
-                        <p className="text-sm text-twilight-text-muted">
-                            No release notes were included with this update.
-                        </p>
-                    )}
-                </div>
+                <ReleaseNotesBox body={update.body} />
 
                 <AlertDialog.Footer>
                     <AlertDialog.Cancel asChild>
@@ -90,14 +233,10 @@ export function UpdateDialog({ update, onClose }: { update: AvailableAppUpdate; 
                             disabled={installing}
                             onClick={(event) => {
                                 event.preventDefault();
-                                void install();
+                                void install(update);
                             }}
                         >
-                            {!installing
-                                ? "Install update"
-                                : progress === 100
-                                  ? "Restarting…"
-                                  : `Downloading${progress === null ? "…" : ` ${progress}%`}`}
+                            {installLabel(installing, progress)}
                         </Button>
                     </AlertDialog.Action>
                 </AlertDialog.Footer>

@@ -19,6 +19,8 @@ export interface Env {
     // ── Deployment boundary ──
     /** Explicit deployment stage. Defaults to "production" if absent. */
     DEPLOYMENT_STAGE?: string;
+    /** Oldest desktop version allowed before the app prompts a required update (from GET /health). */
+    MIN_DESKTOP_VERSION?: string;
     /** Comma-separated allowed CORS origins beyond the default production origin. */
     ALLOWED_ORIGINS?: string;
 

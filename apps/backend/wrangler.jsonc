@@ -143,6 +143,8 @@
         "AI_DECISION_MODEL": "microsoft/microsoft-decision-1-20261009",
         // Everyone's assistant spend per UTC day (USD); reaching it rests the assistant until midnight UTC.
         "AI_DAILY_SPEND_CAP_USD": "10",
+        // Oldest desktop app version allowed before prompting a required update.
+        "MIN_DESKTOP_VERSION": "2.1.0",
     },
 
     "env": {
@@ -181,6 +183,7 @@
                 "AI_EMBEDDING_MODEL": "qwen/qwen3-embedding-8b",
                 "AI_DECISION_MODEL": "microsoft/microsoft-decision-1-20261009",
                 "AI_DAILY_SPEND_CAP_USD": "10",
+                "MIN_DESKTOP_VERSION": "2.1.0",
                 "MCP_ORIGIN": "http://localhost:8787",
                 "APP_ORIGIN": "http://localhost:8788",
             },

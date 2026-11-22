@@ -16,18 +16,20 @@ export const rise: Variants = {
  * message; `children` render below it. Needs no providers, so root errors can use it.
  */
 export function CardPage({
+    as: Wrapper = "main",
     title,
     description,
     actions,
     children,
 }: {
+    as?: "main" | "div";
     title?: ReactNode;
     description?: ReactNode;
     actions?: ReactNode;
     children?: ReactNode;
 }) {
     return (
-        <main className="relative flex min-h-dvh items-center justify-center bg-twilight px-4 py-6 safe-top safe-bottom">
+        <Wrapper className="relative flex min-h-dvh items-center justify-center bg-twilight px-4 py-6 safe-top safe-bottom">
             <StarField className="pointer-events-none fixed inset-0 h-full w-full" />
             <motion.div
                 initial={{ opacity: 0, y: 16, scale: 0.98 }}
@@ -70,6 +72,6 @@ export function CardPage({
                 )}
                 {children}
             </motion.div>
-        </main>
+        </Wrapper>
     );
 }

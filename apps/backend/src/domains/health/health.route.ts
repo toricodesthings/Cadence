@@ -4,8 +4,9 @@ import { getRedis } from "../../platform/redis";
 
 export const healthRoutes = new Hono<{ Bindings: Env }>()
     .get("/", (c) => {
+        const minDesktopVersion = c.env?.MIN_DESKTOP_VERSION?.trim() || null;
         return c.json({
-            data: { status: "ok", timestamp: new Date().toISOString() },
+            data: { status: "ok", timestamp: new Date().toISOString(), minDesktopVersion },
         });
     })
     // Deploy-time connectivity smoke-check for Upstash (doc Update 4 §15.5). Kept
