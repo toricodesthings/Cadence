@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-11-22
+
 ### Changed
 
 - Updated inner workings for better performance and stability
