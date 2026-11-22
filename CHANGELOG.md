@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Desktop users can now update without being signed in
+- Versions prior 2.1.0 and below are now deprecated
+
 ## [2.1.0] - 2026-11-22
 
 ### Changed
