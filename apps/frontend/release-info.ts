@@ -20,7 +20,9 @@ function formatVersionLabel(version: string): string {
  * Throws when any bullet (including Unreleased) runs past one line, so the page stays scannable.
  */
 export function parseChangelog(markdown: string): ChangelogEntry[] {
-    const tooLong = markdown.split("\n").filter((line) => line.startsWith("- ") && line.length - 2 > MAX_BULLET_LENGTH);
+    const tooLong = markdown
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith("- ") && line.length - 2 > MAX_BULLET_LENGTH);
     if (tooLong.length > 0) {
         throw new Error(
             `CHANGELOG.md bullets must be ${MAX_BULLET_LENGTH} characters or fewer:\n${tooLong.join("\n")}`,

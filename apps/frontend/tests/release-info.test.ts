@@ -39,7 +39,8 @@ describe("parseChangelog", () => {
         });
     });
 
-    it("rejects bullets longer than one line", () => {
+    it("rejects bullets longer than one line and ignores CRLF line endings", () => {
+        expect(() => parseChangelog(`## [0.1.0]\r\n\r\n### Fixed\r\n\r\n- ${"x".repeat(120)}\r\n`)).not.toThrow();
         expect(() => parseChangelog(`## [0.1.0]\n\n### Fixed\n\n- ${"x".repeat(121)}`)).toThrow(/120 characters/);
     });
 });

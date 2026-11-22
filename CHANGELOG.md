@@ -501,7 +501,7 @@ Option to start fresh assistant chats, plus smoother chat loading.
 
 ### Added
 
-- Added an option in Settings › Assistant to start a new chat each time you open Cadence instead of resuming the last one.
+- Added an option in Settings › Assistant to start a new chat each time you open Cadence instead of resuming the last.
 
 ### Changed
 
@@ -1168,7 +1168,7 @@ Faster first-page startup and better photo support in the assistant.
 
 ### Changed
 
-- Workspace startup loads less initial code and prioritizes your first page; optional diagnostics include startup timings.
+- Workspace startup loads less initial code and prioritizes your first page; optional diagnostics show startup timings.
 - Opt-in crash reports now include error types and the app version to help diagnose crashes and failed actions.
 
 ### Fixed
@@ -1182,7 +1182,7 @@ Lighter offline caching and faster task saves.
 ### Fixed
 
 - Offline task caching now batches requests and reuses overlapping results to reduce background loading.
-- Simple task edits now run fewer database queries while still protecting against conflicting changes from another device.
+- Simple task edits run fewer database queries while still protecting against conflicting changes from another device.
 
 ## [0.25.7] - 2026-10-01
 
@@ -1191,7 +1191,7 @@ A refreshed twilight landing page and faster calendar queries.
 ### Changed
 
 - Refreshed the website palette with blue-mauve dusk, coral-gold light, warm branches, and peach-pink blossoms.
-- Added a subtle sky tint and warm lighting across the website's feature sections for smoother transitions between scenes.
+- Added a subtle sky tint and warm lighting across the website's feature sections for smoother transitions between them.
 - Expanded the website with clearer feature walkthroughs and a redesigned Constellation section.
 - Restyled the website's final sign-up invitation with frosted glass, star accents, a blossom, and a warm valley scene.
 - Gave feature sections on the mobile website more breathing room as the growing branch weaves from left to right.
@@ -1437,7 +1437,7 @@ Routines get a proper home: check off any past day, see your week at a glance, a
 - Routine reminders no longer fire after you've already checked in, or on days the routine isn't scheduled.
 - Pausing a routine no longer hides the days you already checked off earlier that week.
 - Today, Upcoming, Lists, and tag pages now display all of your tasks instead of stopping at 50.
-- Deleting many tasks quickly no longer causes some to reappear, and subtasks now show reliably in search and large lists.
+- Deleting many tasks quickly no longer causes some to reappear, and subtasks show reliably in search and large lists.
 - Subtasks added by the assistant now appear on the task immediately without needing a reload.
 - Upcoming now labels its later group "Next 7 Days" instead of "Next Week".
 
@@ -1557,9 +1557,9 @@ The assistant shows its lookups, edits subtasks and tags, and highlights your cu
 
 ### Fixed
 
-- Correcting the assistant right after it adds an item (like "wait, 6pm") now updates that item instead of duplicating it.
+- Correcting the assistant right after it adds an item (like "wait, 6pm") updates that item instead of duplicating it.
 - The assistant now knows Urgent ranks above High priority, and can read and set a task's effort level.
-- The assistant no longer treats fixed blocks like classes as overdue tasks, and sees repeating items on their right days.
+- The assistant no longer treats fixed blocks like classes as overdue tasks, and sees repeating items on the right days.
 - Tasks scheduled for late evening now stay on Today instead of disappearing after midnight UTC.
 - The time dropdown list in creation and edit dialogs can be scrolled again.
 - Setting a calendar block's end time equal to its start time now moves the end one hour later instead of 24 hours.
@@ -1609,7 +1609,7 @@ Schedule on your phone opens on your day, folds the month out of the way, and pu
 
 - On phones, Schedule now centers on Day view with a collapsible week and month strip above it, replacing the Week grid.
 - On phones, navigate between Day, Month, and Year views by tapping a date to zoom in or the header label to zoom out.
-- Adding to Schedule on a phone starts with a single line where typing "lunch with Sam fri 1pm" fills in the day and time.
+- Adding to Schedule on a phone starts with a single line where typing "lunch with Sam fri 1pm" fills in day and time.
 
 ### Fixed
 
@@ -1655,7 +1655,7 @@ Routines replace Habits, Today gets a committed-time strip, and repeats adapt to
 
 ### Removed
 
-- Replaced the Rhythms column on Today: fixed blocks now live in the top day strip, and routines sit in their own section.
+- Replaced the Rhythms column on Today: fixed blocks live in the top day strip, and routines sit in their own section.
 
 ### Fixed
 
