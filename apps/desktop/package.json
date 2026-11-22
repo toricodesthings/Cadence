@@ -13,7 +13,7 @@
         "e2e:smoke": "pnpm run build:debug && node --test tests/e2e/smoke.test.mjs"
     },
     "devDependencies": {
-        "@tauri-apps/cli": "2.11.5",
-        "selenium-webdriver": "^4.49.0"
+        "@tauri-apps/cli": "2.12.6",
+        "selenium-webdriver": "^4.53.0"
     }
 }

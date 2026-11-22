@@ -6,6 +6,7 @@ Tauri v2 shell for Windows and Linux (Ubuntu). It embeds the built frontend SPA 
 - Rust lives in `src-tauri/src/lib.rs`. `main.rs` is the entry only; never remove its Windows console-hiding attribute.
 - Never hand-edit `src-tauri/gen/` (generated).
 - oxlint doesn't cover Rust. `typecheck` runs `cargo fmt --check` and `cargo clippy -D warnings`; treat any warning as a failure.
+- Local skills (`apps/desktop/.agents/skills/`): `tauri-v2`.
 
 ## Version
 

@@ -2,6 +2,8 @@
 
 The introduction site on the root domain (`cadenceapp.cloud`). React Router v8 **framework mode, prerendered** to static files and served by Cloudflare Workers Static Assets (no Worker runs), the opposite of the dashboard SPA (`apps/frontend`) on purpose: the first paint is complete HTML. It links into the app (`dashboard.cadenceapp.cloud`) and never calls the API.
 
+- Local skills (`apps/landing/.agents/skills/`): `ai-seo`, `copy-editing`, `copywriting`, `programmatic-seo`, `schema`, `seo-audit`, `site-architecture`.
+
 ## 1. Non-Negotiables
 
 - Every route is prerendered at build time (`ssr: false` + `prerender`), so there is no request to read. No browser-only APIs (`window`, `localStorage`, `matchMedia`) at module scope or during render; they belong in effects. Pages must work before hydration: CTAs and cross-domain navigation are plain `<a>` links (`components/ButtonLink.tsx`).

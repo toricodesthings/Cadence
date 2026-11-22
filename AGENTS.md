@@ -6,7 +6,7 @@
 
 - `apps/frontend`, `apps/backend`, `apps/desktop`, `apps/landing`, `packages/*`: read that area's `AGENTS.md` before touching it.
 - Tests live in each app's `tests/` and in `packages/tests/` (mirrors `packages/`), never next to source.
-- Skills live in `.agents/skills/` (repo-wide) or `apps/<app>/.agents/skills/` (one app only), each symlinked from the sibling `.claude/skills/`.
+- Skills live in `.agents/skills/` (repo-wide) or `apps/<app>/.agents/skills/` (one app only, registered in `.agents/skills.json`), each symlinked from the sibling `.claude/skills/`.
 - `videos/` (Remotion) is a standalone npm project outside the pnpm workspace and every gate. Landing clips share `videos/src/stage.tsx` and render only through `videos/render.sh <Composition> "<out folder>"`.
 - If `graphify-out/graph.json` exists, use `graphify query|explain|path` before grepping across files. It lags uncommitted edits.
 

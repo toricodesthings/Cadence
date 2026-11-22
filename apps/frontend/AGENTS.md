@@ -4,6 +4,7 @@ React Router SPA (`ssr: false`, on purpose) served as Cloudflare Workers static 
 
 - Shared shapes and rules: `packages/AGENTS.md`.
 - Area guides: `app/lib/{api,notes,app-links}/AGENTS.md`, `app/components/{primitives,calendar,habits,settings,assistant,notifications}/AGENTS.md`.
+- Local skills (`apps/frontend/.agents/skills/`): `apple-design`, `better-auth-best-practices`, `vercel-react-best-practices`.
 
 ## Data
 
