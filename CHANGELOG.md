@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-11-23
+
 ### Changed
 
 - Finishing sign-in, opening a list invite and connecting an assistant now wait on the main loading screen
