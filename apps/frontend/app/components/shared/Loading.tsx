@@ -40,6 +40,8 @@ let snapshot: Snapshot = { owner: null, slot: null, leaving: false };
 const SERVER_SNAPSHOT: Snapshot = { owner: { since: 0 }, slot: null, leaving: false };
 const listeners = new Set<() => void>();
 let cancelRelease = () => {};
+// When the scene on screen appeared: a pre-rendered one is up from the page's start; -1 while none is.
+let sceneSince = typeof document !== "undefined" && document.querySelector(".loading-screen") ? 0 : -1;
 
 function publish(last?: Request) {
     const owner = requests.filter((r) => r.title !== undefined).at(-1) ?? requests.at(-1) ?? last ?? null;
@@ -74,10 +76,13 @@ const leave = (last: Request) => publish(last);
 // timer: they start on the first frame painted after the busy reveal, and a timer set beforehand could fire
 // in that same frame and drop the scene before any of the flight was seen.
 const flown = () => {
-    if (!requests.length) publish();
+    if (requests.length) return;
+    sceneSince = -1;
+    publish();
 };
 
 function request(entry: Request) {
+    if (sceneSince < 0) sceneSince = performance.now();
     requests = [...requests, entry];
     cancelRelease();
     publish();
@@ -106,17 +111,23 @@ export function Loading({ title, progress, children }: { title?: string; progres
         entry.progress = progress === undefined ? undefined : 0.1 + 0.8 * Math.min(Math.max(progress, 0), 1);
         publish();
     }, [entry, progress]);
-    // A fast start never names itself: the title (and its bar) waits TITLE_MS, so a quick load goes
-    // straight from the wordmark to the flight instead of swapping text on the way out.
+    // A fast start never names itself: no title (or bar) until the scene has been up TITLE_MS, so a quick load
+    // goes straight from the wordmark to the flight. Timed from the scene, not this step, so a late step that
+    // inherits a long-running scene names itself at once instead of just before the flight.
     useLayoutEffect(() => {
-        const wait = TITLE_MS - (performance.now() - entry.since);
-        entry.title = wait > 0 ? undefined : title;
+        entry.title = undefined;
         const release = request(entry);
-        if (wait <= 0 || title === undefined) return release;
-        const timer = setTimeout(() => {
+        if (title === undefined) return release;
+        const show = () => {
             entry.title = title;
             publish();
-        }, wait);
+        };
+        const wait = TITLE_MS - (performance.now() - sceneSince);
+        if (wait <= 0) {
+            show();
+            return release;
+        }
+        const timer = setTimeout(show, wait);
         return () => {
             clearTimeout(timer);
             release();

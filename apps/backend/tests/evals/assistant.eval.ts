@@ -320,14 +320,17 @@ const SCENARIOS: Scenario[] = [
         check: async (run, t) => {
             const [task] = await openTasks(t);
             const detail = await t("get_task_detail", { taskId: task.id });
-            const read = called(run, "get_task_detail")[0];
+            // Either read gives the note: get_task_detail, or get_tasks with details.
+            const read =
+                called(run, "get_task_detail")[0] ??
+                called(run, "get_tasks").find(
+                    (c) => c.input.details && c.output.tasks?.some((r: any) => r.id === task.id),
+                );
+            const readNote = read?.output.note ?? read?.output.tasks?.find((r: any) => r.id === task.id)?.note;
             const write = called(run, "update_tasks")[0];
             return [
                 ...need(!!read && !!write && read.step < write.step, "note read before its update"),
-                ...need(
-                    write?.input.patch.noteVersion === read?.output.note.version,
-                    "read note version accompanies write",
-                ),
+                ...need(write?.input.patch.noteVersion === readNote?.version, "read note version accompanies write"),
                 ...need(
                     detail.note.text.includes("Passport: ready\nFlight: booked\nHotel: booked"),
                     "unrequested lines preserved",

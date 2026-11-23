@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useIsRestoring, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useLocation } from "react-router";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
@@ -167,6 +167,18 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
         authReady && isAuthenticated && isWorkspacePath(pathname),
         pathname,
     );
+    // The scene's flight starts as `pending` clears; the workspace shows a painted frame later, so the flight's
+    // animations reach the compositor before the workspace's first full paint holds the main thread. The scene
+    // stays opaque for the flight's opening ~90ms, so the wait is never seen.
+    const [revealed, setRevealed] = useState(false);
+    useEffect(() => {
+        if (pending) return setRevealed(false);
+        let frame = requestAnimationFrame(() => {
+            frame = requestAnimationFrame(() => setRevealed(true));
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [pending]);
+    const hidden = pending || !revealed;
     useEffect(() => {
         setDiagnosticsEnabled(Boolean(settings) && settings?.privacy?.usageDiagnostics !== false);
         setCrashReportsEnabled(Boolean(settings) && settings?.privacy?.crashReports !== false);
@@ -187,6 +199,7 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
                 );
             return;
         }
+        if (hidden) return;
         // This effect runs after the inert/hidden wrapper has committed.
         startupMark("reveal.ready");
         // Revealed from the saved workspace before the session check answered.
@@ -208,6 +221,7 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
         authReady,
         isAuthenticated,
         pending,
+        hidden,
         state,
         pathname,
         client,
@@ -219,10 +233,10 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
         <StartupRenderContext value={trackRender}>
             <StartupReadyContext value={!pending && authReady && isAuthenticated}>
                 <div
-                    inert={pending}
-                    aria-hidden={pending || undefined}
-                    data-startup-hidden={pending || undefined}
-                    style={pending ? { visibility: "hidden" } : undefined}
+                    inert={hidden}
+                    aria-hidden={hidden || undefined}
+                    data-startup-hidden={hidden || undefined}
+                    style={hidden ? { visibility: "hidden" } : undefined}
                 >
                     {children}
                 </div>

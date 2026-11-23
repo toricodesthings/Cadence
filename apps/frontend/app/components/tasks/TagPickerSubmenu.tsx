@@ -1,3 +1,4 @@
+import { newRowId } from "../../lib/api/optimistic-id";
 import React, { useState } from "react";
 import { Tag as TagIcon, ChevronRight, Plus, Check } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
@@ -43,7 +44,7 @@ export const TagPickerList: React.FC<TagPickerListProps> = ({
     const handleCreate = async (e: React.KeyboardEvent) => {
         if (e.key === "Enter" && newTagName.trim()) {
             // Our own id, so the tag can be added even when the create is queued offline.
-            const id = crypto.randomUUID();
+            const id = newRowId();
             await createTag.mutateAsync({ id, name: newTagName.trim(), color: selectedColor });
             setNewTagName("");
             setSelectedColor("default");
@@ -169,7 +170,7 @@ export function TagPickerSheet({
 
     const create = async () => {
         if (!canCreate || createTag.isPending) return;
-        const id = crypto.randomUUID();
+        const id = newRowId();
         await createTag.mutateAsync({ id, name, color });
         setQuery("");
         setColor("default");

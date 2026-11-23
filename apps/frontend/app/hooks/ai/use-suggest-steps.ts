@@ -1,3 +1,4 @@
+import { newRowId } from "../../lib/api/optimistic-id";
 import { useCallback, useRef, useState } from "react";
 import { STEP_MAX_CHARS } from "@cadence/contracts/planning";
 import { useApiClient } from "../auth/use-api-client";
@@ -59,7 +60,7 @@ export function useSuggestSteps(taskId: string, existing: readonly { title: stri
         const kept = (draft ?? []).filter(isWanted);
         if (!kept.length || keeping) return;
         const base = existing.reduce((max, s) => Math.max(max, s.orderIndex), -1) + 1;
-        const ids = kept.map(() => crypto.randomUUID());
+        const ids = kept.map(() => newRowId());
         setKeeping(true);
         // One Keep through the one create hook, so "Break into steps?" records its answer once.
         const results = await Promise.allSettled(

@@ -161,19 +161,28 @@ export function toMinimalTag(row: MinimalTag): MinimalTag {
 
 export type ProjectRow = Pick<ProjectRecord, "id" | "name" | "emoji" | "colorAccent">;
 
-export type MinimalProject = ProjectRow & { sections: { id: string; name: string }[] };
+export type MinimalProject = ProjectRow & {
+    openTasks?: number;
+    sections: { id: string; name: string; openTasks?: number }[];
+};
 
 /** A list with its sections (board columns), in order. */
 export function toMinimalProject(
     row: ProjectRow,
     sections: { id: string; name: string; projectId: string | null }[] = [],
+    /** Open tasks keyed by `projectId` and `projectId|sectionId`; adds `openTasks` (0 when none). */
+    counts?: Map<string, number>,
 ): MinimalProject {
+    const open = (key: string) => (counts ? { openTasks: counts.get(key) ?? 0 } : {});
     return {
         id: row.id,
         name: row.name,
         emoji: row.emoji,
         colorAccent: row.colorAccent,
-        sections: sections.filter((s) => s.projectId === row.id).map(({ id, name }) => ({ id, name })),
+        ...open(row.id),
+        sections: sections
+            .filter((s) => s.projectId === row.id)
+            .map(({ id, name }) => ({ id, name, ...open(`${row.id}|${id}`) })),
     };
 }
 

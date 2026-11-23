@@ -1,3 +1,4 @@
+import { newRowId } from "../../lib/api/optimistic-id";
 import { TASK_FIELDS, useNlpParse } from "../../hooks/use-nlp-parse";
 import { resolvedNlp } from "../../lib/utils/task/resolved-nlp";
 import { useOwnProjects } from "../../hooks/projects/use-own-projects";
@@ -170,7 +171,7 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
     ) => {
         // Offline the create is queued and returns nothing, but the id is ours,
         // so "as task" can still be queued right behind it.
-        const id = retry?.id ?? crypto.randomUUID();
+        const id = retry?.id ?? newRowId();
         const item = retry ?? (await create.mutateAsync({ id, rawText: text, placing: task }));
         try {
             // What is shown is what is sent, and the server stores it as sent. A task always has its draft.

@@ -4,7 +4,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { and, asc, desc, eq, exists, gte, inArray, isNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
-import { savedFocusViews, tasks, subtasks, taskNotes, taskTags, tags } from "../../../db/schema";
+import { savedFocusViews, tasks, subtasks, taskNotes, taskTags, tags, users } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
@@ -145,6 +145,23 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             if (changes) trackTaskChanges(track, db, userId, changes);
             return result;
         });
+    /** How much of a note this surface reads (and so may rewrite whole): all of it over MCP. */
+    const noteLimit = ctx.rawNotes ? Infinity : NOTE_READ_LIMIT;
+    /** A note as reads return it: capped, fenced in-app (raw over MCP), with its version. */
+    const noteView = (noteText: string, version: number) => {
+        const shown = noteText.slice(0, noteLimit);
+        const nonce = ctx.nonce ?? makeFenceNonce();
+        return {
+            text:
+                shown &&
+                (ctx.rawNotes
+                    ? shown
+                    : fenceData({ nonce, kind: "note", trust: "untrusted", content: sanitizeUntrusted(shown, nonce) })),
+            ...(ctx.rawNotes && { source: "user-content" as const }),
+            truncated: noteText.length > noteLimit,
+            version,
+        };
+    };
     const zone = ctx.timezone;
     const day = daySql(zone);
     const weekStartsOn = ctx.weekStart === "Monday" ? "Monday" : "Sunday";
@@ -226,6 +243,10 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         ),
                     offset: offsetSchema,
                     limit: z.number().int().min(1).max(50).default(20),
+                    details: z
+                        .boolean()
+                        .optional()
+                        .describe("Also each task's note and subtasks (at most 10 tasks a page)."),
                 })
                 .refine(
                     (v) => (v.sectionId === undefined && !v.noSection) || v.projectId,
@@ -233,7 +254,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 ),
             execute: async (args) =>
                 safeExecute("get_tasks", userId, async () => {
-                    const limit = clampLimit(args.limit);
+                    const limit = args.details ? Math.min(clampLimit(args.limit), 10) : clampLimit(args.limit);
                     const offset = args.offset ?? 0;
                     const db = getDbClient(env);
                     let suggestionScope: SQL | undefined;
@@ -297,16 +318,23 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             shown.map((row) => row.id),
                         );
                         const hints = await taskHints(tx, userId, shown, ctx.today);
+                        const details = args.details
+                            ? await detailsFor(
+                                  tx,
+                                  shown.map((row) => row.id),
+                              )
+                            : undefined;
                         const more = rows.length > limit;
                         return {
                             ...(view && { view }),
-                            tasks: shown.map((row) =>
-                                toMinimalTask(
+                            tasks: shown.map((row) => ({
+                                ...toMinimalTask(
                                     { ...row, tagNames: tagNames.get(row.id) },
                                     ctx.timezone,
                                     hints.get(row.id),
                                 ),
-                            ),
+                                ...details?.get(row.id),
+                            })),
                             count: shown.length,
                             ...(more && { more, nextOffset: offset + limit }),
                         };
@@ -363,9 +391,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             .from(taskNotes)
                             .where(and(eq(taskNotes.taskId, taskId), eq(taskNotes.userId, userId)))
                             .limit(1);
-                        const noteText = noteRow?.body ?? row.content ?? "";
-                        const nonce = ctx.nonce ?? makeFenceNonce();
-                        const shown = noteText.slice(0, NOTE_READ_LIMIT);
 
                         return {
                             task: toMinimalTask(
@@ -375,21 +400,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             ),
                             subtasks: subs.map(toMinimalSubtask),
                             tags: tagRows.map(toMinimalTag),
-                            note: {
-                                text:
-                                    shown &&
-                                    (ctx.rawNotes
-                                        ? shown
-                                        : fenceData({
-                                              nonce,
-                                              kind: "note",
-                                              trust: "untrusted",
-                                              content: sanitizeUntrusted(shown, nonce),
-                                          })),
-                                ...(ctx.rawNotes && { source: "user-content" as const }),
-                                truncated: noteText.length > NOTE_READ_LIMIT,
-                                version: noteRow?.version ?? 0,
-                            },
+                            note: noteView(noteRow?.body ?? row.content ?? "", noteRow?.version ?? 0),
                         };
                     });
                 }),
@@ -403,29 +414,50 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             description:
                 "Creates 1–20 tasks, each with optional checklist steps, tags (by id or name), a note, a reminder and a hide-until day. " +
                 "With inboxItemId the task is made from that capture, which leaves Capture (no date given = no date). " +
+                "They land in the order given, at the end of their list (or the top, per the user's setting); to/beforeTaskId/afterTaskId place them elsewhere in one list. " +
                 "Returns each taskId and its subtaskIds. Never for a task that already exists: use update_tasks.",
-            inputSchema: z.object({
-                tasks: z
-                    .array(
-                        taskDraftSchema
-                            .extend({
-                                inboxItemId: z
-                                    .uuid()
-                                    .optional()
-                                    .describe(
-                                        "The capture this task is made from. A reminder and a hide-until day carry over; a capture can't become a Fixed block.",
-                                    ),
-                            })
-                            .refine(
-                                // null and false set nothing: a model that sends every field sends them for "none".
-                                (d) => !d.inboxItemId || !d.fixed,
-                                "A task from a capture can't be a Fixed block",
-                            ),
-                    )
-                    .min(1)
-                    .max(20),
-            }),
-            execute: async ({ tasks: drafts }, { toolCallId }) => {
+            inputSchema: z
+                .object({
+                    tasks: z
+                        .array(
+                            taskDraftSchema
+                                .extend({
+                                    inboxItemId: z
+                                        .uuid()
+                                        .optional()
+                                        .describe(
+                                            "The capture this task is made from. A reminder and a hide-until day carry over; a capture can't become a Fixed block.",
+                                        ),
+                                })
+                                .refine(
+                                    // null and false set nothing: a model that sends every field sends them for "none".
+                                    (d) => !d.inboxItemId || !d.fixed,
+                                    "A task from a capture can't be a Fixed block",
+                                ),
+                        )
+                        .min(1)
+                        .max(20),
+                    to: z
+                        .enum(["top", "bottom"])
+                        .optional()
+                        .describe("Put the new tasks at the top or bottom of their list."),
+                    beforeTaskId: z
+                        .uuid()
+                        .optional()
+                        .describe("Put them right before this open task in the same list."),
+                    afterTaskId: z.uuid().optional().describe("Put them right after this open task in the same list."),
+                })
+                .refine(
+                    (v) => [v.to, v.beforeTaskId, v.afterTaskId].filter(Boolean).length <= 1,
+                    "Send at most one of to, beforeTaskId or afterTaskId",
+                )
+                .refine(
+                    (v) =>
+                        !(v.to || v.beforeTaskId || v.afterTaskId) ||
+                        v.tasks.every((d) => (d.projectId ?? null) === (v.tasks[0].projectId ?? null)),
+                    "Placing them needs every task in one list",
+                ),
+            execute: async ({ tasks: drafts, to, beforeTaskId, afterTaskId }, { toolCallId }) => {
                 const result = await write("create_tasks", toolCallId, async (tx) => {
                     // One lookup for every draft's tag names, so two drafts never make the same tag twice.
                     const named = await tagIdsByName(
@@ -482,6 +514,20 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         );
                         created.push({ inboxItemId, taskId: task.id, title: task.title });
                     }
+                    // Every create writes orderIndex 0: place the batch per list, in draft order.
+                    const placement = to
+                        ? { to }
+                        : beforeTaskId
+                          ? { beforeTaskId }
+                          : afterTaskId
+                            ? { afterTaskId }
+                            : { to: (await newTaskPlacement(tx)) ?? ("bottom" as const) };
+                    const byList = new Map<string | null, string[]>();
+                    created.forEach((c, i) => {
+                        const list = drafts[i].projectId ?? null;
+                        byList.set(list, [...(byList.get(list) ?? []), c.taskId]);
+                    });
+                    for (const ids of byList.values()) await reorderTasks(tx, userId, ids, placement);
                     // A guess from their own choices, for the card's one-tap Use. Never written with the batch.
                     const guesses = await effortGuesses(
                         tx,
@@ -508,8 +554,9 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     };
                 });
                 // After the commit, so the task exists for the background guess; a replayed call already started it.
-                const done = result as { created?: { taskId: string }[]; deduped?: boolean };
-                if (!done.deduped) for (const c of done.created ?? []) track(suggestEffortGuess(env, userId, c.taskId));
+                const done = result as { created?: { taskId: string }[]; deduped?: boolean; dryRun?: boolean };
+                if (!done.deduped && !done.dryRun)
+                    for (const c of done.created ?? []) track(suggestEffortGuess(env, userId, c.taskId));
                 return result;
             },
         }),
@@ -555,9 +602,9 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
 
         update_tasks: tool({
             description:
-                "Applies the same change to 1–50 tasks: only the fields that change, plus tags to add (by id or name) or remove. " +
-                "Also sets or clears a reminder, a Waiting check-in, a hide-until day, pinning and Fixed. " +
-                "A title or note change is for one task. Returns how many changed.",
+                "Applies one change to 1–50 tasks. A title or note change takes exactly one taskId. " +
+                "Only the fields that change, plus tags to add (by id or name) or remove. " +
+                "Also sets or clears a reminder, a Waiting check-in, a hide-until day, pinning and Fixed. Returns how many changed.",
             inputSchema: z
                 .object({ taskIds: batchTaskIdsSchema, patch: taskPatchSchema })
                 .refine(
@@ -568,7 +615,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 )
                 .refine(
                     ({ patch }) => patch.note === undefined || patch.noteVersion !== undefined,
-                    "note needs noteVersion from get_task_detail",
+                    "note needs noteVersion from get_task_detail or get_tasks details",
                 )
                 .refine(
                     ({ patch }) => Object.values(patch).some((v) => v !== undefined),
@@ -630,7 +677,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         ],
                     });
                     if (note !== undefined || appendNote)
-                        await changeNote(tx, userId, taskIds[0], { note, appendNote, noteVersion });
+                        await changeNote(tx, userId, taskIds[0], { note, appendNote, noteVersion }, noteLimit);
                     const changes = hasTaskTemporalMutation(fields) ? { rescheduled: rows } : undefined;
                     return {
                         result: { updated: rows.length, ...(checked.ignored && { ignored: checked.ignored }) },
@@ -639,7 +686,10 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     };
                 });
                 // A new title or list: the old guess was cleared, so score the new one.
-                if (patch.title !== undefined || patch.projectId !== undefined)
+                if (
+                    (patch.title !== undefined || patch.projectId !== undefined) &&
+                    !(result as { dryRun?: boolean }).dryRun
+                )
                     for (const id of taskIds) track(suggestEffortGuess(env, userId, id));
                 return result;
             },
@@ -674,7 +724,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
 
         edit_subtasks: tool({
             description:
-                "Adds, renames, ticks, removes or reorders a task's checklist steps in one go (subtask ids from get_task_detail). " +
+                "Adds, renames, ticks, removes or reorders a task's checklist steps in one go (subtask ids from get_task_detail or get_tasks details). " +
                 "Added steps go at the end. Returns the new subtask ids and counts.",
             inputSchema: subtaskEditSchema,
             execute: async (input, { toolCallId }) =>
@@ -696,7 +746,9 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     .unwrap()
                     .unwrap()
                     .optional()
-                    .describe("With WAITING: when to check again, local time with offset."),
+                    .describe(
+                        "With WAITING: when to check again, local time with its UTC offset (2026-09-22T14:00:00-04:00), never Z.",
+                    ),
                 sameTitleOk: z.boolean().optional().describe("The user said which of the same-titled tasks they mean."),
             }),
             execute: async (input, { toolCallId }) =>
@@ -741,7 +793,8 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
 
         delete_tasks: tool({
             description:
-                "Permanently deletes 1–20 tasks (not Trash; can't be undone). Echo each title. Returns how many were deleted.",
+                "Deletes 1–20 tasks for good: no Trash, can't be undone. Trash (restorable) is set_task_state ARCHIVED. " +
+                "Echo each title. Returns how many were deleted.",
             inputSchema: z.object({
                 tasks: z
                     .array(z.object({ taskId: z.uuid(), title: z.string().max(500) }))
@@ -857,6 +910,43 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             }));
     }
 
+    /** Each task's note and subtasks for `get_tasks details`, in two queries. */
+    async function detailsFor(tx: Tx, taskIds: string[]) {
+        const out = new Map<
+            string,
+            { note: ReturnType<typeof noteView>; subtasks: ReturnType<typeof toMinimalSubtask>[] }
+        >();
+        if (!taskIds.length) return out;
+        const notes = await tx
+            .select({ id: tasks.id, body: taskNotes.body, content: tasks.content, version: taskNotes.version })
+            .from(tasks)
+            .leftJoin(taskNotes, eq(taskNotes.taskId, tasks.id))
+            .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)));
+        const steps = await tx
+            .select({
+                taskId: subtasks.taskId,
+                id: subtasks.id,
+                title: subtasks.title,
+                isComplete: subtasks.isComplete,
+            })
+            .from(subtasks)
+            .where(inArray(subtasks.taskId, taskIds))
+            .orderBy(subtasks.taskId, subtasks.orderIndex);
+        for (const n of notes)
+            out.set(n.id, { note: noteView(n.body ?? n.content ?? "", n.version ?? 0), subtasks: [] });
+        for (const { taskId, ...step } of steps) {
+            const list = out.get(taskId)?.subtasks;
+            if (list && list.length < 50) list.push(toMinimalSubtask(step));
+        }
+        return out;
+    }
+
+    /** The user's "new tasks go to" setting (Settings → Tasks). */
+    async function newTaskPlacement(tx: Tx) {
+        const [row] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
+        return (row?.settings as { tasks?: { newTaskPlacement?: "top" | "bottom" } } | null)?.tasks?.newTaskPlacement;
+    }
+
     /** Tag ids keyed by lower-cased name, found or made in one pass. */
     async function tagIdsByName(tx: Tx, names: string[]) {
         const clean = names.map((name) => name.trim()).filter(Boolean);
@@ -934,13 +1024,14 @@ export async function tagNamesFor(tx: Tx, taskIds: string[]) {
 /**
  * Rewrite or add to one task's note. The note the user sees is `task_notes.body`,
  * falling back to the legacy `tasks.content`. A rewrite is refused for a note
- * longer than the model can read; a stale `noteVersion` is a 409.
+ * longer than this surface reads (`readLimit`); a stale `noteVersion` is a 409.
  */
 async function changeNote(
     tx: Tx,
     userId: string,
     taskId: string,
     { note, appendNote, noteVersion }: { note?: string; appendNote?: string; noteVersion?: number },
+    readLimit: number,
 ) {
     const [row] = await tx
         .select({ body: taskNotes.body, version: taskNotes.version, content: tasks.content })
@@ -948,7 +1039,7 @@ async function changeNote(
         .leftJoin(taskNotes, eq(taskNotes.taskId, tasks.id))
         .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
     const current = row?.body ?? row?.content ?? "";
-    if (note !== undefined && current.length > NOTE_READ_LIMIT) {
+    if (note !== undefined && current.length > readLimit) {
         throw new AppError(400, "NOTE_TOO_LONG", "That note is too long to rewrite whole; add to it with appendNote");
     }
     const body = note ?? (current ? `${current.trimEnd()}\n${appendNote}` : appendNote!);

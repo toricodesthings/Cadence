@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 const DEV_CONNECT_SOURCES = [
     "http://localhost:8787",
     "ws://localhost:8787",
-    "https://ep-green-forest-aeushytt.neonauth.c-2.us-east-2.aws.neon.tech",
+    "https://ep-proud-hall-bdjzqcpe.neonauth.c-8.us-east-2.aws.neon.tech",
 ];
 /** Images: the app's own files, uploads and previews (data:, blob:), and Google/GitHub sign-in avatars. */
 const IMG_SRC = "img-src 'self' data: blob: https://*.googleusercontent.com https://avatars.githubusercontent.com";

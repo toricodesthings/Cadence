@@ -387,7 +387,8 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
 
     // ── W ──────────────────────────────────────────────────────────────────
     create_habit: tool({
-        description: "Creates a routine on Routines. Returns its habitId.",
+        description:
+            "Creates a routine: done or skipped per day, never overdue (gym, reading). Something still owed when missed (rent) is a task with recurrenceRule; a class or shift is a task with fixed:true. Returns its habitId.",
         inputSchema: routineFields.extend({
             steps: z
                 .array(stepTitle)

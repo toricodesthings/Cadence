@@ -8,15 +8,18 @@ import { z } from "zod";
 import { saidSchema } from "./said";
 import { insertTagSchema } from "@cadence/contracts/tag";
 import { insertTaskSchema, taskPrioritySchema, updateTaskSchema } from "@cadence/contracts/task";
+import { upsertNoteSchema } from "@cadence/contracts/note";
 
 /** How much of a note the model sees, and the longest note it may rewrite whole. */
 export const NOTE_READ_LIMIT = 1_000;
 
-const priority = taskPrioritySchema.describe("0 none, 1 low, 2 medium, 3 high, 4 urgent.");
+const priority = taskPrioritySchema.describe("0 none, 1 low, 2 medium, 3 high, 4 urgent. Only one the user gave.");
 const step = z.string().min(1).max(500);
 const quote = z.string().max(300).optional();
 const tagNames = z.array(insertTagSchema.shape.name).max(20);
-const reminderAt = insertTaskSchema.shape.reminderAt.describe("When to remind the user: local time with offset.");
+const reminderAt = insertTaskSchema.shape.reminderAt.describe(
+    "When to remind the user: local time with its UTC offset (2026-09-22T14:00:00-04:00), never Z.",
+);
 const dayError =
     "A deadline is a day: use YYYY-MM-DD with no time. For a time of day, set reminderAt, or plan a timed block with scheduledStart and scheduledEnd (with offset).";
 const instantError =
@@ -25,9 +28,15 @@ const dueDate = z.iso.date({ error: dayError }).nullable().optional();
 const instant = () => z.iso.datetime({ offset: true, error: instantError }).nullable().optional();
 const hideUntil = z.iso.date().describe("Hide it from lists until this local day.");
 const when = {
-    dueDate: dueDate.describe("The day it sits on, or its deadline, YYYY-MM-DD (never a time); null clears."),
-    scheduledStart: instant().describe("A time block's start, with offset; omit for an all-day task; null clears."),
-    scheduledEnd: instant().describe("The time block's end, with offset."),
+    dueDate: dueDate.describe(
+        "The day it sits on, or its deadline, YYYY-MM-DD (never a time). Only a day the user said; null clears.",
+    ),
+    scheduledStart: instant().describe(
+        "A time block's start, local time with its UTC offset (2026-09-22T14:00:00-04:00), never Z; omit for an all-day task; null clears.",
+    ),
+    scheduledEnd: instant().describe(
+        "The time block's end, local time with its UTC offset (2026-09-22T14:00:00-04:00), never Z.",
+    ),
     recurrenceRule: insertTaskSchema.shape.recurrenceRule.describe(
         "Repeats, as an RRULE, e.g. FREQ=WEEKLY;BYDAY=MO,WE; null stops it. Things done for their own sake are routines (create_habit).",
     ),
@@ -51,7 +60,10 @@ export const taskDraftSchema = insertTaskSchema
         durationEstimate: insertTaskSchema.shape.durationEstimate.describe("Minutes."),
         said: saidSchema,
         subtasks: z.array(step).max(30).optional().describe("Checklist steps, in order."),
-        fixed: z.boolean().optional().describe("A class or shift that just passes (timetable)."),
+        fixed: z
+            .boolean()
+            .optional()
+            .describe("A class or shift: takes its time and just passes, never checked off or overdue."),
         note: z.string().max(5_000).optional().describe("The new task's note."),
         tagNames: tagNames.optional().describe("Tags by name: an existing tag matches, a new name makes one."),
         reminderAt: reminderAt.optional(),
@@ -95,27 +107,31 @@ export const taskPatchSchema = updateTaskSchema
             .optional()
             .describe("Tags to add by name: an existing tag matches, a new name makes one."),
         removeTagNames: tagNames.optional().describe("Tags to take off, by name."),
-        reminderAt: reminderAt.optional().describe("When to remind the user: local time with offset; null removes it."),
+        reminderAt: reminderAt
+            .optional()
+            .describe(
+                "When to remind the user: local time with its UTC offset (2026-09-22T14:00:00-04:00), never Z; null removes it.",
+            ),
         checkInAt: updateTaskSchema.shape.waitingReminder.describe(
-            "A Waiting task's check-in: local time with offset; null removes it.",
+            "A Waiting task's check-in: local time with its UTC offset (2026-09-22T14:00:00-04:00), never Z; null removes it.",
         ),
         hideUntil: hideUntil
             .nullable()
             .optional()
             .describe("Hide it from lists until this local day; null shows it again."),
         fixed: z.boolean().optional().describe("true makes it a Fixed block (class, shift); false a normal task."),
-        note: z
-            .string()
-            .max(5_000)
+        note: upsertNoteSchema.shape.body
             .optional()
-            .describe(`Replaces the whole note (one task, read whole: ≤${NOTE_READ_LIMIT} characters).`),
+            .describe(
+                "Replaces the whole note (one task). Read it first; keep the rest word for word. Needs noteVersion.",
+            ),
         appendNote: z.string().max(5_000).optional().describe("Text added at the end of the note (one task)."),
         noteVersion: z
             .number()
             .int()
             .min(0)
             .optional()
-            .describe("note.version from get_task_detail; required with note."),
+            .describe("note.version from get_task_detail or get_tasks details; required with note."),
     });
 
 export const subtaskEditSchema = z

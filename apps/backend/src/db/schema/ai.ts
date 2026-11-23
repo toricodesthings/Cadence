@@ -17,7 +17,7 @@ import {
     pgPolicy,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { createdAt, timestamptz, rlsUsing } from "./columns";
+import { id, createdAt, timestamptz, rlsUsing } from "./columns";
 import {
     memoryKindEnum,
     memorySourceEnum,
@@ -39,7 +39,7 @@ const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 export const aiMemories = pgTable(
     "ai_memories",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         kind: memoryKindEnum("kind").notNull(),
         content: text("content").notNull(), // plain text, 300 chars at most, any date written in
@@ -92,7 +92,7 @@ export const aiMemories = pgTable(
 export const aiMemorySignals = pgTable(
     "ai_memory_signals",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         kind: memorySignalKindEnum("kind").notNull(),
         on: date("on", { mode: "string" }).notNull(), // LocalDate in the person's zone
@@ -123,7 +123,7 @@ export const aiMemorySignals = pgTable(
 export const durationReports = pgTable(
     "duration_reports",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         taskId: uuid("task_id").references(() => tasks.id, { onDelete: "cascade" }), // exactly one of task / habit
         completedAt: timestamptz("completed_at"), // a task's completion; null for a routine
@@ -174,7 +174,7 @@ export const durationReports = pgTable(
 export const planningRecords = pgTable(
     "planning_records",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         taskId: uuid("task_id").references(() => tasks.id, { onDelete: "cascade" }),
         kind: text("kind").notNull(), // slot | steps | later
@@ -231,7 +231,7 @@ export const aiMemoryNotes = pgTable(
 export const aiConversations = pgTable(
     "ai_conversations",
     {
-        id: uuid("id").defaultRandom().primaryKey(), // = chatId used by useChat
+        id: id(), // = chatId used by useChat
         userId: ownerId(),
         title: text("title"), // AI-generated short title; null until set
         model: text("model"), // model id used for the thread
@@ -303,7 +303,7 @@ export const aiMessages = pgTable(
 export const aiImages = pgTable(
     "ai_images",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         conversationId: uuid("conversation_id").notNull(),
         contentHash: text("content_hash").notNull(), // sha256 of the stored bytes; dedup only
@@ -338,7 +338,7 @@ export const aiImages = pgTable(
 export const mcpConnections = pgTable(
     "mcp_connections",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         clientId: text("client_id").notNull(),
         clientName: text("client_name").notNull(),

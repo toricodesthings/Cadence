@@ -26,6 +26,7 @@ export async function loadSnapshot(
     tools: SnapshotTools,
     today: string,
     eventsSnapshot?: ReturnType<typeof projectEvents>,
+    limit = 5,
 ): Promise<string> {
     const read = async (t: { execute?: unknown }, input: object): Promise<any> => {
         const result = await (t.execute as (input: object, options: object) => Promise<unknown>)(input, {
@@ -36,9 +37,9 @@ export async function loadSnapshot(
     };
     const [schedule, overdue, routines, capture, events] = await Promise.all([
         read(tools.get_schedule_window, { start: today, end: today, includeDone: false, limit: 12 }),
-        read(tools.get_tasks, { dueWindow: "overdue", limit: 5 }),
+        read(tools.get_tasks, { dueWindow: "overdue", limit }),
         read(tools.get_habit_status_today, {}),
-        read(tools.get_inbox_items, { includeProcessed: false, limit: 5 }),
+        read(tools.get_inbox_items, { includeProcessed: false, limit }),
         eventsSnapshot ?? read(tools.get_events, {}),
     ]);
     const targetTime = new Map<string, string | null>(schedule?.routines.map((r: any) => [r.id, r.targetTime]));

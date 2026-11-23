@@ -1,0 +1,92 @@
+import type { PublishedTool } from "./server";
+
+/** Never a real id: a stand-in where an example needs one (real ids come from a read). */
+const ID = "00000000-0000-0000-0000-000000000000";
+const KEY = "a1b2c3d4";
+
+/**
+ * One or two realistic calls per published tool, appended to its MCP description. Writes carry `operationKey`, deletes
+ * `confirm`. `tests/unit/mcp-examples.test.ts` parses each against the tool's MCP input schema.
+ */
+export const EXAMPLES: Record<PublishedTool, object[]> = {
+    get_today: [{}, { limit: 20 }],
+    get_tasks: [{ query: "COMP3005 assignment" }, { projectId: ID, sort: "list", details: true }],
+    get_task_detail: [{ taskId: ID }],
+    get_schedule_window: [{ start: "2026-09-21", end: "2026-09-27" }],
+    find_time: [{ taskId: ID, day: "2026-09-22" }],
+    fit_day: [{ day: "2026-09-22" }, { day: "2026-09-22", through: "2026-09-25", includeUnscheduled: true }],
+    get_projects: [{ query: "University" }, { projectId: ID, offset: 200 }],
+    get_tags: [{ query: "errands" }],
+    get_inbox_items: [{ limit: 20 }],
+    get_habits: [{}],
+    get_habit_status_today: [{}],
+    get_habit_history: [{ start: "2026-09-14", end: "2026-09-20" }],
+    get_events: [{}],
+    get_user_metrics: [{}],
+    get_focus_views: [{}],
+    get_cadence_help: [{ topic: "repeats" }],
+    recall: [{ query: "gym schedule" }],
+    search_past_chats: [{ query: "essay outline", after: "2026-09-01" }],
+    create_tasks: [
+        {
+            tasks: [
+                { title: "Pay rent", dueDate: "2026-10-01", recurrenceRule: "FREQ=MONTHLY;BYMONTHDAY=1" },
+                {
+                    title: "Study session",
+                    scheduledStart: "2026-09-22T14:00:00-04:00",
+                    scheduledEnd: "2026-09-22T15:30:00-04:00",
+                    subtasks: ["Read chapter 4", "Do problem set"],
+                },
+            ],
+            operationKey: KEY,
+        },
+    ],
+    duplicate_tasks: [{ tasks: [{ taskId: ID, targetDate: "2026-09-29" }], operationKey: KEY }],
+    update_tasks: [
+        { taskIds: [ID], patch: { dueDate: "2026-09-25", addTagNames: ["errands"] }, operationKey: KEY },
+        { taskIds: [ID], patch: { appendNote: "Bring the receipt." }, operationKey: KEY },
+    ],
+    reorder_tasks: [{ taskIds: [ID], to: "top", operationKey: KEY }],
+    edit_subtasks: [{ taskId: ID, add: ["Email the professor"], operationKey: KEY }],
+    set_task_state: [
+        { taskIds: [ID], state: "COMPLETE", operationKey: KEY },
+        {
+            taskIds: [ID],
+            state: "WAITING",
+            waitingOn: "Sam",
+            checkInAt: "2026-09-24T09:00:00-04:00",
+            operationKey: KEY,
+        },
+    ],
+    reschedule_tasks: [{ taskIds: [ID], targetDate: "2026-09-23", operationKey: KEY }],
+    delete_tasks: [{ tasks: [{ taskId: ID, title: "Old draft" }], confirm: true, operationKey: KEY }],
+    update_captures: [{ items: [{ inboxItemId: ID, action: "done" }], operationKey: KEY }],
+    delete_captures: [{ items: [{ inboxItemId: ID, text: "random thought" }], confirm: true, operationKey: KEY }],
+    create_project: [{ name: "Groceries", emoji: "🛒", sections: ["Produce", "Dairy"], operationKey: KEY }],
+    update_project: [{ projectId: ID, patch: { name: "Home" }, operationKey: KEY }],
+    delete_project: [{ projectId: ID, name: "Old list", tasks: "keep", confirm: true, operationKey: KEY }],
+    create_sections: [{ projectId: ID, names: ["This week", "Later"], operationKey: KEY }],
+    update_section: [{ sectionId: ID, name: "Next week", operationKey: KEY }],
+    delete_section: [{ sectionId: ID, confirm: true, operationKey: KEY }],
+    create_tag: [{ name: "errands", color: "teal", operationKey: KEY }],
+    update_tag: [{ tagId: ID, patch: { color: "blue" }, operationKey: KEY }],
+    delete_tag: [{ tagId: ID, name: "old", confirm: true, operationKey: KEY }],
+    create_habit: [
+        {
+            title: "Gym",
+            recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,WE,FR",
+            targetTime: "07:00",
+            emoji: "🏋️",
+            operationKey: KEY,
+        },
+    ],
+    update_habit: [{ habitId: ID, patch: { pausedUntil: "2026-10-01" }, operationKey: KEY }],
+    log_habit: [{ habitId: ID, status: "COMPLETED", targetDate: "2026-09-22", operationKey: KEY }],
+    delete_habit: [{ habitId: ID, title: "Old routine", confirm: true, operationKey: KEY }],
+    save_event: [{ patch: { label: "Mum's birthday", monthDay: "03-14", emoji: "🎂" }, operationKey: KEY }],
+    delete_event: [{ eventId: "ev1", confirm: true, operationKey: KEY }],
+    save_focus_view: [{ name: "Quick wins", filters: { effortMax: 1, sortMode: "smart" }, operationKey: KEY }],
+    delete_focus_view: [{ focusViewId: ID, name: "Old view", confirm: true, operationKey: KEY }],
+    remember: [{ action: "save", kind: "preference", text: "Prefers mornings for deep work.", operationKey: KEY }],
+    capture_to_inbox: [{ rawText: "Call the dentist about Thursday", operationKey: KEY }],
+};

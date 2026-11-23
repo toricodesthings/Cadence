@@ -18,7 +18,7 @@ import { logger, hashIdentifier, issuesFromError } from "../../../platform/log";
 import { aiMemories } from "../../../db/schema";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
-import { safeExecute, once } from "./index";
+import { safeExecute, once, refuse } from "./index";
 import { cleanText, isInstructionShaped } from "../memory/candidates";
 import { fenceData, makeFenceNonce, sanitizeUntrusted } from "../safety/injection-policy";
 import { embedTexts, getEmbeddingModelId } from "../memory/embedding";
@@ -50,24 +50,27 @@ const DAILY_REMEMBERS = 50;
 const TOPIC_MATCHES = 5;
 
 /** What `remember` returns: a receipt, or why nothing changed (with the facts to choose from when a topic matched several). */
-type Outcome = MemoryReceipt | { ok: false; error: string; matches?: { id: string; text: string }[] };
+type Outcome = MemoryReceipt | ReturnType<typeof refuse<{ matches?: { id: string; text: string }[] }>>;
 
-const off = {
-    ok: false as const,
-    error: "Memory is off. Tell the user they can turn it on in Settings → Assistant → Memory. Nothing was saved.",
-};
+// A function: tools/index imports this module, so `refuse` isn't ready at load.
+const off = () =>
+    refuse(
+        "FORBIDDEN",
+        "Memory is off. Tell the user they can turn it on in Settings → Assistant → Memory. Nothing was saved.",
+        403,
+    );
 
-const nothingChanged = (error: string) => ({ ok: false as const, error: `${error} Nothing was changed.` });
+const nothingChanged = (error: string) => refuse("NOT_FOUND", `${error} Nothing was changed.`, 404);
 
 /** Runs `work` only while memory is learning; otherwise says it's off. */
 async function whileLearning<T>(
     env: Env,
     userId: string,
     work: (db: DbClient, mode: MemoryMode) => Promise<T>,
-): Promise<T | typeof off> {
+): Promise<T | ReturnType<typeof off>> {
     const db = getDbClient(env);
     const state = await withRls(db, userId, (tx) => readMemoryState(tx, userId));
-    return isLearning(state.mode) ? work(db, state.mode) : off;
+    return isLearning(state.mode) ? work(db, state.mode) : off();
 }
 
 /** An embedding, or null when the call fails: words alone still work. */
@@ -148,11 +151,9 @@ async function forgetOne(tx: Tx, userId: string, input: RememberInput): Promise<
         if (found.length === 0) return { result: nothingChanged("Nothing remembered matches that."), id: userId };
         if (found.length > 1) {
             return {
-                result: {
-                    ok: false as const,
-                    error: "Several match. Ask which one; nothing was changed.",
+                result: refuse("CONFLICT", "Several match. Ask which one; nothing was changed.", 409, {
                     matches: found.map((f) => ({ id: f.id, text: f.content })),
-                },
+                }),
                 id: userId,
             };
         }

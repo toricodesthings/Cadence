@@ -23,8 +23,11 @@
 
 /* The decorative loops (rain, snow, leaves, wisps, grass) hold their first frame for the boot's
  * first ~600ms so parsing gets the CPU on weak phones; the head boot script then sets
- * data-loading-awake. Paused at the same pose, the first frame looks identical. */
-:root:not([data-loading-awake]) .loading-screen :is(.ls-particles, .ls-particles *, .ls-susuki > svg) {
+ * data-loading-awake. Paused at the same pose, the first frame looks identical. Name the animated classes,
+ * never `*`: a universal match made the flip restyle all ~3,000 scene elements in one frame. */
+:root:not([data-loading-awake])
+    .loading-screen
+    :is(.ls-leaf, .ls-leaf-body, .ls-petal, .ls-drop, .ls-flake, .ls-wisp, .ls-susuki > svg) {
     animation-play-state: paused;
 }
 
@@ -529,6 +532,12 @@
     opacity: calc(var(--ls-aura-ring-o) * 0.75);
     mix-blend-mode: var(--ls-aura-blend);
 }
+.ls-halo-ring > svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
 
 /* The block reserves the outer ring's height (12.5rem × the 1.2 wide-screen scale), so the rings never overflow into the wordmark */
 .ls-logo-block {
@@ -562,7 +571,7 @@
 
 /* A box-less wrapper around everything in the logo block: it owns the loop so the glow, rings and logo share --ls-grow */
 .ls-grower {
-    animation: var(--ls-still, ls-grow var(--ls-grow-loop) linear var(--ls-grow-at) infinite);
+    animation: var(--ls-still, ls-grow var(--ls-grow-loop) linear var(--ls-grow-hold) infinite);
 }
 
 .ls-logo svg {
@@ -584,10 +593,11 @@
 
 .ls-logo-block {
     --ls-grow-loop: 3.2s;
-    /* The loop starts in its open hold, so the boot's first frame is the whole mark. Custom properties only
-       animate on the main thread: on a phone the boot can block it for seconds, and a loop starting bare
-       froze the logo invisible until it unblocked, then popped it in. */
-    --ls-grow-at: calc(var(--ls-grow-loop) * -0.375);
+    /* Custom properties only animate on the main thread, which the boot holds: a loop running through it drew
+       and folded the mark in jumps. So the whole mark (--ls-grow's initial 1) waits out a warm boot still, and
+       the loop starts after --ls-grow-hold at its open hold. --ls-grow-at is where the cycle's start would fall. */
+    --ls-grow-hold: 1.4s;
+    --ls-grow-at: calc(var(--ls-grow-hold) - var(--ls-grow-loop) * 0.375);
 }
 
 .lg-part {
@@ -786,6 +796,9 @@ path.lg-part {
 /* Logo, then wordmark, settle in (ease-out-quint) */
 .ls-enter {
     animation: var(--ls-still, ls-enter 700ms cubic-bezier(0.22, 1, 0.36, 1) var(--ls-enter-delay, 0ms) backwards);
+}
+.ls-logo-block.ls-enter {
+    --ls-enter-scale: 0.9;
 }
 .ls-wordmark.ls-enter {
     --ls-enter-delay: 90ms;
@@ -1129,19 +1142,18 @@ path.lg-part {
     }
 }
 
+/* Starts in the open hold (so it picks up seamlessly from the still mark), folds, rests bare, regrows */
 @keyframes ls-grow {
-    0% {
+    0%,
+    18.75% {
+        --ls-grow: 1;
+    }
+    56.25%,
+    62.5% {
         --ls-grow: 0;
     }
-    37.5% {
-        --ls-grow: 1;
-    }
-    56.25% {
-        --ls-grow: 1;
-    }
-    93.75%,
     100% {
-        --ls-grow: 0;
+        --ls-grow: 1;
     }
 }
 
@@ -1188,6 +1200,6 @@ path.lg-part {
 @keyframes ls-enter {
     from {
         opacity: 0;
-        transform: translateY(8px);
+        transform: translateY(8px) scale(var(--ls-enter-scale, 1));
     }
 }

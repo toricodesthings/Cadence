@@ -1,3 +1,4 @@
+import { newRowId } from "../../lib/api/optimistic-id";
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { refetchAfterWrites } from "../../lib/api/write-gate";
 import { useApiClient } from "../auth/use-api-client";
@@ -42,7 +43,7 @@ const toPayload = ({
 
 /** The task's id is chosen here, once, so the optimistic task is the saved one and never swaps keys on screen. */
 const withTaskId = (params: ProcessInboxParams): ProcessInboxParams =>
-    params.taskId ? params : { ...params, taskId: crypto.randomUUID() };
+    params.taskId ? params : { ...params, taskId: newRowId() };
 
 /** The day it was placed on: the saved task's, else what was sent. */
 function placedDay(task: Task, variables: ProcessInboxParams) {
@@ -131,7 +132,7 @@ export function useProcessInboxToTask() {
             removeInboxItemFromCaches(queryClient, params.inboxItemId);
             if (params.complete) return { snapshot };
             await taskCache.cancel(queryClient);
-            const optimistic = buildOptimisticTask(params.taskId ?? crypto.randomUUID(), optimisticFields(params));
+            const optimistic = buildOptimisticTask(params.taskId ?? newRowId(), optimisticFields(params));
             reconcileTaskInCaches(queryClient, optimistic);
             return { snapshot, optimisticId: optimistic.id };
         },

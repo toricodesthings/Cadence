@@ -1,3 +1,4 @@
+import { newRowId } from "../../lib/api/optimistic-id";
 import {
     COLLECTION_ROW_SURFACE,
     COLLECTION_ROW_HOVER,
@@ -435,7 +436,7 @@ export function CaptureRow({
     /** A task dragged back to New becomes a thought again; the task goes to Trash, so Undo (or Trash) restores it whole. */
     const toThought = () => {
         if (disabled || !task) return;
-        const captureId = crypto.randomUUID();
+        const captureId = newRowId();
         createCapture.mutate({ id: captureId, rawText: task.title });
         update.mutate({ id: task.id, state: "ARCHIVED" });
         toastUndo(

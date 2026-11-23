@@ -6,6 +6,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Finishing sign-in, opening a list invite and connecting an assistant now wait on the main loading screen
+- Each tag name is used once, in any case: making or renaming a tag onto a name you already use says so
+- Connected assistants can read notes and steps in one go, try a change first, and get clear errors
+
+### Fixed
+
+- Tasks the assistant adds together now keep the order they were given in
+- In Ask first mode, finding a time or fitting your day no longer stalls waiting for a tap it can't show
+- The loading screen plays smoothly on quick starts: the logo settles in whole and the exit no longer stutters
+
 ## [2.2.0] - 2026-11-22
 
 ### Added

@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { ACCENT_COLORS } from "@cadence/contracts/constants";
 import { z } from "zod";
-import { and, asc, count, eq, desc, exists, ilike, inArray, isNull, max, or } from "drizzle-orm";
+import { and, asc, count, eq, desc, exists, ilike, inArray, isNull, max, ne, or, sql } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
 import { projects, taskSections, tasks } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
@@ -37,8 +37,9 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => (
     get_projects: tool({
         description:
             "The user's lists (projects in code), with their sections, including empty ones. " +
-            'Search list and section names with query ("COMP3005" finds the list holding that section) or select one projectId. nextOffset pages lists. ' +
-            "sectionsMore means sections are incomplete: select a projectId, then search sectionQuery or page with nextSectionOffset.",
+            'Find a list or section by name with query (an exact name comes first; "COMP3005" finds the list holding that section) or select one projectId. ' +
+            "Sections come in their order; openTasks = open tasks in it. Pages with offset: more:true and nextOffset (with projectId it pages that list's sections). " +
+            "partial:true = that list's sections were cut: select its projectId, then search sectionQuery or page.",
         inputSchema: z
             .object({
                 query: z
@@ -49,7 +50,7 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => (
                     .optional()
                     .describe("Words in the list name or one of its section names, case-insensitive."),
                 projectId: z.uuid().optional().describe("One list with its sections."),
-                offset: offsetSchema.describe("List offset from nextOffset; omit for the first page."),
+                offset: offsetSchema.describe("From nextOffset; omit for the first page."),
                 sectionQuery: z
                     .string()
                     .trim()
@@ -57,16 +58,15 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => (
                     .max(200)
                     .optional()
                     .describe("Words in a section name; requires projectId."),
-                sectionOffset: offsetSchema.describe("Section offset from nextSectionOffset; requires projectId."),
             })
-            .refine(
-                (v) => v.projectId || (v.sectionQuery === undefined && v.sectionOffset === undefined),
-                "Section search/paging requires projectId",
-            ),
-        execute: async ({ query, projectId, offset = 0, sectionQuery, sectionOffset = 0 }) =>
+            .refine((v) => v.projectId || v.sectionQuery === undefined, "sectionQuery requires projectId"),
+        execute: async ({ query, projectId, offset = 0, sectionQuery }) =>
             safeExecute("get_projects", userId, async () => {
                 const db = getDbClient(env);
-                const { rows, sections } = await withRls(db, userId, async (tx) => {
+                // With projectId, offset pages that list's sections; without it, the lists.
+                const listOffset = projectId ? 0 : offset;
+                const sectionOffset = projectId ? offset : 0;
+                const { rows, sections, counts, sectionTotals } = await withRls(db, userId, async (tx) => {
                     const rows = await tx
                         .select({
                             id: projects.id,
@@ -98,9 +98,13 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => (
                                 ),
                             ),
                         )
-                        .orderBy(desc(projects.createdAt), projects.id)
+                        .orderBy(
+                            ...(query ? [desc(sql`lower(${projects.name}) = lower(${query})`)] : []),
+                            desc(projects.createdAt),
+                            projects.id,
+                        )
                         .limit(MAX_LIST_LIMIT + 1)
-                        .offset(offset);
+                        .offset(listOffset);
                     const ids = rows.slice(0, MAX_LIST_LIMIT).map((row) => row.id);
                     const sections = ids.length
                         ? await tx
@@ -121,17 +125,60 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => (
                               .limit(SECTION_LIMIT + 1)
                               .offset(sectionOffset)
                         : [];
-                    return { rows, sections };
+                    // Open tasks per list and per section, one grouped query.
+                    const counted = ids.length
+                        ? await tx
+                              .select({ projectId: tasks.projectId, sectionId: tasks.sectionId, n: count() })
+                              .from(tasks)
+                              .where(
+                                  and(
+                                      eq(tasks.userId, userId),
+                                      inArray(tasks.projectId, ids),
+                                      inArray(tasks.state, ["ACTIVE", "WAITING"]),
+                                      ne(tasks.interactionMode, "timetable"),
+                                  ),
+                              )
+                              .groupBy(tasks.projectId, tasks.sectionId)
+                        : [];
+                    const counts = new Map<string, number>();
+                    for (const { projectId: list, sectionId, n } of counted) {
+                        counts.set(list!, (counts.get(list!) ?? 0) + n);
+                        if (sectionId) counts.set(`${list}|${sectionId}`, n);
+                    }
+                    // Sections per list, so a list whose sections the cap cut says so (partial).
+                    const sectionTotals =
+                        !projectId && sections.length > SECTION_LIMIT
+                            ? new Map(
+                                  (
+                                      await tx
+                                          .select({ projectId: taskSections.projectId, n: count() })
+                                          .from(taskSections)
+                                          .where(
+                                              and(
+                                                  eq(taskSections.userId, userId),
+                                                  inArray(taskSections.projectId, ids),
+                                                  sectionQuery
+                                                      ? ilike(taskSections.name, namePattern(sectionQuery))
+                                                      : undefined,
+                                              ),
+                                          )
+                                          .groupBy(taskSections.projectId)
+                                  ).map((row) => [row.projectId, row.n]),
+                              )
+                            : undefined;
+                    return { rows, sections, counts, sectionTotals };
                 });
+                const cut = sections.length > SECTION_LIMIT;
                 return {
-                    projects: rows
-                        .slice(0, MAX_LIST_LIMIT)
-                        .map((row) => toMinimalProject(row, sections.slice(0, SECTION_LIMIT))),
-                    ...(rows.length > MAX_LIST_LIMIT && { more: true, nextOffset: offset + MAX_LIST_LIMIT }),
-                    ...(sections.length > SECTION_LIMIT && {
-                        sectionsMore: true,
-                        ...(projectId && { nextSectionOffset: sectionOffset + SECTION_LIMIT }),
+                    projects: rows.slice(0, MAX_LIST_LIMIT).map((row) => {
+                        const project = toMinimalProject(row, sections.slice(0, SECTION_LIMIT), counts);
+                        return project.sections.length < (sectionTotals?.get(row.id) ?? 0)
+                            ? { ...project, partial: true as const }
+                            : project;
                     }),
+                    ...(projectId
+                        ? cut && { more: true, nextOffset: sectionOffset + SECTION_LIMIT }
+                        : rows.length > MAX_LIST_LIMIT && { more: true, nextOffset: listOffset + MAX_LIST_LIMIT }),
                 };
             }),
     }),

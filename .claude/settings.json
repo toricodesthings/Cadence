@@ -31,6 +31,6 @@
     "marketing-skills@marketingskills": false,
     "claude-security@claude-plugins-official": true,
     "codacy@anthropic-plugin-directory": true,
-    "andrej-karpathy-skills@karpathy-skills": true
+    "andrej-karpathy-skills@karpathy-skills": false
   }
 }

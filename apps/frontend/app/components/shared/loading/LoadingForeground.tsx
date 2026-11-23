@@ -15,28 +15,31 @@ const RING_B = "120 40 4 125";
 
 function HaloRing({ variant, dash, sparks }: { variant: "a" | "b"; dash: string; sparks: readonly number[] }) {
     return (
-        <svg className={`ls-halo-ring ls-halo-ring-${variant}`} viewBox="0 0 100 100" aria-hidden="true">
-            <circle
-                cx="50"
-                cy="50"
-                r="46"
-                fill="none"
-                stroke="url(#ls-halo-grad)"
-                strokeWidth={variant === "a" ? 0.9 : 0.55}
-                strokeDasharray={dash}
-                strokeLinecap="round"
-            />
-            {sparks.map((deg) => (
+        // The spin turns this box, not the svg: Chrome keeps an animated svg off the compositor.
+        <div className={`ls-halo-ring ls-halo-ring-${variant}`} aria-hidden="true">
+            <svg viewBox="0 0 100 100">
                 <circle
-                    key={deg}
                     cx="50"
-                    cy="4"
-                    r={variant === "a" ? 1.3 : 0.9}
-                    fill="var(--accent-primary, #FFD166)"
-                    transform={`rotate(${deg} 50 50)`}
+                    cy="50"
+                    r="46"
+                    fill="none"
+                    stroke="url(#ls-halo-grad)"
+                    strokeWidth={variant === "a" ? 0.9 : 0.55}
+                    strokeDasharray={dash}
+                    strokeLinecap="round"
                 />
-            ))}
-        </svg>
+                {sparks.map((deg) => (
+                    <circle
+                        key={deg}
+                        cx="50"
+                        cy="4"
+                        r={variant === "a" ? 1.3 : 0.9}
+                        fill="var(--accent-primary, #FFD166)"
+                        transform={`rotate(${deg} 50 50)`}
+                    />
+                ))}
+            </svg>
+        </div>
     );
 }
 

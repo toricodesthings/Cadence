@@ -2,7 +2,10 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiAs } from "../helpers/app";
 import { asOwner, createUser, startTestDb } from "../helpers/db";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
-import { serveMcp } from "../../src/domains/mcp/server";
+import { DRY_RUN_TOOLS, serveMcp, type PublishedTool } from "../../src/domains/mcp/server";
+import { EXAMPLES } from "../../src/domains/mcp/examples";
+import { apiErrorSchema } from "@cadence/contracts/common";
+import { version as rootVersion } from "../../../../package.json";
 import { connectionRoutes } from "../../src/domains/mcp/connections.route";
 import { isMcpRequest, mcpProvider, oauthApi } from "../../src/domains/mcp/oauth";
 import { buildToolRegistry } from "../../src/domains/ai/tools";
@@ -376,7 +379,11 @@ describe("writes", () => {
         await call(mcp, "set_task_state", { taskIds: [taskId], state: "ARCHIVED", operationKey: "op-trash-01" });
         expect((await task()).state).toBe("ARCHIVED");
 
-        await call(mcp, "delete_tasks", { tasks: [{ taskId, title: "Final report" }], operationKey: "op-delete-1" });
+        await call(mcp, "delete_tasks", {
+            tasks: [{ taskId, title: "Final report" }],
+            confirm: true,
+            operationKey: "op-delete-1",
+        });
         expect(await task()).toBeUndefined();
     });
 
@@ -629,4 +636,236 @@ it("routes only MCP paths on the MCP host to the OAuth provider", () => {
     expect(is("https://api.cadenceapp.cloud/mcp")).toBe(false);
     expect(is("https://mcp.cadenceapp.cloud/api/v1/tasks")).toBe(false);
     expect(is("https://mcp.cadenceapp.cloud/mcpx")).toBe(false);
+});
+
+describe("2.2.1: errors, dry runs, confirm, examples", () => {
+    const ALL = ["cadence:read", "cadence:capture", "cadence:write"];
+    let userId: string;
+    let mcp: ReturnType<typeof mcpAs>;
+    let key = 0;
+    const op = () => `op-221-${++key}-key`;
+    const errorBody = (text: string) => apiErrorSchema.parse(JSON.parse(text)).error;
+
+    beforeEach(async () => {
+        userId = await createUser();
+        mcp = mcpAs(userId, await connect(userId, ALL), ALL);
+    });
+
+    /** Every row the user owns, to prove a dry run saved nothing. */
+    const snapshot = () =>
+        asOwner(async (pg) => {
+            const out: Record<string, unknown> = {};
+            for (const table of [
+                "tasks",
+                "subtasks",
+                "task_notes",
+                "projects",
+                "task_sections",
+                "tags",
+                "inbox_items",
+                "habits",
+                "habit_logs",
+                "saved_focus_views",
+            ])
+                out[table] = (await pg.query(`SELECT * FROM ${table} WHERE user_id = $1 ORDER BY id`, [userId])).rows;
+            out.settings = (await pg.query("SELECT settings FROM users WHERE id = $1", [userId])).rows;
+            return JSON.stringify(out);
+        });
+
+    async function fixture() {
+        const list = (await call(mcp, "create_project", { name: "Home", sections: ["Now"], operationKey: op() })).data;
+        const sectionId = list.sections[0].sectionId;
+        const taskId = (
+            await call(mcp, "create_tasks", {
+                tasks: [{ title: "Fix shelf", projectId: list.projectId, subtasks: ["Buy screws"] }],
+                operationKey: op(),
+            })
+        ).data.created[0].taskId;
+        const subtaskId = (await call(mcp, "get_task_detail", { taskId })).data.subtasks[0].id;
+        const captureId = (await call(mcp, "capture_to_inbox", { rawText: "Call mum", operationKey: op() })).data.item
+            .id;
+        const tagId = (await call(mcp, "create_tag", { name: "home", operationKey: op() })).data.tagId;
+        const habitId = (
+            await call(mcp, "create_habit", { title: "Stretch", recurrenceRule: "FREQ=DAILY", operationKey: op() })
+        ).data.habitId;
+        const eventId = (
+            await call(mcp, "save_event", { patch: { label: "Gran", monthDay: "05-02" }, operationKey: op() })
+        ).data.id;
+        await call(mcp, "save_focus_view", { name: "Quick", filters: { effortMax: 1 }, operationKey: op() });
+        const focusViewId = (await call(mcp, "get_focus_views")).data.views[0].id;
+        return {
+            projectId: list.projectId,
+            sectionId,
+            taskId,
+            subtaskId,
+            captureId,
+            tagId,
+            habitId,
+            eventId,
+            focusViewId,
+        };
+    }
+
+    it("returns the REST error body: validation, not found, rate limit, refusals with their extra keys", async () => {
+        const noKey = await call(mcp, "capture_to_inbox", { rawText: "No key" });
+        expect(noKey.isError).toBe(true);
+        expect(errorBody(noKey.text)).toMatchObject({ code: "VALIDATION_ERROR", status: 400 });
+        expect(errorBody(noKey.text).issues?.[0].path).toBe("operationKey");
+
+        const unknown = await call(mcp, "update_tasks", {
+            taskIds: [crypto.randomUUID()],
+            patch: { title: "X" },
+            operationKey: op(),
+        });
+        expect(errorBody(unknown.text)).toMatchObject({ code: "NOT_FOUND", status: 404, isRetryable: false });
+
+        const { taskId } = await fixture();
+        const past = await call(mcp, "find_time", { taskId, day: "2000-01-01" });
+        expect(errorBody(past.text)).toMatchObject({ code: "INVALID_REQUEST", status: 400 });
+
+        await call(mcp, "remember", {
+            action: "save",
+            kind: "preference",
+            text: "Likes tea in the morning",
+            operationKey: op(),
+        });
+        await call(mcp, "remember", {
+            action: "save",
+            kind: "preference",
+            text: "Likes tea at night",
+            operationKey: op(),
+        });
+        const several = await call(mcp, "remember", { action: "forget", topic: "tea", operationKey: op() });
+        const body = JSON.parse(several.text).error;
+        if (body.code === "CONFLICT") expect(body.matches).toHaveLength(2);
+
+        const limited = mcpAs(userId, await connect(userId, ALL), ALL, {
+            RATE_LIMITER_READ: {
+                limit: vi.fn(async ({ key: k }: { key: string }) => ({ success: k.startsWith("mcp:") })),
+            },
+        });
+        const busy = await call(limited, "get_tasks");
+        expect(errorBody(busy.text)).toMatchObject({ code: "TOO_MANY_REQUESTS", status: 429, isRetryable: true });
+    });
+
+    it("dry runs every DRY_RUN_TOOLS write against real data and saves nothing; the same key then writes for real", async () => {
+        const f = await fixture();
+        const args: Record<string, object> = {
+            create_tasks: { tasks: [{ title: "New", projectId: f.projectId }] },
+            duplicate_tasks: { tasks: [{ taskId: f.taskId }] },
+            update_tasks: { taskIds: [f.taskId], patch: { title: "Renamed" } },
+            reorder_tasks: { taskIds: [f.taskId], to: "top" },
+            edit_subtasks: { taskId: f.taskId, update: [{ subtaskId: f.subtaskId, isComplete: true }] },
+            set_task_state: { taskIds: [f.taskId], state: "COMPLETE" },
+            reschedule_tasks: { taskIds: [f.taskId], targetDate: "2030-01-02" },
+            delete_tasks: { tasks: [{ taskId: f.taskId, title: "Fix shelf" }], confirm: true },
+            update_captures: { items: [{ inboxItemId: f.captureId, action: "done" }] },
+            delete_captures: { items: [{ inboxItemId: f.captureId, text: "Call mum" }], confirm: true },
+            create_sections: { projectId: f.projectId, names: ["Later"] },
+            update_project: { projectId: f.projectId, patch: { name: "House" } },
+            delete_project: { projectId: f.projectId, name: "Home", confirm: true },
+            update_section: { sectionId: f.sectionId, name: "Soon" },
+            delete_section: { sectionId: f.sectionId, confirm: true },
+            update_tag: { tagId: f.tagId, patch: { color: "blue" } },
+            delete_tag: { tagId: f.tagId, name: "home", confirm: true },
+            update_habit: { habitId: f.habitId, patch: { title: "Yoga" } },
+            log_habit: { habitId: f.habitId, status: "COMPLETED", targetDate: "2026-01-02" },
+            delete_habit: { habitId: f.habitId, title: "Stretch", confirm: true },
+            save_event: { eventId: f.eventId, patch: { label: "Grandma" } },
+            delete_event: { eventId: f.eventId, confirm: true },
+            save_focus_view: { focusViewId: f.focusViewId, name: "Quicker" },
+            delete_focus_view: { focusViewId: f.focusViewId, name: "Quick", confirm: true },
+        };
+        expect(Object.keys(args).sort()).toEqual([...DRY_RUN_TOOLS].sort());
+        const before = await snapshot();
+        for (const [name, input] of Object.entries(args)) {
+            const result = await call(mcp, name, { ...input, dryRun: true, operationKey: "op-dry-key" });
+            expect({ name, isError: result.isError, text: result.isError ? result.text : undefined }).toEqual({
+                name,
+                isError: false,
+                text: undefined,
+            });
+            expect(result.data.dryRun).toBe(true);
+        }
+        expect(await snapshot()).toBe(before);
+
+        const missing = await call(mcp, "update_tasks", {
+            taskIds: [crypto.randomUUID()],
+            patch: { title: "X" },
+            dryRun: true,
+            operationKey: op(),
+        });
+        expect(errorBody(missing.text).code).toBe("NOT_FOUND");
+
+        const real = await call(mcp, "update_tasks", { ...args.update_tasks, operationKey: "op-dry-key" });
+        expect(real.data).toEqual({ updated: 1 });
+        expect((await call(mcp, "get_task_detail", { taskId: f.taskId })).data.task.title).toBe("Renamed");
+    });
+
+    it("lists dryRun only where it rolls back, confirm on every delete and the retry rule on every write", async () => {
+        const tools = (await mcp("tools/list")).body.result.tools as any[];
+        for (const tool of tools) {
+            const props = tool.inputSchema.properties ?? {};
+            expect([tool.name, "dryRun" in props]).toEqual([tool.name, DRY_RUN_TOOLS.has(tool.name)]);
+            if (tool.name.startsWith("delete_")) expect(tool.inputSchema.required).toContain("confirm");
+            if ("operationKey" in props) expect(tool.description).toContain("never guess");
+            expect(tool.description).toContain("Example (ids come from a read)");
+        }
+    });
+
+    it("refuses a delete without confirm and keeps the task", async () => {
+        const { taskId } = await fixture();
+        const result = await call(mcp, "delete_tasks", { tasks: [{ taskId, title: "Fix shelf" }], operationKey: op() });
+        expect(errorBody(result.text)).toMatchObject({ code: "VALIDATION_ERROR" });
+        expect(errorBody(result.text).issues?.map((i) => i.path)).toContain("confirm");
+        expect((await call(mcp, "get_task_detail", { taskId })).data.task).not.toBeNull();
+    });
+
+    it("get_today shows 5 overdue by default and more with limit", async () => {
+        await call(mcp, "create_tasks", {
+            tasks: Array.from({ length: 7 }, (_, i) => ({ title: `Late ${i}`, dueDate: "2020-01-01" })),
+            operationKey: op(),
+        });
+        const small = (await call(mcp, "get_today")).data;
+        expect(small.overdue.tasks).toHaveLength(5);
+        expect(small.overdue.more).toBe(true);
+        expect((await call(mcp, "get_today", { limit: 10 })).data.overdue.tasks).toHaveLength(7);
+    });
+
+    it("returns a long note whole and lets it be rewritten", async () => {
+        const { taskId } = await fixture();
+        const long = "word ".repeat(600);
+        await apiAs(userId, "/api/v1", noteRoutes)("PATCH", `/tasks/${taskId}/note`, { body: long });
+        const { note } = (await call(mcp, "get_task_detail", { taskId })).data;
+        expect(note).toMatchObject({ text: long, truncated: false });
+        const done = await call(mcp, "update_tasks", {
+            taskIds: [taskId],
+            patch: { note: `${long}more`, noteVersion: note.version },
+            operationKey: op(),
+        });
+        expect(done.data).toEqual({ updated: 1 });
+    });
+
+    it("reports the release version", async () => {
+        const init = { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } };
+        expect((await mcp("initialize", init)).body.result.serverInfo.version).toBe(rootVersion);
+    });
+
+    it("every published tool answers its own example", async () => {
+        await fixture();
+        const tools = (await mcp("tools/list")).body.result.tools as { name: PublishedTool }[];
+        for (const { name } of tools) {
+            if (name === "remember") continue; // embeds first: needs a real model
+            for (const example of EXAMPLES[name]) {
+                const args = {
+                    ...example,
+                    ...("operationKey" in example && { operationKey: op() }),
+                    ...(DRY_RUN_TOOLS.has(name as never) && { dryRun: true }),
+                };
+                const result = await call(mcp, name, args);
+                const code = result.isError ? errorBody(result.text).code : "ok";
+                expect([name, code]).not.toEqual([name, "AI_TOOL_FAILED"]);
+            }
+        }
+    });
 });

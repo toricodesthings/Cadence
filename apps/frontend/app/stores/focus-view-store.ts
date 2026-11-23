@@ -1,3 +1,4 @@
+import { newRowId } from "../lib/api/optimistic-id";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { FocusViewDefinition, FocusViewPreset } from "@cadence/nlp/focus-views";
@@ -107,7 +108,7 @@ export const useFocusViewStore = create<FocusViewState>()(
                 if (!definition) return null;
 
                 const savedView: SavedFocusView = {
-                    id: crypto.randomUUID(),
+                    id: newRowId(),
                     name: name?.trim() || state.composerInput.trim() || "Saved view",
                     definition: cloneDefinition(definition),
                     isPinned: true,

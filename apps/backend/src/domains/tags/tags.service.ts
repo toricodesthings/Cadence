@@ -2,7 +2,7 @@ import { and, eq, inArray, max, sql } from "drizzle-orm";
 import { TAG_PALETTE } from "@cadence/contracts/constants";
 import type { InsertTag, UpdateTag } from "@cadence/contracts/tag";
 import { tags } from "../../db/schema";
-import { throwIfNotFound } from "../../platform/errors";
+import { AppError, throwIfNotFound, violatedUnique } from "../../platform/errors";
 import { createOnce } from "../../platform/idempotency";
 import type { Tx } from "../../types/db";
 import { assertRowRoom } from "../../platform/storage-ceiling";
@@ -19,6 +19,17 @@ async function nextSortOrder(tx: Tx, userId: string) {
     return (row?.last ?? 0) + 1000;
 }
 
+/** One name, one tag (any case): a create or rename onto a name already used is refused. */
+async function oneTagPerName<T>(write: () => Promise<T>): Promise<T> {
+    try {
+        return await write();
+    } catch (error) {
+        if (violatedUnique(error) === "tags_user_name_unique")
+            throw new AppError(409, "CONFLICT", "You already have a tag with that name");
+        throw error;
+    }
+}
+
 /** Create a tag. A replayed idempotency key returns the first one. */
 export async function createTag(tx: Tx, userId: string, body: InsertTag, idempotencyKey?: string) {
     return createOnce(
@@ -32,15 +43,13 @@ export async function createTag(tx: Tx, userId: string, body: InsertTag, idempot
                 .where(and(eq(tags.id, id), eq(tags.userId, userId))),
         async () => {
             await assertRowRoom(tx, userId, "tags");
-            return tx
-                .insert(tags)
-                .values({
-                    ...body,
-                    color: body.color ?? randomTagColor(),
-                    sortOrder: body.sortOrder ?? (await nextSortOrder(tx, userId)),
-                    userId,
-                })
-                .returning();
+            const sortOrder = body.sortOrder ?? (await nextSortOrder(tx, userId));
+            return oneTagPerName(() =>
+                tx
+                    .insert(tags)
+                    .values({ ...body, color: body.color ?? randomTagColor(), sortOrder, userId })
+                    .returning(),
+            );
         },
     );
 }
@@ -58,25 +67,27 @@ export async function findOrCreateTags(tx: Tx, userId: string, names: string[]) 
             .map((name) => [name.toLowerCase(), name]),
     );
     if (!wanted.size) return [];
-    const ids = new Map(
-        (
-            await tx
-                .select({ id: tags.id, name: tags.name })
-                .from(tags)
-                .where(and(eq(tags.userId, userId), inArray(sql`lower(${tags.name})`, [...wanted.keys()])))
-        ).map((tag) => [tag.name.toLowerCase(), tag.id]),
-    );
+    const ids = new Map<string, string>();
+    const findByName = async (keys: string[]) => {
+        const found = await tx
+            .select({ id: tags.id, name: tags.name })
+            .from(tags)
+            .where(and(eq(tags.userId, userId), inArray(sql`lower(${tags.name})`, keys)));
+        for (const tag of found) ids.set(tag.name.toLowerCase(), tag.id);
+    };
+    await findByName([...wanted.keys()]);
     const missing = [...wanted].filter(([key]) => !ids.has(key));
     if (missing.length) {
         await assertRowRoom(tx, userId, "tags", missing.length);
         const first = await nextSortOrder(tx, userId);
-        const rows = await tx
+        // A concurrent writer may make the same name first: the unique index skips ours, the re-read finds theirs.
+        await tx
             .insert(tags)
             .values(
                 missing.map(([, name], i) => ({ userId, name, color: randomTagColor(), sortOrder: first + i * 1000 })),
             )
-            .returning({ id: tags.id, name: tags.name });
-        for (const row of rows) ids.set(row.name.toLowerCase(), row.id);
+            .onConflictDoNothing();
+        await findByName(missing.map(([key]) => key));
     }
     return names
         .map((name) => name.trim())
@@ -86,11 +97,13 @@ export async function findOrCreateTags(tx: Tx, userId: string, names: string[]) 
 
 /** Rename, recolour or move a tag. 404 when it isn't the caller's. */
 export async function updateTag(tx: Tx, userId: string, id: string, body: UpdateTag) {
-    const [row] = await tx
-        .update(tags)
-        .set(body)
-        .where(and(eq(tags.id, id), eq(tags.userId, userId)))
-        .returning();
+    const [row] = await oneTagPerName(() =>
+        tx
+            .update(tags)
+            .set(body)
+            .where(and(eq(tags.id, id), eq(tags.userId, userId)))
+            .returning(),
+    );
     throwIfNotFound(row, "Tag");
     return row;
 }

@@ -1,3 +1,4 @@
+import { newRowId } from "../lib/api/optimistic-id";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { ApprovalMode, ChatSurface } from "@cadence/contracts/ai";
@@ -61,7 +62,7 @@ export const useAssistantStore = create<AssistantState>()(
             toggleAssistantPanel: () => set((s) => ({ assistantPanelOpen: !s.assistantPanelOpen })),
             setAssistantPanelOpen: (open) => set({ assistantPanelOpen: open }),
             setAssistantPanelWidth: (width) => set({ assistantPanelWidth: width }),
-            startNewConversation: () => set({ activeConversationId: crypto.randomUUID(), historyOpen: false }),
+            startNewConversation: () => set({ activeConversationId: newRowId(), historyOpen: false }),
             setActiveConversation: (id) => set({ activeConversationId: id, historyOpen: false }),
             setHistoryOpen: (open) => set({ historyOpen: open }),
             setMemoryOpen: (open) => set(open ? { memoryOpen: true, assistantPanelOpen: true } : { memoryOpen: false }),

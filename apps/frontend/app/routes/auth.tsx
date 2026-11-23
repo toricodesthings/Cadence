@@ -1,5 +1,4 @@
 import { AuthView } from "@neondatabase/auth/react/ui";
-import { LoaderCircle } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { useDocumentTitle } from "../hooks/core/use-document-title";
 import { useEffect, useState } from "react";
@@ -16,6 +15,7 @@ import { Input } from "../components/primitives/Input";
 import { ConsentCheck, LegalLinks } from "../components/shared/ConsentCheck";
 import { rememberSignUpTicks } from "../lib/legal-consent";
 import { CardPage } from "../components/shared/CardPage";
+import { Loading } from "../components/shared/Loading";
 import { log } from "../lib/log";
 import { completeDesktopAuthHandoff, DESKTOP_AUTH_STATE_PARAM } from "../platform/desktop-auth-handoff";
 import {
@@ -113,18 +113,16 @@ function DesktopAuthCallbackScreen({
         };
     }, [beginAuthRecovery, search, hash, navigate, redirectTo]);
 
+    // In progress, this is the boot's own loading scene; the workspace startup takes it over in place.
+    if (!errorMessage) return <Loading title="Completing sign in" />;
     return (
         <CardPage
-            title={errorMessage ? "Sign-in failed" : "Completing sign in"}
-            description={errorMessage ?? "Cadence is restoring your session and returning you to the app."}
+            title="Sign-in failed"
+            description={errorMessage}
             actions={
-                errorMessage ? (
-                    <Button variant="secondary" size="md" onClick={() => navigate("/auth/sign-in", { replace: true })}>
-                        Back to sign in
-                    </Button>
-                ) : (
-                    <LoaderCircle className="animate-spin text-twilight-text-soft" aria-label="Restoring session" />
-                )
+                <Button variant="secondary" size="md" onClick={() => navigate("/auth/sign-in", { replace: true })}>
+                    Back to sign in
+                </Button>
             }
         />
     );
@@ -363,25 +361,20 @@ function WebAuthCallbackScreen({ authError }: { authError: string | null }) {
         };
     }, [authError, beginAuthRecovery]);
 
+    if (!timedOut) return <Loading title="Completing sign in" />;
     return (
         <CardPage
-            title={timedOut ? "Sign-in didn't finish" : "Completing sign in"}
+            title="Sign-in didn't finish"
             description={
                 <>
-                    {timedOut
-                        ? "Cadence couldn't restore your session. Please try signing in again."
-                        : "Cadence is restoring your session and returning you to the app."}
+                    Cadence couldn't restore your session. Please try signing in again.
                     {authError && <span className="mt-2 block font-mono text-xs opacity-70">{authError}</span>}
                 </>
             }
             actions={
-                timedOut ? (
-                    <Button variant="secondary" size="md" onClick={() => navigate("/auth/sign-in", { replace: true })}>
-                        Back to sign in
-                    </Button>
-                ) : (
-                    <LoaderCircle className="animate-spin text-twilight-text-soft" aria-label="Restoring session" />
-                )
+                <Button variant="secondary" size="md" onClick={() => navigate("/auth/sign-in", { replace: true })}>
+                    Back to sign in
+                </Button>
             }
         />
     );

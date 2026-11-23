@@ -1,4 +1,4 @@
-import { customType } from "drizzle-orm/pg-core";
+import { customType, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 /**
@@ -19,6 +19,12 @@ export const rlsUserId = sql`(select ((current_setting('request.jwt.claims', tru
 
 /** RLS condition: row belongs to the JWT-authenticated user */
 export const rlsUsing = sql`(user_id = ${rlsUserId})`;
+
+/** Primary key. UUIDv7 is time-ordered, so inserts append to the index instead of splitting random pages. */
+export const id = () =>
+    uuid("id")
+        .default(sql`uuidv7()`)
+        .primaryKey();
 
 /** When the row was made. */
 export const createdAt = () =>

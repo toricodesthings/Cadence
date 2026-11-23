@@ -2,7 +2,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { mutationDedup } from "../db/schema";
 import type { Tx } from "../types/db";
 import type { Context } from "hono";
-import { AppError } from "./errors";
+import { AppError, violatedUnique } from "./errors";
 
 /**
  * Extract the idempotency key from the Idempotency-Key request header.
@@ -74,12 +74,7 @@ export async function insertWithClientId<T>(insert: () => Promise<T>): Promise<T
     try {
         return await insert();
     } catch (error) {
-        const pg = ((error as { cause?: unknown }).cause ?? error) as {
-            code?: string;
-            constraint?: string;
-            constraint_name?: string;
-        };
-        if (pg.code === "23505" && (pg.constraint_name ?? pg.constraint ?? "").endsWith("_pkey")) {
+        if (violatedUnique(error)?.endsWith("_pkey")) {
             throw new AppError(409, "CONFLICT", "That id is already in use");
         }
         throw error;

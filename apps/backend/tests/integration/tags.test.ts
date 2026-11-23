@@ -21,6 +21,43 @@ beforeEach(async () => {
 });
 
 describe("tags", () => {
+    it("allows one tag per name, in any case, per person", async () => {
+        const first = await api("POST", "", { name: "Work" });
+        const again = await api("POST", "", { name: "work" });
+        const someoneElse = await otherUser("POST", "", { name: "Work" });
+
+        expect(first.status).toBe(201);
+        expect(again.status).toBe(409);
+        expect(again.body.error.message).toBe("You already have a tag with that name");
+        expect(someoneElse.status).toBe(201);
+    });
+
+    it("refuses a rename onto a name already used", async () => {
+        await api("POST", "", { name: "Home" });
+        const errand = (await api("POST", "", { name: "Errand" })).body.data;
+
+        const { status } = await api("PATCH", `/${errand.id}`, { name: "HOME" });
+
+        expect(status).toBe(409);
+    });
+
+    it("finds a name made in another case instead of making a second tag", async () => {
+        const userId = await createUser();
+        const [made] = await withRls(getTestDb(), userId, (tx) => findOrCreateTags(tx, userId, ["Gym"]));
+        const [found, fresh] = await withRls(getTestDb(), userId, (tx) => findOrCreateTags(tx, userId, ["GYM", "Run"]));
+
+        expect(found).toBe(made);
+        expect(fresh).toBeTruthy();
+        const { body } = await apiAs(userId, "/tags", tagRoutes)("GET", "");
+        expect(body.data).toHaveLength(2);
+    });
+
+    it("mints time-ordered UUIDv7 ids when the client sends none", async () => {
+        const { body } = await api("POST", "", { name: "versioned" });
+
+        expect(body.data.id[14]).toBe("7");
+    });
+
     it("gives a tag with no colour a random palette colour", async () => {
         const { status, body } = await api("POST", "", { name: "urgent" });
 

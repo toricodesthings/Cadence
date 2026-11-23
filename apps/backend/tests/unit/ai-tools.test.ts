@@ -1,3 +1,4 @@
+import { DomainError } from "@cadence/domain/errors";
 import { describe, expect, it } from "vitest";
 import { asSchema } from "ai";
 import {
@@ -293,7 +294,6 @@ describe("tool registry", () => {
                     projectId: nil,
                     offset: 0,
                     sectionQuery: "",
-                    sectionOffset: 0,
                 }),
             ),
         ).toEqual({ success: true, value: { query: "University" } });
@@ -391,7 +391,9 @@ describe("tool registry", () => {
         );
         expect(patch.clear.items.enum).not.toContain("title");
         expect(JSON.stringify(patch)).not.toMatch(/null (clears|removes|shows|stops)/);
-        expect(patch.dueDate.description).toBe("The day it sits on, or its deadline, YYYY-MM-DD (never a time).");
+        expect(patch.dueDate.description).toBe(
+            "The day it sits on, or its deadline, YYYY-MM-DD (never a time). Only a day the user said.",
+        );
 
         // The tool's result tells the model what was dropped.
         const help = asSchema(tools.get_cadence_help.inputSchema);
@@ -413,6 +415,32 @@ describe("tool registry", () => {
         });
         expect(runs).toBe(1);
         expect(out).toMatchObject({ ok: false, error: "Task not found. Nothing was changed." });
+    });
+
+    it("codes every failure like the REST API: 4xx as thrown, domain rules, anything else AI_TOOL_FAILED", async () => {
+        const run = (error: unknown) =>
+            safeExecute("t", "u", async () => {
+                throw error;
+            });
+        const issues = [{ code: "x", message: "m", path: "a" }];
+        expect(await run(new AppError(409, "CONFLICT", "Stale", false, issues))).toMatchObject({
+            ok: false,
+            code: "CONFLICT",
+            status: 409,
+            isRetryable: false,
+            issues,
+        });
+        expect(await run(new AppError(503, "UPSTREAM_ERROR", "Down", true))).toMatchObject({
+            code: "AI_TOOL_FAILED",
+            status: 500,
+            isRetryable: false,
+        });
+        expect(await run(new DomainError("INVALID_TASK_SCHEDULE", "Ends first"))).toMatchObject({
+            code: "INVALID_TASK_SCHEDULE",
+            status: 400,
+            isRetryable: false,
+        });
+        expect(await run(new Error("socket"))).toMatchObject({ code: "AI_TOOL_FAILED", status: 500 });
     });
 
     it("slims schemas: no bounds, nullable unions and literal unions folded", () => {
@@ -476,6 +504,9 @@ describe("which calls wait for a tap", () => {
         expect(approval("ask", "create_tag")).toBe("user-approval");
         expect(approval("ask", "get_tasks")).toBeUndefined();
         expect(approval("ask", "capture_to_inbox")).toBeUndefined();
+        // Every catalog read, not only get_*: find_time and fit_day have no approval card to tap.
+        for (const [name, spec] of Object.entries(TOOL_CATALOG))
+            if (spec.kind === "read") expect([name, approval("ask", name)]).toEqual([name, undefined]);
     });
 
     it("Auto waits on more than 5 tasks, permanent deletes, removed steps and note rewrites", () => {

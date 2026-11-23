@@ -1,3 +1,4 @@
+import { newRowId } from "../../lib/api/optimistic-id";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { extractActionableLines } from "../../lib/notes/markdown-transforms";
@@ -35,7 +36,7 @@ export function useNoteSubtasks(taskId: string, body: string) {
     const convert = useCallback(async () => {
         if (submitting || converted.has(signature) || lines.length === 0) return;
         setSubmitting(true);
-        const ids = attempts.get(signature) ?? lines.map(() => crypto.randomUUID());
+        const ids = attempts.get(signature) ?? lines.map(() => newRowId());
         attempts.set(signature, ids);
         try {
             const base = Date.now();

@@ -7,6 +7,7 @@ export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteE
 import { Button } from "../components/primitives/Button";
 import { Switch } from "../components/primitives/Switch";
 import { CardPage, EASE, rise, stagger } from "../components/shared/CardPage";
+import { Loading } from "../components/shared/Loading";
 import { useDocumentTitle } from "../hooks/core/use-document-title";
 import { useAuthState } from "../hooks/auth/use-auth-state";
 import { useAnswerConnectRequest, useConnectRequest } from "../hooks/core/use-connections";
@@ -64,14 +65,9 @@ export default function ConnectRoute() {
         });
 
     const key = connectStage(authReady && isAuthenticated, request, view, approved);
+    if (key === "loading") return <Loading />;
     let body: React.ReactNode;
-    if (key === "loading") {
-        body = (
-            <div className="flex justify-center py-10">
-                <LoaderCircle className="animate-spin text-twilight-text-soft" aria-label="Loading" />
-            </div>
-        );
-    } else if (key === "expired" || !view.data) {
+    if (key === "expired" || !view.data) {
         body = (
             <motion.div variants={rise} className="py-4 text-center">
                 <h1 className="font-display text-xl font-semibold text-twilight-text">This link has expired</h1>

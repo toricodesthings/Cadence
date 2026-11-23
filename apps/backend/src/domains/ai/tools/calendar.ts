@@ -7,7 +7,7 @@ import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { Tx } from "../../../types/db";
 import type { AgentContext } from "./index";
-import { safeExecute, clampLimit } from "./index";
+import { safeExecute, clampLimit, refuse } from "./index";
 import { taskCoreColumns } from "./tasks";
 import { inDayWindow, readTasks } from "../../tasks/tasks.service";
 import { expandScheduleScopedTasks, taskDay } from "@cadence/domain/task-recurrence";
@@ -139,8 +139,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
         execute: async ({ taskId, day }) =>
             safeExecute("find_time", userId, async () => {
                 const zone = ctx.timezone as Zone;
-                if (day < ctx.today)
-                    return { ok: false as const, error: "That day has passed; look at today or later." };
+                if (day < ctx.today) return refuse("INVALID_REQUEST", "That day has passed; look at today or later.");
                 return withRls(getDbClient(env), userId, async (tx) => {
                     const [task] = await tx
                         .select({
@@ -159,14 +158,14 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                         .from(tasks)
                         .leftJoin(projects, eq(projects.id, tasks.projectId))
                         .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)));
-                    if (!task) return { ok: false as const, error: "No such task." };
+                    if (!task) return refuse("NOT_FOUND", "No such task.", 404);
                     if (
                         task.state === "COMPLETE" ||
                         task.state === "ARCHIVED" ||
                         task.recurrenceRule ||
                         task.interactionMode === "timetable"
                     ) {
-                        return { ok: false as const, error: "Only an open, one-off task has a time to find." };
+                        return refuse("INVALID_REQUEST", "Only an open, one-off task has a time to find.");
                     }
                     const hint = (await durationHints(tx, userId, [task])).get(task.id);
                     const minutes = taskMinutes(
@@ -233,8 +232,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
         execute: async ({ day, through, includeUnscheduled }) =>
             safeExecute("fit_day", userId, async () => {
                 const zone = ctx.timezone as Zone;
-                if (day < ctx.today)
-                    return { ok: false as const, error: "That day has passed; look at today or later." };
+                if (day < ctx.today) return refuse("INVALID_REQUEST", "That day has passed; look at today or later.");
                 const max = addDays(day, MAX_FIT_DAYS - 1);
                 const last = !through || through <= day ? day : through > max ? max : through;
                 return withRls(getDbClient(env), userId, async (tx) => {

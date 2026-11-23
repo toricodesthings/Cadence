@@ -14,6 +14,16 @@ export class AppError extends Error {
     }
 }
 
+/** The unique constraint a Postgres write broke, if that's why it failed. */
+export function violatedUnique(error: unknown): string | undefined {
+    const pg = ((error as { cause?: unknown }).cause ?? error) as {
+        code?: string;
+        constraint?: string;
+        constraint_name?: string;
+    };
+    return pg.code === "23505" ? (pg.constraint_name ?? pg.constraint ?? "") : undefined;
+}
+
 export function throwIfNotFound<T>(value: T | null | undefined, label: string): asserts value is T {
     if (!value) throw new AppError(404, "NOT_FOUND", `${label} not found`);
 }

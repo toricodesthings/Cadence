@@ -1,7 +1,7 @@
 import { log } from "./log";
 
 const DEV_API_BASE_URL = "http://localhost:8787";
-const DEV_NEON_AUTH_URL = "https://ep-green-forest-aeushytt.neonauth.c-2.us-east-2.aws.neon.tech/neondb/auth";
+const DEV_NEON_AUTH_URL = "https://ep-proud-hall-bdjzqcpe.neonauth.c-8.us-east-2.aws.neon.tech/neondb/auth";
 const DEV_WEB_APP_BASE_URL = "http://localhost:8788";
 const PROD_WEB_APP_BASE_URL = "https://dashboard.cadenceapp.cloud";
 const DEFAULT_RUNTIME_TARGET = "web";

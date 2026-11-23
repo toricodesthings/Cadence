@@ -12,7 +12,7 @@
 
 ## Before planning, coding or fixing
 
-Load the `andrej-karpathy-skills:karpathy-guidelines` skill first (if you lack it, follow the rules below).
+Follow these rules:
 
 - **Think first:** trace the flow and state your assumptions. Ask before writing the plan, not inside it.
 - **Simplest thing:** reuse what exists and add nothing speculative.

@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { asSchema } from "ai";
 import { apiAs } from "../helpers/app";
-import { createUser, getTestDb, startTestDb } from "../helpers/db";
+import { asOwner, createUser, getTestDb, startTestDb } from "../helpers/db";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 import { taskRoutes } from "../../src/domains/tasks/tasks.route";
 import { projectRoutes } from "../../src/domains/projects/projects.route";
@@ -33,6 +34,105 @@ beforeEach(async () => {
 
 const allTasks = async () => (await api("GET", "?limit=100")).body.data as any[];
 const steps = async (taskId: string) => (await subApi("GET", `/tasks/${taskId}/subtasks`)).body.data as any[];
+
+describe("task order", () => {
+    const listOrder = async (projectId: string) =>
+        (await call("get_tasks", { projectId, sort: "list", limit: 50 })).tasks.map((t: any) => t.title);
+    const newList = async () => (await call("create_project", { name: "Groceries" })).projectId as string;
+
+    it("keeps a batch of 12 in the order given", async () => {
+        const projectId = await newList();
+        const titles = Array.from({ length: 12 }, (_, i) => `Step ${i + 1}`);
+        await call("create_tasks", { tasks: titles.map((title) => ({ title, projectId })) });
+        expect(await listOrder(projectId)).toEqual(titles);
+    });
+
+    it("keeps the order of a batch mixing plain and capture-made tasks, after what's there", async () => {
+        const projectId = await newList();
+        await call("create_tasks", { tasks: [{ title: "Existing", projectId }] });
+        const inbox = apiAs(userId, "/inbox", inboxRoutes);
+        const capture = (await inbox("POST", "", { rawText: "Milk" })).body.data.id;
+        await call("create_tasks", {
+            tasks: [
+                { title: "Eggs", projectId },
+                { title: "Milk", projectId, inboxItemId: capture },
+                { title: "Bread", projectId },
+            ],
+        });
+        expect(await listOrder(projectId)).toEqual(["Existing", "Eggs", "Milk", "Bread"]);
+    });
+
+    it("follows the newTaskPlacement setting, and an explicit spot", async () => {
+        const projectId = await newList();
+        const { created } = await call("create_tasks", {
+            tasks: [
+                { title: "A", projectId },
+                { title: "B", projectId },
+            ],
+        });
+        await asOwner((pg) =>
+            pg.query(
+                `UPDATE users SET settings = jsonb_set(settings, '{tasks}', '{"newTaskPlacement":"top"}') WHERE id = $1`,
+                [userId],
+            ),
+        );
+        await call("create_tasks", {
+            tasks: [
+                { title: "Top 1", projectId },
+                { title: "Top 2", projectId },
+            ],
+        });
+        expect(await listOrder(projectId)).toEqual(["Top 1", "Top 2", "A", "B"]);
+        await call("create_tasks", { tasks: [{ title: "After A", projectId }], afterTaskId: created[0].taskId });
+        expect(await listOrder(projectId)).toEqual(["Top 1", "Top 2", "A", "After A", "B"]);
+    });
+
+    it("refuses a spot for tasks bound for different lists", async () => {
+        const projectId = await newList();
+        const tools = buildToolRegistry({} as never, userId, {
+            timezone: "America/New_York",
+            currentDate: "2026-09-23T12:00:00Z",
+            today: "2026-09-23",
+        }) as any;
+        const check = await asSchema(tools.create_tasks.inputSchema).validate!({
+            tasks: [{ title: "One", projectId }, { title: "Two" }],
+            to: "top",
+        });
+        expect(check.success).toBe(false);
+    });
+
+    it("reorder_tasks places tasks right after another", async () => {
+        const projectId = await newList();
+        const { created } = await call("create_tasks", {
+            tasks: ["A", "B", "C"].map((title) => ({ title, projectId })),
+        });
+        await call("reorder_tasks", { taskIds: [created[2].taskId], afterTaskId: created[0].taskId });
+        expect(await listOrder(projectId)).toEqual(["A", "C", "B"]);
+    });
+});
+
+describe("get_projects counts and names", () => {
+    it("counts open tasks per list and section, and puts an exact name first", async () => {
+        const { projectId, sections } = await call("create_project", { name: "Cadence", sections: ["Now", "Empty"] });
+        await call("create_project", { name: "Cadence notes" });
+        await call("create_tasks", {
+            tasks: [
+                { title: "One", projectId, sectionId: sections[0].sectionId },
+                { title: "Two", projectId },
+            ],
+        });
+        // Newest first by default: the exact name still leads.
+        const found = await call("get_projects", { query: "cadence" });
+        expect(found.projects.map((p: any) => p.name)).toEqual(["Cadence", "Cadence notes"]);
+        expect(found.projects[0]).toMatchObject({
+            openTasks: 2,
+            sections: [
+                { name: "Now", openTasks: 1 },
+                { name: "Empty", openTasks: 0 },
+            ],
+        });
+    });
+});
 
 describe("list destinations", () => {
     it("finds and pages lists and empty sections beyond both caps, then places an image draft in the matching section", async () => {
@@ -71,7 +171,7 @@ describe("list destinations", () => {
         await apiAs(otherUser, "/projects", projectRoutes)("POST", "", { name: "University Private" });
 
         const first = await call("get_projects", {});
-        expect(first).toMatchObject({ more: true, nextOffset: 50, sectionsMore: true });
+        expect(first).toMatchObject({ more: true, nextOffset: 50 });
         const last = await call("get_projects", { offset: first.nextOffset });
         expect(last.projects.map((p: any) => p.id)).toEqual([university.id]);
         expect(last.more).toBeUndefined();
@@ -81,14 +181,14 @@ describe("list destinations", () => {
         expect(found.projects).toHaveLength(1);
         expect(found.projects[0].sections).toHaveLength(200);
         expect(found.projects[0].sections[0].name).toBe("Course 0");
-        expect(found.sectionsMore).toBe(true);
+        expect(found.projects[0].partial).toBe(true);
         const focused = await call("get_projects", { projectId: university.id });
-        expect(focused.nextSectionOffset).toBe(200);
-        const tail = await call("get_projects", { projectId: university.id, sectionOffset: focused.nextSectionOffset });
+        expect(focused).toMatchObject({ more: true, nextOffset: 200 });
+        const tail = await call("get_projects", { projectId: university.id, offset: focused.nextOffset });
         expect(tail.projects[0].sections).toHaveLength(5);
-        expect(tail.sectionsMore).toBeUndefined();
+        expect(tail.more).toBeUndefined();
         const matched = await call("get_projects", { projectId: university.id, sectionQuery: "comp2000" });
-        expect(matched.projects[0].sections).toEqual([{ id: course.id, name: "COMP2000" }]);
+        expect(matched.projects[0].sections).toEqual([{ id: course.id, name: "COMP2000", openTasks: 0 }]);
         expect((await call("get_projects", { query: "%" })).projects).toEqual([]);
         expect(
             (await call("get_projects", { projectId: university.id, sectionQuery: "_" })).projects[0].sections,
@@ -314,7 +414,7 @@ describe("update_tasks, set_task_state, delete_tasks", () => {
 
         expect(
             await call("update_tasks", { taskIds: [taskId], patch: { note: "short", noteVersion: 1 } }),
-        ).toMatchObject({ ok: false });
+        ).toMatchObject({ ok: false, code: "NOTE_TOO_LONG", status: 400 });
         expect(
             await call("update_tasks", { taskIds: [taskId], patch: { appendNote: "More", noteVersion: 0 } }),
         ).toMatchObject({

@@ -1,3 +1,4 @@
+import { newRowId } from "../../lib/api/optimistic-id";
 import { useEffect, useRef, useState } from "react";
 import { CalendarHeart } from "lucide-react";
 import { Composer, ComposerTitle, type ComposerDraft } from "../shared/Composer";
@@ -263,7 +264,7 @@ export function usePersonalEventComposer({
                     <UnfitNotice
                         words={unfit.sourceText}
                         onKeep={() => {
-                            saveThought.mutate({ id: crypto.randomUUID(), rawText: label.trim() });
+                            saveThought.mutate({ id: newRowId(), rawText: label.trim() });
                             reset();
                         }}
                     />

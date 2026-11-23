@@ -5,6 +5,7 @@ import { logger, hashIdentifier } from "../../../platform/log";
 import { AppError } from "../../../platform/errors";
 import { checkIdempotency, recordMutation, storedResult } from "../../../platform/idempotency";
 import { DomainError } from "@cadence/domain/errors";
+import type { ApiIssue, ErrorCode } from "@cadence/contracts/common";
 import type { Tx } from "../../../types/db";
 import { taskTools } from "./tasks";
 import { projectTools } from "./projects";
@@ -65,6 +66,46 @@ export interface ToolErrorResult {
     ok: false;
     error: string;
     tool: string;
+    /** From `ERROR_CODES`, as the REST API uses it. */
+    code: ErrorCode;
+    status: number;
+    isRetryable: boolean;
+    issues?: ApiIssue[];
+}
+
+/** A refusal a tool returns itself (not a throw), coded like a thrown error. */
+export const refuse = <X extends object = object>(code: ErrorCode, message: string, status = 400, extra?: X) => ({
+    ok: false as const,
+    error: message,
+    code,
+    status,
+    isRetryable: false,
+    ...(extra as X),
+});
+
+/** A call id with this prefix runs its write, then rolls it back ({@link once}): a dry run. */
+export const DRY_RUN_PREFIX = "dry:";
+
+/** Thrown by {@link once} on a dry run so the transaction rolls back; carries what the write returned. */
+export class DryRun extends Error {
+    constructor(readonly result: unknown) {
+        super("dry run");
+        this.name = "DryRun";
+    }
+}
+
+/** The coded fields for a thrown error. */
+function errorFields(error: unknown): Pick<ToolErrorResult, "code" | "status" | "isRetryable" | "issues"> {
+    if (error instanceof AppError && error.statusCode < 500)
+        return {
+            code: error.code,
+            status: error.statusCode,
+            isRetryable: error.isRetryable,
+            ...(error.issues && { issues: error.issues }),
+        };
+    if (error instanceof DomainError) return { code: error.code, status: error.status, isRetryable: false };
+    // safeExecute already retried once; the user is offered a retry, the model never loops on its own.
+    return { code: "AI_TOOL_FAILED", status: 500, isRetryable: false };
 }
 
 /**
@@ -83,6 +124,7 @@ export async function safeExecute<T>(
         try {
             return await fn();
         } catch (error) {
+            if (error instanceof DryRun) return { ...(error.result as object), dryRun: true } as T;
             // Our own 4xx messages ("Project not found", a stale note) are safe and tell
             // the model what to fix, and would fail the same way again; anything else stays generic.
             const known = (error instanceof AppError && error.statusCode < 500) || error instanceof DomainError;
@@ -98,6 +140,7 @@ export async function safeExecute<T>(
             return {
                 ok: false,
                 tool: toolName,
+                ...errorFields(error),
                 error: known
                     ? `${(error as Error).message}. Nothing was changed.`
                     : `The "${toolName}" tool failed twice. Tell the user it didn't work and offer to try again.`,
@@ -123,6 +166,7 @@ export async function once<T>(
         };
     }
     const { result, id } = await write();
+    if (toolCallId.startsWith(DRY_RUN_PREFIX)) throw new DryRun(result);
     await recordMutation(tx, userId, toolCallId, id, result);
     return result;
 }

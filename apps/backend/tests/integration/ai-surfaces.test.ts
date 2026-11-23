@@ -470,3 +470,27 @@ describe("batch writes the model can undo, and a check-off it can't guess", () =
         expect((await as("ask")("set_task_state", { taskIds: [b], state: "ARCHIVED" })).updated).toBe(1); // tapped
     });
 });
+
+describe("get_tasks details", () => {
+    it("carries each task's note and steps, matching get_task_detail, in at most 10 rows", async () => {
+        const { projectId } = await call("create_project", { name: "Reading" });
+        const ids = await make(
+            Array.from({ length: 12 }, (_, i) => ({
+                title: `Book ${i}`,
+                projectId,
+                note: `Notes on book ${i}`,
+                subtasks: [`Chapter ${i}`],
+            })),
+        );
+        const page = await call("get_tasks", { projectId, sort: "list", details: true, limit: 50 });
+        expect(page.tasks).toHaveLength(10);
+        expect(page).toMatchObject({ more: true, nextOffset: 10 });
+        const detail = await call("get_task_detail", { taskId: ids[0] });
+        const row = page.tasks.find((t: any) => t.id === ids[0]);
+        expect(row.subtasks).toEqual(detail.subtasks);
+        expect(row.note).toMatchObject({ truncated: false, version: detail.note.version });
+        // In-app, note text is fenced like get_task_detail's.
+        expect(row.note.text).toContain("Notes on book 0");
+        expect(row.note.text).not.toBe("Notes on book 0");
+    });
+});

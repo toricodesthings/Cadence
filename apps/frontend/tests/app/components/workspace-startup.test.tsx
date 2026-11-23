@@ -69,7 +69,9 @@ describe("workspace startup", () => {
         expect(screen.queryByTestId("startup")).not.toBeNull();
         await act(async () => projects.resolve("Projects ready"));
         await waitFor(() => expect(screen.queryByTestId("startup")).toBeNull());
-        expect(container.querySelector("[inert]")).toBeNull();
+        // The flight starts first; the workspace shows a painted frame later.
+        expect(container.querySelector("[inert]")).not.toBeNull();
+        await waitFor(() => expect(container.querySelector("[inert]")).toBeNull());
     });
 
     it("waits for dependent queries mounted by the first response", async () => {
@@ -135,7 +137,7 @@ describe("workspace startup", () => {
         }
         const { client } = mount(<Routes />);
         await waitFor(() => expect(screen.queryByTestId("startup")).toBeNull());
-        fireEvent.click(screen.getByRole("button", { name: "Navigate" }));
+        fireEvent.click(await screen.findByRole("button", { name: "Navigate" }));
         void client.fetchQuery({ queryKey: ["later"], queryFn: () => new Promise(() => {}) });
         expect(screen.queryByTestId("startup")).toBeNull();
     });

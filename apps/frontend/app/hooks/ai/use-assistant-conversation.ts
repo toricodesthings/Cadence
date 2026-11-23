@@ -1,3 +1,4 @@
+import { newRowId } from "../../lib/api/optimistic-id";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -149,7 +150,7 @@ export function useAssistantConversation({
     const transport = useMemo(
         () =>
             makeChatTransport(
-                () => conversationIdRef.current ?? crypto.randomUUID(),
+                () => conversationIdRef.current ?? newRowId(),
                 () => clientMessageIdRef.current,
                 aiFetch,
             ),

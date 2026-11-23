@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { Button } from "../components/primitives/Button";
 import { CardPage, rise, stagger } from "../components/shared/CardPage";
+import { Loading } from "../components/shared/Loading";
 import { AvatarFace } from "../components/sharing/PersonAvatar";
 import { EmptyState } from "../components/tasks/EmptyState";
 import { useAuthState } from "../hooks/auth/use-auth-state";
@@ -42,13 +43,7 @@ export default function JoinRoute() {
     }, [already, listId, navigate]);
 
     if (!authReady || !isAuthenticated || preview.isPending || already) {
-        return (
-            <CardPage>
-                <div className="flex justify-center py-10">
-                    <LoaderCircle className="animate-spin text-twilight-text-soft" aria-label="Loading" />
-                </div>
-            </CardPage>
-        );
+        return <Loading />;
     }
     if (preview.isError || !preview.data) {
         return (

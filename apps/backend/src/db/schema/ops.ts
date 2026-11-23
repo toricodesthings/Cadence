@@ -13,14 +13,14 @@ import {
     pgPolicy,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { createdAt, timestamptz, rlsUsing } from "./columns";
+import { id, createdAt, timestamptz, rlsUsing } from "./columns";
 import { confidenceTierEnum, sourceSurfaceEnum, focusViewSourceEnum, ownerId, tasks } from "./core";
 
 // 13. Usage Events (opt-in diagnostics; the daily cron deletes events older than USAGE_EVENT_RETENTION_DAYS)
 export const usageEvents = pgTable(
     "usage_events",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         event: text("event").notNull(), // e.g. "task.complete", "task.reschedule", "habit.complete"
         metadata: jsonb("metadata").$type<Record<string, unknown>>(),
@@ -41,7 +41,7 @@ export const usageEvents = pgTable(
 export const notificationState = pgTable(
     "notification_state",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         objectType: text("object_type").notNull(), // "task" | "habit" | "event"
         objectId: uuid("object_id").notNull(),
@@ -77,7 +77,7 @@ export const notificationState = pgTable(
 export const devices = pgTable(
     "devices",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         /** Stable identity of this browser profile or app install; survives a changed push endpoint. */
         installId: text("install_id").notNull(),
@@ -114,7 +114,7 @@ export const devices = pgTable(
 export const pushDeliveries = pgTable(
     "push_deliveries",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         deviceId: uuid("device_id")
             .references(() => devices.id, { onDelete: "cascade" })
@@ -142,7 +142,7 @@ export const pushDeliveries = pgTable(
 export const mutationDedup = pgTable(
     "mutation_dedup",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         clientMutationId: text("client_mutation_id").notNull(),
         resultId: uuid("result_id"),
@@ -165,7 +165,7 @@ export const mutationDedup = pgTable(
 export const taskNlpMetadata = pgTable(
     "task_nlp_metadata",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         taskId: uuid("task_id")
             .references(() => tasks.id, { onDelete: "cascade" })
             .notNull(),
@@ -211,7 +211,7 @@ export const taskNlpMetadata = pgTable(
 export const savedFocusViews = pgTable(
     "saved_focus_views",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         name: text("name").notNull(),
         definition: jsonb("definition").$type<Record<string, unknown>>().default({}).notNull(),
@@ -238,7 +238,7 @@ export const savedFocusViews = pgTable(
 export const dataExports = pgTable(
     "data_exports",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         email: text("email").notNull(), // where it was sent, as the sign-in account had it then
         status: text("status").$type<"pending" | "sent" | "failed">().default("pending").notNull(),

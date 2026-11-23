@@ -6,16 +6,15 @@
  * (text in a screenshot is someone else's words, and could be steering the turn).
  */
 import type { ApprovalMode } from "@cadence/contracts/ai";
+import { TOOL_CATALOG, type ToolName } from "@cadence/contracts/ai-tools";
 
 /** Auto applies changes to at most this many tasks without a tap. */
 export const AUTO_TASK_LIMIT = 5;
 
-/** Reads (`get_*`, recall, search_past_chats), capture (additive, discardable), a question to the user and `remember` (it shows its own Undo receipt) run without approval in every mode. */
+/** Reads (every catalog `read`: `get_*`, find_time, fit_day, recall, search_past_chats), capture (additive, discardable), a question to the user and `remember` (it shows its own Undo receipt) run without approval in every mode. */
 function isFree(toolName: string) {
     return (
-        toolName.startsWith("get_") ||
-        toolName === "recall" ||
-        toolName === "search_past_chats" ||
+        TOOL_CATALOG[toolName as ToolName]?.kind === "read" ||
         toolName === "capture_to_inbox" ||
         toolName === "ask_user" ||
         toolName === "remember"

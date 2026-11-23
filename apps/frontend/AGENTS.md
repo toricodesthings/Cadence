@@ -136,7 +136,7 @@ A toast answers "where did it go?"
 
 ## Browser E2E
 
-- Sign in at `/auth/sign-in` with `E2E_EMAIL` / `E2E_PASSWORD` from `apps/frontend/.env`. Dev Neon branch only. Use a fresh browser context.
+- Sign in at `/auth/sign-in` with `E2E_EMAIL` / `E2E_PASSWORD` from `apps/frontend/e2e_credentials.md` (git-ignored). Dev Neon branch only. Use a fresh browser context.
 - User missing after a branch reset:
   1. `POST {VITE_NEON_AUTH_URL}/sign-up/email` with `Origin: http://localhost:8788` and `{email,password,name}`.
   2. Set `neon_auth."user"."emailVerified" = true` on the dev DB.

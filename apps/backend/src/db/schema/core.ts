@@ -17,7 +17,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { userSettingsSchema, type UserSettings } from "@cadence/contracts/settings";
 import { relations, sql } from "drizzle-orm";
-import { createdAt, timestamptz, rlsUserId, rlsUsing, memberView, memberEdit } from "./columns";
+import { id, createdAt, timestamptz, rlsUserId, rlsUsing, memberView, memberEdit } from "./columns";
 
 // Settings schema is defined once in the settings domain and imported here.
 export { userSettingsSchema as UserSettingsSchema, type UserSettings };
@@ -142,7 +142,7 @@ export const updatedBy = () => uuid("updated_by").references(() => users.id, { o
 export const userMetrics = pgTable(
     "user_metrics",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         rescheduleVelocity: real("reschedule_velocity").default(0).notNull(), // Averages how often tasks are pushed back
         currentBurnoutIndex: integer("current_burnout_index"), // 1-100 score indicating cognitive load; NULL = not enough evidence to say
@@ -196,7 +196,7 @@ const sameOwnerAsTask = sql`(user_id = (SELECT t.user_id FROM tasks t WHERE t.id
 export const taskSections = pgTable(
     "task_sections",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
         name: text("name").notNull(),
@@ -237,7 +237,7 @@ export const taskSections = pgTable(
 export const projects = pgTable(
     "projects",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         name: text("name").notNull(),
         colorAccent: text("color_accent").default("luminous-amber"), // Ties strictly to Tailwind CSS Variables
@@ -302,7 +302,7 @@ export const listMembers = pgTable(
 export const shareInvites = pgTable(
     "share_invites",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         tokenHash: text("token_hash").notNull().unique(),
         role: shareRoleEnum("role").default("view").notNull(),
         listId: uuid("list_id").references(() => projects.id, { onDelete: "cascade" }),
@@ -329,7 +329,7 @@ export const tasks = pgTable(
     "tasks",
     {
         origin: text("origin", { enum: ["thought"] }),
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
         sectionId: uuid("section_id").references(() => taskSections.id, { onDelete: "set null" }),
@@ -475,7 +475,7 @@ export const tasks = pgTable(
 export const tags = pgTable(
     "tags",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         name: text("name").notNull(),
         color: text("color").default("default"),
@@ -484,7 +484,8 @@ export const tags = pgTable(
         createdAt: createdAt(),
     },
     (table) => ({
-        userIdIdx: index("tags_user_id_idx").on(table.userId),
+        // One name, one tag (any case); also serves every by-user lookup.
+        userNameUnique: uniqueIndex("tags_user_name_unique").on(table.userId, sql`lower(${table.name})`),
         rlsPolicy: pgPolicy("tags_owner_access", {
             as: "permissive",
             for: "all",
@@ -498,7 +499,7 @@ export const tags = pgTable(
 export const taskTags = pgTable(
     "task_tags",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         taskId: uuid("task_id")
             .references(() => tasks.id, { onDelete: "cascade" })
             .notNull(),
@@ -537,7 +538,7 @@ export const taskTagsRelations = relations(taskTags, ({ one }) => ({
 export const inboxSections = pgTable(
     "inbox_sections",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         name: text("name").notNull(),
         orderIndex: integer("order_index").notNull().default(0),
@@ -557,7 +558,7 @@ export const inboxSections = pgTable(
 export const inboxItems = pgTable(
     "inbox_items",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
         sectionId: uuid("section_id").references(() => inboxSections.id, { onDelete: "set null" }),
         orderIndex: integer("order_index").notNull().default(0),
@@ -602,7 +603,7 @@ export const inboxItems = pgTable(
 export const habits = pgTable(
     "habits",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         userId: ownerId(),
 
         // Core Data
@@ -683,7 +684,7 @@ export const habits = pgTable(
 export const habitTags = pgTable(
     "habit_tags",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         habitId: uuid("habit_id")
             .references(() => habits.id, { onDelete: "cascade" })
             .notNull(),
@@ -710,7 +711,7 @@ export const habitTags = pgTable(
 export const habitLogs = pgTable(
     "habit_logs",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         habitId: uuid("habit_id")
             .references(() => habits.id, { onDelete: "cascade" })
             .notNull(),
@@ -757,7 +758,7 @@ const taskOwnedEdit = sql`(task_id IN (SELECT id FROM tasks WHERE project_id IN 
 export const subtasks = pgTable(
     "subtasks",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         taskId: uuid("task_id")
             .references(() => tasks.id, { onDelete: "cascade" })
             .notNull(),
@@ -806,7 +807,7 @@ export const subtasks = pgTable(
 export const taskNotes = pgTable(
     "task_notes",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         taskId: uuid("task_id")
             .references(() => tasks.id, { onDelete: "cascade" })
             .notNull(),
@@ -855,7 +856,7 @@ export const taskNotes = pgTable(
 export const taskMetrics = pgTable(
     "task_metrics",
     {
-        id: uuid("id").defaultRandom().primaryKey(),
+        id: id(),
         taskId: uuid("task_id")
             .references(() => tasks.id, { onDelete: "cascade" })
             .notNull(),

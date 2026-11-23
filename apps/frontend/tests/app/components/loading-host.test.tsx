@@ -74,6 +74,18 @@ describe("loading host", () => {
         expect(document.querySelector(".loading-screen")).toBeNull();
     });
 
+    it("names a late step at once when the scene has already been up long enough", async () => {
+        mockAnimate();
+        const view = render(<Boot step="session" />);
+        await wait(1000);
+        view.rerender(<Boot step="workspace" />);
+        expect(screen.getByRole("status").textContent).toBe("Preparing your workspace");
+        view.rerender(<Boot step="done" />);
+        await act(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+        await wait(flyMs());
+        expect(document.querySelector(".loading-screen")).toBeNull();
+    });
+
     it("glides back when loading resumes mid-flight", async () => {
         const { animate, reverse } = mockAnimate();
         const Step = ({ on }: { on: boolean }) => (
