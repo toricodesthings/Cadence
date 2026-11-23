@@ -386,6 +386,10 @@ export const tasks = pgTable(
         // names one completion, which is what a "how long did it take?" answer belongs to.
         completedAt: timestamptz("completed_at"),
 
+        /** Who volunteered to do this shared task ("I'll do it"), and when. NULL = nobody has taken it. */
+        takenBy: uuid("taken_by").references(() => users.id, { onDelete: "set null" }),
+        takenAt: timestamptz("taken_at"),
+
         createdBy: createdBy(),
         updatedBy: updatedBy(),
         createdAt: createdAt(),
@@ -471,6 +475,30 @@ export const tasks = pgTable(
     },
 ).enableRLS();
 
+// 5c. Per-person data on a shared task (collaborators' reminders; the owner keeps `tasks.reminder_at`).
+export const taskPersonal = pgTable(
+    "task_personal",
+    {
+        taskId: uuid("task_id")
+            .references(() => tasks.id, { onDelete: "cascade" })
+            .notNull(),
+        userId: ownerId(),
+        reminderAt: timestamptz("reminder_at"),
+        reminderSilenced: boolean("reminder_silenced").default(false).notNull(),
+        createdAt: createdAt(),
+    },
+    (table) => ({
+        pk: primaryKey({ columns: [table.taskId, table.userId] }),
+        userIdIdx: index("task_personal_user_id_idx").on(table.userId),
+        rlsPolicy: pgPolicy("task_personal_access", {
+            as: "permissive",
+            for: "all",
+            using: sql`(user_id = ${rlsUserId} AND task_id IN (SELECT id FROM tasks))`,
+            withCheck: sql`(user_id = ${rlsUserId} AND task_id IN (SELECT id FROM tasks))`,
+        }),
+    }),
+).enableRLS();
+
 // 6. Tags (User-defined labels)
 export const tags = pgTable(
     "tags",
@@ -513,8 +541,14 @@ export const taskTags = pgTable(
         rlsPolicy: pgPolicy("task_tags_owner_access", {
             as: "permissive",
             for: "all",
-            using: sql`EXISTS (SELECT 1 FROM tasks WHERE tasks.id = task_tags.task_id AND tasks.user_id = ${rlsUserId})`,
-            withCheck: sql`EXISTS (SELECT 1 FROM tasks WHERE tasks.id = task_tags.task_id AND tasks.user_id = ${rlsUserId})`,
+            using: sql`(EXISTS (SELECT 1 FROM tasks WHERE tasks.id = task_tags.task_id AND tasks.user_id = ${rlsUserId}) AND tag_id IN (SELECT id FROM tags WHERE user_id = ${rlsUserId}))`,
+            withCheck: sql`(EXISTS (SELECT 1 FROM tasks WHERE tasks.id = task_tags.task_id AND tasks.user_id = ${rlsUserId}) AND tag_id IN (SELECT id FROM tags WHERE user_id = ${rlsUserId}))`,
+        }),
+        memberAccess: pgPolicy("task_tags_member_access", {
+            as: "permissive",
+            for: "all",
+            using: sql`(tag_id IN (SELECT id FROM tags WHERE user_id = ${rlsUserId}) AND task_id IN (SELECT id FROM tasks))`,
+            withCheck: sql`(tag_id IN (SELECT id FROM tags WHERE user_id = ${rlsUserId}) AND task_id IN (SELECT id FROM tasks))`,
         }),
     }),
 ).enableRLS();

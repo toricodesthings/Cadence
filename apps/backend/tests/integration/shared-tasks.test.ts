@@ -120,7 +120,7 @@ describe("an editor", () => {
         });
     });
 
-    it("can't set tags or reminders, move a task to another list, delete for good, or change the list", async () => {
+    it("can't move a task to another list, delete for good, or change the list", async () => {
         const { owner, ownerId, list, task, editor } = await house();
         const tag = (await owner.tags("POST", "", { name: "home" })).body.data;
         const other = (await owner.projects("POST", "", { name: "Private" })).body.data;
@@ -128,33 +128,119 @@ describe("an editor", () => {
             await editor.tasks("POST", `/${task.id}/tags`, { tagId: tag.id }),
             await editor.tasks("DELETE", `/${task.id}/tags/${tag.id}`),
             await editor.tasks("POST", "", { title: "x", orderIndex: 1, projectId: list.id, tagIds: [tag.id] }),
-            await editor.tasks("POST", "", {
-                title: "x",
-                orderIndex: 1,
-                projectId: list.id,
-                reminderAt: "2030-01-01T10:00:00.000Z",
-            }),
-            await editor.tasks("PATCH", `/${task.id}`, { reminderAt: "2030-01-01T10:00:00.000Z" }),
             await editor.tasks("PATCH", `/${task.id}`, { projectId: other.id }),
             await editor.tasks("DELETE", `/${task.id}`),
             await editor.tasks("POST", "/batch/delete", { taskIds: [task.id] }),
             await editor.sections("DELETE", `/${crypto.randomUUID()}`),
         ])
             expect([403, 404], JSON.stringify(res.body)).toContain(res.status);
-        expect(
-            (await editor.tasks("PATCH", `/${task.id}`, { reminderAt: "2030-01-01T10:00:00.000Z" })).body.error.code,
-        ).toBe("OWNER_ONLY");
         expect((await editor.tasks("DELETE", `/${task.id}`)).body.error.code).toBe("OWNER_ONLY");
         expect((await editor.projects("PATCH", `/${list.id}`, { name: "Mine" })).status).toBe(403);
         expect((await editor.projects("DELETE", `/${list.id}`)).status).toBe(403);
         // The owner's other list is theirs alone.
         expect((await editor.tasks("POST", "", { title: "x", orderIndex: 1, projectId: other.id })).status).toBe(404);
-        // Tags on a shared task are the owner's: the editor sees none, the owner keeps theirs.
+        // Owner's tags stay invisible to collaborators.
         await owner.tasks("POST", `/${task.id}/tags`, { tagId: tag.id });
         expect((await editor.tasks("GET", `/${task.id}`)).body.data.tagIds).toEqual([]);
         expect((await editor.tasks("GET", `/${task.id}/tags`)).body.data).toEqual([]);
         expect((await owner.tasks("GET", `/${task.id}`)).body.data.tagIds).toEqual([tag.id]);
         expect((await owner.tasks("GET", `/${task.id}`)).body.data.userId).toBe(ownerId);
+    });
+
+    it("lets editors and viewers set their own personal reminders and tags without leaking to the owner", async () => {
+        const { owner, editor, viewer, list, task } = await house();
+        const ownerReminder = "2030-01-01T08:00:00.000Z";
+        const editorReminder = "2030-01-01T09:00:00.000Z";
+        const viewerReminder = "2030-01-01T10:00:00.000Z";
+
+        await owner.tasks("PATCH", `/${task.id}`, { reminderAt: ownerReminder });
+        // Collaborators never see the owner's reminder.
+        expect((await editor.tasks("GET", `/${task.id}`)).body.data.reminderAt).toBeNull();
+        expect((await viewer.tasks("GET", `/${task.id}`)).body.data.reminderAt).toBeNull();
+
+        // Editor and viewer each set their own personal reminder.
+        expect((await editor.tasks("PATCH", `/${task.id}`, { reminderAt: editorReminder })).status).toBe(200);
+        expect((await viewer.tasks("PATCH", `/${task.id}`, { reminderAt: viewerReminder })).status).toBe(200);
+
+        expect((await owner.tasks("GET", `/${task.id}`)).body.data.reminderAt).toBe(ownerReminder);
+        expect((await editor.tasks("GET", `/${task.id}`)).body.data.reminderAt).toBe(editorReminder);
+        expect((await viewer.tasks("GET", `/${task.id}`)).body.data.reminderAt).toBe(viewerReminder);
+        expect((await viewer.tasks("GET", `?projectId=${list.id}`)).body.data[0].reminderAt).toBe(viewerReminder);
+
+        // Clearing removes only the caller's personal reminder.
+        await viewer.tasks("PATCH", `/${task.id}`, { reminderAt: null });
+        expect((await viewer.tasks("GET", `/${task.id}`)).body.data.reminderAt).toBeNull();
+        expect((await editor.tasks("GET", `/${task.id}`)).body.data.reminderAt).toBe(editorReminder);
+
+        // Per-person tags: owner, editor, and viewer each manage only their own tags.
+        const ownerTag = (await owner.tags("POST", "", { name: "OwnerTag" })).body.data;
+        const editorTag = (await editor.tags("POST", "", { name: "EditorTag" })).body.data;
+        const viewerTag = (await viewer.tags("POST", "", { name: "ViewerTag" })).body.data;
+
+        await owner.tasks("POST", `/${task.id}/tags`, { tagId: ownerTag.id });
+        expect((await editor.tasks("POST", `/${task.id}/tags`, { tagId: editorTag.id })).status).toBe(201);
+        expect((await viewer.tasks("POST", `/${task.id}/tags`, { tagId: viewerTag.id })).status).toBe(201);
+
+        expect((await owner.tasks("GET", `/${task.id}`)).body.data.tagIds).toEqual([ownerTag.id]);
+        expect((await editor.tasks("GET", `/${task.id}`)).body.data.tagIds).toEqual([editorTag.id]);
+        expect((await viewer.tasks("GET", `/${task.id}`)).body.data.tagIds).toEqual([viewerTag.id]);
+        expect((await viewer.tasks("GET", `/${task.id}/tags`)).body.data.map((t: any) => t.id)).toEqual([viewerTag.id]);
+
+        expect((await viewer.tasks("DELETE", `/${task.id}/tags/${viewerTag.id}`)).status).toBe(200);
+        expect((await viewer.tasks("GET", `/${task.id}`)).body.data.tagIds).toEqual([]);
+        expect((await editor.tasks("GET", `/${task.id}`)).body.data.tagIds).toEqual([editorTag.id]);
+
+        // Editor creating a task with their own tag + reminder works and doesn't leak to owner.
+        const created = await editor.tasks("POST", "", {
+            title: "Milk",
+            orderIndex: 2,
+            projectId: list.id,
+            tagIds: [editorTag.id],
+            reminderAt: editorReminder,
+        });
+        expect(created.status).toBe(201);
+        expect(created.body.data.tagIds).toEqual([editorTag.id]);
+        expect(created.body.data.reminderAt).toBe(editorReminder);
+        const ownerRead = (await owner.tasks("GET", `/${created.body.data.id}`)).body.data;
+        expect(ownerRead.tagIds).toEqual([]);
+        expect(ownerRead.reminderAt).toBeNull();
+    });
+
+    it("supports taking ('I'll do it'), untaking, owner clearing, and clearing on leave", async () => {
+        const { ownerId, editorId, viewerId, list, task, owner, editor, viewer } = await house();
+
+        // Editor takes it.
+        const taken = await editor.tasks("PATCH", `/${task.id}`, { takenBy: editorId });
+        expect(taken.status).toBe(200);
+        expect(taken.body.data.takenBy).toBe(editorId);
+        expect(taken.body.data.takenAt).toBeTruthy();
+
+        // Cannot assign to someone else.
+        const assignOther = await owner.tasks("PATCH", `/${task.id}`, { takenBy: viewerId });
+        expect(assignOther.status).toBe(403);
+        expect(assignOther.body.error.code).toBe("TAKE_SELF_ONLY");
+
+        // Viewer cannot take.
+        const viewerTake = await viewer.tasks("PATCH", `/${task.id}`, { takenBy: viewerId });
+        expect(viewerTake.status).toBe(403);
+        expect(viewerTake.body.error.code).toBe("VIEW_ONLY");
+
+        // Owner can clear editor's take.
+        const cleared = await owner.tasks("PATCH", `/${task.id}`, { takenBy: null });
+        expect(cleared.status).toBe(200);
+        expect(cleared.body.data.takenBy).toBeNull();
+        expect(cleared.body.data.takenAt).toBeNull();
+
+        // Owner takes it; editor cannot clear owner's take.
+        await owner.tasks("PATCH", `/${task.id}`, { takenBy: ownerId });
+        const editorClearOwner = await editor.tasks("PATCH", `/${task.id}`, { takenBy: null });
+        expect(editorClearOwner.status).toBe(403);
+        expect(editorClearOwner.body.error.code).toBe("OWNER_ONLY");
+
+        // Editor takes it, then leaves the list -> take is cleared.
+        await editor.tasks("PATCH", `/${task.id}`, { takenBy: editorId });
+        expect((await editor.lists("DELETE", `/${list.id}/members/${editorId}`)).status).toBe(200);
+        expect((await owner.tasks("GET", `/${task.id}`)).body.data.takenBy).toBeNull();
     });
 
     it("never trains the owner's models", async () => {
@@ -274,15 +360,5 @@ describe("Today, Upcoming and Schedule", () => {
         expect((await editor.tasks("GET", "?state=ARCHIVED")).body.data).toEqual([]);
         expect((await owner.tasks("GET", "?state=ARCHIVED")).body.data.map((t: any) => t.id)).toEqual([dated.id]);
         expect(ownerId).not.toBe(editorId);
-    });
-
-    it("leaves the assistant, planning and metrics reads to each person's own tasks", async () => {
-        const { editorId, list, editor } = await house();
-        await editor.tasks("POST", "", { title: "Buy milk", orderIndex: 2, projectId: list.id, dueDate: "2030-03-04" });
-        // The same service the assistant's tools call, without the shared option.
-        const own = await withRls(getTestDb(), editorId, (tx) =>
-            readTasks(tx, editorId, { from: "2030-03-04", to: "2030-03-04" }),
-        );
-        expect(own).toEqual([]);
     });
 });

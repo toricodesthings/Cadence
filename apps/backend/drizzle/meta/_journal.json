@@ -211,6 +211,13 @@
       "when": 1795406869753,
       "tag": "0029_uuidv7_and_tag_names",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1795472714021,
+      "tag": "0030_sharing_personal",
+      "breakpoints": true
     }
   ]
 }

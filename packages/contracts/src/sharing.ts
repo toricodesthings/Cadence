@@ -47,4 +47,5 @@ export const invitePreviewQuerySchema = z.object({ token: inviteTokenSchema });
 export const setMemberRoleSchema = z.object({ role: shareRoleSchema });
 /** What a link lets people do once they join. No body: they can view. */
 export const createInviteSchema = z.object({ role: shareRoleSchema.default("view") });
+export const transferListSchema = z.object({ userId: z.uuid() });
 export const listMemberParamSchema = z.object({ id: z.uuid(), userId: z.uuid() });

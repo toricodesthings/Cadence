@@ -9,7 +9,7 @@ import { memberView } from "../../db/schema/columns";
 import type { Tx } from "../../types/db";
 import { userZone } from "../../platform/user-zone";
 import { hasNoDay, inDayWindow, onOrBefore } from "./task-filters";
-import { toTask } from "./tasks.service";
+import { overlayPersonalReminders, toTask } from "./tasks.service";
 
 type ReadFilters = TaskFilters & { limit?: number; offset?: number };
 
@@ -85,8 +85,9 @@ export async function readTasks(tx: Tx, userId: string, filters: ReadFilters, op
         ...(isScheduleScopedTaskQuery(filters) ? {} : { limit: filters.limit, offset: filters.offset }),
         with: tagLinks,
     });
+    const overlaid = await overlayPersonalReminders(tx, userId, rows);
     return finishTaskList(
-        rows.map(({ tags: links, ...row }) =>
+        overlaid.map(({ tags: links, ...row }) =>
             toTask(
                 row,
                 links.map((link) => link.tagId),
@@ -125,8 +126,9 @@ export async function readTaskBatch(
             },
         }),
     );
+    const overlaid = await overlayPersonalReminders(tx, userId, rows);
     const buckets: Task[][] = filters.map(() => []);
-    for (const { tags: links, batchMatches, ...row } of rows) {
+    for (const { tags: links, batchMatches, ...row } of overlaid) {
         const task = toTask(
             row,
             links.map((link) => link.tagId),

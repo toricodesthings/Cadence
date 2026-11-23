@@ -408,29 +408,28 @@ export const replanAfterWrites: MiddlewareHandler<{ Bindings: Env; Variables: Au
         c.executionCtx.waitUntil(Promise.all(others.map((id) => tellPerson(c.env, id, callerId, origin, changes))));
 };
 
-/** One person who isn't the writer: their own tasks replan their clock (with their tags), anything else is a ping. */
-async function tellPerson(env: Env, id: string, writerId: string, origin: string | undefined, changes: LiveChange[]) {
+/** One person who isn't the writer: their own tasks replan their clock, and every recipient gets only their own tags. */
+async function tellPerson(env: Env, id: string, _writerId: string, origin: string | undefined, changes: LiveChange[]) {
     const owns = changes.some((change) => change.type === "task" && change.task.userId === id);
-    const shaped = owns ? await withOwnerTags(env, id, changes) : changes.map((change) => shapeFor(change, id));
+    const shaped = await withRecipientTags(env, id, changes);
     if (owns) return replanReminders(env, id, { origin, changes: shaped });
     return pingLive(env, id, { origin, changes: shaped });
 }
 
-/** A collaborator's row has no tags (RLS hides the owner's); the owner's copy gets the real ones. Best-effort: on failure the row goes without. */
-async function withOwnerTags(env: Env, ownerId: string, changes: LiveChange[]): Promise<LiveChange[]> {
-    const theirs = changes.flatMap((change) =>
-        change.type === "task" && change.task.userId === ownerId ? [change.task.id] : [],
-    );
-    if (!theirs.length) return changes;
+/** Shape changes for `recipientId` and attach only that recipient's own tag ids (via their RLS). */
+async function withRecipientTags(env: Env, recipientId: string, changes: LiveChange[]): Promise<LiveChange[]> {
+    const base = changes.map((change) => shapeFor(change, recipientId));
+    const taskIds = base.flatMap((change) => (change.type === "task" ? [change.task.id] : []));
+    if (!taskIds.length) return base;
     try {
-        const links = await withRls(getDbClient(env), ownerId, (tx) =>
+        const links = await withRls(getDbClient(env), recipientId, (tx) =>
             tx
                 .select({ taskId: taskTags.taskId, tagId: taskTags.tagId })
                 .from(taskTags)
-                .where(inArray(taskTags.taskId, theirs)),
+                .where(inArray(taskTags.taskId, taskIds)),
         );
-        return changes.map((change) =>
-            change.type === "task" && change.task.userId === ownerId
+        return base.map((change) =>
+            change.type === "task"
                 ? {
                       ...change,
                       task: {
@@ -441,7 +440,7 @@ async function withOwnerTags(env: Env, ownerId: string, changes: LiveChange[]): 
                 : change,
         );
     } catch {
-        // Without the tags the row would erase the owner's: tell them to refetch instead.
+        // Without the recipient's tags the row would erase them: tell them to refetch instead.
         return [];
     }
 }

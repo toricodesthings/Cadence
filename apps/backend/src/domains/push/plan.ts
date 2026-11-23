@@ -4,7 +4,7 @@
  * The plan is derived and disposable: any write rebuilds it. The rulebook (`deriveReminders`, `dueAlert`) is
  * the same one the app uses; this only asks it at the instants where its answer can change.
  */
-import { and, between, eq, gt, inArray, isNotNull, or, sql } from "drizzle-orm";
+import { and, between, eq, gt, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
 import { addDays, atLocal, formatInZone, todayIn, type Zone } from "@cadence/domain/time";
 import {
     deriveReminders,
@@ -18,7 +18,16 @@ import { habitDays } from "@cadence/domain/repeats";
 import type { PersonalEvent, SettingsView } from "@cadence/contracts/settings";
 import { withRls } from "../../platform/rls";
 import { userZone } from "../../platform/user-zone";
-import { devices, habitLogs, habits, notificationState, pushDeliveries, tasks, users } from "../../db/schema";
+import {
+    devices,
+    habitLogs,
+    habits,
+    notificationState,
+    pushDeliveries,
+    taskPersonal,
+    tasks,
+    users,
+} from "../../db/schema";
 import { normalizeSettings } from "../settings/settings.route";
 import type { PushMessage, PushOutcome } from "./web-push";
 import type { DbClient } from "../../platform/db";
@@ -236,6 +245,40 @@ export async function loadReminderPlan(db: DbClient, userId: string, now: Date):
                     ),
                 ),
             );
+
+        // Personal reminders set by this user on tasks in shared lists they don't own.
+        const personalRows = await tx
+            .select({
+                id: tasks.id,
+                title: tasks.title,
+                state: tasks.state,
+                projectId: tasks.projectId,
+                reminderAt: taskPersonal.reminderAt,
+                reminderSilenced: taskPersonal.reminderSilenced,
+                createdAt: taskPersonal.createdAt,
+                interactionMode: tasks.interactionMode,
+            })
+            .from(taskPersonal)
+            .innerJoin(tasks, eq(taskPersonal.taskId, tasks.id))
+            .where(
+                and(
+                    eq(taskPersonal.userId, userId),
+                    ne(tasks.userId, userId),
+                    eq(tasks.state, "ACTIVE"),
+                    sql`${taskPersonal.reminderAt} BETWEEN ${from}::timestamptz AND ${to}::timestamptz`,
+                ),
+            );
+        for (const row of personalRows) {
+            taskRows.push({
+                ...row,
+                dueDate: null,
+                waitingOn: null,
+                waitingReminder: null,
+                scheduledStart: null,
+                scheduledEnd: null,
+                recurrenceRule: null,
+            });
+        }
 
         // Every reminding routine, and the logs already made for the plan's days.
         const habitRows: HabitRow[] = await tx

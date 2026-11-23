@@ -171,6 +171,44 @@ describe("authorize", () => {
     });
 });
 
+describe("Code Mode path", () => {
+    it("/mcp/code is the same OAuth resource: unauthenticated → 401 pointing at the /mcp metadata, and a /mcp token works there", async () => {
+        const t = await setup();
+        const provider = mcpProvider(t.env);
+        const bare = await provider.fetch(new Request(`${ORIGIN}/mcp/code`, { method: "POST" }), t.env, ctx);
+        expect(bare.status).toBe(401);
+        expect(bare.headers.get("www-authenticate")).toContain(
+            `resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/mcp"`,
+        );
+
+        const userId = await createUser();
+        const { state, cookie, approval } = await approved(t, userId);
+        const back = new URL((await t.callback(state, cookie, approval)).headers.get("location")!);
+        const issued = (await (
+            await t.token({
+                grant_type: "authorization_code",
+                code: back.searchParams.get("code")!,
+                redirect_uri: REDIRECT,
+                code_verifier: t.verifier,
+            })
+        ).json()) as { access_token: string };
+        const authed = await provider.fetch(
+            new Request(`${ORIGIN}/mcp/code`, {
+                method: "POST",
+                headers: {
+                    authorization: `Bearer ${issued.access_token}`,
+                    "content-type": "application/json",
+                    accept: "application/json, text/event-stream",
+                },
+                body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+            }),
+            t.env,
+            ctx,
+        );
+        expect(authed.status).toBe(200);
+    });
+});
+
 describe("approval and callback", () => {
     it("approve → callback → token with PKCE: one connection row, a working token", async () => {
         const t = await setup();

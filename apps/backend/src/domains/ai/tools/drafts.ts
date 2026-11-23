@@ -5,6 +5,15 @@
  * is rejected); a time means a timed block (`scheduledStart` instant with offset) or a reminder.
  */
 import { z } from "zod";
+
+/** Shared paging offset schema across AI read tools. */
+export const offsetSchema = z
+    .number()
+    .int()
+    .min(0)
+    .max(100_000)
+    .optional()
+    .describe("From nextOffset; omit for the first page.");
 import { saidSchema } from "./said";
 import { insertTagSchema } from "@cadence/contracts/tag";
 import { insertTaskSchema, taskPrioritySchema, updateTaskSchema } from "@cadence/contracts/task";

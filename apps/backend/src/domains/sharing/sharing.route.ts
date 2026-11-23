@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { count, eq } from "drizzle-orm";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import {
     createInviteSchema,
@@ -6,14 +7,27 @@ import {
     joinListSchema,
     listMemberParamSchema,
     setMemberRoleSchema,
+    transferListSchema,
 } from "@cadence/contracts/sharing";
+import { tasks } from "../../db/schema";
+import { getDbClient } from "../../platform/db";
+import { withRls } from "../../platform/rls";
 import { withCallerRls } from "../../platform/caller-rls";
-import { listAccess, noteAudience, noteChange, requireOwner, type ListAccess } from "../../platform/list-access";
+import {
+    assertListRoom,
+    listAccess,
+    noteAudience,
+    noteChange,
+    requireOwner,
+    type ListAccess,
+} from "../../platform/list-access";
+import { assertRowRoom } from "../../platform/storage-ceiling";
 import type { Tx } from "../../types/db";
 import { AppError } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
 import type { AuthVariables } from "../../platform/auth";
 import { appOrigin, type Env } from "../../types/env";
+import { replanReminders } from "../push/reminder-clock";
 import {
     createInvite,
     joinList,
@@ -23,6 +37,7 @@ import {
     resetInvites,
     setMemberRole,
     stopSharing,
+    transferList,
 } from "./sharing.service";
 
 type RouteContext = Context<{ Bindings: Env; Variables: AuthVariables }>;
@@ -73,6 +88,39 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
             return c.json({ data: { url: `${appOrigin(c.env)}/join/${token}`, expiresAt } }, 201);
         },
     )
+    .post(
+        "/:id/transfer",
+        apiValidator("param", uuidParamSchema),
+        apiValidator("json", transferListSchema),
+        async (c) => {
+            const { id } = c.req.valid("param");
+            const { userId: toUserId } = c.req.valid("json");
+            const callerId = c.get("userId");
+            const db = getDbClient(c.env);
+
+            // Check owner, membership and list size first.
+            const { taskCount } = await withRls(db, callerId, async (tx) => {
+                const access = await listAccess(tx, callerId, id);
+                requireOwner(access);
+                if (toUserId === callerId || !access.audience.includes(toUserId)) {
+                    throw new AppError(404, "NOT_FOUND", "Person not found in this list");
+                }
+                await assertListRoom(tx, id, 0);
+                const [{ n }] = await tx.select({ n: count() }).from(tasks).where(eq(tasks.projectId, id));
+                return { taskCount: n };
+            });
+
+            // Check the new owner's account ceilings under their own RLS.
+            await withRls(db, toUserId, async (tx) => {
+                await assertRowRoom(tx, toUserId, "lists", 1);
+                if (taskCount > 0) await assertRowRoom(tx, toUserId, "tasks", taskCount);
+            });
+
+            await ownerChange(c, id, (tx) => transferList(tx, id, toUserId));
+            c.executionCtx.waitUntil(replanReminders(c.env, toUserId));
+            return c.json({ data: { listId: id } });
+        },
+    )
     .patch(
         "/:id/members/:userId",
         apiValidator("param", listMemberParamSchema),
@@ -80,7 +128,7 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         async (c) => {
             const { id, userId: memberId } = c.req.valid("param");
             const { role } = c.req.valid("json");
-            const member = await ownerChange(c, id, (tx) => setMemberRole(tx, id, memberId, role));
+            const member = await ownerChange(c, id, (tx, userId) => setMemberRole(tx, userId, id, memberId, role));
             return c.json({ data: member });
         },
     )
@@ -115,7 +163,7 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
             if (memberId !== userId) requireOwner(access);
             else if (access.role === "owner")
                 throw new AppError(403, "OWNER_ONLY", "The owner can stop sharing, not leave.");
-            await removeMember(tx, id, memberId);
+            await removeMember(tx, access, memberId);
             return access;
         });
         noteAudience(c, access);

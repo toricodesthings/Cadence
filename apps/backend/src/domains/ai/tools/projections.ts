@@ -62,6 +62,12 @@ export interface MinimalTask {
     effortGuess?: "low" | "medium" | "high";
     /** What a finished task took, as they said it: minutes, or a range like "30–60". */
     took?: number | string;
+    /** True when the task sits in a shared list. */
+    shared?: true;
+    /** Name of the person who added the task (shared lists only). */
+    createdBy?: string;
+    /** Name of the person who volunteered to do it (shared lists only). */
+    takenBy?: string;
 }
 
 /** The task columns the projection reads (a full row fits; `content` is dropped). */
@@ -92,6 +98,9 @@ export type TaskRow = Pick<
         tagNames?: string[];
         listName?: string | null;
         sectionName?: string | null;
+        shared?: boolean;
+        createdByName?: string | null;
+        takenByName?: string | null;
     };
 
 const EFFORT_WORDS = { 1: "low", 2: "medium", 3: "high" } as const;
@@ -142,6 +151,9 @@ export function toMinimalTask(
         takesAbout: hint?.takesAbout,
         took: hint?.took,
         effortGuess: hint?.effortGuess && EFFORT_WORDS[hint.effortGuess],
+        shared: row.shared || undefined,
+        createdBy: unset(row.createdByName),
+        takenBy: unset(row.takenByName),
     };
 }
 
@@ -164,6 +176,7 @@ export type ProjectRow = Pick<ProjectRecord, "id" | "name" | "emoji" | "colorAcc
 export type MinimalProject = ProjectRow & {
     openTasks?: number;
     sections: { id: string; name: string; openTasks?: number }[];
+    shared?: { role: "owner" | "edit" | "view"; people: { name: string | null; role: "owner" | "edit" | "view" }[] };
 };
 
 /** A list with its sections (board columns), in order. */
@@ -172,6 +185,7 @@ export function toMinimalProject(
     sections: { id: string; name: string; projectId: string | null }[] = [],
     /** Open tasks keyed by `projectId` and `projectId|sectionId`; adds `openTasks` (0 when none). */
     counts?: Map<string, number>,
+    shared?: MinimalProject["shared"],
 ): MinimalProject {
     const open = (key: string) => (counts ? { openTasks: counts.get(key) ?? 0 } : {});
     return {
@@ -180,6 +194,7 @@ export function toMinimalProject(
         emoji: row.emoji,
         colorAccent: row.colorAccent,
         ...open(row.id),
+        ...(shared && { shared }),
         sections: sections
             .filter((s) => s.projectId === row.id)
             .map(({ id, name }) => ({ id, name, ...open(`${row.id}|${id}`) })),

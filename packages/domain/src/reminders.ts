@@ -231,7 +231,8 @@ function waitingFollowUp(task: ReminderTask, { now, zone, fmt, today }: DeriveCo
  * task made after that moment (it would announce what the user just typed).
  */
 function deadlineReminders(task: ReminderTask, ctx: DeriveContext): Reminder[] {
-    if (!task.dueDate) return [];
+    // A Fixed block just passes: nothing is owed, so a stray dueDate never says "due" or "overdue".
+    if (!task.dueDate || task.interactionMode === "timetable") return [];
     const { zone, fmt, prefs, today } = ctx;
     const dueDate = task.dueDate;
     const items: Reminder[] = [];

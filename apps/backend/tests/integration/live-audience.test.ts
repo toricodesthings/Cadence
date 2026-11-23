@@ -41,6 +41,8 @@ async function house() {
 describe("who hears of a write", () => {
     it("tells the owner and every other member, not the writer's own copy, and shapes each row per person", async () => {
         const { ownerId, editorId, viewerId, task, tag } = await house();
+        const viewerTag = (await apiAs(viewerId, "/tags", tagRoutes)("POST", "", { name: "mine" })).body.data;
+        await apiAs(viewerId, "/tasks", taskRoutes)("POST", `/${task.id}/tags`, { tagId: viewerTag.id });
         const events: Event[] = [];
         const editor = liveAsWithMiddleware(editorId, events);
         const res = await editor("PATCH", `/tasks/${task.id}`, { title: "Paint it blue" });
@@ -61,9 +63,12 @@ describe("who hears of a write", () => {
             tagIds: [tag.id],
             updatedBy: editorId,
         });
-        // Another member: a ping with the row, without the owner's tags.
+        // Another member: a ping with the row carrying only their own tags, never the owner's.
         expect(byRecipient[viewerId]).toMatchObject({ kind: "ping" });
-        expect(byRecipient[viewerId].changes?.[0].task).toMatchObject({ title: "Paint it blue", tagIds: [] });
+        expect(byRecipient[viewerId].changes?.[0].task).toMatchObject({
+            title: "Paint it blue",
+            tagIds: [viewerTag.id],
+        });
     });
 
     it("pings the whole audience, the removed person included, when someone is removed", async () => {

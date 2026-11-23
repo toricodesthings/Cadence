@@ -6,8 +6,13 @@ import { tokenOf } from "../helpers/sharing";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
 import { shareRoleEnum } from "../../src/db/schema";
+import { searchRoutes } from "../../src/domains/decisions/search.route";
+import { noteRoutes } from "../../src/domains/notes/notes.route";
 import { projectRoutes } from "../../src/domains/projects/projects.route";
+import { sectionRoutes } from "../../src/domains/sections/sections.route";
 import { sharingRoutes } from "../../src/domains/sharing/sharing.route";
+import { subtaskRoutes } from "../../src/domains/subtasks/subtasks.route";
+import { taskRoutes } from "../../src/domains/tasks/tasks.route";
 import { shareRoleSchema } from "@cadence/contracts/sharing";
 
 beforeAll(startTestDb);
@@ -239,5 +244,124 @@ describe("people and roles", () => {
         expect((await apiAs(owner, "/projects", projectRoutes)("GET", "")).body.data).toMatchObject([
             { id: list.id, members: [] },
         ]);
+    });
+});
+
+describe("transferring ownership", () => {
+    it("re-owns every row, swaps roles, moves reminders both ways, drops learning, clears invites, and guards permissions", async () => {
+        const { owner, list, as, link, join } = await house();
+        const ben = await createUser({ name: "Ben" });
+        const outsider = await createUser({ name: "Outsider" });
+        const url = await link();
+        await join(ben, url);
+
+        const ownerTasks = apiAs(owner, "/tasks", taskRoutes);
+        const benTasks = apiAs(ben, "/tasks", taskRoutes);
+        const ownerSections = apiAs(owner, "/sections", sectionRoutes);
+        const ownerSteps = apiAs(owner, "", subtaskRoutes);
+        const ownerNotes = apiAs(owner, "", noteRoutes);
+
+        const section = (await ownerSections("POST", "", { name: "Kitchen", orderIndex: 1, projectId: list.id })).body
+            .data;
+        const ownerRem = "2030-02-01T08:00:00.000Z";
+        const benRem = "2030-02-01T09:00:00.000Z";
+        const task = (
+            await ownerTasks("POST", "", {
+                title: "Fix sink",
+                orderIndex: 1,
+                projectId: list.id,
+                sectionId: section.id,
+                reminderAt: ownerRem,
+            })
+        ).body.data;
+        await ownerSteps("POST", `/tasks/${task.id}/subtasks`, { title: "Wrench", orderIndex: 1 });
+        await ownerNotes("PATCH", `/tasks/${task.id}/note`, { body: "Check gasket", expectedVersion: 0 });
+        await benTasks("PATCH", `/${task.id}`, { reminderAt: benRem });
+
+        // Seed learning rows for the old owner.
+        await asOwner(async (pg) => {
+            await pg.query("INSERT INTO task_metrics (task_id, user_id) VALUES ($1, $2)", [task.id, owner]);
+            await pg.query(
+                "INSERT INTO task_nlp_metadata (task_id, user_id, raw_input, cleaned_title) VALUES ($1, $2, 'Fix sink', 'Fix sink')",
+                [task.id, owner],
+            );
+            await pg.query("INSERT INTO ai_memory_notes (user_id, task_id, line_hashes) VALUES ($1, $2, ARRAY['h1'])", [
+                owner,
+                task.id,
+            ]);
+        });
+
+        // Non-owner -> 403; non-member -> 404.
+        expect((await as(ben)("POST", `/${list.id}/transfer`, { userId: owner })).status).toBe(403);
+        expect((await as(owner)("POST", `/${list.id}/transfer`, { userId: outsider })).status).toBe(404);
+
+        // Transfer to Ben.
+        const res = await as(owner)("POST", `/${list.id}/transfer`, { userId: ben });
+        expect(res.status).toBe(200);
+        expect(res.body.data).toEqual({ listId: list.id });
+
+        // Every row is now Ben's, old owner is an editor, reminders moved both ways.
+        expect((await benTasks("GET", `/${task.id}`)).body.data).toMatchObject({
+            userId: ben,
+            reminderAt: benRem,
+        });
+        expect((await ownerTasks("GET", `/${task.id}`)).body.data).toMatchObject({
+            userId: ben,
+            reminderAt: ownerRem,
+        });
+
+        const people = (await as(ben)("GET", `/${list.id}/people`)).body.data;
+        expect(people).toEqual([
+            expect.objectContaining({ userId: ben, role: "owner" }),
+            expect.objectContaining({ userId: owner, role: "edit" }),
+        ]);
+
+        // Learning rows are gone and invites are cleared.
+        const counts = await asOwner(async (pg) => ({
+            metrics: (await pg.query("SELECT 1 FROM task_metrics WHERE task_id = $1", [task.id])).rows.length,
+            nlp: (await pg.query("SELECT 1 FROM task_nlp_metadata WHERE task_id = $1", [task.id])).rows.length,
+            memNotes: (await pg.query("SELECT 1 FROM ai_memory_notes WHERE task_id = $1", [task.id])).rows.length,
+            invites: (await pg.query("SELECT 1 FROM share_invites WHERE list_id = $1", [list.id])).rows.length,
+            subtasksOwner: (await pg.query<any>("SELECT user_id FROM subtasks WHERE task_id = $1", [task.id])).rows[0]
+                .user_id,
+            notesOwner: (await pg.query<any>("SELECT user_id FROM task_notes WHERE task_id = $1", [task.id])).rows[0]
+                .user_id,
+        }));
+        expect(counts).toEqual({
+            metrics: 0,
+            nlp: 0,
+            memNotes: 0,
+            invites: 0,
+            subtasksOwner: ben,
+            notesOwner: ben,
+        });
+    });
+});
+
+describe("shared note search", () => {
+    it("returns shared note terms to members and hides them from non-members", async () => {
+        const { owner, list, join } = await house();
+        const ben = await createUser();
+        const outsider = await createUser();
+        await join(ben);
+
+        const task = (
+            await apiAs(owner, "/tasks", taskRoutes)("POST", "", {
+                title: "Paint",
+                orderIndex: 1,
+                projectId: list.id,
+            })
+        ).body.data;
+        await apiAs(owner, "", noteRoutes)("PATCH", `/tasks/${task.id}/note`, {
+            body: "Buy cerulean primer",
+            expectedVersion: 0,
+        });
+
+        const benNotes = (await apiAs(ben, "/search", searchRoutes)("GET", "/task-notes")).body.data;
+        expect(benNotes).toEqual([
+            expect.objectContaining({ taskId: task.id, terms: expect.arrayContaining(["cerulean"]) }),
+        ]);
+        const outsiderNotes = (await apiAs(outsider, "/search", searchRoutes)("GET", "/task-notes")).body.data;
+        expect(outsiderNotes).toEqual([]);
     });
 });

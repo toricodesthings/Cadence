@@ -50,6 +50,7 @@ import {
     deleteTrashedTasks,
     duplicateTask,
     justCompleted,
+    overlayPersonalReminders,
     placeTasks,
     rescheduleTasks,
     setTaskState,
@@ -58,6 +59,7 @@ import {
     toTask,
     trackTaskChanges,
     updateTask,
+    upsertPersonalReminder,
     withTagIds,
     type TaskSlot,
 } from "./tasks.service";
@@ -109,15 +111,6 @@ function actingAs(access: ListAccess | null, userId: string) {
     requireEdit(access);
     const ownerId = access?.ownerId ?? userId;
     return { ownerId, guest: ownerId !== userId };
-}
-
-/** Tags and reminders on a shared task belong to its owner. */
-function requireOwnerFields(
-    guest: boolean,
-    body: { tagIds?: unknown[]; reminderAt?: unknown; reminderSilenced?: unknown },
-) {
-    if (guest && (body.tagIds?.length || body.reminderAt != null || body.reminderSilenced === true))
-        throw new AppError(403, "OWNER_ONLY", "Only the owner of this list can set tags or reminders on its tasks.");
 }
 
 /** Tell everyone who can read the list, and push the rows this write returned. */
@@ -295,13 +288,12 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const idempotencyKey = getIdempotencyKey(c);
         const db = getDbClient(c.env);
 
-        const { task, access, guest } = await withRls(db, userId, async (tx) => {
+        const { task, broadcast, access, guest } = await withRls(db, userId, async (tx) => {
             let access = body.projectId ? await listAccess(tx, userId, body.projectId) : null;
             const { ownerId, guest } = actingAs(access, userId);
-            requireOwnerFields(guest, { tagIds, ...body });
             // Idempotency: return existing result if this mutation was already processed
             const replayed = await replayedTask(tx, userId, idempotencyKey, ownerId);
-            if (replayed) return { task: replayed, access, guest };
+            if (replayed) return { task: replayed, broadcast: replayed, access, guest };
             if (guest) await assertListRoom(tx, access!.listId);
 
             const fromWords = nlp ? await parseCreateNlp(tx, userId, nlp) : null;
@@ -327,24 +319,30 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                           zone,
                       )
                     : null;
-            // The words name the caller's own lists and tags: in someone else's list they place nothing.
+            // In someone else's list, NLP doesn't move the task to another list, though the caller's own tags still apply.
             const inferred =
-                inferredFromWords && guest
-                    ? { ...inferredFromWords, projectId: undefined, tagIds: [] }
-                    : inferredFromWords;
+                inferredFromWords && guest ? { ...inferredFromWords, projectId: undefined } : inferredFromWords;
 
             const allTagIds = Array.from(new Set([...(tagIds ?? []), ...(inferred?.tagIds ?? [])]));
+            const guestReminder = guest
+                ? { reminderAt: body.reminderAt ?? null, reminderSilenced: body.reminderSilenced }
+                : null;
+            const sharedFields = guest ? { ...body, reminderAt: null, reminderSilenced: false } : body;
             const taskBody = inferred
-                ? withInferred(body, inferred, zone)
+                ? withInferred(sharedFields, inferred, zone)
                 : {
-                      ...body,
-                      ...temporalColumns(body, zone),
+                      ...sharedFields,
+                      ...temporalColumns(sharedFields, zone),
                   };
 
             // A list named in the words is the caller's own, but it may be one they share.
             if (taskBody.projectId && taskBody.projectId !== body.projectId)
                 access = await listAccess(tx, userId, taskBody.projectId);
-            const { row, tagIds: storedTagIds } = await createTask(tx, ownerId, taskBody, allTagIds);
+            const { row, tagIds: storedTagIds } = await createTask(tx, ownerId, taskBody, allTagIds, userId);
+            const personal =
+                guestReminder && guestReminder.reminderAt !== null
+                    ? await upsertPersonalReminder(tx, userId, row.id, guestReminder)
+                    : null;
 
             // Someone else's actions never train the owner's models (and the row isn't the caller's own).
             if (parsed && !guest) {
@@ -352,10 +350,12 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             }
 
             await recordMutation(tx, userId, idempotencyKey, row.id);
-            return { task: toTask(row, storedTagIds), access, guest };
+            const broadcast = toTask(row, storedTagIds);
+            const task = personal ? { ...broadcast, ...personal } : broadcast;
+            return { task, broadcast, access, guest };
         });
 
-        announce(c, [access], [task]);
+        announce(c, [access], [broadcast]);
         if (!guest) {
             trackTaskChanges((p) => c.executionCtx.waitUntil(p), db, userId, { created: [task.id] });
             c.executionCtx.waitUntil(suggestEffortGuess(c.env, userId, task.id));
@@ -368,8 +368,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { tagId } = c.req.valid("json");
 
         const association = await withCallerRls(c, async (tx, userId) => {
-            requireOwner(await taskAccess(tx, userId, id));
-            await assertTaskOwnership(tx, userId, id);
+            await taskAccess(tx, userId, id);
 
             const [tag] = await tx
                 .select({ id: tags.id })
@@ -448,28 +447,63 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         let from = new Map<string, TaskSlot>();
         const {
             task: updated,
+            broadcast,
             access,
             guest,
         } = await withRls(db, userId, async (tx) => {
             const [{ access }] = await tasksByOwner(tx, userId, [id]);
-            const { ownerId, guest } = actingAs(access, userId);
-            if (guest) {
-                requireOwnerFields(guest, {
-                    reminderAt: body.reminderAt,
-                    reminderSilenced: body.reminderSilenced === undefined ? false : true,
-                });
-                if (body.projectId !== undefined && body.projectId !== access!.listId)
-                    throw new AppError(
-                        403,
-                        "OWNER_ONLY",
-                        "Only the owner of this list can move its tasks to another list.",
-                    );
+            const ownerId = access?.ownerId ?? userId;
+            const guest = ownerId !== userId;
+            const { reminderAt, reminderSilenced, ...sharedBody } = body;
+            const hasPersonal = reminderAt !== undefined || reminderSilenced !== undefined;
+            const hasShared = Object.keys(sharedBody).length > 0;
+
+            if (guest && hasPersonal && !hasShared) {
+                // Any member (including viewers) can set their own personal reminder without editing the shared task.
+                await upsertPersonalReminder(tx, userId, id, { reminderAt, reminderSilenced });
+                const rows = await overlayPersonalReminders(
+                    tx,
+                    userId,
+                    await tx.select().from(tasks).where(eq(tasks.id, id)),
+                );
+                const [task] = await withTagIds(tx, rows);
+                throwIfNotFound(task, "Task");
+                return { task, broadcast: null, access, guest };
+            }
+
+            requireEdit(access);
+            if (guest && body.projectId !== undefined && body.projectId !== access!.listId) {
+                throw new AppError(
+                    403,
+                    "OWNER_ONLY",
+                    "Only the owner of this list can move its tasks to another list.",
+                );
+            }
+            if (body.takenBy !== undefined) {
+                if (body.takenBy !== null && body.takenBy !== userId) {
+                    throw new AppError(403, "TAKE_SELF_ONLY", "You can only take a task for yourself.");
+                }
+                if (body.takenBy === null) {
+                    const [current] = await tx
+                        .select({ takenBy: tasks.takenBy })
+                        .from(tasks)
+                        .where(and(eq(tasks.id, id), eq(tasks.userId, ownerId)));
+                    if (current?.takenBy && current.takenBy !== userId) requireOwner(access);
+                }
             }
             if (moving || findTime) from = await slotsOf(tx, ownerId, [id]);
-            const [task] = await withTagIds(tx, [await updateTask(tx, ownerId, id, body, expectedUpdatedAt)]);
-            return { task, access, guest };
+            const patch = guest ? sharedBody : body;
+            const row = await updateTask(tx, ownerId, id, patch, expectedUpdatedAt);
+            if (guest && hasPersonal) {
+                await upsertPersonalReminder(tx, userId, id, { reminderAt, reminderSilenced });
+            }
+            const [broadcast] = await withTagIds(tx, [row]);
+            const [task] = guest
+                ? await withTagIds(tx, await overlayPersonalReminders(tx, userId, [row]))
+                : [broadcast];
+            return { task, broadcast, access, guest };
         });
-        announce(c, [access], [updated]);
+        if (broadcast) announce(c, [access], [broadcast]);
         if (guest) return c.json({ data: updated });
         trackTaskChanges(
             (p) => c.executionCtx.waitUntil(p),
@@ -606,8 +640,11 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { id } = c.req.valid("param");
 
         // RLS limits this to the caller's own tasks and those of lists shared with them.
-        const [task] = await withCallerRls(c, async (tx) =>
-            withTagIds(tx, await tx.select().from(tasks).where(eq(tasks.id, id))),
+        const [task] = await withCallerRls(c, async (tx, userId) =>
+            withTagIds(
+                tx,
+                await overlayPersonalReminders(tx, userId, await tx.select().from(tasks).where(eq(tasks.id, id))),
+            ),
         );
 
         throwIfNotFound(task, "Task");
@@ -619,9 +656,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { id } = c.req.valid("param");
 
         const associations = await withCallerRls(c, async (tx, userId) => {
-            // Tags on a shared task belong to its owner: everyone else sees none.
-            if (await taskAccess(tx, userId, id).then((access) => access && access.role !== "owner")) return [];
-            await assertTaskOwnership(tx, userId, id);
+            await taskAccess(tx, userId, id);
 
             return tx
                 .select({
@@ -633,7 +668,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 })
                 .from(taskTags)
                 .innerJoin(tags, eq(taskTags.tagId, tags.id))
-                .where(eq(taskTags.taskId, id));
+                .where(and(eq(taskTags.taskId, id), eq(tags.userId, userId)));
         });
 
         c.header("Cache-Control", "private, no-store");
@@ -674,8 +709,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { id: taskId, tagId } = c.req.valid("param");
 
         const deleted = await withCallerRls(c, async (tx, userId) => {
-            requireOwner(await taskAccess(tx, userId, taskId));
-            await assertTaskOwnership(tx, userId, taskId);
+            await taskAccess(tx, userId, taskId);
 
             const [row] = await tx
                 .delete(taskTags)

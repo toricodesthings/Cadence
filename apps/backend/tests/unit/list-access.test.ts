@@ -46,12 +46,18 @@ describe("roles in a list", () => {
 });
 
 describe("what a pushed row shows each person", () => {
-    const task = { userId: owner, id: "t", tagIds: ["a"] } as never;
-    it("keeps the owner's tags for the owner only", () => {
+    const task = {
+        userId: owner,
+        id: "t",
+        tagIds: ["a"],
+        reminderAt: "2030-01-01T10:00:00.000Z",
+        reminderSilenced: true,
+    } as never;
+    it("keeps the owner's tags and reminders for the owner only", () => {
         expect(shapeFor({ type: "task", task }, owner)).toEqual({ type: "task", task });
         expect(shapeFor({ type: "task", task }, editor)).toEqual({
             type: "task",
-            task: { ...(task as object), tagIds: [] },
+            task: { ...(task as object), tagIds: [], reminderAt: null, reminderSilenced: false },
         });
     });
 

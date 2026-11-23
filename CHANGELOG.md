@@ -6,6 +6,26 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+A shared list now feels like your own: your reminders, your tags, and who's doing what.
+
+### Added
+
+- Assistants can connect to mcp.cadenceapp.cloud/mcp/code to do big jobs in one go with fewer tokens
+- Set your own reminders and tags on tasks in a list someone shared with you
+- Say "I'll do it" on a shared task so everyone can see who's on it
+- Hand a list you own over to someone in it
+- The assistant can read your shared lists and tell you who added what
+
+### Changed
+
+- Shared tasks are marked in Today, Upcoming, Schedule and search
+- Search now finds notes in shared lists
+
+### Fixed
+
+- A class or shift with a leftover deadline no longer shows as due or overdue
+- Connected assistants get a clear "not found" for a missing task and see where new tasks will land
+
 ## [2.2.1] - 2026-11-23
 
 ### Changed

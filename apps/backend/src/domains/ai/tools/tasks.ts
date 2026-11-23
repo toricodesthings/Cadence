@@ -5,13 +5,14 @@ import { z } from "zod";
 import { and, asc, desc, eq, exists, gte, inArray, isNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
 import { savedFocusViews, tasks, subtasks, taskNotes, taskTags, tags, users } from "../../../db/schema";
+import { memberView } from "../../../db/schema/columns";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit, once } from "./index";
 import { toMinimalTask, toMinimalSubtask, toMinimalTag, resolveDueWindow } from "./projections";
 import { fenceData, makeFenceNonce, sanitizeUntrusted } from "../safety/injection-policy";
-import { NOTE_READ_LIMIT, subtaskEditSchema, taskDraftSchema, taskPatchSchema } from "./drafts";
+import { NOTE_READ_LIMIT, offsetSchema, subtaskEditSchema, taskDraftSchema, taskPatchSchema } from "./drafts";
 import { taskDay } from "@cadence/domain/task-recurrence";
 import { hasTaskTemporalMutation } from "@cadence/domain/task-temporal";
 import { addDays, type LocalDate } from "@cadence/domain/time";
@@ -31,6 +32,7 @@ import {
     hasNoDay,
     inDayWindow,
     onOrBefore,
+    overlayPersonalReminders,
 } from "../../tasks/tasks.service";
 import { findOrCreateTags } from "../../tags/tags.service";
 import { processCapture } from "../../inbox/inbox.service";
@@ -42,6 +44,7 @@ import { taskSearch, taskSearchColumns, taskPlaceColumns } from "../../tasks/tas
 import { effortGuesses, taskHints } from "../memory/task-hints";
 import { suggestEffortGuess } from "../../decisions/effort-guess";
 import { checkSaid } from "./said";
+import { assertNotShared, sharedListPeople, sharedTaskMeta } from "./shared-guard";
 
 /**
  * The whole filtered candidate set that matches `query`, best match first unless the
@@ -85,6 +88,7 @@ export const placeNameColumns = taskPlaceColumns;
 export const taskCoreColumns = {
     ...placeNameColumns,
     id: tasks.id,
+    userId: tasks.userId,
     title: tasks.title,
     state: tasks.state,
     dueDate: tasks.dueDate,
@@ -103,6 +107,9 @@ export const taskCoreColumns = {
     recurrenceRule: tasks.recurrenceRule,
     isPinned: tasks.isPinned,
     reminderAt: tasks.reminderAt,
+    reminderSilenced: tasks.reminderSilenced,
+    createdBy: tasks.createdBy,
+    takenBy: tasks.takenBy,
 } as const;
 
 /** Columns returned by the minimal task projection — selected once, reused. */
@@ -111,14 +118,6 @@ const minimalTaskColumns = {
     waitingReminder: tasks.waitingReminder,
     notBefore: tasks.notBefore,
 } as const;
-
-const offsetSchema = z
-    .number()
-    .int()
-    .min(0)
-    .max(100_000)
-    .optional()
-    .describe("From nextOffset; omit for the first page.");
 
 /** A task's day in SQL, for ordering: a timed task's start in the user's zone, else its due day. */
 const daySql = (zone: string) =>
@@ -222,7 +221,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     to: z.iso.date().optional().describe("Dated on or before this local day."),
                     noDate: z.boolean().optional().describe("Only tasks with no date."),
                     projectId: z.uuid().optional().describe("One list only."),
-                    sectionId: z.uuid().optional().describe("One section (with projectId)."),
+                    sectionId: z.uuid().optional().describe("One section."),
                     noSection: z.boolean().optional().describe("Only tasks in no section (with projectId)."),
                     tagId: z.uuid().optional().describe("Only tasks with this tag."),
                     minPriority: z
@@ -248,10 +247,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         .optional()
                         .describe("Also each task's note and subtasks (at most 10 tasks a page)."),
                 })
-                .refine(
-                    (v) => (v.sectionId === undefined && !v.noSection) || v.projectId,
-                    "sectionId and noSection need projectId",
-                ),
+                .refine((v) => !v.noSection || v.projectId, "noSection needs projectId"),
             execute: async (args) =>
                 safeExecute("get_tasks", userId, async () => {
                     const limit = args.details ? Math.min(clampLimit(args.limit), 10) : clampLimit(args.limit);
@@ -274,6 +270,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                                     hasNoProject: args.missingStructure || undefined,
                                 },
                                 zone,
+                                { shared: true },
                             ),
                             ne(tasks.interactionMode, "timetable"),
                         ];
@@ -312,7 +309,11 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         const rows = args.query
                             ? rankBySearch(await selection, args.query, !!sort).slice(offset, offset + limit + 1)
                             : await selection.limit(limit + 1).offset(offset);
-                        const shown = rows.slice(0, limit);
+                        const shown = await overlayPersonalReminders(tx, userId, rows.slice(0, limit));
+                        const peopleMap = await sharedListPeople(
+                            tx,
+                            shown.map((row) => row.projectId),
+                        );
                         const tagNames = await tagNamesFor(
                             tx,
                             shown.map((row) => row.id),
@@ -329,7 +330,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             ...(view && { view }),
                             tasks: shown.map((row) => ({
                                 ...toMinimalTask(
-                                    { ...row, tagNames: tagNames.get(row.id) },
+                                    { ...row, tagNames: tagNames.get(row.id), ...sharedTaskMeta(peopleMap, row) },
                                     ctx.timezone,
                                     hints.get(row.id),
                                 ),
@@ -360,12 +361,19 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 safeExecute("get_task_detail", userId, async () => {
                     const db = getDbClient(env);
                     return withRls(db, userId, async (tx) => {
-                        const [row] = await tx
+                        const [raw] = await tx
                             .select({ ...minimalTaskColumns, content: tasks.content })
                             .from(tasks)
-                            .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId)))
+                            .where(
+                                and(
+                                    eq(tasks.id, taskId),
+                                    or(eq(tasks.userId, userId), inArray(tasks.projectId, memberView)),
+                                ),
+                            )
                             .limit(1);
-                        if (!row) return { task: null };
+                        throwIfNotFound(raw, "Task");
+                        const [row] = await overlayPersonalReminders(tx, userId, [raw]);
+                        const peopleMap = await sharedListPeople(tx, [row.projectId]);
 
                         const subs = await tx
                             .select({
@@ -385,16 +393,16 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             .where(eq(taskTags.taskId, taskId))
                             .limit(50);
 
-                        // The notes panel shows task_notes.body, falling back to tasks.content.
+                        // The notes panel shows task_notes.body, falling back to tasks.content. RLS scopes to own + shared lists.
                         const [noteRow] = await tx
                             .select({ body: taskNotes.body, version: taskNotes.version })
                             .from(taskNotes)
-                            .where(and(eq(taskNotes.taskId, taskId), eq(taskNotes.userId, userId)))
+                            .where(eq(taskNotes.taskId, taskId))
                             .limit(1);
 
                         return {
                             task: toMinimalTask(
-                                row,
+                                { ...row, ...sharedTaskMeta(peopleMap, row) },
                                 ctx.timezone,
                                 (await taskHints(tx, userId, [row], ctx.today)).get(row.id),
                             ),
@@ -415,7 +423,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 "Creates 1–20 tasks, each with optional checklist steps, tags (by id or name), a note, a reminder and a hide-until day. " +
                 "With inboxItemId the task is made from that capture, which leaves Capture (no date given = no date). " +
                 "They land in the order given, at the end of their list (or the top, per the user's setting); to/beforeTaskId/afterTaskId place them elsewhere in one list. " +
-                "Returns each taskId and its subtaskIds. Never for a task that already exists: use update_tasks.",
+                "Returns each taskId and its subtaskIds, and placed: each list's open tasks just after and before the batch. Never for a task that already exists: use update_tasks.",
             inputSchema: z
                 .object({
                     tasks: z
@@ -459,6 +467,10 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 ),
             execute: async ({ tasks: drafts, to, beforeTaskId, afterTaskId }, { toolCallId }) => {
                 const result = await write("create_tasks", toolCallId, async (tx) => {
+                    await assertNotShared(tx, {
+                        projectIds: drafts.map((d) => d.projectId),
+                        sectionIds: drafts.map((d) => d.sectionId),
+                    });
                     // One lookup for every draft's tag names, so two drafts never make the same tag twice.
                     const named = await tagIdsByName(
                         tx,
@@ -528,6 +540,28 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         byList.set(list, [...(byList.get(list) ?? []), c.taskId]);
                     });
                     for (const ids of byList.values()) await reorderTasks(tx, userId, ids, placement);
+                    // Where each batch landed, by its open neighbours' titles, so a dry run shows the order too.
+                    const placed = [];
+                    for (const [projectId, ids] of byList) {
+                        const rows = await tx
+                            .select({ id: tasks.id, title: tasks.title })
+                            .from(tasks)
+                            .where(
+                                and(
+                                    eq(tasks.userId, userId),
+                                    projectId ? eq(tasks.projectId, projectId) : isNull(tasks.projectId),
+                                    inArray(tasks.state, ["ACTIVE", "WAITING"]),
+                                ),
+                            )
+                            .orderBy(asc(tasks.orderIndex), asc(tasks.id));
+                        const first = rows.findIndex((row) => row.id === ids[0]);
+                        const last = rows.findIndex((row) => row.id === ids.at(-1));
+                        placed.push({
+                            projectId,
+                            after: rows[first - 1]?.title ?? null,
+                            before: rows[last + 1]?.title ?? null,
+                        });
+                    }
                     // A guess from their own choices, for the card's one-tap Use. Never written with the batch.
                     const guesses = await effortGuesses(
                         tx,
@@ -548,7 +582,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         if (level) (c as { effortGuess?: number }).effortGuess = level;
                     }
                     return {
-                        result: { created, ...(ignored.length && { ignored }) },
+                        result: { created, placed, ...(ignored.length && { ignored }) },
                         id: created[0].taskId,
                         changes: { created: created.map((task) => task.taskId) },
                     };
@@ -584,6 +618,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             }),
             execute: async ({ tasks: sources }, { toolCallId }) =>
                 write("duplicate_tasks", toolCallId, async (tx) => {
+                    await assertNotShared(tx, { taskIds: sources.map((s) => s.taskId) });
                     const created: { taskId: string; title: string; from: string }[] = [];
                     for (const { taskId, title, targetDate } of sources) {
                         const copy = await duplicateTask(tx, userId, taskId, title);
@@ -623,6 +658,11 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 ),
             execute: async ({ taskIds, patch }, { toolCallId }) => {
                 const result = await write("update_tasks", toolCallId, async (tx) => {
+                    await assertNotShared(tx, {
+                        taskIds,
+                        projectIds: [patch.projectId],
+                        sectionIds: [patch.sectionId],
+                    });
                     const {
                         addTagIds = [],
                         addTagNames,
@@ -711,15 +751,18 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     "Send one of to, beforeTaskId or afterTaskId",
                 ),
             execute: async ({ taskIds, to, beforeTaskId, afterTaskId }, { toolCallId }) =>
-                write("reorder_tasks", toolCallId, async (tx) => ({
-                    result: await reorderTasks(
-                        tx,
-                        userId,
-                        taskIds,
-                        to ? { to } : beforeTaskId ? { beforeTaskId } : { afterTaskId: afterTaskId! },
-                    ),
-                    id: taskIds[0],
-                })),
+                write("reorder_tasks", toolCallId, async (tx) => {
+                    await assertNotShared(tx, { taskIds: [...taskIds, beforeTaskId, afterTaskId] });
+                    return {
+                        result: await reorderTasks(
+                            tx,
+                            userId,
+                            taskIds,
+                            to ? { to } : beforeTaskId ? { beforeTaskId } : { afterTaskId: afterTaskId! },
+                        ),
+                        id: taskIds[0],
+                    };
+                }),
         }),
 
         edit_subtasks: tool({
@@ -728,10 +771,13 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 "Added steps go at the end. Returns the new subtask ids and counts.",
             inputSchema: subtaskEditSchema,
             execute: async (input, { toolCallId }) =>
-                write("edit_subtasks", toolCallId, async (tx) => ({
-                    result: await editSubtasks(tx, userId, input),
-                    id: input.taskId,
-                })),
+                write("edit_subtasks", toolCallId, async (tx) => {
+                    await assertNotShared(tx, { taskIds: [input.taskId] });
+                    return {
+                        result: await editSubtasks(tx, userId, input),
+                        id: input.taskId,
+                    };
+                }),
         }),
 
         set_task_state: tool({
@@ -757,6 +803,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     toolCallId,
                     async (tx) => {
                         const { taskIds, state, waitingOn, checkInAt, sameTitleOk } = input;
+                        await assertNotShared(tx, { taskIds });
                         const before = await tasksBefore(tx, taskIds);
                         // A tapped card is the user's own pick; otherwise a same-titled twin means the model may have guessed.
                         const tapped =
@@ -803,11 +850,10 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             }),
             execute: async ({ tasks: targets }, { toolCallId }) =>
                 write("delete_tasks", toolCallId, async (tx) => {
-                    const rows = await deleteTasks(
-                        tx,
-                        userId,
-                        targets.map((target) => target.taskId),
-                    );
+                    const taskIds = targets.map((target) => target.taskId);
+                    await assertNotShared(tx, { taskIds });
+                    await tasksBefore(tx, taskIds); // an unknown id fails, never a silent "deleted: 0"
+                    const rows = await deleteTasks(tx, userId, taskIds);
                     return { result: { deleted: rows.length }, id: targets[0].taskId };
                 }),
         }),
@@ -822,6 +868,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             }),
             execute: async ({ taskIds, targetDate }, { toolCallId }) =>
                 write("reschedule_tasks", toolCallId, async (tx) => {
+                    await assertNotShared(tx, { taskIds });
                     const before = await tasksBefore(tx, taskIds);
                     const rows = await rescheduleTasks(tx, userId, { taskIds, date: targetDate });
                     const moved = new Set(rows.map((row) => row.id));
@@ -921,7 +968,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             .select({ id: tasks.id, body: taskNotes.body, content: tasks.content, version: taskNotes.version })
             .from(tasks)
             .leftJoin(taskNotes, eq(taskNotes.taskId, tasks.id))
-            .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)));
+            .where(and(or(eq(tasks.userId, userId), inArray(tasks.projectId, memberView)), inArray(tasks.id, taskIds)));
         const steps = await tx
             .select({
                 taskId: subtasks.taskId,

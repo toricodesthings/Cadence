@@ -76,7 +76,7 @@ A toast answers "where did it go?"
 | list / section / tag | `FolderOpen` / `Columns3` / `Tag` | routine (`Repeat` = repeating task only) | `Flame` |
 | event / reminder / time / takes | `CalendarHeart` / `Bell` / `Clock` / `Hourglass` | waiting / focus view / assistant | `UserCheck` / `Zap` / `Sparkles` |
 | Today / Tomorrow / later / next week | `Sun` / `Sunrise` / `Moon` / `ArrowRight` | pick a day / trash | `Calendar` / `Trash2` |
-| shared / people | `Users` | | |
+| shared / people | `Users` | take a task / make owner | `Hand` / `Crown` |
 
 **Motion**
 - Motion explains what opened, moved or changed. It is interruptible and never delays input.

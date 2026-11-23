@@ -56,6 +56,12 @@ export interface Env {
     /** One `ReminderClock` per person: sends their reminders from a plan, without polling Postgres. When absent, nothing is pushed. */
     REMINDER_CLOCK?: DurableObjectNamespace<import("../domains/push/reminder-clock").ReminderClock>;
 
+    // ── Code Mode (MCP `/mcp/code`) ──
+    /** Dynamic Worker loader the Code Mode sandbox runs in. When absent (or `CODE_MODE`), `search`/`execute` aren't published. */
+    LOADER?: WorkerLoader;
+    /** One `CodeModeHost` per person: runs sandboxed code with a durable log of its calls. */
+    CODE_MODE?: DurableObjectNamespace<import("../domains/mcp/code-mode").CodeModeHost>;
+
     // ── Memory work ──
     /** Queue the crons fan memory's per-person work onto. When absent, the crons run it in-process. */
     MEMORY_QUEUE?: Queue<import("../domains/ai/memory/queue").MemoryMessage>;
@@ -75,6 +81,8 @@ export interface Env {
     RATE_LIMITER_ADMIN: RateLimit;
     /** Chat's stand-in while the Upstash budget is unreachable (optional: absence leaves only the write limiter). */
     RATE_LIMITER_AI?: RateLimit;
+    /** Code Mode `execute`: each pass loads a Dynamic Worker, so it has its own small budget. */
+    RATE_LIMITER_CODE?: RateLimit;
 
     // ── AI ──
     OPENROUTER_API_KEY?: string;

@@ -213,6 +213,9 @@ importers:
       '@cadence/search':
         specifier: workspace:*
         version: link:../../packages/search
+      '@cloudflare/codemode':
+        specifier: 0.5.6
+        version: 0.5.6(ai@7.0.179(zod@4.6.7))(zod@4.6.7)
       '@cloudflare/workers-oauth-provider':
         specifier: ^1.2.4
         version: 1.2.4
@@ -984,6 +987,23 @@ packages:
 
   '@captchafox/types@1.7.0':
     resolution: {integrity: sha512-KHY0J/qUdluhZr1jFSUDArrewW7ocyoQFD+mnkve9P0+PzJibu7Md3x0aRxTUO+kAeKkt+//8Vz3k+s7xannzg==}
+
+  '@cloudflare/codemode@0.5.6':
+    resolution: {integrity: sha512-86CoZvDrXWpcmieDoFqHvt1NWt3F75LnsxlUteIzftbU2GZCoLn3yB4n7Jd+7OcMfsA4lNxDBrNcOYcBuINv7A==}
+    peerDependencies:
+      '@modelcontextprotocol/sdk': ^1.25.0
+      '@tanstack/ai': '>=0.8.0 <2.0.0'
+      ai: ^6.0.0 || ^7.0.0
+      zod: ^4.6.7
+    peerDependenciesMeta:
+      '@modelcontextprotocol/sdk':
+        optional: true
+      '@tanstack/ai':
+        optional: true
+      ai:
+        optional: true
+      zod:
+        optional: true
 
   '@cloudflare/kv-asset-handler@0.5.0':
     resolution: {integrity: sha512-jxQYkj8dSIzc0cD6cMMNdOc1UVjqSqu8BZdor5s8cGjW2I8BjODt/kWPVdY+u9zj3ms75Q5qaZgnxUad83+eAg==}
@@ -3943,6 +3963,9 @@ packages:
   '@types/hast@3.0.5':
     resolution: {integrity: sha512-rp/ezSWaD1m44dPKICGhiskI13nVr7qTloFwDa/IYkhhf5nzwP+zIQcIJh3WIFSBOy/H1PzB40jPjMDksN4F+g==}
 
+  '@types/json-schema@7.0.15':
+    resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
+
   '@types/mdast@4.0.4':
     resolution: {integrity: sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA==}
 
@@ -4185,6 +4208,11 @@ packages:
 
   acorn@7.4.1:
     resolution: {integrity: sha512-nQyp0o1/mNdbTO1PO6kHkwSrmgZ0MT/jCCpNiwbUjGoRN4dlBhqJtoQuCnEOKzgTVwg0ZWiCoQy6SxMebQVh8A==}
+    engines: {node: '>=0.4.0'}
+    hasBin: true
+
+  acorn@8.19.0:
+    resolution: {integrity: sha512-oJlA3XiRm7Cyk6qFD2Jn8ak9B7jSy0qy00ADO3+8dpT0LSjFihQYv4C02LFCSYJV3Q37xYwwRy5m+IpIiUzqWw==}
     engines: {node: '>=0.4.0'}
     hasBin: true
 
@@ -7450,6 +7478,14 @@ snapshots:
 
   '@captchafox/types@1.7.0': {}
 
+  '@cloudflare/codemode@0.5.6(ai@7.0.179(zod@4.6.7))(zod@4.6.7)':
+    dependencies:
+      '@types/json-schema': 7.0.15
+      acorn: 8.19.0
+    optionalDependencies:
+      ai: 7.0.179(zod@4.6.7)
+      zod: 4.6.7
+
   '@cloudflare/kv-asset-handler@0.5.0': {}
 
   '@cloudflare/kv-asset-handler@0.5.1': {}
@@ -10023,6 +10059,8 @@ snapshots:
     dependencies:
       '@types/unist': 3.0.3
 
+  '@types/json-schema@7.0.15': {}
+
   '@types/mdast@4.0.4':
     dependencies:
       '@types/unist': 3.0.3
@@ -10195,6 +10233,8 @@ snapshots:
       event-target-shim: 5.0.1
 
   acorn@7.4.1: {}
+
+  acorn@8.19.0: {}
 
   agent-base@9.0.0: {}
 

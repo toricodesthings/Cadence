@@ -12,6 +12,7 @@ const PUBLIC = [
     "decisions/placement",
     "decisions/did-you-mean",
     "mcp/oauth",
+    "mcp/code-mode", // account deletion drops the person's Code Mode history
     "push/reminder-clock", // writes elsewhere (chat, MCP, account deletion) ask the person's reminder clock to rebuild or forget
     "settings/settings.route",
     "settings/background-image",

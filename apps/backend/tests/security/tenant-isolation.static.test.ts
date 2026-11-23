@@ -62,6 +62,7 @@ const USER_SCOPED_TABLES = [
     "pushDeliveries",
     "listMembers",
     "shareInvites",
+    "taskPersonal",
 ];
 
 /**

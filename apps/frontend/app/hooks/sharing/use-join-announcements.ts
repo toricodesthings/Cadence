@@ -17,15 +17,37 @@ export function useJoinAnnouncements() {
     const queryClient = useQueryClient();
     const client = useApiClient();
     const seen = useRef<Map<string, Set<string>> | null>(null);
+    const prevAccess = useRef<Map<string, string> | null>(null);
 
     useEffect(() => {
         if (!projects) return;
         const first = !seen.current;
         const known = (seen.current ??= new Map());
-        for (const project of projects.filter(isOwnList)) {
+        const accessMap = (prevAccess.current ??= new Map());
+
+        for (const project of projects) {
+            const wasAccess = accessMap.get(project.id);
+            const nowOwn = isOwnList(project);
+            accessMap.set(project.id, nowOwn ? "owner" : (project.access ?? "view"));
+
+            if (!nowOwn) continue;
+
             const members = (project.members ?? []).map((member) => member.userId);
             const before = known.get(project.id);
             known.set(project.id, new Set([...(before ?? []), ...members]));
+
+            // Previously a shared list (not owned by us), now ours -> ownership was transferred to us.
+            if (!first && wasAccess && wasAccess !== "owner") {
+                void queryClient.fetchQuery(listPeopleQuery(client, project)).then(
+                    (people) => {
+                        const giver = people.find((p) => p.role !== "owner")?.name ?? "Someone";
+                        toast.success(`${giver} gave you ${project.name}`);
+                    },
+                    () => toast.success(`You now own ${project.name}`),
+                );
+                continue;
+            }
+
             // A list made in this session starts with nobody in it.
             const joined = first ? [] : members.filter((id) => !before?.has(id));
             if (!joined.length) continue;

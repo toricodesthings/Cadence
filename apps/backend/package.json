@@ -43,6 +43,7 @@
         "@cadence/domain": "workspace:*",
         "@cadence/nlp": "workspace:*",
         "@cadence/search": "workspace:*",
+        "@cloudflare/codemode": "0.5.6",
         "@cloudflare/workers-oauth-provider": "^1.2.4",
         "@hono/zod-validator": "^0.9.1",
         "@modelcontextprotocol/server": "^2.4.0",

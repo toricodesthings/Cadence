@@ -10,6 +10,7 @@ import { useFocusViewStore } from "../../stores/focus-view-store";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import { DidYouMean } from "./DidYouMean";
 import { GROUP_LABELS, GROUP_ORDER, SearchResultIcon } from "./search-groups";
+import { SharedMark } from "../sharing/SharedMark";
 
 interface CommandPaletteProps {
     open: boolean;
@@ -210,6 +211,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                                                 </span>
                                             )}
                                         </div>
+                                        {item.task && <SharedMark task={item.task} interactive={false} size={16} />}
                                     </button>
                                 ))}
                             </div>

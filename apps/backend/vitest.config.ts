@@ -20,7 +20,7 @@ export const shared = {
     test: {
         environment: "node" as const,
         restoreMocks: true,
-        server: { deps: { inline: ["@cloudflare/workers-oauth-provider"] } },
+        server: { deps: { inline: ["@cloudflare/workers-oauth-provider", "@cloudflare/codemode"] } },
     },
 };
 

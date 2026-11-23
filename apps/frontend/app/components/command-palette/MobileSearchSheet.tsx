@@ -8,6 +8,7 @@ import { useNoteRoomStore } from "../../stores/note-room-store";
 import { useSearchNavigation } from "../../hooks/search/use-search-navigation";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import { GROUP_LABELS, GROUP_ORDER, SearchResultIcon } from "./search-groups";
+import { SharedMark } from "../sharing/SharedMark";
 import { useSettings } from "../../hooks/core/use-settings";
 import { pushRecentSearch, readRecentSearches } from "../../lib/utils/recent-searches";
 
@@ -125,6 +126,7 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
                                             </span>
                                         )}
                                     </span>
+                                    {item.task && <SharedMark task={item.task} interactive={false} size={16} />}
                                 </button>
                             ))}
                         </div>

@@ -1,7 +1,8 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray, or } from "drizzle-orm";
 import { searchTerms, noteHeadings } from "@cadence/search/terms";
 import type { SearchNote } from "@cadence/contracts/search";
-import { taskNotes } from "../../db/schema";
+import { taskNotes, tasks } from "../../db/schema";
+import { memberView } from "../../db/schema/columns";
 import { getDbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
 import { Hono } from "hono";
@@ -18,7 +19,15 @@ export const searchRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
             tx
                 .select({ taskId: taskNotes.taskId, body: taskNotes.body })
                 .from(taskNotes)
-                .where(eq(taskNotes.userId, userId)),
+                .where(
+                    or(
+                        eq(taskNotes.userId, userId),
+                        inArray(
+                            taskNotes.taskId,
+                            tx.select({ id: tasks.id }).from(tasks).where(inArray(tasks.projectId, memberView)),
+                        ),
+                    ),
+                ),
         );
         const data: SearchNote[] = notes.map(({ taskId, body }) => ({
             taskId,

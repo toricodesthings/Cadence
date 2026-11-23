@@ -1,15 +1,17 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { and, eq, isNotNull, isNull, ne } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
 import { projects, tasks, users } from "../../../db/schema";
+import { memberView } from "../../../db/schema/columns";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { Tx } from "../../../types/db";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit, refuse } from "./index";
 import { taskCoreColumns } from "./tasks";
-import { inDayWindow, readTasks } from "../../tasks/tasks.service";
+import { inDayWindow, overlayPersonalReminders, readTasks } from "../../tasks/tasks.service";
+import { sharedListPeople, sharedTaskMeta } from "./shared-guard";
 import { expandScheduleScopedTasks, taskDay } from "@cadence/domain/task-recurrence";
 import { addDays, formatInZone, toZonedIso, type Zone } from "@cadence/domain/time";
 import { busyBlocks, feasibleBuckets, findTimes } from "@cadence/domain/find-time";
@@ -18,6 +20,7 @@ import { taskMinutes } from "@cadence/domain/task-length";
 import { fitDay, fitMinutes, isFitCandidate } from "@cadence/domain/fit-day";
 import type { TimeOfDay } from "@cadence/contracts/planning";
 import { toMinimalTask } from "./projections";
+import { offsetSchema } from "./drafts";
 import { durationHints } from "../memory/duration";
 import { taskHints } from "../memory/task-hints";
 import { planningEvidence } from "../memory/planning.service";
@@ -60,13 +63,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
             start: z.iso.date().describe("First local day, YYYY-MM-DD."),
             end: z.iso.date().describe("Last local day."),
             includeDone: z.boolean().default(false).describe("Also tasks already done."),
-            offset: z
-                .number()
-                .int()
-                .min(0)
-                .max(100_000)
-                .optional()
-                .describe("From nextOffset; omit for the first page."),
+            offset: offsetSchema,
             limit: z.number().int().min(1).max(50).default(50),
         }),
         execute: async ({ start, end, includeDone, offset = 0, limit }) =>
@@ -81,7 +78,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                 const db = getDbClient(env);
                 return withRls(db, userId, async (tx) => {
                     const open = and(
-                        eq(tasks.userId, userId),
+                        or(eq(tasks.userId, userId), inArray(tasks.projectId, memberView)),
                         // Trash never, Done only when asked.
                         ne(tasks.state, "ARCHIVED"),
                         includeDone ? undefined : ne(tasks.state, "COMPLETE"),
@@ -109,7 +106,11 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                     const inRange = [...dated.slice(0, WINDOW_ROW_GUARD), ...expanded].sort((a, b) =>
                         when(a).localeCompare(when(b)),
                     );
-                    const shown = inRange.slice(offset, offset + cap);
+                    const shown = await overlayPersonalReminders(tx, userId, inRange.slice(offset, offset + cap));
+                    const peopleMap = await sharedListPeople(
+                        tx,
+                        shown.map((row) => row.projectId),
+                    );
                     const idOf = (row: (typeof shown)[number]) => (row as { seriesId?: string }).seriesId ?? row.id;
                     const hints = await taskHints(
                         tx,
@@ -120,7 +121,13 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                     const more = inRange.length > offset + cap || dated.length > WINDOW_ROW_GUARD;
                     return {
                         range: { start: from, end: to, timezone: ctx.timezone },
-                        tasks: shown.map((row) => toMinimalTask(row, ctx.timezone, hints.get(idOf(row)))),
+                        tasks: shown.map((row) =>
+                            toMinimalTask(
+                                { ...row, ...sharedTaskMeta(peopleMap, row) },
+                                ctx.timezone,
+                                hints.get(idOf(row)),
+                            ),
+                        ),
                         ...(more && { more, nextOffset: offset + cap }),
                         routines: routinesDue(habitRows, from, to, ctx.today, ctx.timezone),
                     };

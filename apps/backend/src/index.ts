@@ -211,6 +211,9 @@ import { runHourlyCron } from "./cron/overdue-check";
 import { handleMemoryBatch } from "./domains/ai/memory/memory-job";
 
 export { ReminderClock } from "./domains/push/reminder-clock";
+export { CodeModeHost } from "./domains/mcp/code-mode";
+// The runtime facet class must be on ctx.exports (no Vite plugin here).
+export { CodemodeRuntime } from "@cloudflare/codemode";
 
 export default {
     // The MCP origin (outside assistants: OAuth + /mcp) is its own protocol boundary:

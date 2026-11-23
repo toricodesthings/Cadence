@@ -35,6 +35,12 @@ describe("deriveReminders", () => {
         expect(due.alertAt).toBe("2026-10-07T13:00:00.000Z");
     });
 
+    it("never calls a Fixed block due or overdue, even with a stray dueDate", () => {
+        expect(
+            derive([task({ dueDate: "2026-10-05", interactionMode: "timetable" })], "2026-10-07T12:00:00-04:00"),
+        ).toEqual([]);
+    });
+
     it("never alerts a deadline for a task made after the alert time", () => {
         const [due] = derive(
             [task({ dueDate: "2026-10-07", createdAt: "2026-10-07T10:00:00-04:00" })],

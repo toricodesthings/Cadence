@@ -88,6 +88,8 @@ export const ERROR_CODES = [
     "OWNER_ONLY",
     "LINK_EXPIRED",
     "SHARE_LIMIT",
+    "TAKE_SELF_ONLY",
+    "SHARED_READ_ONLY",
     // Push
     "PUSH_UNAVAILABLE",
     // Server

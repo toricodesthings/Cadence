@@ -10,6 +10,7 @@ import { hashIdentifier, logger } from "../../platform/log";
 import { withRls } from "../../platform/rls";
 import { apiValidator } from "../../platform/validation";
 import { forgetReminders } from "../push/reminder-clock";
+import { forgetCodeMode } from "../mcp/code-mode";
 import type { Env } from "../../types/env";
 import { backgroundPrefix } from "../settings/background-image";
 import { revokeAllGrants } from "../mcp/oauth";
@@ -156,6 +157,7 @@ export const accountRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         await withRls(getDbClient(c.env), userId, (tx) => tx.delete(users).where(eq(users.id, userId)));
         await markAccountDeleted(c.env, userId);
         await forgetReminders(c.env, userId);
+        await forgetCodeMode(c.env, userId);
         await deleteAuthUser(c.env, userId);
 
         logger.info("auth", "account_deleted", { userHash });

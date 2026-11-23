@@ -11,7 +11,7 @@ import type { Tx } from "../../../types/db";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit, once } from "./index";
 import { toMinimalInboxItem } from "./projections";
-import { NOTE_READ_LIMIT } from "./drafts";
+import { NOTE_READ_LIMIT, offsetSchema } from "./drafts";
 import { deleteCaptures, processCapture, unprocessCapture, updateCapture } from "../../inbox/inbox.service";
 import { insertInboxItemSchema } from "@cadence/contracts/inbox";
 import { suggestPlacement } from "../../decisions/placement";
@@ -92,13 +92,7 @@ export const inboxTools = (env: Env, userId: string, ctx: AgentContext) => ({
                 .boolean()
                 .default(false)
                 .describe("Also captures already placed, ticked off or discarded."),
-            offset: z
-                .number()
-                .int()
-                .min(0)
-                .max(100_000)
-                .optional()
-                .describe("From nextOffset; omit for the first page."),
+            offset: offsetSchema,
             limit: z.number().int().min(1).max(50).default(20),
         }),
         execute: async ({ includeProcessed, offset = 0, limit }) =>

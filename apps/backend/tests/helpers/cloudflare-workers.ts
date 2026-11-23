@@ -19,3 +19,5 @@ export class DurableObject<E = unknown> {
         protected env: E,
     ) {}
 }
+
+export class RpcTarget {}

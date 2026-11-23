@@ -4,6 +4,7 @@ import { cn } from "../../lib/utils";
 
 interface AgendaRowProps {
     leading: ReactNode;
+    trailing?: ReactNode;
     onOpen: () => void;
     ariaLabel: string;
     children: ReactNode;
@@ -11,7 +12,15 @@ interface AgendaRowProps {
     actionClassName?: string;
 }
 
-export function AgendaRow({ leading, onOpen, ariaLabel, children, className, actionClassName }: AgendaRowProps) {
+export function AgendaRow({
+    leading,
+    trailing,
+    onOpen,
+    ariaLabel,
+    children,
+    className,
+    actionClassName,
+}: AgendaRowProps) {
     return (
         <div
             className={cn(
@@ -29,6 +38,8 @@ export function AgendaRow({ leading, onOpen, ariaLabel, children, className, act
             >
                 {children}
             </button>
+
+            {trailing}
         </div>
     );
 }

@@ -6,6 +6,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import type { Task, TaskPriority } from "@cadence/contracts/task";
 import { TaskCheckbox } from "../tasks/TaskCheckbox";
+import { SharedMark } from "../sharing/SharedMark";
 import { isRecurringTask, isRecurringTaskInstance } from "../../lib/utils/task/task-scheduling";
 import { formatChipTime } from "../../lib/utils/date-format";
 import { HOUR_HEIGHT } from "../../lib/utils/calendar/calendar-utils";
@@ -199,6 +200,7 @@ function PillChip({ chip, fit, month }: { chip: ChipParts; fit: boolean; month: 
                     ) : null}
                     <span className="truncate">{task.title}</span>
                 </button>
+                <SharedMark task={task} size={16} />
             </div>
         </ChipShell>
     );
@@ -262,6 +264,7 @@ function BlockChip({ chip, style, badge, isNowLive, resizeDeltaPx, resizeHandler
                         </span>
                     ) : null}
                 </button>
+                <SharedMark task={task} size={16} />
             </div>
 
             {/* Bottom-edge resize handle */}

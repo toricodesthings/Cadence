@@ -27,7 +27,7 @@ import { addDays, daysBetween, type Zone } from "@cadence/domain/time";
 import { validateTaskRecurrenceRule } from "@cadence/domain/task-recurrence";
 import { suggestInteractionMode } from "@cadence/domain/repeats";
 import { ORDER_INDEX_GAP } from "@cadence/domain/ordering";
-import { subtasks, tasks, taskTags } from "../../db/schema";
+import { subtasks, taskPersonal, tasks, taskTags } from "../../db/schema";
 import { AppError, assertNoConflict, sameVersion, throwIfNotFound } from "../../platform/errors";
 import { insertWithClientId } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
@@ -207,6 +207,65 @@ export function toTask(
     };
 }
 
+/** Overlay the caller's personal reminders onto shared tasks they don't own (owner's reminder never leaks). */
+export async function overlayPersonalReminders<
+    T extends Pick<TaskRow, "id" | "userId" | "reminderAt" | "reminderSilenced">,
+>(tx: Tx, callerId: string, rows: T[]): Promise<T[]> {
+    const guestIds = rows.filter((row) => row.userId !== callerId).map((row) => row.id);
+    if (!guestIds.length) return rows;
+    const personal = await tx
+        .select({
+            taskId: taskPersonal.taskId,
+            reminderAt: taskPersonal.reminderAt,
+            reminderSilenced: taskPersonal.reminderSilenced,
+        })
+        .from(taskPersonal)
+        .where(and(eq(taskPersonal.userId, callerId), inArray(taskPersonal.taskId, guestIds)));
+    const byTask = new Map(personal.map((p) => [p.taskId, p]));
+    return rows.map((row) => {
+        if (row.userId === callerId) return row;
+        const own = byTask.get(row.id);
+        return {
+            ...row,
+            reminderAt: own?.reminderAt ?? null,
+            reminderSilenced: own?.reminderSilenced ?? false,
+        };
+    });
+}
+
+/** Upsert (or delete when `reminderAt: null`) a collaborator's personal reminder on a shared task. */
+export async function upsertPersonalReminder(
+    tx: Tx,
+    userId: string,
+    taskId: string,
+    fields: { reminderAt?: string | null; reminderSilenced?: boolean },
+): Promise<{ reminderAt: string | null; reminderSilenced: boolean }> {
+    if (fields.reminderAt === null) {
+        await tx.delete(taskPersonal).where(and(eq(taskPersonal.taskId, taskId), eq(taskPersonal.userId, userId)));
+        return { reminderAt: null, reminderSilenced: false };
+    }
+    const [existing] = await tx
+        .select({ reminderAt: taskPersonal.reminderAt, reminderSilenced: taskPersonal.reminderSilenced })
+        .from(taskPersonal)
+        .where(and(eq(taskPersonal.taskId, taskId), eq(taskPersonal.userId, userId)));
+    const reminderAt = fields.reminderAt !== undefined ? fields.reminderAt : (existing?.reminderAt ?? null);
+    const reminderSilenced =
+        fields.reminderSilenced !== undefined ? fields.reminderSilenced : (existing?.reminderSilenced ?? false);
+    if (reminderAt === null) {
+        await tx.delete(taskPersonal).where(and(eq(taskPersonal.taskId, taskId), eq(taskPersonal.userId, userId)));
+        return { reminderAt: null, reminderSilenced: false };
+    }
+    const [row] = await tx
+        .insert(taskPersonal)
+        .values({ taskId, userId, reminderAt, reminderSilenced })
+        .onConflictDoUpdate({
+            target: [taskPersonal.taskId, taskPersonal.userId],
+            set: { reminderAt, reminderSilenced },
+        })
+        .returning({ reminderAt: taskPersonal.reminderAt, reminderSilenced: taskPersonal.reminderSilenced });
+    return row;
+}
+
 /** `toTask` for rows fresh from a write: loads their tag ids in one query. */
 export async function withTagIds(tx: Tx, rows: TaskRow[]): Promise<Task[]> {
     const links = rows.length
@@ -233,10 +292,17 @@ export async function withTagIds(tx: Tx, rows: TaskRow[]): Promise<Task[]> {
 // ── Create ────────────────────────────────────────────────────────────
 
 /** Insert one task (temporal fields already normalized) and link its tags. */
-export async function createTask(tx: Tx, userId: string, values: NewTask, tagIds: string[] = []) {
+export async function createTask(
+    tx: Tx,
+    userId: string,
+    values: NewTask,
+    tagIds: string[] = [],
+    tagOwnerId: string = userId,
+) {
     validateTaskRecurrenceRule(values.recurrenceRule, values.zone ?? "UTC");
-    await assertOwnership(tx, userId, { projectId: values.projectId ?? null, sectionId: values.sectionId, tagIds });
-    const allTagIds = [...new Set([...tagIds, ...(await placeTagIds(tx, userId, values))])];
+    await assertOwnership(tx, userId, { projectId: values.projectId ?? null, sectionId: values.sectionId });
+    if (tagIds.length) await assertOwnership(tx, tagOwnerId, { tagIds });
+    const allTagIds = [...new Set([...tagIds, ...(await placeTagIds(tx, tagOwnerId, values))])];
     await assertRowRoom(tx, userId, "tasks");
     await assertStorageRoom(tx, userId, [values.content]);
 
@@ -473,6 +539,7 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
     const { effortOrigin, ...columns } = patch as typeof patch & { effortOrigin?: "manual" | "accepted" };
     const provenance = {
         ...(columns.effort !== undefined ? effortProvenance(columns.effort as number | null, effortOrigin) : {}),
+        ...(columns.takenBy !== undefined ? { takenAt: columns.takenBy ? sql`NOW()` : null } : {}),
         ...guessAfterWrite(columns as Parameters<typeof guessAfterWrite>[0]),
     };
 

@@ -5,7 +5,17 @@ import { seedSharedList } from "../helpers/sharing";
 
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
-import { projects, subtasks, taskNotes, taskSections, tasks, users } from "../../src/db/schema";
+import {
+    projects,
+    subtasks,
+    tags,
+    taskNotes,
+    taskPersonal,
+    taskSections,
+    tasks,
+    taskTags,
+    users,
+} from "../../src/db/schema";
 import { withRls } from "../../src/platform/rls";
 
 beforeAll(startTestDb);
@@ -209,5 +219,37 @@ describe("a shared list under row-level security", () => {
             ((await as(owner, (tx) => tx.execute("select * from share_invites" as never))) as any).rows,
         ).toHaveLength(1);
         expect(await createUser()).toBeTruthy();
+    });
+
+    it("isolates task_personal per member and blocks non-members", async () => {
+        const { owner, member, outsider, listId } = await seedSharedList("view");
+        const { taskId } = await seedContent(owner, listId);
+        const reminderAt = "2026-12-01T10:00:00.000Z";
+
+        await as(member, (tx) => tx.insert(taskPersonal).values({ taskId, userId: member, reminderAt }));
+        expect(await as(member, (tx) => tx.select().from(taskPersonal))).toHaveLength(1);
+        expect(await as(owner, (tx) => tx.select().from(taskPersonal))).toEqual([]);
+        expect(await as(outsider, (tx) => tx.select().from(taskPersonal))).toEqual([]);
+
+        await expect(
+            as(outsider, (tx) => tx.insert(taskPersonal).values({ taskId, userId: outsider, reminderAt })),
+        ).rejects.toThrow();
+    });
+
+    it("isolates task_tags per person on shared tasks", async () => {
+        const { owner, member, listId } = await seedSharedList("view");
+        const { taskId } = await seedContent(owner, listId);
+        const [ownerTag] = await as(owner, (tx) =>
+            tx.insert(tags).values({ userId: owner, name: "OwnerTag" }).returning(),
+        );
+        const [memberTag] = await as(member, (tx) =>
+            tx.insert(tags).values({ userId: member, name: "MemberTag" }).returning(),
+        );
+
+        await as(owner, (tx) => tx.insert(taskTags).values({ taskId, tagId: ownerTag.id }));
+        await as(member, (tx) => tx.insert(taskTags).values({ taskId, tagId: memberTag.id }));
+
+        expect((await as(owner, (tx) => tx.select().from(taskTags))).map((r) => r.tagId)).toEqual([ownerTag.id]);
+        expect((await as(member, (tx) => tx.select().from(taskTags))).map((r) => r.tagId)).toEqual([memberTag.id]);
     });
 });

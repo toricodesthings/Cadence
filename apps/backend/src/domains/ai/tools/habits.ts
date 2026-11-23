@@ -9,6 +9,7 @@ import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, clampLimit, once } from "./index";
 import { toMinimalHabit } from "./projections";
+import { offsetSchema } from "./drafts";
 import { readSnapshotRoutines, routinesDue, type SnapshotRoutineReader } from "./routine-reads";
 import { habitDays } from "@cadence/domain/repeats";
 import { createHabit, deleteHabit, moveHabit, resolveHabit, updateHabit } from "../../habits/habits.service";
@@ -158,13 +159,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
             "Archived ones only when asked. more:true and nextOffset when there's more.",
         inputSchema: z.object({
             includeArchived: z.boolean().default(false).describe("Also archived routines."),
-            offset: z
-                .number()
-                .int()
-                .min(0)
-                .max(100_000)
-                .optional()
-                .describe("From nextOffset; omit for the first page."),
+            offset: offsetSchema,
             limit: z.number().int().min(1).max(50).default(20),
         }),
         execute: async ({ includeArchived, offset = 0, limit }) =>

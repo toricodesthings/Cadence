@@ -24,6 +24,7 @@ vi.mock("../../../../app/hooks/sharing/use-share-list", () => ({
     useRemoveMember: () => ({ mutate: vi.fn() }),
     useStopSharing: () => ({ mutate: vi.fn() }),
     useLeaveList: () => ({ mutate: state.leave }),
+    useTransferList: () => ({ mutate: vi.fn() }),
 }));
 
 import { ShareListPanel } from "../../../../app/components/sharing/ShareListDialog";

@@ -8,6 +8,9 @@ const state = vi.hoisted(() => ({
     former: false,
 }));
 
+vi.mock("../../../../app/hooks/auth/use-auth-state", () => ({
+    useAuthState: () => ({ session: { user: { id: "me-1" } } }),
+}));
 vi.mock("../../../../app/hooks/sharing/use-list-access", () => ({ useTaskAccess: () => state.access }));
 vi.mock("../../../../app/hooks/sharing/use-list-people", () => ({
     usePersonInList: () => ({ person: state.person, former: state.former, loaded: true, project: { userId: "o" } }),
@@ -69,15 +72,45 @@ describe("a task menu in a shared list", () => {
         expect(await screen.findByText("Created by a former member")).toBeTruthy();
     });
 
-    it("hides what belongs to the owner from an editor: reminders, tags and the list", async () => {
+    it("shows personal reminders, tags and taking to an editor while keeping Move to list owner-only", async () => {
         state.access = { role: "edit", isShared: true, canEdit: true, isOwner: false };
         openMenu();
         await screen.findByText("Created by Ben");
-        expect(screen.queryByText("Set Reminder")).toBeNull();
-        expect(screen.queryByText("Tags")).toBeNull();
+        expect(screen.getByText("Set Reminder")).toBeTruthy();
+        expect(screen.getByText("Tags")).toBeTruthy();
+        expect(screen.getByText("I'll do it")).toBeTruthy();
         expect(screen.queryByText("Move to list")).toBeNull();
         expect(screen.getByText("Move to section")).toBeTruthy();
         expect(screen.getByText("Reschedule")).toBeTruthy();
+    });
+
+    it("shows Not doing it when taken by caller and Clear {name} for owner on someone else's take", async () => {
+        state.access = { role: "edit", isShared: true, canEdit: true, isOwner: false };
+        const mine = makeTask({
+            title: "Buy milk",
+            projectId: "11111111-1111-4111-8111-111111111111",
+            takenBy: "me-1",
+        });
+        const { unmount } = render(<TaskContextMenu task={mine} />);
+        fireEvent.pointerDown(screen.getByRole("button", { name: "Open actions for Buy milk" }), {
+            button: 0,
+            ctrlKey: false,
+        });
+        expect(await screen.findByText("Not doing it")).toBeTruthy();
+        unmount();
+
+        state.access = { role: "owner", isShared: true, canEdit: true, isOwner: true };
+        const bens = makeTask({
+            title: "Buy milk",
+            projectId: "11111111-1111-4111-8111-111111111111",
+            takenBy: "ben-1",
+        });
+        render(<TaskContextMenu task={bens} />);
+        fireEvent.pointerDown(screen.getByRole("button", { name: "Open actions for Buy milk" }), {
+            button: 0,
+            ctrlKey: false,
+        });
+        expect(await screen.findByText("Clear Ben")).toBeTruthy();
     });
 
     it("keeps everything for the owner of a shared list", async () => {
@@ -89,19 +122,23 @@ describe("a task menu in a shared list", () => {
         expect(screen.getByText("Move to list")).toBeTruthy();
     });
 
-    it("offers a viewer only Open and who made the task", async () => {
+    it("offers a viewer Open, personal Reminder, Tags and who made the task, never edits or taking", async () => {
         state.access = { role: "view", isShared: true, canEdit: false, isOwner: false };
         const onOpen = vi.fn();
         openMenu(onOpen);
-        fireEvent.click(await screen.findByText("Open"));
-        expect(onOpen).toHaveBeenCalled();
+        expect(await screen.findByText("Set Reminder")).toBeTruthy();
+        expect(screen.getByText("Tags")).toBeTruthy();
+        expect(screen.queryByText("I'll do it")).toBeNull();
         expect(screen.queryByText("Reschedule")).toBeNull();
         expect(screen.queryByText("Move to Trash")).toBeNull();
+        fireEvent.click(screen.getByText("Open"));
+        expect(onOpen).toHaveBeenCalled();
     });
 
-    it("shows no creator line in a list that isn't shared", async () => {
+    it("shows no creator line or taking in a list that isn't shared", async () => {
         openMenu();
         await screen.findByText("Reschedule");
         expect(screen.queryByText(/Created by/)).toBeNull();
+        expect(screen.queryByText("I'll do it")).toBeNull();
     });
 });

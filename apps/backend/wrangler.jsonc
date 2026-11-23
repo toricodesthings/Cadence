@@ -83,6 +83,12 @@
             "namespace_id": "2026031505",
             "simple": { "limit": 6, "period": 60 },
         },
+        // Each Code Mode pass is a Dynamic Worker (billed per unique worker per day); this caps a runaway client.
+        {
+            "name": "RATE_LIMITER_CODE",
+            "namespace_id": "2026031506",
+            "simple": { "limit": 10, "period": 60 },
+        },
     ],
 
     // Memory's per-person work: the nightly pass from the cron, learning and scrubs as delayed messages from events.
@@ -102,11 +108,19 @@
     },
 
     // One ReminderClock per person (domains/push): sends reminders from a plan on alarms, so nothing polls Neon.
+    // CodeModeHost: one per person, runs Code Mode (domains/mcp/code-mode.ts) in Dynamic Workers loaded through LOADER.
     "durable_objects": {
-        "bindings": [{ "name": "REMINDER_CLOCK", "class_name": "ReminderClock" }],
+        "bindings": [
+            { "name": "REMINDER_CLOCK", "class_name": "ReminderClock" },
+            { "name": "CODE_MODE", "class_name": "CodeModeHost" },
+        ],
     },
+    "worker_loaders": [{ "binding": "LOADER" }],
     // Inherited by env.dev.
-    "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ReminderClock"] }],
+    "migrations": [
+        { "tag": "v1", "new_sqlite_classes": ["ReminderClock"] },
+        { "tag": "v2", "new_sqlite_classes": ["CodeModeHost"] },
+    ],
 
     // Hourly only, and it touches Neon only at 06:00 UTC (cron/overdue-check.ts).
     // Anything more frequent keeps the database from scaling to zero.
@@ -213,6 +227,11 @@
                     "namespace_id": "2026031515",
                     "simple": { "limit": 6, "period": 60 },
                 },
+                {
+                    "name": "RATE_LIMITER_CODE",
+                    "namespace_id": "2026031516",
+                    "simple": { "limit": 10, "period": 60 },
+                },
             ],
             "queues": {
                 "producers": [{ "binding": "MEMORY_QUEUE", "queue": "cadence-memory-dev" }],
@@ -228,8 +247,12 @@
                 ],
             },
             "durable_objects": {
-                "bindings": [{ "name": "REMINDER_CLOCK", "class_name": "ReminderClock" }],
+                "bindings": [
+                    { "name": "REMINDER_CLOCK", "class_name": "ReminderClock" },
+                    { "name": "CODE_MODE", "class_name": "CodeModeHost" },
+                ],
             },
+            "worker_loaders": [{ "binding": "LOADER" }],
             "triggers": {
                 "crons": ["0 * * * *"],
             },

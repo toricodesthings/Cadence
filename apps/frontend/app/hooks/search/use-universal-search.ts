@@ -35,6 +35,8 @@ export interface SearchResult {
         taskTitle: string;
         scrollToHeading?: string;
     };
+    /** Present on task results so shared tasks can render the SharedMark. */
+    task?: Pick<Task, "projectId" | "createdBy" | "takenBy">;
 }
 
 // ── Route aliases ─────────────────────────────────────────────────
@@ -274,6 +276,7 @@ function taskEntry(task: Task, lookups: TaskLookups): Entry & { detail: TaskDeta
             route,
             focusScope: scope,
             score: TASK_STATE_SCORE[task.state] ?? 0,
+            task: { projectId: task.projectId, createdBy: task.createdBy, takenBy: task.takenBy },
         },
         fields: {
             notes: dedicated ? dedicated.terms.join(" ") : legacy,

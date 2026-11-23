@@ -70,7 +70,7 @@ export async function loadWeekAhead(
     const last = addDays(ctx.today, 6);
     return withRls(getDbClient(env), userId, async (tx) => {
         const [tasks, routines, startHour] = await Promise.all([
-            readTasks(tx, userId, { from: ctx.today, to: last }),
+            readTasks(tx, userId, { from: ctx.today, to: last }, { shared: true }),
             readSnapshotRoutines(tx, userId),
             timelineStartHour(tx, userId),
         ]);

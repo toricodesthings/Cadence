@@ -13,12 +13,23 @@ vi.mock("../../../../app/hooks/sections/use-sections", () => ({
 }));
 vi.mock("../../../../app/hooks/tasks/use-subtasks", () => ({ useSubtasks: () => ({ data: state.subtasks }) }));
 vi.mock("../../../../app/hooks/tasks/use-task-note", () => ({ useTaskNote: () => ({ state: state.note }) }));
+vi.mock("../../../../app/hooks/tasks/use-update-task", () => ({ useUpdateTask: () => ({ mutate: vi.fn() }) }));
+vi.mock("../../../../app/hooks/tags/use-task-tags", () => ({
+    useAddTaskTag: () => ({ mutate: vi.fn() }),
+    useRemoveTaskTag: () => ({ mutate: vi.fn() }),
+}));
 vi.mock("../../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: {} }) }));
 vi.mock("../../../../app/components/shared/DetailPanelLayout", () => ({
     DetailPanelLayout: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 vi.mock("../../../../app/components/tasks/TaskCheckbox", () => ({ TaskCheckbox: () => <span /> }));
-vi.mock("../../../../app/components/sharing/CreatedBy", () => ({ CreatedBy: () => null }));
+vi.mock("../../../../app/components/tasks/DeadlinePickerPopover", () => ({
+    DeadlinePickerPopover: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+vi.mock("../../../../app/components/tasks/TagField", () => ({ TagField: () => <div>TagField</div> }));
+vi.mock("../../../../app/components/sharing/CreatedBy", () => ({
+    CreatedBy: ({ verb = "Created" }: { verb?: string }) => <span>{verb}</span>,
+}));
 vi.mock("../../../../app/components/tasks/TaskNoteInline", () => ({ TaskNoteInline: () => <p>note body</p> }));
 
 import { TaskViewPanel } from "../../../../app/components/tasks/TaskViewPanel";
@@ -38,7 +49,7 @@ beforeEach(() => {
 });
 
 describe("a task in a list you can only view", () => {
-    it("shows what's set as facts, with nothing to type into or pick", () => {
+    it("shows shared facts as read-only while offering personal reminder and tags", () => {
         render(<TaskViewPanel task={task} onClose={() => {}} />);
         expect(screen.getByRole("heading", { name: "Book train tickets" })).toBeTruthy();
         expect(screen.getByRole("group", { name: "Deadline" })).toBeTruthy();
@@ -47,7 +58,10 @@ describe("a task in a list you can only view", () => {
         expect(screen.getByRole("group", { name: "Section" }).textContent).toContain("Packing");
         expect(screen.queryByRole("textbox")).toBeNull();
         expect(screen.queryByRole("combobox")).toBeNull();
-        expect(screen.queryByRole("switch")).toBeNull();
+        expect(screen.getByRole("switch", { name: "Set reminder" })).toBeTruthy();
+        expect(screen.getByText("TagField")).toBeTruthy();
+        expect(screen.getByText("Created")).toBeTruthy();
+        expect(screen.getByText("Edited")).toBeTruthy();
         expect(screen.queryByText(/Trash/)).toBeNull();
         expect(screen.queryByRole("group", { name: "Hidden until" })).toBeNull();
     });

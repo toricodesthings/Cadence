@@ -14,6 +14,7 @@ import rules from "../../../prompts/assistant/base/rules.md";
 import changes from "../../../prompts/assistant/base/changes.md";
 import replies from "../../../prompts/assistant/base/replies.md";
 import workflow from "../../../prompts/assistant/base/workflow.md";
+import sharedLists from "../../../prompts/assistant/base/shared-lists.md";
 import memoryPolicy from "../../../prompts/assistant/base/memory-policy.md";
 import secretary from "../../../prompts/assistant/voice/secretary.md";
 import coach from "../../../prompts/assistant/voice/coach.md";
@@ -33,7 +34,7 @@ const t = (text: string) => text.trimEnd();
 const authority = [identity, rules, changes];
 
 export const PROMPT_BLOCKS: PromptBlocks = {
-    base: [...authority, workflow, replies].map(t),
+    base: [...authority, workflow, sharedLists, replies].map(t),
     memoryPolicy: t(memoryPolicy),
     voices: { secretary: t(secretary), coach: t(coach), minimalist: t(minimalist), companion: t(companion) },
     workloadHigh: t(workloadHigh),

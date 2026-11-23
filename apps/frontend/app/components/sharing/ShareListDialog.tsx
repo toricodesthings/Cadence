@@ -4,6 +4,7 @@ import {
     Check,
     ChevronDown,
     Copy,
+    Crown,
     Eye,
     Link2Off,
     LinkIcon,
@@ -30,6 +31,7 @@ import {
     useResetInvites,
     useSetMemberRole,
     useStopSharing,
+    useTransferList,
 } from "../../hooks/sharing/use-share-list";
 import { toastName } from "../../lib/utils/undo-toast";
 import { SPRINGS } from "../../lib/constants/motion";
@@ -129,11 +131,13 @@ function CopyLinkButton({ onCopy, pending }: { onCopy: (done: () => void) => voi
     );
 }
 
-/** What the owner may do to one person: choose what they can do, or remove them (confirmed: only a new link brings them back). */
+/** What the owner may do to one person: choose what they can do, hand ownership over, or remove them. */
 function RoleMenu({ project, person }: { project: Project; person: ListPerson }) {
     const setRole = useSetMemberRole();
     const remove = useRemoveMember();
+    const transfer = useTransferList();
     const [confirmRemove, setConfirmRemove] = useState(false);
+    const [confirmTransfer, setConfirmTransfer] = useState(false);
     const roleButton = useRef<HTMLButtonElement>(null);
     const name = person.name ?? "this person";
     return (
@@ -145,11 +149,27 @@ function RoleMenu({ project, person }: { project: Project; person: ListPerson })
                 triggerRef={roleButton}
             >
                 <DropdownMenu.Separator />
+                <DropdownMenu.Item onSelect={() => setConfirmTransfer(true)}>
+                    <Crown size={14} aria-hidden="true" />
+                    Make owner
+                </DropdownMenu.Item>
                 <DropdownMenu.Item variant="danger" onSelect={() => setConfirmRemove(true)}>
                     <UserMinus size={14} aria-hidden="true" />
                     Remove access
                 </DropdownMenu.Item>
             </RolePicker>
+            <ConfirmDanger
+                trigger={null}
+                open={confirmTransfer}
+                onOpenChange={(open) => {
+                    setConfirmTransfer(open);
+                    if (!open) requestAnimationFrame(() => roleButton.current?.focus());
+                }}
+                title={`Make ${name} the owner?`}
+                description={`${name} will own ${project.name}. You'll stay in it and can still edit. You can't undo this; only ${name} can give it back.`}
+                confirmLabel="Make owner"
+                onConfirm={() => transfer.mutate({ listId: project.id, userId: person.userId, name })}
+            />
             <ConfirmDanger
                 trigger={null}
                 open={confirmRemove}

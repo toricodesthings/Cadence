@@ -28,7 +28,13 @@ async function connect(userId: string, scopes: string[]): Promise<string> {
 }
 
 /** One JSON-RPC call to /mcp as a verified token for (userId, connectionId, scopes). */
-function mcpAs(userId: string, connectionId: string, scopes: string[], env: Record<string, unknown> = {}) {
+function mcpAs(
+    userId: string,
+    connectionId: string,
+    scopes: string[],
+    env: Record<string, unknown> = {},
+    path = "/mcp",
+) {
     return async (method: string, params: object = {}, id: number = 1) => {
         const pending: Promise<unknown>[] = [];
         const ctx = {
@@ -37,7 +43,7 @@ function mcpAs(userId: string, connectionId: string, scopes: string[], env: Reco
             waitUntil: (p: Promise<unknown>) => pending.push(p),
         };
         const response = await serveMcp(
-            new Request("http://localhost:8787/mcp", {
+            new Request(`http://localhost:8787${path}`, {
                 method: "POST",
                 headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
                 body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
@@ -415,7 +421,7 @@ describe("writes", () => {
         const [a, b] = await Promise.all([call(mcp, "create_tasks", args), call(mcp, "create_tasks", args)]);
         const replay = await call(mcp, "create_tasks", args);
         expect(a.isError || b.isError || replay.isError).toBe(false);
-        expect(replay.data).toEqual({ created: a.data.created, deduped: true });
+        expect(replay.data).toEqual({ created: a.data.created, placed: a.data.placed, deduped: true });
         expect(b.data.created).toEqual(a.data.created);
         expect(await titled("Only once")).toHaveLength(1);
     });
@@ -807,7 +813,7 @@ describe("2.2.1: errors, dry runs, confirm, examples", () => {
         for (const tool of tools) {
             const props = tool.inputSchema.properties ?? {};
             expect([tool.name, "dryRun" in props]).toEqual([tool.name, DRY_RUN_TOOLS.has(tool.name)]);
-            if (tool.name.startsWith("delete_")) expect(tool.inputSchema.required).toContain("confirm");
+            if (tool.name.startsWith("delete_")) expect(props).toHaveProperty("confirm");
             if ("operationKey" in props) expect(tool.description).toContain("never guess");
             expect(tool.description).toContain("Example (ids come from a read)");
         }
@@ -819,6 +825,41 @@ describe("2.2.1: errors, dry runs, confirm, examples", () => {
         expect(errorBody(result.text)).toMatchObject({ code: "VALIDATION_ERROR" });
         expect(errorBody(result.text).issues?.map((i) => i.path)).toContain("confirm");
         expect((await call(mcp, "get_task_detail", { taskId })).data.task).not.toBeNull();
+    });
+
+    it("2.2.2: a dry run needs no operationKey or confirm; a real delete still needs both", async () => {
+        const { taskId } = await fixture();
+        const dry = await call(mcp, "delete_tasks", { tasks: [{ taskId, title: "Fix shelf" }], dryRun: true });
+        expect(dry.data).toEqual({ deleted: 1, dryRun: true });
+        const real = await call(mcp, "delete_tasks", { tasks: [{ taskId, title: "Fix shelf" }], confirm: true });
+        expect(errorBody(real.text).issues?.map((i) => i.path)).toContain("operationKey");
+        expect((await call(mcp, "get_task_detail", { taskId })).data.task.title).toBe("Fix shelf");
+    });
+
+    it("2.2.2: an unknown id is NOT_FOUND on delete_tasks and get_task_detail, never a silent 0 or null", async () => {
+        const id = crypto.randomUUID();
+        const del = await call(mcp, "delete_tasks", {
+            tasks: [{ taskId: id, title: "Gone" }],
+            confirm: true,
+            operationKey: op(),
+        });
+        expect(errorBody(del.text)).toMatchObject({ code: "NOT_FOUND", status: 404 });
+        const detail = await call(mcp, "get_task_detail", { taskId: id });
+        expect(errorBody(detail.text)).toMatchObject({ code: "NOT_FOUND", status: 404 });
+    });
+
+    it("2.2.2: create_tasks says where the batch landed, dry run included", async () => {
+        const { projectId, sectionId, taskId } = await fixture();
+        await call(mcp, "create_tasks", { tasks: [{ title: "Paint door", projectId }], operationKey: op() });
+        const dry = await call(mcp, "create_tasks", {
+            tasks: [{ title: "Sand door", projectId }],
+            afterTaskId: taskId,
+            dryRun: true,
+        });
+        expect(dry.data.placed).toEqual([{ projectId, after: "Fix shelf", before: "Paint door" }]);
+        await call(mcp, "update_tasks", { taskIds: [taskId], patch: { sectionId }, operationKey: op() });
+        const inSection = await call(mcp, "get_tasks", { sectionId });
+        expect(inSection.data.tasks.map((t: { title: string }) => t.title)).toEqual(["Fix shelf"]);
     });
 
     it("get_today shows 5 overdue by default and more with limit", async () => {
@@ -867,5 +908,112 @@ describe("2.2.1: errors, dry runs, confirm, examples", () => {
                 expect([name, code]).not.toEqual([name, "AI_TOOL_FAILED"]);
             }
         }
+    });
+});
+
+describe("2.2.2 Code Mode", () => {
+    const ALL = ["cadence:read", "cadence:capture", "cadence:write"];
+    const outcome = { status: "completed", executionId: "e1", result: 42 };
+    /** A CODE_MODE namespace whose host is three spies, and a counting RATE_LIMITER_CODE. */
+    const stub = (allowed = true) => {
+        const host = {
+            search: vi.fn(async () => [{ path: "cadence.get_tasks" }]),
+            describe: vi.fn(async () => ({ path: "cadence", types: "type X" })),
+            run: vi.fn(async () => ({ outcome, wrote: false })),
+        };
+        const limit = vi.fn(async () => ({ success: allowed }));
+        const env = {
+            LOADER: {},
+            CODE_MODE: { idFromName: (n: string) => n, get: () => host },
+            RATE_LIMITER_CODE: { limit },
+        };
+        return { host, limit, env };
+    };
+    const errorBody = (text: string) => apiErrorSchema.parse(JSON.parse(text)).error;
+    const names = async (mcp: ReturnType<typeof mcpAs>) =>
+        ((await mcp("tools/list")).body.result.tools as { name: string }[]).map((t) => t.name).sort();
+
+    it("/mcp adds search and execute to the direct tools; without CODE_MODE it is unchanged", async () => {
+        const userId = await createUser();
+        await setMemoryMode(userId, "off");
+        const id = await connect(userId, ALL);
+        const plain = await names(mcpAs(userId, id, ALL));
+        const withCode = await names(mcpAs(userId, id, ALL, stub().env));
+        expect(withCode).toEqual([...plain, "execute", "search"].sort());
+        expect(plain).not.toContain("execute");
+    });
+
+    it("/mcp/code publishes only search and execute, and tells the model to start with execute", async () => {
+        const userId = await createUser();
+        const id = await connect(userId, ALL);
+        const mcp = mcpAs(userId, id, ALL, stub().env, "/mcp/code/");
+        expect(await names(mcp)).toEqual(["execute", "search"]);
+        const init = { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } };
+        const text = (await mcp("initialize", init)).body.result.instructions as string;
+        expect(text).toContain("cadence.get_today");
+        expect(text).not.toContain("Start with get_today");
+        expect(new TextEncoder().encode(text).length).toBeLessThanOrEqual(2048);
+    });
+
+    it("execute is read-only with read scope, and neither tool exists with capture only", async () => {
+        const userId = await createUser();
+        const read = mcpAs(userId, await connect(userId, ["cadence:read"]), ["cadence:read"], stub().env, "/mcp/code");
+        const tools = (await read("tools/list")).body.result.tools as any[];
+        expect(tools.find((t) => t.name === "execute").annotations.readOnlyHint).toBe(true);
+        const capture = mcpAs(
+            userId,
+            await connect(userId, ["cadence:capture"]),
+            ["cadence:capture"],
+            stub().env,
+            "/mcp/code",
+        );
+        expect(await names(capture)).toEqual([]);
+        const write = mcpAs(userId, await connect(userId, ALL), ALL, stub().env, "/mcp/code");
+        const wt = (await write("tools/list")).body.result.tools as any[];
+        expect(wt.find((t) => t.name === "execute").annotations.readOnlyHint).toBe(false);
+        expect(wt.find((t) => t.name === "execute").description).toMatch(/Methods: .*get_today/);
+    });
+
+    it("execute validates its input, spends its limiter, and returns the host's outcome", async () => {
+        const userId = await createUser();
+        const id = await connect(userId, ALL);
+        const { env, host, limit } = stub();
+        const mcp = mcpAs(userId, id, ALL, env, "/mcp/code");
+
+        const both = await call(mcp, "execute", { code: "async () => 1", decision: "approve" });
+        expect(both.isError).toBe(true);
+        expect(errorBody(both.text).code).toBe("VALIDATION_ERROR");
+        expect(host.run).not.toHaveBeenCalled();
+
+        const done = await call(mcp, "execute", { code: "async () => 42" });
+        expect(done.data).toEqual({ status: "completed", executionId: "e1", result: 42 });
+        expect(host.run).toHaveBeenCalledWith(
+            expect.objectContaining({ userId, connectionId: id, scopes: expect.arrayContaining(ALL) }),
+            { code: "async () => 42" },
+        );
+        expect(limit).toHaveBeenCalledWith({ key: `codemode:${userId}` });
+
+        await call(mcp, "execute", { executionId: "e1", decision: "undo" });
+        expect(host.run).toHaveBeenLastCalledWith(expect.anything(), { executionId: "e1", decision: "undo" });
+    });
+
+    it("an exhausted RATE_LIMITER_CODE answers TOO_MANY_REQUESTS and never reaches the host", async () => {
+        const userId = await createUser();
+        const { env, host } = stub(false);
+        const mcp = mcpAs(userId, await connect(userId, ALL), ALL, env, "/mcp/code");
+        const result = await call(mcp, "execute", { code: "async () => 1" });
+        expect(errorBody(result.text).code).toBe("TOO_MANY_REQUESTS");
+        expect(host.run).not.toHaveBeenCalled();
+    });
+
+    it("search takes a query or a path, and nothing else", async () => {
+        const userId = await createUser();
+        const { env, host } = stub();
+        const mcp = mcpAs(userId, await connect(userId, ALL), ALL, env, "/mcp/code");
+        expect((await call(mcp, "search", { query: "tasks" })).data).toEqual([{ path: "cadence.get_tasks" }]);
+        expect(host.search).toHaveBeenCalledWith(expect.anything(), "tasks");
+        expect((await call(mcp, "search", { path: "cadence" })).data).toMatchObject({ path: "cadence" });
+        expect(host.describe).toHaveBeenCalledWith(expect.anything(), "cadence");
+        expect((await call(mcp, "search", {})).isError).toBe(true);
     });
 });

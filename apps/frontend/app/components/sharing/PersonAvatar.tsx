@@ -41,11 +41,13 @@ export function PersonAvatar({
     projectId,
     userId,
     size = 18,
+    tip,
     className = "",
 }: {
     projectId: string | null | undefined;
     userId: string | null | undefined;
     size?: keyof typeof SIZES;
+    tip?: string;
     className?: string;
 }) {
     const [open, setOpen] = useState(false);
@@ -57,7 +59,7 @@ export function PersonAvatar({
             open={open}
             onOpenChange={setOpen}
             title={label}
-            tip={label}
+            tip={tip ?? label}
             contentProps={{ className: "w-72 p-0 overflow-hidden", align: "end" }}
             flush
             trigger={

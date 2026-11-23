@@ -15,6 +15,7 @@ import { withRls } from "../../platform/rls";
 import { AppError } from "../../platform/errors";
 import { hashIdentifier, logger } from "../../platform/log";
 import { appOrigin, type Env } from "../../types/env";
+import { forgetCodeMode } from "./code-mode";
 import { serveMcp } from "./server";
 
 /**
@@ -364,5 +365,6 @@ export async function revokeConnection(env: Env, userId: string, connectionId: s
             .returning({ id: mcpConnections.id }),
     );
     await revokeGrants(env, userId, (grant) => grant.metadata?.connectionId === connectionId);
+    if (row) await forgetCodeMode(env, userId, connectionId);
     return Boolean(row);
 }

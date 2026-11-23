@@ -124,10 +124,10 @@ export function noteChange(c: RouteContext, change: LiveChange): void {
     c.set("liveChanges", [...(c.get("liveChanges") ?? []), change]);
 }
 
-/** What a recipient is allowed to see of a change: tags belong to the owner, so everyone else gets none. */
+/** What a recipient is allowed to see of a change: owner's tags and reminders never cross people. */
 export function shapeFor(change: LiveChange, recipientId: string): LiveChange {
     if (change.type !== "task" || change.task.userId === recipientId) return change;
-    return { ...change, task: { ...change.task, tagIds: [] } };
+    return { ...change, task: { ...change.task, tagIds: [], reminderAt: null, reminderSilenced: false } };
 }
 
 /** 10,000 tasks per shared list. `assertRowRoom` under a member's RLS counts only shared rows, so it can't stand in. */

@@ -24,7 +24,7 @@ import {
 import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskContextMenu } from "./TaskContextMenu";
 import { useTaskAccess } from "../../hooks/sharing/use-list-access";
-import { PersonAvatar } from "../sharing/PersonAvatar";
+import { SharedMark } from "../sharing/SharedMark";
 import { RenameTaskDialog } from "./RenameTaskDialog";
 import { EFFORT_OPTIONS, PRIORITY_OPTIONS } from "./task-choice-options";
 import { InlineSubtaskPanel, SUBTASK_RAIL, SubtaskChip, useInlineSubtasks } from "./InlineSubtasks";
@@ -50,6 +50,8 @@ interface TaskCardProps {
     variant?: "list" | "board";
     /** Simplify context menu and reduce metadata for Holding route */
     holdingContext?: boolean;
+    /** True when rendered inside the task's own list page (shows avatar only, without the shared Users glyph). */
+    inList?: boolean;
     /** Optional smart-sort rationale label */
     rationaleLabel?: string | null;
     /** dnd-kit drag handle props — scopes drag to an explicit grip handle */
@@ -219,10 +221,15 @@ export function TaskCard({
     onSelect,
     variant = "list",
     holdingContext,
+    inList,
     rationaleLabel,
     dragHandleProps,
 }: TaskCardProps) {
     const isComplete = task.state === "COMPLETE";
+    const isInList =
+        inList ??
+        (typeof window !== "undefined" &&
+            (window.location.pathname.startsWith("/project/") || window.location.pathname.startsWith("/projects/")));
     // A list you can only view: no check-off, drag or renaming. A shared one shows who made each task.
     const access = useTaskAccess(task);
     const priorityConfig = PRIORITY_CONFIG[task.priority];
@@ -494,7 +501,7 @@ export function TaskCard({
             >
                 {access.isShared && task.projectId ? (
                     <div data-no-open="true" data-no-dnd="true" className="flex shrink-0 self-center">
-                        <PersonAvatar projectId={task.projectId} userId={task.createdBy} size={16} />
+                        <SharedMark task={task} inList={isInList} size={16} />
                     </div>
                 ) : null}
 

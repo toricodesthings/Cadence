@@ -15,6 +15,8 @@ import {
     Columns3,
     ListChecks,
     StickyNote,
+    Hand,
+    Undo2,
     type LucideIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,7 +29,11 @@ import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useArchiveTask } from "../../hooks/tasks/use-archive-task";
 import { useOwnProjects } from "../../hooks/projects/use-own-projects";
 import { useTaskAccess } from "../../hooks/sharing/use-list-access";
+import { usePersonInList } from "../../hooks/sharing/use-list-people";
+import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { CreatedBy } from "../sharing/CreatedBy";
+import { PersonAvatar } from "../sharing/PersonAvatar";
+import { TaskReminderRow } from "./TaskReminderRow";
 import { useSections } from "../../hooks/sections/use-sections";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import { useSettings } from "../../hooks/core/use-settings";
@@ -352,6 +358,7 @@ function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange
 
             <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-1">
                 <CreatedBy task={task} />
+                <CreatedBy task={task} verb="Edited" />
                 <p className="text-xs leading-relaxed text-twilight-text-muted" aria-label="Task metadata">
                     Created {formatDateTime(task.createdAt)}
                     {task.updatedAt !== task.createdAt && <> · Updated {formatDateTime(task.updatedAt)}</>}
@@ -435,6 +442,61 @@ function WaitingFields({ task, waitingOn, onWaitingOnChange: handleWaitingOnChan
 
 type StatusGroupProps = { task: Task; onClose: () => void };
 
+/** "I'll do it" / "Not doing it" / owner "Clear {name}" row on shared tasks. */
+function TakeTaskRow({ task }: { task: Task }) {
+    const access = useTaskAccess(task);
+    const { session } = useAuthState();
+    const myId = session?.user?.id;
+    const updateTask = useUpdateTask();
+    const { person, former } = usePersonInList(task.projectId, task.takenBy);
+
+    if (!access.isShared || !access.canEdit || !myId) return null;
+
+    const takenByMe = task.takenBy === myId;
+    const takerName = former ? "former member" : (person?.name ?? "someone");
+
+    return (
+        <FieldRow icon={Hand} label="Doing it">
+            <div className="flex items-center gap-2">
+                {task.takenBy && !takenByMe ? (
+                    <span className="inline-flex items-center gap-1.5 text-[13px] text-twilight-text-soft">
+                        <PersonAvatar projectId={task.projectId} userId={task.takenBy} size={16} />
+                        <span className="truncate">{takerName}</span>
+                    </span>
+                ) : null}
+                {takenByMe ? (
+                    <button
+                        type="button"
+                        onClick={() => updateTask.mutate({ id: task.id, takenBy: null })}
+                        className={`${VALUE_BTN} inline-flex items-center gap-1.5 text-twilight-text-soft`}
+                    >
+                        <Undo2 size={13} aria-hidden="true" />
+                        Not doing it
+                    </button>
+                ) : task.takenBy && access.isOwner ? (
+                    <button
+                        type="button"
+                        onClick={() => updateTask.mutate({ id: task.id, takenBy: null })}
+                        className={`${VALUE_BTN} inline-flex items-center gap-1.5 text-twilight-text-muted`}
+                    >
+                        <Undo2 size={13} aria-hidden="true" />
+                        Clear {takerName}
+                    </button>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => updateTask.mutate({ id: task.id, takenBy: myId })}
+                        className={`${VALUE_BTN} inline-flex items-center gap-1.5 text-accent-primary`}
+                    >
+                        <Hand size={13} aria-hidden="true" />
+                        I&apos;ll do it
+                    </button>
+                )}
+            </div>
+        </FieldRow>
+    );
+}
+
 /** State (Fixed blocks are an anchor, never complete), how long it took, waiting, and what kind of repeat it is. */
 function StatusGroup({ task, onClose }: StatusGroupProps) {
     const updateTask = useUpdateTask();
@@ -497,6 +559,8 @@ function StatusGroup({ task, onClose }: StatusGroupProps) {
                 </div>
             </FieldBlock>
 
+            <TakeTaskRow task={task} />
+
             {task.state === "COMPLETE" ? (
                 <TookRow
                     taskId={task.id}
@@ -537,21 +601,7 @@ function StatusGroup({ task, onClose }: StatusGroupProps) {
 
 /** When it happens, how long it takes, its repeat, hide-until and reminder. */
 function WhenGroup({ task }: { task: Task }) {
-    const { isOwner } = useTaskAccess(task);
     const updateTask = useUpdateTask();
-    const [reminderOpen, setReminderOpen] = useState(false);
-    const { data: settings } = useSettings();
-    const morningTime = settings?.notifications?.morningTime ?? "09:00";
-
-    const deadlineInstant = deadlineReminderAt(task, morningTime);
-    const setReminder = (reminderAt: string | null) => {
-        updateTask.mutate({ id: task.id, reminderAt, reminderSilenced: false });
-    };
-    const handleReminderSwitch = (on: boolean) => {
-        if (!on) return setReminder(null);
-        if (deadlineInstant) return setReminder(deadlineInstant);
-        setReminderOpen(true); // nothing to follow: ask when
-    };
 
     const handleDeadlineChange = (updates: ScheduleUpdates) => {
         updateTask.mutate({ id: task.id, ...updates });
@@ -624,34 +674,7 @@ function WhenGroup({ task }: { task: Task }) {
                 </FieldRow>
             ) : null}
 
-            {/* Reminders on a shared task ring for its owner only. */}
-            {isOwner ? (
-                <FieldRow icon={Bell} label="Reminder">
-                    <div className="flex items-center gap-2">
-                        <DeadlinePickerPopover
-                            variant="moment"
-                            open={reminderOpen}
-                            onOpenChange={setReminderOpen}
-                            dueDate={null}
-                            scheduledStart={task.reminderAt ?? deadlineInstant}
-                            recurrenceRule={null}
-                            onChange={(updates) => setReminder(updates.scheduledStart)}
-                        >
-                            <button
-                                type="button"
-                                className={`${VALUE_BTN} ${task.reminderAt ? "" : "text-twilight-text-muted"}`}
-                            >
-                                {task.reminderAt ? formatShortDateTime(task.reminderAt) : "None"}
-                            </button>
-                        </DeadlinePickerPopover>
-                        <Switch
-                            checked={Boolean(task.reminderAt)}
-                            onCheckedChange={handleReminderSwitch}
-                            aria-label={task.reminderAt ? "Remove reminder" : "Set reminder"}
-                        />
-                    </div>
-                </FieldRow>
-            ) : null}
+            <TaskReminderRow task={task} />
         </DetailGroup>
     );
 }
@@ -790,15 +813,13 @@ function OrganizeGroup({ task }: { task: Task }) {
                 </FieldRow>
             ) : null}
 
-            {isOwner ? (
-                <FieldBlock icon={Tag} label="Tags">
-                    <TagField
-                        tagIds={task.tagIds ?? []}
-                        onAdd={(id) => addTagAssoc.mutate({ taskId: task.id, tagId: id })}
-                        onRemove={(id) => removeTagAssoc.mutate({ taskId: task.id, tagId: id })}
-                    />
-                </FieldBlock>
-            ) : null}
+            <FieldBlock icon={Tag} label="Tags">
+                <TagField
+                    tagIds={task.tagIds ?? []}
+                    onAdd={(id) => addTagAssoc.mutate({ taskId: task.id, tagId: id })}
+                    onRemove={(id) => removeTagAssoc.mutate({ taskId: task.id, tagId: id })}
+                />
+            </FieldBlock>
 
             <FieldRow icon={Pin} label="Pin to top">
                 <Switch

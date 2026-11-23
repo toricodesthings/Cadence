@@ -9,11 +9,13 @@ import {
     ListChecks,
     Repeat,
     StickyNote,
+    Tag,
     UserCheck,
 } from "lucide-react";
 import type { Task } from "@cadence/contracts/task";
 import { formatMinutes } from "@cadence/domain/duration-chips";
 import { useSections } from "../../hooks/sections/use-sections";
+import { useAddTaskTag, useRemoveTaskTag } from "../../hooks/tags/use-task-tags";
 import { useSubtasks } from "../../hooks/tasks/use-subtasks";
 import { useTaskNote } from "../../hooks/tasks/use-task-note";
 import { PRIORITY_CONFIG } from "../../lib/constants/priority";
@@ -26,10 +28,12 @@ import {
 } from "../../lib/utils/task/task-scheduling";
 import { Skeleton } from "../primitives/Skeleton";
 import { AppPane } from "../shared/AppPane";
-import { CARD, FieldRow, PanelHeader, PanelTrigger } from "../shared/DetailPanelSections";
+import { CARD, FieldBlock, FieldRow, PanelHeader, PanelTrigger } from "../shared/DetailPanelSections";
 import { DetailPanelLayout } from "../shared/DetailPanelLayout";
 import { Reveal } from "../shared/Reveal";
 import { CreatedBy } from "../sharing/CreatedBy";
+import { TagField } from "./TagField";
+import { TaskReminderRow } from "./TaskReminderRow";
 import { EFFORT_OPTIONS, PRIORITY_OPTIONS } from "./task-choice-options";
 import { TaskCheckbox } from "./TaskCheckbox";
 
@@ -88,6 +92,8 @@ export function TaskViewPanel({ task, onClose, detailMode = "peek", onDetailMode
     const facts = useFacts(task);
     const { data: subtasks = [] } = useSubtasks(task.id);
     const { state: noteState } = useTaskNote(task.id);
+    const addTagAssoc = useAddTaskTag();
+    const removeTagAssoc = useRemoveTaskTag();
     const words = (noteState?.body ?? "").trim().split(/\s+/).filter(Boolean).length;
     const done = subtasks.filter((s) => s.isComplete).length;
     const subtaskSummary = subtasks.length ? `${done}/${subtasks.length} complete` : "No subtasks";
@@ -178,8 +184,20 @@ export function TaskViewPanel({ task, onClose, detailMode = "peek", onDetailMode
                 </ul>
             </Reveal>
 
+            <fieldset className={`${CARD} flex flex-col px-4 py-1.5`} aria-label="Personal reminder and tags">
+                <TaskReminderRow task={task} />
+                <FieldBlock icon={Tag} label="Tags">
+                    <TagField
+                        tagIds={task.tagIds ?? []}
+                        onAdd={(id) => addTagAssoc.mutate({ taskId: task.id, tagId: id })}
+                        onRemove={(id) => removeTagAssoc.mutate({ taskId: task.id, tagId: id })}
+                    />
+                </FieldBlock>
+            </fieldset>
+
             <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-1">
                 <CreatedBy task={task} />
+                <CreatedBy task={task} verb="Edited" />
                 <p className="text-xs leading-relaxed text-twilight-text-muted" aria-label="Task metadata">
                     Created {formatShortDate(task.createdAt)}
                     {task.updatedAt !== task.createdAt && <> · Updated {formatShortDate(task.updatedAt)}</>}

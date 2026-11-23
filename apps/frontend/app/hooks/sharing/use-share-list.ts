@@ -143,6 +143,22 @@ export function useStopSharing() {
     );
 }
 
+/** The owner hands a list over to a current member. Irreversible; caller confirms first. */
+export function useTransferList() {
+    const client = useApiClient();
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ listId, userId }: { listId: string; userId: string; name: string }) =>
+            unwrapResponse(await client.api.lists[":id"].transfer.$post({ param: { id: listId }, json: { userId } })),
+        onSuccess: (_data, { name }) => {
+            toast.success(`Made ${name} the owner.`);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
+        },
+        onError: (err) => toastError(err, "Couldn't transfer ownership"),
+    });
+}
+
 /** What a link opens, for the screen shown before anything is joined. */
 export function useInvitePreview(token: string | undefined) {
     const client = useApiClient();

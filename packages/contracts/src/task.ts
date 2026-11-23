@@ -43,25 +43,12 @@ const taskWhenFields = {
     durationEstimate: z.number().int().min(1).max(1440).nullable().optional(),
 };
 
-// ── Input schemas (moved verbatim from backend tasks.schema.ts) ──
-export const insertTaskSchema = z.object({
-    /** Client-chosen id, so a task made offline can be edited before it syncs. */
-    id: z.uuid().optional(),
-    title: z.string().trim().min(1).max(500),
-    content: z.string().max(50_000).nullable().optional(),
-    state: taskStateSchema.default("ACTIVE"),
-    orderIndex: z.number(),
-    // A day (all-day or a deadline), or a timed block (instants plus the zone it was planned in).
-    // All-day = no scheduledStart.
-    ...taskWhenFields,
-    timezoneLocked: z.boolean().default(false),
+/** Optional task fields shared identically by create and update. */
+const taskSharedOptionalFields = {
     projectId: z.uuid().nullable().optional(),
-    priority: taskPrioritySchema.default(0),
-    isPinned: z.boolean().default(false),
     reminderAt: instantSchema.nullable().optional(),
-    reminderSilenced: z.boolean().default(false),
     recurrenceRule: z.string().max(500).nullable().optional(),
-    // Omitted → the server picks a default (see @cadence/domain suggestInteractionMode).
+    // Omitted → the server picks a default on create (see @cadence/domain suggestInteractionMode).
     interactionMode: taskInteractionModeSchema.optional(),
     waitingOn: waitingOnSchema.nullable().optional(),
     waitingReminder: instantSchema.nullable().optional(),
@@ -75,6 +62,24 @@ export const insertTaskSchema = z.object({
     /** Or the one website it opens (https only); the client keeps at most one of the two. */
     linkedUrl: linkedUrlSchema.nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
+};
+
+// ── Input schemas (moved verbatim from backend tasks.schema.ts) ──
+export const insertTaskSchema = z.object({
+    /** Client-chosen id, so a task made offline can be edited before it syncs. */
+    id: z.uuid().optional(),
+    title: z.string().trim().min(1).max(500),
+    content: z.string().max(50_000).nullable().optional(),
+    state: taskStateSchema.default("ACTIVE"),
+    orderIndex: z.number(),
+    // A day (all-day or a deadline), or a timed block (instants plus the zone it was planned in).
+    // All-day = no scheduledStart.
+    ...taskWhenFields,
+    timezoneLocked: z.boolean().default(false),
+    priority: taskPrioritySchema.default(0),
+    isPinned: z.boolean().default(false),
+    reminderSilenced: z.boolean().default(false),
+    ...taskSharedOptionalFields,
     tagIds: z.array(z.uuid()).max(50).optional(),
     nlp: canonicalNlpEnvelopeSchema.optional(),
 });
@@ -87,23 +92,13 @@ export const updateTaskSchema = z.object({
     orderIndex: z.number().optional(),
     ...taskWhenFields,
     timezoneLocked: z.boolean().optional(),
-    projectId: z.uuid().nullable().optional(),
     priority: taskPrioritySchema.optional(),
     isPinned: z.boolean().optional(),
-    reminderAt: instantSchema.nullable().optional(),
     reminderSilenced: z.boolean().optional(),
-    recurrenceRule: z.string().max(500).nullable().optional(),
-    interactionMode: taskInteractionModeSchema.optional(),
-    waitingOn: waitingOnSchema.nullable().optional(),
-    waitingReminder: instantSchema.nullable().optional(),
-    effort: effortLevelSchema.nullable().optional(),
-    effortOrigin: effortOriginSchema.optional(),
+    ...taskSharedOptionalFields,
     /** "dismissed": the person said no to the Effort guess; kept until the title or list changes. */
     effortGuessSource: z.literal("dismissed").optional(),
-    notBefore: localDateSchema.nullable().optional(),
-    linkedAppId: linkedAppIdSchema.nullable().optional(),
-    linkedUrl: linkedUrlSchema.nullable().optional(),
-    sectionId: z.uuid().nullable().optional(),
+    takenBy: z.uuid().nullable().optional(),
     /** Present when the write places a block Cadence proposed (Find a time): it decides whether the choice teaches. */
     findTime: findTimeSchema.optional(),
     expectedUpdatedAt: z.string().optional(),
@@ -197,6 +192,9 @@ export const taskRowSchema = z.object({
     linkedUrl: z.string().nullable(),
     /** The moment the task entered Done (null while it isn't): with the id, one completion. */
     completedAt: instantSchema.nullable(),
+    /** Who volunteered to do this shared task ("I'll do it"), and when. */
+    takenBy: z.uuid().nullable(),
+    takenAt: instantSchema.nullable(),
     /** Who made the task; null = the list owner (or a deleted account). */
     createdBy: z.uuid().nullable(),
     updatedBy: z.uuid().nullable(),
@@ -226,6 +224,8 @@ export const taskSchema = taskRowSchema.omit({ effortOrigin: true, effortChosenA
     linkedUrl: z.string().nullable().optional(),
     tagIds: z.array(z.uuid()),
     /** Optional: optimistic rows and data cached before sharing don't carry them. */
+    takenBy: z.uuid().nullable().optional(),
+    takenAt: instantSchema.nullable().optional(),
     createdBy: z.uuid().nullable().optional(),
     updatedBy: z.uuid().nullable().optional(),
     isHabit: z.boolean().optional(),

@@ -6,6 +6,7 @@ import type { Task } from "@cadence/contracts/task";
 import { AgendaRow } from "../../shared/AgendaRow";
 import { RoutineAgendaRow } from "../../shared/RoutineAgendaRow";
 import { TaskCheckbox } from "../../tasks/TaskCheckbox";
+import { SharedMark } from "../../sharing/SharedMark";
 import { formatTime } from "../../../lib/utils/date-format";
 import { isTimed, scheduleKind, taskDays } from "../../../lib/utils/calendar/schedule-day";
 import { today } from "../../../lib/utils/user-zone";
@@ -138,6 +139,7 @@ export function ScheduleRow({
                 onOpen={open}
                 ariaLabel={`Open ${kind === "fixed" ? "fixed block" : "task"} ${task.title}${meta ? `, ${meta}` : ""}`}
                 className={`items-center py-1.5 ${kind === "fixed" ? "hover:bg-moonlit/[0.05]" : "hover:bg-white/[0.04]"}`}
+                trailing={<SharedMark task={task} size={16} className="pr-1" />}
             >
                 <span className="block truncate text-[15px] leading-snug text-twilight-text">
                     {task.title}

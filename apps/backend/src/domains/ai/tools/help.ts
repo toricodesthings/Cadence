@@ -13,6 +13,7 @@ import settings from "../../../prompts/help/settings.md";
 import shortcuts from "../../../prompts/help/shortcuts.md";
 import devices from "../../../prompts/help/devices.md";
 import privacyAndData from "../../../prompts/help/privacy-and-data.md";
+import sharing from "../../../prompts/help/sharing.md";
 
 /**
  * The Cadence guide: one short markdown file per topic in ../help, git-owned like
@@ -33,6 +34,7 @@ export const HELP_TOPICS = {
     shortcuts,
     devices,
     "privacy-and-data": privacyAndData,
+    sharing,
 } as const;
 
 type HelpTopic = keyof typeof HELP_TOPICS;

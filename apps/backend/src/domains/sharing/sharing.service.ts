@@ -1,6 +1,6 @@
-import { and, count, eq, gt, lte, sql } from "drizzle-orm";
+import { and, count, eq, gt, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import type { InvitePreview, ListPerson, ShareRole } from "@cadence/contracts/sharing";
-import { listMembers, shareInvites } from "../../db/schema";
+import { listMembers, shareInvites, tasks } from "../../db/schema";
 import { AppError } from "../../platform/errors";
 import { SHARE_CEILINGS, type ListAccess } from "../../platform/list-access";
 import type { Tx } from "../../types/db";
@@ -112,28 +112,52 @@ export async function joinList(tx: Tx, userId: string, token: string): Promise<s
     return row.listId;
 }
 
-export async function setMemberRole(tx: Tx, listId: string, memberId: string, role: ShareRole) {
+async function clearTakes(tx: Tx, ownerId: string, listId: string, userIds?: string[]) {
+    await tx
+        .update(tasks)
+        .set({ takenBy: null, takenAt: null })
+        .where(
+            and(
+                eq(tasks.userId, ownerId),
+                eq(tasks.projectId, listId),
+                userIds ? inArray(tasks.takenBy, userIds) : isNotNull(tasks.takenBy),
+            ),
+        );
+}
+
+export async function setMemberRole(tx: Tx, ownerId: string, listId: string, memberId: string, role: ShareRole) {
     const [row] = await tx
         .update(listMembers)
         .set({ role })
         .where(and(eq(listMembers.listId, listId), eq(listMembers.userId, memberId)))
         .returning({ userId: listMembers.userId, role: listMembers.role, invitedBy: listMembers.invitedBy });
     if (!row) throw new AppError(404, "NOT_FOUND", "Person not found in this list");
+    if (role === "view") await clearTakes(tx, ownerId, listId, [memberId]);
     return row;
 }
 
-export async function removeMember(tx: Tx, listId: string, memberId: string) {
+export async function removeMember(tx: Tx, access: ListAccess, memberId: string) {
+    if (access.role !== "view") await clearTakes(tx, access.ownerId, access.listId, [memberId]);
     const rows = await tx
         .delete(listMembers)
-        .where(and(eq(listMembers.listId, listId), eq(listMembers.userId, memberId)))
+        .where(and(eq(listMembers.listId, access.listId), eq(listMembers.userId, memberId)))
         .returning({ userId: listMembers.userId });
     if (!rows.length) throw new AppError(404, "NOT_FOUND", "Person not found in this list");
 }
 
-/** Stop sharing: everyone is removed and every link dies. */
+/** Stop sharing: everyone is removed, all takes are cleared, and every link dies. */
 export async function stopSharing(tx: Tx, userId: string, access: ListAccess) {
+    await clearTakes(tx, userId, access.listId);
     await tx.delete(listMembers).where(eq(listMembers.listId, access.listId));
     await resetInvites(tx, userId, access.listId);
+}
+
+/** Transfer ownership of a list to a current member via `cadence_transfer_list`. */
+export async function transferList(tx: Tx, listId: string, toUserId: string) {
+    const [row] = await tx
+        .select({ ok: sql<boolean>`r.ok` })
+        .from(sql`cadence_transfer_list(${listId}::uuid, ${toUserId}::uuid) AS r(ok)`);
+    if (!row?.ok) throw new AppError(404, "NOT_FOUND", "Person not found in this list");
 }
 
 /** The owner and every member, as the people in the list see each other. Never email or birthday. */

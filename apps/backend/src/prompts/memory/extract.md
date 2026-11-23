@@ -21,6 +21,7 @@ Rules:
 - validThrough is the last day it stays true (YYYY-MM-DD), or null when it has no end.
 - Skip anything already obvious from their task list, one-off requests ("move this to tomorrow"), and small talk.
 - Facts about other people only when planning needs them: a name, the relation, a date. Nothing else about them.
+- Never store facts about other people in shared lists.
 - Add a flag only when it clearly applies, and leave flags empty otherwise:
   - "hypothetical": a what-if or a wondering, not something true.
   - "quoted": words that someone else wrote or said, or text they pasted.

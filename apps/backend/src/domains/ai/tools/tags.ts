@@ -9,6 +9,7 @@ import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, once, MAX_LIST_LIMIT } from "./index";
 import { toMinimalTag } from "./projections";
+import { offsetSchema } from "./drafts";
 import { TAG_COLOR_NAMES, TAG_PALETTE } from "@cadence/contracts/constants";
 import { createTag, deleteTag, updateTag } from "../../tags/tags.service";
 
@@ -26,13 +27,7 @@ export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
         description: "The user's tags, by name. Search with query; more:true and nextOffset when there's more.",
         inputSchema: z.object({
             query: z.string().trim().min(1).max(100).optional().describe("Words in the tag name, case-insensitive."),
-            offset: z
-                .number()
-                .int()
-                .min(0)
-                .max(100_000)
-                .optional()
-                .describe("From nextOffset; omit for the first page."),
+            offset: offsetSchema,
         }),
         execute: async ({ query, offset = 0 }) =>
             safeExecute("get_tags", userId, async () => {

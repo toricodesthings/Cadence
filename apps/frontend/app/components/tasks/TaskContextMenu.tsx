@@ -16,8 +16,10 @@ import {
     Pencil,
     ChevronLeft,
     ChevronRight,
+    Hand,
     Sunrise,
     SlidersHorizontal,
+    Undo2,
     type LucideIcon,
 } from "lucide-react";
 import * as DropdownMenu from "../primitives/DropdownMenu";
@@ -37,6 +39,8 @@ import { MoveToSectionSubmenu } from "./MoveToSectionSubmenu";
 import { TagPickerSubmenu } from "./TagPickerSubmenu";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useTaskAccess } from "../../hooks/sharing/use-list-access";
+import { usePersonInList } from "../../hooks/sharing/use-list-people";
+import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { CreatedBy } from "../sharing/CreatedBy";
 import type { Task, UpdateTaskInput } from "@cadence/contracts/task";
 import { trackUsageEvent } from "../../lib/api/track-event";
@@ -97,6 +101,29 @@ function menuRow(
                 {hint ? <kbd className="ml-auto font-mono text-[10px] opacity-40">{hint}</kbd> : null}
             </div>
         </Menu.Item>
+    );
+}
+
+/** "I'll do it" / "Not doing it" / owner "Clear {name}" menu rows, shared by desktop and compact menus. */
+function TakeTaskMenuItems({ Menu, task }: { Menu: GenericMenu; task: Task }) {
+    const access = useTaskAccess(task);
+    const { session } = useAuthState();
+    const myId = session?.user?.id;
+    const updateTask = useUpdateTask();
+    const { person: taker, former: takerFormer } = usePersonInList(task.projectId, task.takenBy);
+    if (!access.isShared || !access.canEdit || !myId) return null;
+    if (task.takenBy === myId) {
+        return menuRow(Menu, Undo2, "Not doing it", () => updateTask.mutate({ id: task.id, takenBy: null }));
+    }
+    return (
+        <>
+            {menuRow(Menu, Hand, "I'll do it", () => updateTask.mutate({ id: task.id, takenBy: myId }))}
+            {task.takenBy &&
+                access.isOwner &&
+                menuRow(Menu, Undo2, `Clear ${takerFormer ? "former member" : (taker?.name ?? "someone")}`, () =>
+                    updateTask.mutate({ id: task.id, takenBy: null }),
+                )}
+        </>
     );
 }
 
@@ -258,6 +285,8 @@ export function TaskMenuItems({
         handleOpenReminder,
     );
 
+    const takeItem = <TakeTaskMenuItems Menu={Menu} task={task} />;
+
     // Who made a task in a shared list, always the menu's last line.
     const madeBy = access.isShared ? (
         <>
@@ -272,6 +301,13 @@ export function TaskMenuItems({
         return (
             <>
                 {onOpen && menuRow(Menu, SlidersHorizontal, "Open", onOpen)}
+                {reminderItem}
+                <TagPickerSubmenu
+                    MenuComponents={Menu}
+                    activeTagIds={task.tagIds ?? []}
+                    onAdd={(tagId) => addTaskTag.mutate({ taskId: task.id, tagId })}
+                    onRemove={(tagId) => removeTaskTag.mutate({ taskId: task.id, tagId })}
+                />
                 {madeBy}
             </>
         );
@@ -310,8 +346,10 @@ export function TaskMenuItems({
 
                     {findTimeItem}
 
-                    {/* Reminders and tags on a shared task are its owner's. */}
-                    {access.isOwner && reminderItem}
+                    {/* Reminders are personal: every member can set their own. */}
+                    {reminderItem}
+
+                    {takeItem}
 
                     <Menu.Separator />
 
@@ -497,22 +535,20 @@ function OrganizeItems({ Menu, task, isOwner, onUpdate, onAddTag, onRemoveTag }:
             <Menu.Separator />
 
             {/* ── Organization ── */}
-            {isOwner && (
-                <>
-                    <TagPickerSubmenu
-                        MenuComponents={Menu}
-                        activeTagIds={task.tagIds ?? []}
-                        onAdd={onAddTag}
-                        onRemove={onRemoveTag}
-                    />
+            <TagPickerSubmenu
+                MenuComponents={Menu}
+                activeTagIds={task.tagIds ?? []}
+                onAdd={onAddTag}
+                onRemove={onRemoveTag}
+            />
 
-                    <MoveToSubmenu
-                        MenuComponents={Menu}
-                        currentProjectId={task.projectId}
-                        currentSectionId={task.sectionId ?? null}
-                        onSelect={(projectId, sectionId) => onUpdate({ projectId, sectionId })}
-                    />
-                </>
+            {isOwner && (
+                <MoveToSubmenu
+                    MenuComponents={Menu}
+                    currentProjectId={task.projectId}
+                    currentSectionId={task.sectionId ?? null}
+                    onSelect={(projectId, sectionId) => onUpdate({ projectId, sectionId })}
+                />
             )}
 
             <MoveToSectionSubmenu
@@ -539,6 +575,7 @@ function TaskQuickActions({ task }: { task: Task }) {
         );
     return (
         <>
+            <TakeTaskMenuItems Menu={DropdownMenu} task={task} />
             {menuRow(
                 DropdownMenu,
                 Pin,
