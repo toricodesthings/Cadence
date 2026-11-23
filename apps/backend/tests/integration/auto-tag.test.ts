@@ -8,7 +8,7 @@ import { inboxRoutes } from "../../src/domains/inbox/inbox.route";
 import { createTasks, updateTasks } from "../../src/domains/tasks/tasks.service";
 import { withRls } from "../../src/platform/rls";
 import { projects, tags, taskSections, taskTags } from "../../src/db/schema";
-import { count, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 let userId: string;
 let api: ReturnType<typeof apiAs>;

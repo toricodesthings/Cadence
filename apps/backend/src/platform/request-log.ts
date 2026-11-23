@@ -61,14 +61,17 @@ function levelForStatus(status: number): LogLevel {
     return "info";
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 export function getRequestId(c: Context<any>) {
     return c.get("requestId");
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 function getRouteLabel(c: Context<any>) {
     return c.req.routePath || c.req.path;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 export function setRequestErrorCode(c: Context<any>, errorCode: string) {
     c.set("errorCode", errorCode);
 }
@@ -79,6 +82,7 @@ export function setRequestErrorCode(c: Context<any>, errorCode: string) {
  * for the same failure. This is what guarantees exactly one structured entry
  * per failed request regardless of whether the failure threw or returned.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 function markLogged(c: Context<any>) {
     c.set("logged", true);
 }
@@ -87,6 +91,7 @@ function markLogged(c: Context<any>) {
  * Shared envelope fields every structured log event carries: request
  * identity, the request line, the hashed user, and elapsed time.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 async function baseLogFields(c: Context<any>, requestId: string) {
     const userId = c.var.userId;
     return {
@@ -120,6 +125,7 @@ function sanitizeClientRequestId(raw: string | undefined): string | undefined {
 }
 
 export function createRequestContext() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     return async (c: Context<any>, next: () => Promise<void>) => {
         // Always generate a server-controlled canonical request ID
         const requestId = crypto.randomUUID();
@@ -161,6 +167,7 @@ export function createRequestContext() {
     };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 export async function logValidationFailure(c: Context<any>, target: string, issues: IssueSummary[], rawData: unknown) {
     const requestId = getRequestId(c);
     const record = rawData && typeof rawData === "object" ? (rawData as Record<string, unknown>) : {};
@@ -178,6 +185,7 @@ export async function logValidationFailure(c: Context<any>, target: string, issu
     });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 export async function logErrorResponse(c: Context<any>, error: unknown, status: number, errorCode: string) {
     const requestId = getRequestId(c);
 

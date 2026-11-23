@@ -23,11 +23,13 @@ export function backgroundObjectKey(userId: string, id: string): string {
  * existence of `backgroundImage` belong to the upload and delete routes.
  * `backgroundMode: "image"` is dropped while there is no photo to show.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 export function sanitizeBackgroundPatch<T extends Record<string, any>>(stored: Record<string, any>, patch: T): T {
     const appearance = patch.appearance;
     if (!appearance || typeof appearance !== "object") return patch;
 
     const hasImage = Boolean(stored.appearance?.backgroundImage);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     const next: Record<string, any> = { ...appearance };
 
     if ("backgroundImage" in next) {

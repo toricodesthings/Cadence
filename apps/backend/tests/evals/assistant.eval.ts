@@ -1358,7 +1358,7 @@ const SCENARIOS: Scenario[] = [
                 },
                 turns: ["My busiest day is too full, what can move?"],
                 check: async (run, t) => {
-                    const shifts = (await openTasks(t)).filter((task) => /^Shift/.test(task.title));
+                    const shifts = (await openTasks(t)).filter((task) => task.title.startsWith("Shift"));
                     return [
                         ...need(
                             /errand|report/i.test(run.text) ||

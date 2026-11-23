@@ -311,7 +311,7 @@ function AttachmentStrip({ images }: { images: ChatAttachments }) {
                     >
                         <img
                             src={a.url}
-                            alt={`Attached image ${i + 1}`}
+                            alt={`Attachment ${i + 1}`}
                             className={`h-16 w-16 rounded-xl object-cover ring-1 ${a.status === "failed" ? "ring-feedback-error/60 opacity-50" : "ring-white/10"}`}
                         />
                     </button>

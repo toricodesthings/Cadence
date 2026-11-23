@@ -47,6 +47,7 @@ async function subtasksByTask(c: SubtaskContext, taskIds: string[]) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function updateSubtask(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     c: Context<{ Bindings: Env; Variables: AuthVariables }, any, any>,
     id: string,
     values: Partial<typeof subtasks.$inferInsert>,

@@ -79,6 +79,7 @@ function classifyAuthFailure(error: unknown) {
 }
 
 /** Build the standard JSON error response for an AppError and record its code. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 function respondWithError(c: Context<any>, error: AppError) {
     setRequestErrorCode(c, error.code);
     return c.json(
@@ -89,6 +90,7 @@ function respondWithError(c: Context<any>, error: AppError) {
             isRetryable: error.isRetryable,
             requestId: getRequestId(c),
         }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
         error.statusCode as any,
     );
 }
@@ -233,6 +235,7 @@ export const authMiddleware = createMiddleware<{
                 // Non-fatal: the user row may already exist. Let the route attempt proceed.
             }
         }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     } catch (e: any) {
         return respondWithError(c, e instanceof AppError ? e : classifyAuthFailure(e));
     }

@@ -241,6 +241,7 @@ const BOUNDS = new Set(["minLength", "maxLength", "minimum", "maximum", "minItem
 export function slimSchema(node: unknown): unknown {
     if (Array.isArray(node)) return node.map(slimSchema);
     if (!node || typeof node !== "object") return node;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     const out: Record<string, any> = {};
     for (const [key, value] of Object.entries(node)) {
         if (BOUNDS.has(key) || (key === "additionalProperties" && value === false)) continue;
@@ -254,6 +255,7 @@ export function slimSchema(node: unknown): unknown {
 }
 
 /** `anyOf` of same-type literals becomes an `enum`; `anyOf: [X, null]` becomes `type: [X, "null"]`. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 function foldAnyOf(node: Record<string, any>): Record<string, any> {
     const { anyOf, ...rest } = node;
     if (!Array.isArray(anyOf) || anyOf.length < 2) return node;
@@ -299,6 +301,7 @@ function orNull(schema: unknown): unknown {
 export function nullableOptionals(node: unknown): unknown {
     if (Array.isArray(node)) return node.map(nullableOptionals);
     if (!isRecord(node)) return node;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     const out: Record<string, any> = {};
     for (const [key, value] of Object.entries(node)) {
         out[key] =
@@ -363,12 +366,14 @@ export async function validateLenient<R extends { success: boolean; value?: unkn
         const issues = (err?.cause?.issues ?? err?.issues ?? []) as { path?: PropertyKey[] }[];
         // Step through objects and arrays alike: `tasks.0.subtasks` is one draft's field.
         const at = (path: PropertyKey[]) =>
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
             path.reduce<any>(
                 (node, key) => (node && typeof node === "object" ? node[key as string] : undefined),
                 input,
             );
         const paths = issues.map((issue) => issue.path ?? []);
         // A rule across fields (a refine) names the object, not a field: its stand-ins go, but never a null, which can clear.
+        // oxlint-disable-next-line unicorn/no-useless-spread -- the loop pushes onto `paths`
         for (const path of [...paths]) {
             const target = at(path);
             // Not an empty object either: a rule like "nothing to change" names an empty patch, and dropping it would hide why.
@@ -395,6 +400,7 @@ export async function validateLenient<R extends { success: boolean; value?: unkn
         if (!fixes.length) return result;
         input = structuredClone(input);
         for (const path of fixes) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
             const parent = path.slice(0, -1).reduce<any>((node, key) => node[key as string], input);
             // A null where null isn't allowed is the model's "not used": drop it without remark.
             if (parent[String(path.at(-1))] !== null) ignored.push(path.join("."));
@@ -439,6 +445,7 @@ const NULL_CLAUSE = /[;,]\s*(?:or\s+)?null\b[^.;]*/g;
 function withClear(schema: unknown, clearable: string[]): unknown {
     if (!clearable.length || !isRecord(schema) || !isRecord(schema.properties) || !isRecord(schema.properties.patch))
         return schema;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     const patch = schema.properties.patch as Record<string, any>;
     const properties: Record<string, unknown> = Object.fromEntries(
         Object.entries(patch.properties).map(([name, field]) => [

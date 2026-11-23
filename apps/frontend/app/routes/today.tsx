@@ -112,6 +112,7 @@ export default function TodayRoute() {
             result = applyFocusView(result, activeDefinition, { clock: nlpClock(), dayOf: dayOfInstant });
         }
         return result;
+        // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
     }, [activeTagId, tasks, activeDefinition, intelligenceEnabled, focusViewsEnabled, todayISO]);
 
     const grouped = useMemo(() => {

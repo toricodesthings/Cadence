@@ -556,7 +556,7 @@ export function CaptureRow({
             onColumn={dropOnColumn}
         >
             <RowContextMenu {...menuProps}>
-                <article
+                <article // oxlint-disable-line jsx-a11y/no-noninteractive-element-interactions
                     data-focus-kind={item ? "inbox" : "task"}
                     data-focus-id={object.id}
                     aria-label={title}
@@ -672,6 +672,7 @@ export function CaptureRow({
                     {task && (
                         // Below the whole row so it spans past the day pill and time; indented to the title (checkbox
                         // w-8 + gap-2, plus the 14px ThoughtMark + gap-2). Stops row drag and row shortcuts in the list.
+                        // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- pointer convenience; keyboard path is on the inner controls
                         <div
                             className={task.origin === "thought" ? "pl-[3.875rem]" : "pl-10"}
                             onPointerDown={(e) => e.stopPropagation()}

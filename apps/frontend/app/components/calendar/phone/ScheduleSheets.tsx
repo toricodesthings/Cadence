@@ -69,6 +69,7 @@ export function LightenTodaySheet({
     useEffect(() => {
         if (open) setChosen(new Set(tasks.map((task) => task.id)));
         // Re-seed only when the sheet opens; later list changes keep the user's picks.
+        // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
     }, [open]);
 
     const picked = tasks.filter((task) => chosen.has(task.id));

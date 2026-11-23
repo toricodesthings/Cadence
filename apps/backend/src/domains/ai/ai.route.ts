@@ -131,21 +131,27 @@ type ChatMessage = {
 
 /** Join text parts of a UIMessage into one string. */
 function extractText(parts: unknown[]): string {
-    return parts
-        .map((p) => (p && typeof p === "object" && (p as any).type === "text" ? String((p as any).text ?? "") : ""))
-        .filter(Boolean)
-        .join("\n")
-        .trim();
+    return (
+        parts
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
+            .map((p) => (p && typeof p === "object" && (p as any).type === "text" ? String((p as any).text ?? "") : ""))
+            .filter(Boolean)
+            .join("\n")
+            .trim()
+    );
 }
 
 /** Strip the per-request fence nonce from a model message's text parts before persistence. */
 function stripNonceFromMessage(message: { parts?: unknown[]; [k: string]: unknown }, nonce: string): ChatMessage {
     const parts = (message.parts ?? []).map((p) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
         if (p && typeof p === "object" && (p as any).type === "text" && typeof (p as any).text === "string") {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
             return { ...(p as any), text: stripNonce((p as any).text, nonce) };
         }
         return p;
     });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     return { ...(message as any), parts };
 }
 
@@ -365,6 +371,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         const body = c.req.valid("json");
         const limits = resolveLimits(c.env);
         // One `ai_turn` line per turn (written in onEnd), every time in ms since the request arrived.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
         const requestStartedAt: number = (c as Context<any>).get("requestStartedAt");
         const since = () => Date.now() - requestStartedAt;
         const diagnosticClockStart = performance.now();
@@ -672,6 +679,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 // Hard ceilings cancel the upstream model call (no zombie spend, doc 09 §3.1);
                 // firstChunkMs fails a hung provider fast instead of waiting out the whole turn.
                 timeout: { totalMs: STREAM_TIMEOUT_MS, firstChunkMs: FIRST_CHUNK_TIMEOUT_MS },
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
                 originalMessages: uiMessages as any,
                 generateMessageId: () => assistantMessageId,
                 messageMetadata: ({ part }) => {
@@ -680,7 +688,8 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                         stepTokens += meterUsage(part.usage);
                     }
                     return part.type === "finish"
-                        ? ({ totalUsage: (part as any).totalUsage, model: modelId, promptHash } as any)
+                        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
+                          ({ totalUsage: (part as any).totalUsage, model: modelId, promptHash } as any)
                         : undefined;
                 },
                 onError: (error) => {
@@ -700,6 +709,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                     const titleSpend = (await titlePromise)?.spend; // always resolves, ≤4s
                     c.executionCtx.waitUntil(addDailySpend(c.env, (spend.costUsd ?? 0) + (titleSpend?.costUsd ?? 0)));
                     try {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
                         const cleaned = stripNonceFromMessage(responseMessage as any, nonce);
                         await withCallerRls(c, async (tx) => {
                             await saveAssistantMessage(tx, userId, conversationId, cleaned, {

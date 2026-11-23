@@ -292,6 +292,7 @@ export function TaskCard({
     };
 
     return (
+        // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- pointer convenience; keyboard path is on the inner controls
         <article
             data-focus-kind="task"
             data-focus-id={task.id}

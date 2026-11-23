@@ -86,6 +86,7 @@ export function TimedCalendarColumn({
             }}
         >
             <ContextMenu.Trigger asChild>
+                {/* oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- pointer convenience; keyboard path is on the inner controls */}
                 <div
                     ref={ref}
                     data-calendar-column={dateStr}

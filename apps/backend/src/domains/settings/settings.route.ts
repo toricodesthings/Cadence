@@ -27,6 +27,7 @@ import {
 import { uuidParamSchema } from "@cadence/contracts/common";
 import { isZone } from "@cadence/domain/time";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 function isPlainObject(value: unknown): value is Record<string, any> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -68,6 +69,7 @@ export function migrateLegacySettings<T>(stored: T): T {
  * - Migrates legacy `preferredView` into `tasks.defaultView`
  * - Migrates legacy `calendar.holidays` location fields into `location`
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 export function normalizeSettings(stored: Record<string, any>): SettingsView {
     const merged = deepMerge<SettingsView>(SETTINGS_DEFAULTS, migrateLegacySettings(stored));
 
@@ -117,6 +119,7 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
                 .where(eq(users.id, userId))
                 .limit(1);
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
             const normalized = normalizeSettings((user?.settings ?? {}) as Record<string, any>);
             const merged = deepMerge<SettingsView>(normalized, {
                 tasks: {
@@ -221,6 +224,7 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
                 .for("update"); // concurrent patches (and assistant event writes) must not drop each other's change
 
             // Normalize stored settings first, then merge in patch
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
             const normalized = normalizeSettings((user?.settings || {}) as Record<string, any>);
             const merged = deepMerge<SettingsView>(normalized, sanitizeBackgroundPatch(normalized, body));
 
@@ -235,6 +239,7 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
                 .returning({ settings: users.settings });
         });
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
         const normalizedResult = normalizeSettings((updated?.settings ?? {}) as Record<string, any>);
         return c.json({ data: normalizedResult });
     })
@@ -272,6 +277,7 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
             tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1),
         );
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
         const normalized = normalizeSettings((user?.settings ?? {}) as Record<string, any>);
         return c.json({ data: normalized });
     })

@@ -32,6 +32,7 @@ export async function buildExport(tx: Tx, identity: { userId: string; email: str
     for (const table of (Object.values(schema) as unknown[]).filter((value): value is PgTable => is(value, PgTable))) {
         const name = getTableName(table);
         if (SKIPPED_TABLES.has(name)) continue;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
         const all: Record<string, any> = getTableColumns(table);
         const columns = Object.fromEntries(
             Object.entries(all).filter(

@@ -64,6 +64,7 @@ export function AssistantSidePanel({
     const stick = useStickToBottom({ initial: "instant", resize: reducedMotion ? "instant" : "smooth" });
     const scrollToBottom = useCallback(
         () => void stick.scrollToBottom(reducedMotion ? "instant" : "smooth"),
+        // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
         [stick.scrollToBottom, reducedMotion],
     );
     const images = useChatAttachments({

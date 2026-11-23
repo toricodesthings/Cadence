@@ -31,6 +31,7 @@ async function isTrackingAllowed(
 
 /** Stores usage events in the background, only for people who opted into diagnostics. */
 async function recordUsage(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     c: Context<{ Bindings: Env; Variables: AuthVariables }, any, any>,
     events: { event: string; metadata?: Record<string, unknown> | null }[],
 ) {

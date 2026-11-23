@@ -74,6 +74,7 @@ export function NoteSlashMenu({
                         className="max-h-72 overflow-y-auto overscroll-contain"
                     >
                         {commands.map((cmd, i) => (
+                            // oxlint-disable-next-line jsx-a11y/click-events-have-key-events -- pointer convenience; keyboard path is on the inner controls
                             <div
                                 key={cmd.id}
                                 id={slashOptionId(cmd.id)}

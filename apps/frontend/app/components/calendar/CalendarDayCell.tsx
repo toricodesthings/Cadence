@@ -290,6 +290,7 @@ function FullDayCell({
           : "text-twilight-text-soft";
 
     return (
+        // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- pointer convenience; keyboard path is on the inner controls
         <div
             ref={setNodeRef}
             data-day={dateStr}

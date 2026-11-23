@@ -18,6 +18,7 @@ export async function loadNlpRuntime(tx: Tx, userId: string) {
         tx.select({ id: tags.id, name: tags.name }).from(tags).where(eq(tags.userId, userId)),
     ]);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     const settings = (user?.settings ?? {}) as Record<string, any>;
     const intelligence = settings.tasks?.intelligence ?? {};
     const dismissedEntityIds = new Set<string>((intelligence.dismissedEntityIds as string[] | undefined) ?? []);

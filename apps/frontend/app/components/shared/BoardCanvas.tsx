@@ -180,6 +180,7 @@ export function BoardCanvas({
         if (!columns.some((column) => column.id === activeColumnId)) {
             setActiveColumnId(columns[0].id);
         }
+        // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
     }, [activeColumnId, columns]);
 
     if (!columns.length) {

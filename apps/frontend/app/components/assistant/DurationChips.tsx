@@ -211,6 +211,7 @@ export function DurationChips({
     const label = (value: DurationValue) => formatValue(value);
     return (
         // The Cadence toast is the card: no surface of its own, or it shows a border inside a border.
+        // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- pointer convenience; keyboard path is on the inner controls
         <div
             ref={box}
             role="group"

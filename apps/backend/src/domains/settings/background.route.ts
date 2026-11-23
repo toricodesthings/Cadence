@@ -42,15 +42,18 @@ const uploadFormSchema = backgroundUploadMetaSchema.extend({ file: z.instanceof(
 
 async function readSettings(tx: Tx, userId: string): Promise<SettingsView> {
     const [user] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     return normalizeSettings((user?.settings ?? {}) as Record<string, any>);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 async function writeSettings(tx: Tx, userId: string, settings: Record<string, any>): Promise<SettingsView> {
     const [row] = await tx
         .update(users)
         .set({ settings })
         .where(eq(users.id, userId))
         .returning({ settings: users.settings });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     return normalizeSettings((row?.settings ?? {}) as Record<string, any>);
 }
 

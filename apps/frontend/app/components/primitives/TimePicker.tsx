@@ -201,7 +201,7 @@ function DesktopTimePicker({
         if (parsed) commit(parsed);
         else if (clearable && !text.trim()) commit("");
         else setText(formatTime(value, is24h));
-    }, [text, value, is24h, commit]);
+    }, [text, value, is24h, commit, clearable]);
 
     const openList = React.useCallback(() => {
         const idx = items.indexOf(value);
@@ -303,6 +303,7 @@ function DesktopTimePicker({
                         const isCurrent = item === value;
                         const isHighlighted = i === highlight;
                         return (
+                            // oxlint-disable-next-line jsx-a11y/interactive-supports-focus -- option driven by the input via aria-activedescendant
                             <div
                                 key={item}
                                 id={`${listId}-${i}`}

@@ -142,6 +142,7 @@ export default function ProjectView() {
         }
         if (intelligenceEnabled && sortMode === "smart") return rankTasksForRoute(filtered, "project", guessOf);
         return { tasks: sortTasks(filtered, sortMode), rationaleByTaskId: {} as Record<string, string | null> };
+        // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
     }, [
         rawTasks,
         activeTagId,

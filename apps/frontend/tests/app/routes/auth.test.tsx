@@ -16,6 +16,7 @@ vi.mock("@neondatabase/auth/react/ui", () => ({
         <div data-testid="auth-view" data-view={view}>
             <div>
                 {[0, 1].map((i) => (
+                    // oxlint-disable-next-line jsx-a11y/control-has-associated-label -- bare mock of the vendor sign-in view
                     <button key={i} type="button">
                         <svg aria-hidden="true" />
                     </button>
@@ -23,6 +24,7 @@ vi.mock("@neondatabase/auth/react/ui", () => ({
             </div>
             <div>
                 <input type="password" />
+                {/* oxlint-disable-next-line jsx-a11y/control-has-associated-label -- vendor view mock */}
                 <button type="button">
                     <svg aria-hidden="true" />
                 </button>

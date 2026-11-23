@@ -20,6 +20,7 @@ function recordSpanEnds() {
     });
     return ended;
 }
+// oxlint-disable-next-line unicorn/no-thenable -- the test double must be awaitable
 const thenable = <T>(promise: Promise<T>) => ({ then: promise.then.bind(promise) }) as Promise<T>;
 
 function database(context: Promise<void>) {

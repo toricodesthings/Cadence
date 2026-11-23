@@ -42,6 +42,7 @@ function IdentityProof({
 }: IdentityProofProps) {
     if (hasPassword) {
         return (
+            // oxlint-disable-next-line jsx-a11y/label-has-associated-control -- pointer convenience; keyboard path is on the inner controls
             <label className="mt-4 block text-sm text-twilight-text-soft">
                 Your password
                 <div className="mt-2">
@@ -63,6 +64,7 @@ function IdentityProof({
                 <strong className="text-twilight-text">{email}</strong>.
             </p>
             {codeSent ? (
+                // oxlint-disable-next-line jsx-a11y/label-has-associated-control -- pointer convenience; keyboard path is on the inner controls
                 <label className="mt-3 block">
                     Code from the email
                     <div className="mt-2 flex gap-2">

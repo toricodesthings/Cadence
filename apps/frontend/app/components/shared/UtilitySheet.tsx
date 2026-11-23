@@ -168,6 +168,7 @@ export function UtilitySheet({
             {/* A footer button keeps focus in the field: a blur would close the keyboard and move the footer
             out from under the finger before the tap lands. */}
             {footer ? (
+                // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- pointer convenience; keyboard path is on the inner controls
                 <div
                     className="shrink-0"
                     onMouseDown={(e) => {

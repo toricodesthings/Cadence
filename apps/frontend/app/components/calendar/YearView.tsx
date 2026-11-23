@@ -130,7 +130,7 @@ function MiniMonth({
         for (let i = 0; i < firstOffset; i++) arr.push(null);
         for (let d = 1; d <= daysInMonth; d++) arr.push(d);
         return arr;
-    }, [year, month, daysInMonth, firstOffset]);
+    }, [daysInMonth, firstOffset]);
 
     return (
         <div data-lift className="surface-card flex flex-col gap-3 rounded-2xl p-4 transition-colors">

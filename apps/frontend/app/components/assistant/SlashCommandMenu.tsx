@@ -41,9 +41,11 @@ export function SlashCommandMenu({
             {commands.map((command, i) => {
                 const Icon = ICONS[command.id];
                 return (
+                    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events -- pointer convenience; keyboard path is on the inner controls
                     <li
                         key={command.id}
                         id={slashOptionId(command.id)}
+                        // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role -- pointer convenience; keyboard path is on the inner controls
                         role="option"
                         aria-selected={i === activeIndex}
                         // Keep the textarea focused; the click still fires.

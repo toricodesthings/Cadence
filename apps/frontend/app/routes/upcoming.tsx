@@ -291,6 +291,7 @@ export default function Upcoming() {
         }
 
         return next;
+        // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
     }, [activeDefinition, activeTagId, focusViewsEnabled, intelligenceEnabled, tasks, todayISO]);
 
     const projectById = useMemo(() => new Map(projects.map((project) => [project.id, project] as const)), [projects]);

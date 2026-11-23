@@ -74,12 +74,16 @@ function FitDayCardBody({ output }: { output: DayPlan }) {
                           end: toInstant(p.end),
                       })),
                       didntFit: didntFitOut.map((t) => t.id),
+                      // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
                       notSized: notSizedOut.map((t) => t.id),
                   },
+        // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
         [output, stale],
     ); // eslint-disable-line react-hooks/exhaustive-deps -- the arrays come from `output`
     const titles = useMemo(
+        // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
         () => new Map([...placedOut, ...didntFitOut, ...notSizedOut].map((t) => [t.id, t.title])),
+        // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
         [output],
     ); // eslint-disable-line react-hooks/exhaustive-deps -- as above
 

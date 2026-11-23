@@ -76,6 +76,7 @@ export function ScheduleRow({
     const doneOpacity = useTransform(x, [0, COMMIT], [0, 1]);
     const tray = useRef<HTMLDivElement>(null);
     const [actionsWidth, setActionsWidth] = useState(ACTIONS_WIDTH);
+    // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
     useLayoutEffect(() => {
         if (tray.current) setActionsWidth(tray.current.offsetWidth);
     });

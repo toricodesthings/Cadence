@@ -48,6 +48,7 @@ export function NoteFindBar({
     const label = !query ? "" : find.count === 0 ? "No matches" : `${find.current + 1} of ${find.count}`;
 
     return (
+        // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- pointer convenience; keyboard path is on the inner controls
         <div
             role="search"
             aria-label="Find in note"

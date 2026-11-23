@@ -180,10 +180,12 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
     }, [pending]);
     const hidden = pending || !revealed;
     useEffect(() => {
+        // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
         setDiagnosticsEnabled(Boolean(settings) && settings?.privacy?.usageDiagnostics !== false);
         setCrashReportsEnabled(Boolean(settings) && settings?.privacy?.crashReports !== false);
         // Account changes clear consent in AuthStateProvider. Keep it on a root
         // render failure so the recovery boundary can report that failure.
+        // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
     }, [settings?.privacy?.usageDiagnostics, settings?.privacy?.crashReports, Boolean(settings)]);
 
     useEffect(() => {
@@ -217,6 +219,7 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
             cancel();
             if (!delivered) reported.current = false;
         };
+        // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
     }, [
         authReady,
         isAuthenticated,
@@ -227,6 +230,7 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
         client,
         restoring,
         settings?.privacy?.usageDiagnostics,
+        // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
         Boolean(settings),
     ]);
     return (

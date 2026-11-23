@@ -110,12 +110,14 @@ export function isInstructionShaped(text: string): boolean {
 
 /** One line of plain text: no markup or control characters a fence could be confused by. */
 export function cleanText(text: string): string {
-    // eslint-disable-next-line no-control-regex
-    return text
-        .replace(/[\u0000-\u001f\u007f]+/g, " ")
-        .replace(/[<>`]/g, "")
-        .replace(/\s+/g, " ")
-        .trim();
+    return (
+        text
+            // eslint-disable-next-line no-control-regex
+            .replace(/[\u0000-\u001f\u007f]+/g, " ")
+            .replace(/[<>`]/g, "")
+            .replace(/\s+/g, " ")
+            .trim()
+    );
 }
 
 /** Whether a cleaned candidate may be saved at all. */

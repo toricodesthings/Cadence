@@ -53,7 +53,10 @@ export default function HomeRoute() {
     } = useTaskDetailSelection(() => setSelectedInboxItemId(null));
 
     const captureFeed = useCaptureFeed();
-    const inboxItems = [...captureFeed.inboxItems, ...captureFeed.notes];
+    const inboxItems = useMemo(
+        () => [...captureFeed.inboxItems, ...captureFeed.notes],
+        [captureFeed.inboxItems, captureFeed.notes],
+    );
     const tasksLoading = captureFeed.isLoading;
     const { holdingPanelOpen, holdingPanelWidth, setHoldingPanelWidth, toggleHoldingPanel, railView } =
         useRightPanelStore();
@@ -80,7 +83,7 @@ export default function HomeRoute() {
     const clearSelection = useCallback(() => {
         setSelectedTaskId(null);
         setSelectedInboxItemId(null);
-    }, []);
+    }, [setSelectedTaskId]);
 
     /* ── Side panel — ClarifySheet for captures, EditSidePanel for tasks, Overview fallback ── */
     const sidePanel = (

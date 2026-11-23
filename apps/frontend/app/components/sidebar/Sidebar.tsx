@@ -136,6 +136,7 @@ export function Sidebar({
                         >
                             <SidebarPanel onSearchOpen={onSearchOpen} />
 
+                            {/* oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- pointer convenience; keyboard path is on the inner controls */}
                             <div
                                 onMouseDown={startResizing}
                                 className={`

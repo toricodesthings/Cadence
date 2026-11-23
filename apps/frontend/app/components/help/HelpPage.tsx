@@ -112,6 +112,7 @@ export function HelpPage() {
         const heading = feature ? guideHeadingRef.current : headingRef.current;
         heading?.focus({ preventScroll: true });
         heading?.scrollIntoView({ block: "nearest", behavior: "instant" });
+        // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
     }, [feature?.id]);
 
     return (

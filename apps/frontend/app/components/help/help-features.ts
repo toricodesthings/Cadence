@@ -16,7 +16,6 @@ import {
     TextCursorInput,
     Waypoints,
     ArrowDownWideNarrow,
-    Focus,
     Gauge,
     BookOpen,
     CheckSquare,

@@ -167,6 +167,7 @@ function ConnectAsk({ client, email, chosen, setScopes, leaving, failed, respond
                 {(Object.keys(MCP_SCOPE_COPY) as McpScope[]).map((scope) => {
                     const on = chosen.has(scope);
                     return (
+                        // oxlint-disable-next-line jsx-a11y/label-has-associated-control -- pointer convenience; keyboard path is on the inner controls
                         <label
                             key={scope}
                             className={`flex cursor-pointer items-center justify-between gap-4 rounded-2xl border py-1.5 pl-4 pr-2 transition-colors duration-300 ${

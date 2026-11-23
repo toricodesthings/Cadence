@@ -89,6 +89,7 @@ app.use(
     cors({
         origin: (origin, c) => {
             if (!origin) return PRODUCTION_ORIGIN;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
             if (isAllowedOrigin(origin, (c as any).env)) {
                 return origin;
             }
@@ -110,6 +111,7 @@ app.onError(async (err, c) => {
     const res = formatErrorResponse(err, getRequestId(c));
     setRequestErrorCode(c, res.errorCode);
     await logErrorResponse(c, err, res.status, res.errorCode);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     return c.json(res.body, res.status as any);
 });
 

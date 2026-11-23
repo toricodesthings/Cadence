@@ -37,11 +37,13 @@ vi.mock("react-easy-crop", async () => {
         useEffect(() => {
             onMediaLoaded({ width: 480, height: 270, naturalWidth: 1600, naturalHeight: 900 });
             onCropSizeChange({ width: 480, height: 270 });
+            // oxlint-disable-next-line react/exhaustive-deps -- mock of the cropper: effects fire on mount / zoom only
         }, []);
         useEffect(() => {
             const width = 1600 / zoom;
             const height = 900 / zoom;
             onCropComplete({}, { x: (1600 - width) / 2, y: (900 - height) / 2, width, height });
+            // oxlint-disable-next-line react/exhaustive-deps -- mock of the cropper: effects fire on mount / zoom only
         }, [zoom]);
         return <img src={image} alt={mediaProps?.alt} />;
     }

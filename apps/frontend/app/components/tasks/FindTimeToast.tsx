@@ -63,6 +63,7 @@ export function FindTimeToast({
     const day = formatInZone(proposal.start, zone, { weekday: "long" });
     const spoken = `${toastName(title, 40)} placed ${day}, ${formatTime(proposal.start)} to ${formatTime(proposal.end)}.`;
     return (
+        // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- pointer convenience; keyboard path is on the inner controls
         <div
             ref={box}
             role="group"

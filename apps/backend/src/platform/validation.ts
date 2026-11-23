@@ -19,6 +19,7 @@ export function apiValidator<T extends keyof ValidationTargets, S extends ZodSch
             return;
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
         const ctx = c as any;
         const issues = formatIssues(result.error.issues);
         setRequestErrorCode(ctx, "INVALID_REQUEST");

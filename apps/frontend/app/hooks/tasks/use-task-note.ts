@@ -25,6 +25,7 @@ function useNoteSession(
         setHeld(acquired);
         void acquired.load();
         return () => releaseNoteSession(userId, ownerId);
+        // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
     }, [ready, queryClient, userId, ownerId]);
     // Between a task/account switch and the effect above, never hand out the previous owner's session.
     return held && held.owner === ownerId && held.userId === userId ? held : null;

@@ -1,4 +1,3 @@
-import type { Task } from "@cadence/contracts/task";
 import { addDays, formatInZone, type LocalDate } from "@cadence/domain/time";
 import { getDaysInMonth, isoDay } from "../date-format";
 

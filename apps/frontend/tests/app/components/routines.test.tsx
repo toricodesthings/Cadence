@@ -90,6 +90,7 @@ describe("openOnCardClick", () => {
     it("opens on the card's background, never on its own buttons", () => {
         const onSelect = vi.fn();
         render(
+            // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- the card click is what is under test
             <section data-testid="card" onClick={openOnCardClick(onSelect)}>
                 <span>Walk</span>
                 <button type="button">Mon</button>

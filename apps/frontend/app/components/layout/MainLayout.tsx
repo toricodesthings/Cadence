@@ -337,6 +337,7 @@ export function MainLayout({
         if (intelligence?.nlpEnabled === false || intelligence?.focusViewsEnabled === false) {
             clearActiveFocusView();
         }
+        // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
     }, [
         clearActiveFocusView,
         settings?.tasks?.intelligence?.focusViewsEnabled,

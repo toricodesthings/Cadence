@@ -105,6 +105,7 @@ async function writeMode(
         .where(eq(users.id, userId))
         .limit(1)
         .for("update");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     const settings = (row?.settings ?? {}) as Record<string, any>;
     const assistant = (settings.assistant ?? {}) as Record<string, unknown>;
     const before = memoryStateOf(settings);

@@ -37,7 +37,6 @@ import { TaskReminderRow } from "./TaskReminderRow";
 import { useSections } from "../../hooks/sections/use-sections";
 import { useDebouncedCallback } from "../../hooks/core/use-debounced-callback";
 import { useSettings } from "../../hooks/core/use-settings";
-import { deadlineReminderAt } from "../../lib/notifications/reminder-engine";
 import { useSubtasks } from "../../hooks/tasks/use-subtasks";
 import { useTaskNote } from "../../hooks/tasks/use-task-note";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
@@ -57,7 +56,7 @@ import { DatePicker } from "../shared/DatePicker";
 import { Button } from "../primitives/Button";
 import { Skeleton } from "../primitives/Skeleton";
 import { Switch } from "../primitives/Switch";
-import { formatShortDate, formatShortDateTime } from "../../lib/utils/date-format";
+import { formatShortDate } from "../../lib/utils/date-format";
 import { PRIORITY_CONFIG } from "../../lib/constants/priority";
 import {
     CHIP_ACTIVE,

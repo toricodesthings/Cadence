@@ -265,6 +265,7 @@ const allTools = coreTools;
 type AnyTool = {
     description?: string;
     inputSchema: unknown;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     execute?: (input: unknown, options: object) => Promise<any>;
 };
 

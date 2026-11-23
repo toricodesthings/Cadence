@@ -12,9 +12,6 @@ import { sharingRoutes } from "../../src/domains/sharing/sharing.route";
 import { subtaskRoutes } from "../../src/domains/subtasks/subtasks.route";
 import { tagRoutes } from "../../src/domains/tags/tags.route";
 import { taskRoutes } from "../../src/domains/tasks/tasks.route";
-import { readTasks } from "../../src/domains/tasks/tasks.service";
-import { withRls } from "../../src/platform/rls";
-import { getTestDb } from "../helpers/db";
 
 beforeAll(startTestDb);
 

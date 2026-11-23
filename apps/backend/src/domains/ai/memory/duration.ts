@@ -54,13 +54,15 @@ async function historyOf(tx: Tx, userId: string, group: string, today: LocalDate
     };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 const writeAsk = (tx: Tx, userId: string, settings: Record<string, any>, value: DurationAskState) =>
     tx
         .update(users)
-        .set({ settings: { ...settings, assistant: { ...(settings.assistant ?? {}), durationAsk: value } } })
+        .set({ settings: { ...settings, assistant: { ...settings.assistant, durationAsk: value } } })
         .where(eq(users.id, userId));
 
 /** The user row, locked: two devices can't interleave their budget edits. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 async function lockedSettings(tx: Tx, userId: string): Promise<Record<string, any>> {
     const [row] = await tx
         .select({ settings: users.settings })
@@ -68,6 +70,7 @@ async function lockedSettings(tx: Tx, userId: string): Promise<Record<string, an
         .where(eq(users.id, userId))
         .limit(1)
         .for("update");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     return (row?.settings ?? {}) as Record<string, any>;
 }
 

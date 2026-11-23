@@ -61,6 +61,7 @@ export function toMinimalEvent(event: PersonalEvent, today: string) {
 async function readSettings(tx: Tx, userId: string, lock = false) {
     const query = tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
     const [user] = await (lock ? query.for("update") : query);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     return normalizeSettings((user?.settings ?? {}) as Record<string, any>);
 }
 

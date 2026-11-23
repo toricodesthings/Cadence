@@ -28,6 +28,7 @@ export async function loadSnapshot(
     eventsSnapshot?: ReturnType<typeof projectEvents>,
     limit = 5,
 ): Promise<string> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     const read = async (t: { execute?: unknown }, input: object): Promise<any> => {
         const result = await (t.execute as (input: object, options: object) => Promise<unknown>)(input, {
             toolCallId: "snapshot",
@@ -42,10 +43,12 @@ export async function loadSnapshot(
         read(tools.get_inbox_items, { includeProcessed: false, limit }),
         eventsSnapshot ?? read(tools.get_events, {}),
     ]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     const targetTime = new Map<string, string | null>(schedule?.routines.map((r: any) => [r.id, r.targetTime]));
     return JSON.stringify({
         schedule: schedule && { tasks: schedule.tasks, more: schedule.more },
         overdue,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
         routines: routines?.statuses.map((s: any) => ({ ...s, targetTime: targetTime.get(s.habitId) ?? undefined })),
         capture,
         events: events?.events.filter((e: { daysUntil: number }) => e.daysUntil <= 7),
