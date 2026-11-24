@@ -8,6 +8,7 @@
  * sends each one `{ v, changes? }`: `v` is a counter, and `changes` carries the rows the write returned to people who
  * can read them (never stored here, only `v` is). The client applies them, or refetches when `v` jumped or there are none.
  */
+import { WS_CLOSE } from "@cadence/contracts/live";
 import { DurableObject } from "cloudflare:workers";
 import type { MiddlewareHandler } from "hono";
 import { inArray } from "drizzle-orm";
@@ -53,7 +54,6 @@ const LIVE_PROTOCOL = "cadence.live";
 /** One open copy of Cadence: sent on its requests (`X-Cadence-Origin`) and its socket, so its own writes don't make it refetch. */
 export const ORIGIN_HEADER = "X-Cadence-Origin";
 const originOf = (value: string | null | undefined) => (value && /^[\w-]{1,64}$/.test(value) ? value : undefined);
-const CLOSE = { badToken: 4401, rateLimited: 4429, accountGone: 4001, error: 1011 } as const;
 
 /**
  * A reconnect ticket (`t.<userId>.<secret>`), handed out on a socket opened with a JWT and kept only in that page's memory.
@@ -97,7 +97,7 @@ export class ReminderClock extends DurableObject<Env> {
             tickets[secret] = now + TICKET_TTL_MS;
             ticket = `t.${request.headers.get(LIVE_USER_HEADER)}.${secret}`;
         } else if (!tickets[ticketOf(token ?? "")?.[2] ?? ""]) {
-            return refuseWs(LIVE_PROTOCOL, CLOSE.badToken, "sign in again");
+            return refuseWs(LIVE_PROTOCOL, WS_CLOSE.badToken, "sign in again");
         }
         // The newest few only: one per open copy of Cadence is all that's ever in use.
         await this.ctx.storage.put(
@@ -185,7 +185,7 @@ export class ReminderClock extends DurableObject<Env> {
     async forget(): Promise<void> {
         for (const ws of this.ctx.getWebSockets()) {
             try {
-                ws.close(CLOSE.accountGone, "account deleted");
+                ws.close(WS_CLOSE.accountGone, "account deleted");
             } catch {
                 /* closing */
             }
@@ -496,26 +496,26 @@ export async function connectLive(request: Request, env: Env): Promise<Response>
 
     const ip = request.headers.get("cf-connecting-ip") || "unknown";
     if (env.RATE_LIMITER && !(await env.RATE_LIMITER.limit({ key: ip })).success)
-        return refuseWs(LIVE_PROTOCOL, CLOSE.rateLimited, "slow down");
+        return refuseWs(LIVE_PROTOCOL, WS_CLOSE.rateLimited, "slow down");
     const ticket = ticketOf(token);
     let userId: string;
     if (ticket) {
         // The ticket's id is unchecked until the clock reads the secret: it never names a clock that isn't a person's id,
         // and it spends the caller's (IP) budget, never that person's.
-        if (!z.uuid().safeParse(ticket[1]).success) return refuseWs(LIVE_PROTOCOL, CLOSE.badToken, "sign in again");
+        if (!z.uuid().safeParse(ticket[1]).success) return refuseWs(LIVE_PROTOCOL, WS_CLOSE.badToken, "sign in again");
         userId = ticket[1];
     } else {
         try {
             ({ userId } = await verifyAppToken(env, token));
         } catch (err) {
             return err instanceof AppError && err.statusCode === 401
-                ? refuseWs(LIVE_PROTOCOL, CLOSE.badToken, "sign in again")
-                : refuseWs(LIVE_PROTOCOL, CLOSE.error, "unavailable");
+                ? refuseWs(LIVE_PROTOCOL, WS_CLOSE.badToken, "sign in again")
+                : refuseWs(LIVE_PROTOCOL, WS_CLOSE.error, "unavailable");
         }
     }
     if (env.RATE_LIMITER_READ && !(await env.RATE_LIMITER_READ.limit({ key: ticket ? `live:${ip}` : userId })).success)
-        return refuseWs(LIVE_PROTOCOL, CLOSE.rateLimited, "slow down");
-    if (!env.REMINDER_CLOCK) return refuseWs(LIVE_PROTOCOL, CLOSE.error, "unavailable");
+        return refuseWs(LIVE_PROTOCOL, WS_CLOSE.rateLimited, "slow down");
+    if (!env.REMINDER_CLOCK) return refuseWs(LIVE_PROTOCOL, WS_CLOSE.error, "unavailable");
     const headers = new Headers(request.headers);
     headers.set(LIVE_USER_HEADER, userId);
     headers.set(LIVE_AUTH_HEADER, ticket ? "ticket" : "jwt");

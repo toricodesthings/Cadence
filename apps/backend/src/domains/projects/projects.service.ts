@@ -1,3 +1,4 @@
+import { OPEN_TASK_STATES } from "@cadence/contracts/task";
 import { and, count, eq, inArray, ne, or, sql } from "drizzle-orm";
 import type { InsertProject, UpdateProject } from "@cadence/contracts/project";
 import type { Project } from "@cadence/contracts/project";
@@ -94,9 +95,7 @@ export async function deleteProject(tx: Tx, userId: string, id: string, { trashO
         ? await tx
               .update(tasks)
               .set({ state: "ARCHIVED", updatedAt: sql`NOW()` })
-              .where(
-                  and(eq(tasks.userId, userId), eq(tasks.projectId, id), inArray(tasks.state, ["ACTIVE", "WAITING"])),
-              )
+              .where(and(eq(tasks.userId, userId), eq(tasks.projectId, id), inArray(tasks.state, OPEN_TASK_STATES)))
               .returning({ id: tasks.id })
         : [];
     const [{ kept }] = await tx

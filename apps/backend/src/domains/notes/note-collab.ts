@@ -1,3 +1,5 @@
+import { WS_CLOSE } from "@cadence/contracts/live";
+import { NOTE_MAX_CHARS } from "@cadence/contracts/note";
 import * as Y from "yjs";
 import type { Connection, ConnectionContext } from "partyserver";
 import { YServer } from "y-partyserver";
@@ -8,12 +10,11 @@ import { AppError } from "../../platform/errors";
 import { taskAccess } from "../../platform/list-access";
 import { withRls } from "../../platform/rls";
 import { logger, issuesFromError } from "../../platform/log";
-import { authenticateWsRequest, refuseWs, WS_CLOSE } from "../../platform/ws-auth";
+import { authenticateWsRequest, refuseWs } from "../../platform/ws-auth";
 import { writeNote } from "./notes.service";
 
 export const NOTE_COLLAB_PATH_RE = /^\/api\/v1\/notes\/([0-9a-f-]{36})\/collab$/i;
 export const NOTE_COLLAB_PROTOCOL = "cadence.collab";
-const MAX_SNAPSHOT_CHARS = 50_000;
 
 const HDR_USER = "X-Collab-User";
 const HDR_ROLE = "X-Collab-Role";
@@ -102,7 +103,7 @@ export class NoteCollab extends YServer {
             typeof (parsed as { markdown?: unknown }).markdown === "string"
         ) {
             const markdown = (parsed as { markdown: string }).markdown;
-            if (markdown.length > MAX_SNAPSHOT_CHARS) return;
+            if (markdown.length > NOTE_MAX_CHARS) return;
             const state = connection.state as CollabConnState | null;
             this.pendingMarkdown = markdown;
             this.pendingUpdatedBy = state?.userId ?? this.ownerId;

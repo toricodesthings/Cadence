@@ -1,3 +1,4 @@
+import { WS_CLOSE } from "@cadence/contracts/live";
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthState } from "../auth/use-auth-state";
@@ -26,9 +27,6 @@ const DEBOUNCE_MS = 1_000;
 const MAX_WAIT_MS = 5_000;
 const BACKOFF_CAP_MS = 30 * 60_000;
 const STABLE_MS = 60_000;
-const BAD_TOKEN = 4401;
-const RATE_LIMITED = 4429;
-const ACCOUNT_GONE = 4001;
 
 const liveUrl = () => `${API_BASE_URL.replace(/^http/, "ws")}/api/v1/live`;
 const isLive = (q: { queryKey: readonly unknown[] }) => LIVE_ROOTS.has(String(q.queryKey[0]));
@@ -122,16 +120,16 @@ export function useLiveSync() {
             if (disposed) return;
             if (Date.now() - openedAt >= STABLE_MS && openedAt) attempt = 0;
             openedAt = 0;
-            if (code === ACCOUNT_GONE) {
+            if (code === WS_CLOSE.accountGone) {
                 gone = true;
                 return;
             }
-            if (code === BAD_TOKEN && sentToken === ticket) {
+            if (code === WS_CLOSE.badToken && sentToken === ticket) {
                 ticket = null; // expired or forgotten: sign in with a JWT once more, right away
                 void connect();
                 return;
             }
-            if (code === BAD_TOKEN) {
+            if (code === WS_CLOSE.badToken) {
                 dropAuthJwt(sentToken);
                 getAuthJwt().then(
                     (fresh) => {
@@ -146,7 +144,7 @@ export function useLiveSync() {
                 ); // no answer at all (offline, auth down) is not a bad token: try again later
                 return;
             }
-            schedule(code === RATE_LIMITED ? 60_000 : 0);
+            schedule(code === WS_CLOSE.rateLimited ? 60_000 : 0);
         };
         const ping = (ws: WebSocket) => {
             if (ws.readyState !== WebSocket.OPEN) return;

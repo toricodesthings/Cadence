@@ -2139,28 +2139,61 @@ body:has(.layer-system-dialog, .layer-route-backdrop, .layer-room-sheet-backdrop
 
 /* Capture's hero field: the top of the content ladder, one step above a card on the same panel
    base, with the accent pooled at the icon and a gradient hairline that fully lights when you type. */
-/* Capture's window: a soft sky behind the weather, tinted by the part of the day (`data-period`).
-   No surface or border, so it never reads as a row or a column. */
+/* Capture's adaptive sky spectrum: continuous 0% (calm: cold/rainy/night) → 100% (warm: hot/sunny/day)
+   blended in oklab from active theme tokens only (no hardcoded hex), so every palette, daylight mode,
+   accent intensity, and photo background stays harmonious. */
+@property --sky-warmth {
+    syntax: "<percentage>";
+    inherits: true;
+    initial-value: 50%;
+}
+
+@utility capture-sky-tone {
+    --sky-warm: var(--accent-primary);
+    --sky-calm: color-mix(
+        in oklab,
+        var(--color-moonlit) 58%,
+        color-mix(in oklab, var(--color-twilight-text-muted) 65%, var(--accent-primary))
+    );
+    --sky: color-mix(in oklab, var(--sky-warm) var(--sky-warmth, 50%), var(--sky-calm));
+    color: color-mix(in oklab, var(--sky) 68%, var(--color-twilight-text));
+    @media (prefers-reduced-motion: no-preference) {
+        transition:
+            --sky-warmth var(--duration-expressive, 450ms) var(--ease-out-quart, ease-out),
+            color var(--duration-expressive, 450ms) var(--ease-out-quart, ease-out);
+    }
+}
+
 @utility capture-sky {
-    --sky: var(--color-moonlit);
+    --sky-glow-core: 30%;
+    --sky-glow-mid: 11%;
     position: relative;
     border-radius: 9999px;
     background: radial-gradient(
         circle closest-side,
-        color-mix(in srgb, var(--sky) 30%, transparent),
-        color-mix(in srgb, var(--sky) 10%, transparent) 62%,
+        color-mix(in oklab, var(--sky) var(--sky-glow-core), transparent),
+        color-mix(in oklab, var(--sky) var(--sky-glow-mid), transparent) 62%,
         transparent
     );
-    color: color-mix(in srgb, var(--sky) 70%, var(--color-twilight-text));
-    &[data-period="morning"] {
-        --sky: color-mix(in srgb, var(--accent-primary) 70%, var(--color-moonlit));
-    }
-    &[data-period="evening"] {
-        --sky: color-mix(in srgb, var(--accent-primary) 60%, var(--color-ember-red));
-    }
-    &[data-period="night"] {
-        --sky: color-mix(in srgb, var(--color-moonlit) 80%, var(--color-twilight-text));
-    }
+}
+
+[data-theme="daylight"] .capture-sky {
+    --sky-glow-core: 22%;
+    --sky-glow-mid: 8%;
+}
+
+[data-theme="daylight"] .capture-sky-tone {
+    color: color-mix(in oklab, var(--sky) 62%, var(--color-twilight-text));
+}
+
+[data-accent="soft"] .capture-sky {
+    --sky-glow-core: 20%;
+    --sky-glow-mid: 7%;
+}
+
+[data-accent="vivid"] .capture-sky {
+    --sky-glow-core: 38%;
+    --sky-glow-mid: 15%;
 }
 
 @utility capture-surface {

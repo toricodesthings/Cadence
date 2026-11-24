@@ -1,7 +1,9 @@
+import type { z } from "zod";
+import type { focusViewSortModeSchema } from "@cadence/contracts/settings";
 import type { Task } from "@cadence/contracts/task";
 import { getTaskEffectiveAnchor } from "./task-scheduling";
 
-export type SortMode = "smart" | "priority" | "manual";
+export type SortMode = z.infer<typeof focusViewSortModeSchema>;
 
 /** Sort tasks by date/time-first (smart default) */
 function smartSort(a: Task, b: Task): number {

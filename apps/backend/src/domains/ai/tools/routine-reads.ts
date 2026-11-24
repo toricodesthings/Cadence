@@ -2,8 +2,7 @@
 import { and, eq } from "drizzle-orm";
 import { habits } from "../../../db/schema";
 import type { Tx } from "../../../types/db";
-import { isPausedOn } from "@cadence/domain/repeats";
-import { expandOccurrences } from "../../habits/habits.service";
+import { habitOccurrences, isPausedOn } from "@cadence/domain/repeats";
 
 export function readSnapshotRoutines(tx: Tx, userId: string) {
     return tx
@@ -42,7 +41,7 @@ export function routinesDue(
     timeZone = "UTC",
 ) {
     return rows.flatMap((row) => {
-        const days = expandOccurrences(row.recurrenceRule, row.createdAt, from, to, timeZone).filter(
+        const days = habitOccurrences(row.recurrenceRule, String(row.createdAt), from, to, timeZone).filter(
             (day) => !isPausedOn(row.pausedUntil, day, today),
         );
         // A routine at set times reports them instead of one usual time.

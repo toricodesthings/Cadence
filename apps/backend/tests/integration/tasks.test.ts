@@ -590,6 +590,12 @@ describe("task tags", () => {
 });
 
 describe("reparsing quick-add text", () => {
+    it("refuses empty text", async () => {
+        const task = await create({ title: "T" });
+
+        expect((await tasks("POST", `/${task.id}/reparse`, { rawInput: "" })).status).toBe(400);
+    });
+
     it("replaces the stored parse with the new one", async () => {
         const task = await create({ title: "T" });
 

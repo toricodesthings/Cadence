@@ -5,6 +5,7 @@
  * guess for a new account), and both switches are on. The answer is stored beside the task as a guess (`effort_guess`),
  * never as its Effort. Only the person's own task titles reach the provider.
  */
+import { openTaskStateSchema } from "@cadence/contracts/task";
 import { and, eq, isNull } from "drizzle-orm";
 import { toEvidence } from "@cadence/domain/effort-evidence";
 import { effortGuessOf } from "@cadence/domain/effort-guess";
@@ -116,7 +117,7 @@ export async function suggestEffortGuess(env: Env, userId: string, taskId: strin
                 task.effort != null ||
                 task.effortGuessSource ||
                 task.recurrenceRule ||
-                !["ACTIVE", "WAITING"].includes(task.state)
+                !openTaskStateSchema.safeParse(task.state).success
             )
                 return null;
             const ask = await effortQuestion(tx, userId, task, await intelligenceOf(tx, userId));

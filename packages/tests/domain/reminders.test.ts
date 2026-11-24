@@ -4,6 +4,8 @@ import {
     DEFAULT_REMINDER_PREFS,
     deriveReminders,
     dueAlert,
+    nextPersonalEventDay,
+    personalEventDay,
     type Reminder,
     type ReminderHabit,
     type ReminderTask,
@@ -318,5 +320,19 @@ describe("dueAlert", () => {
         expect(dueAlert(reminder(), gate("2026-10-07T12:02:00-04:00", { deferredUntil: deferred }))?.key).toBe(
             `task-reminder::t1::x@${deferred}`,
         );
+    });
+});
+
+describe("yearly event dates", () => {
+    it("clamps a day past the month's end", () => {
+        expect(personalEventDay("02-29", 2025)).toBe("2025-02-28");
+        expect(personalEventDay("04-31", 2026)).toBe("2026-04-30");
+    });
+
+    it("returns the next day on or after today", () => {
+        expect(nextPersonalEventDay("11-04", "2026-03-24")).toBe("2026-11-04");
+        expect(nextPersonalEventDay("01-10", "2026-03-24")).toBe("2027-01-10");
+        expect(nextPersonalEventDay("02-29", "2026-03-01")).toBe("2027-02-28");
+        expect(nextPersonalEventDay("02-29", "2027-03-01")).toBe("2028-02-29");
     });
 });

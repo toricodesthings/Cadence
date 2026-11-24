@@ -103,7 +103,7 @@ function actedOn(
 
 function toNotificationRecord(
     notification: AppNotification,
-): { objectType: "task" | "habit" | "event"; objectId: string; triggerId: string } | null {
+): { objectType: NotificationState["objectType"]; objectId: string; triggerId: string } | null {
     if (!notification.entityId) return null;
 
     return {

@@ -5,8 +5,9 @@
  * Twilight (dark) and Daylight (light) surfaces. The CSS tokens are applied
  * via `[data-palette="..."]` attributes on `<html>`.
  */
+import { PALETTE_IDS } from "@cadence/contracts/settings";
 
-export type PaletteId = "lantern" | "ember" | "rose" | "violet" | "sapphire" | "jade" | "copper" | "frost";
+export type PaletteId = (typeof PALETTE_IDS)[number];
 
 export interface PaletteColors {
     primary: string;

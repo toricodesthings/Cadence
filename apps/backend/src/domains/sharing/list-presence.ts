@@ -1,3 +1,4 @@
+import { WS_CLOSE } from "@cadence/contracts/live";
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "../../types/env";
 import { getDbClient } from "../../platform/db";
@@ -5,7 +6,7 @@ import { AppError } from "../../platform/errors";
 import { listAccess } from "../../platform/list-access";
 import { withRls } from "../../platform/rls";
 import { logger, issuesFromError } from "../../platform/log";
-import { authenticateWsRequest, refuseWs, WS_CLOSE } from "../../platform/ws-auth";
+import { authenticateWsRequest, refuseWs } from "../../platform/ws-auth";
 
 export const PRESENCE_PATH_RE = /^\/api\/v1\/lists\/([0-9a-f-]{36})\/presence$/i;
 export const PRESENCE_PROTOCOL = "cadence.presence";

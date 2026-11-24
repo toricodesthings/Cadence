@@ -1,5 +1,5 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { presenceMessageSchema } from "@cadence/contracts/live";
+import { presenceMessageSchema, WS_CLOSE } from "@cadence/contracts/live";
 import { API_BASE_URL } from "../../lib/env";
 import { dropAuthJwt, getAuthJwt } from "../../lib/api/client";
 import { useAuthState } from "../auth/use-auth-state";
@@ -8,8 +8,6 @@ import { WAKE_EVENT } from "../core/use-wake-refresh";
 const PRESENCE_PROTOCOL = "cadence.presence";
 const PING_MS = 45_000;
 const BACKOFF_CAP_MS = 60_000;
-const BAD_TOKEN = 4401;
-const FORBIDDEN = 4403;
 const EMPTY_SET: ReadonlySet<string> = new Set();
 
 interface RoomEntry {
@@ -134,13 +132,13 @@ async function connectRoom(listId: string, entry: RoomEntry) {
             if (entry.socket === ws) entry.socket = null;
             clearTimers(entry);
             if (entry.stopped || entry.refs <= 0) return;
-            if (event.code === FORBIDDEN) {
+            if (event.code === WS_CLOSE.forbidden) {
                 entry.stopped = true;
                 entry.online = EMPTY_SET;
                 emit();
                 return;
             }
-            if (event.code === BAD_TOKEN) {
+            if (event.code === WS_CLOSE.badToken) {
                 if (entry.token) dropAuthJwt(entry.token);
                 if (!entry.authRetried) {
                     entry.authRetried = true;

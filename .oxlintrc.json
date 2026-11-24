@@ -296,8 +296,7 @@
                 "apps/frontend/app/components/calendar/CalendarDayCell.tsx",
                 "apps/frontend/app/components/holding/CaptureRow.tsx",
                 "apps/frontend/app/components/settings/tabs/AccountTab.tsx",
-                "apps/frontend/app/components/tasks/note/NoteOutline.tsx",
-                "apps/frontend/app/components/upcoming/FurtherOutSection.tsx"
+                "apps/frontend/app/components/tasks/note/NoteOutline.tsx"
             ],
             "rules": {
                 "cadence/no-dom-title": "off"
@@ -457,7 +456,6 @@
                 "apps/frontend/app/components/tasks/note/NoteStatus.tsx",
                 "apps/frontend/app/components/tasks/note/NoteToolbar.tsx",
                 "apps/frontend/app/components/today/DaySpine.tsx",
-                "apps/frontend/app/components/upcoming/FurtherOutSection.tsx",
                 "apps/frontend/app/routes/changelog.tsx",
                 "apps/frontend/app/routes/connect.tsx",
                 "apps/frontend/app/routes/desktop.quick-capture.tsx",

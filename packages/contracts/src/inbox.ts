@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { instantSchema, localDateSchema } from "./common";
 import { canonicalNlpEnvelopeSchema, effortLevelSchema, effortOriginSchema, sourceSurfaceSchema } from "./task";
+import { CONFIDENCE_TIERS } from "@cadence/nlp/core";
 
 export const inboxQuerySchema = z.object({ status: z.enum(["clarifying", "kept"]).default("clarifying") });
 
@@ -33,6 +34,7 @@ export const updateInboxItemSchema = z.object({
     sourceSurface: sourceSurfaceSchema.optional(),
 });
 export type UpdateInboxItem = z.infer<typeof updateInboxItemSchema>;
+export type UpdateInboxItemInput = z.input<typeof updateInboxItemSchema>;
 
 /** Schema for the atomic inbox→task processing endpoint */
 export const processInboxItemSchema = z.object({
@@ -74,6 +76,7 @@ export const insertInboxSectionSchema = z.object({
 });
 
 export const updateInboxSectionSchema = insertInboxSectionSchema.omit({ id: true }).partial();
+export type UpdateInboxSectionInput = z.input<typeof updateInboxSectionSchema>;
 
 // ── Row schemas (exact DB columns) ──
 export const inboxItemRowSchema = z.object({
@@ -92,7 +95,7 @@ export const inboxItemRowSchema = z.object({
     analysisSummary: z.string().nullable(),
     analysis: z.record(z.string(), z.unknown()).nullable(),
     sourceSurface: sourceSurfaceSchema.nullable(),
-    analysisConfidenceTier: z.enum(["high", "medium", "low"]).nullable(),
+    analysisConfidenceTier: z.enum(CONFIDENCE_TIERS).nullable(),
     analysisNeedsReview: z.boolean(),
     analysisReviewReason: z.string().nullable(),
     analysisEntityCount: z.number().int(),
@@ -105,7 +108,7 @@ export type InboxItemRow = z.infer<typeof inboxItemRowSchema>;
 // Client entity: the analysis-lifecycle columns are optional (optimistic caches
 // and older consumers omit them); the Row keeps them required for DB parity.
 export const inboxItemSchema = inboxItemRowSchema.extend({
-    analysisConfidenceTier: z.enum(["high", "medium", "low"]).nullable().optional(),
+    analysisConfidenceTier: z.enum(CONFIDENCE_TIERS).nullable().optional(),
     analysisNeedsReview: z.boolean().optional(),
     analysisReviewReason: z.string().nullable().optional(),
     analysisEntityCount: z.number().int().optional(),

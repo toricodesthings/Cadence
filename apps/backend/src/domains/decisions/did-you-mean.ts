@@ -1,3 +1,4 @@
+import { OPEN_TASK_STATES } from "@cadence/contracts/task";
 import { createSearchIndex } from "@cadence/search";
 import { taskSearch, taskPlaceColumns, taskSearchColumns } from "../tasks/task-search.service";
 /**
@@ -36,7 +37,7 @@ export async function didYouMean(
             eq(tasks.userId, userId),
             scope ??
                 and(
-                    inArray(tasks.state, ["ACTIVE", "WAITING"]),
+                    inArray(tasks.state, OPEN_TASK_STATES),
                     taskSearch(query, Object.values(taskPlaceColumns)).identifiers,
                 ),
             ne(tasks.interactionMode, "timetable"),

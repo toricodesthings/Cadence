@@ -4,9 +4,7 @@ import {
     EVENT_SWATCHES,
     eventToneColor,
     eventToneStyle,
-    getNextPersonalEventDate,
     getPersonalEventMilestoneLabel,
-    getNormalizedMonthDay,
     getPersonalEventCountdownLabel,
     groupPersonalEventsByMonth,
     sortPersonalEventViewModels,
@@ -14,25 +12,7 @@ import {
 } from "../../../../app/lib/utils/personal-events";
 
 describe("personal event utilities", () => {
-    it("clamps invalid month-day values to the nearest valid day for the year", () => {
-        expect(getNormalizedMonthDay("02-29", 2025)).toEqual({
-            month: 2,
-            day: 28,
-            monthDay: "02-28",
-        });
-    });
-
-    it("returns the next occurrence in the current year when the date is still ahead", () => {
-        expect(getNextPersonalEventDate({ monthDay: "11-04" }, "2026-03-24")).toBe("2026-11-04");
-    });
-
-    it("rolls over to the next year when the event already passed", () => {
-        expect(getNextPersonalEventDate({ monthDay: "01-10" }, "2026-03-24")).toBe("2027-01-10");
-    });
-
-    it("puts Feb 29 on Feb 28 in non-leap years", () => {
-        expect(getNextPersonalEventDate({ monthDay: "02-29" }, "2026-03-01")).toBe("2027-02-28");
-        expect(getNextPersonalEventDate({ monthDay: "02-29" }, "2027-03-01")).toBe("2028-02-29");
+    it("counts days to a Feb 29 event from its Feb 28 stand-in", () => {
         expect(
             toPersonalEventViewModel(
                 { id: "x", label: "L", monthDay: "02-29", emoji: null, notify: true, startedOn: null },

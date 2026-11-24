@@ -9,6 +9,7 @@ import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, once } from "./index";
 import { normalizeSettings } from "../../settings/settings.route";
+import { nextPersonalEventDay } from "@cadence/domain/reminders";
 import { personalEventSchema, type PersonalEvent } from "@cadence/contracts/personal-event";
 import { createEvent, deleteEvent, listEvents, updateEvent } from "../../personal-events/personal-events.service";
 
@@ -24,20 +25,9 @@ const eventInput = z.object({
     color: z.enum(ACCENT_COLORS).nullable().optional().describe("Its card tint; null = none."),
 });
 
-/** The event's next date on or after `today` (local YYYY-MM-DD); Feb 29 falls back to Feb 28. */
-export function nextOccurrence(monthDay: string, today: string) {
-    const [month, day] = monthDay.split("-").map(Number);
-    const on = (year: number) => {
-        const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-        return `${year}-${String(month).padStart(2, "0")}-${String(Math.min(day, lastDay)).padStart(2, "0")}`;
-    };
-    const year = Number(today.slice(0, 4));
-    return on(year) >= today ? on(year) : on(year + 1);
-}
-
 /** A row for the model: next date, days until it and, with startedOn, the year count it marks. */
 export function toMinimalEvent(event: PersonalEvent, today: string) {
-    const next = nextOccurrence(event.monthDay, today);
+    const next = nextPersonalEventDay(event.monthDay, today);
     const years = event.startedOn ? Number(next.slice(0, 4)) - Number(event.startedOn.slice(0, 4)) : undefined;
     return {
         id: event.id,

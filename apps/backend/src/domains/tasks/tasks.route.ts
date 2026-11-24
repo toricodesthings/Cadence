@@ -21,6 +21,7 @@ import { checkIdempotency, getIdempotencyKey, recordMutation, storedResult } fro
 import { withRls } from "../../platform/rls";
 import { withCallerRls } from "../../platform/caller-rls";
 import { readEffortEvidence, readTaskBatch, readTasks } from "./tasks.read";
+import { CONFIDENCE_TIERS } from "@cadence/nlp/core";
 import { hasTaskTemporalMutation } from "@cadence/domain/task-temporal";
 import { computeGappedOrderIndex } from "@cadence/domain/ordering";
 import { apiValidator } from "../../platform/validation";
@@ -28,7 +29,7 @@ import type { AuthVariables } from "../../platform/auth";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import { taskTagSchema } from "@cadence/contracts/tag";
 import {
-    sourceSurfaceSchema,
+    canonicalNlpEnvelopeSchema,
     batchDeleteSchema,
     batchRescheduleSchema,
     batchStateSchema,
@@ -75,20 +76,16 @@ const taskTagParamSchema = z.object({
     tagId: z.uuid(),
 });
 
-const nlpInputFields = {
-    rawInput: z.string().max(2000),
-    sourceSurface: sourceSurfaceSchema.optional(),
-    dateStyle: z.enum(["mdy", "dmy", "ymd"]).optional(),
-    dismissedEntityIds: z.array(z.string().min(1).max(100)).optional(),
-    userOverrides: z.record(z.string(), z.unknown()).optional(),
-};
+const nlpInputFields = canonicalNlpEnvelopeSchema
+    .pick({ rawInput: true, sourceSurface: true, dateStyle: true, dismissedEntityIds: true, userOverrides: true })
+    .partial({ sourceSurface: true, dateStyle: true, dismissedEntityIds: true, userOverrides: true });
 
 const nlpReparseSchema = z.object({
-    ...nlpInputFields,
-    nlp: z.object(nlpInputFields).optional(),
+    ...nlpInputFields.shape,
+    nlp: nlpInputFields.optional(),
     parseResult: z.record(z.string(), z.unknown()).optional(),
     cleanedTitle: z.string().max(500).optional(),
-    confidenceTier: z.enum(["high", "medium", "low"]).optional(),
+    confidenceTier: z.enum(CONFIDENCE_TIERS).optional(),
     parserVersion: z.string().max(20).optional(),
 });
 

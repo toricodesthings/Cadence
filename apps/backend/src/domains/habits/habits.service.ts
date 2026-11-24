@@ -29,20 +29,6 @@ import { assertRowRoom } from "../../platform/storage-ceiling";
 
 // ── Utility ───────────────────────────────────────────────────────────
 
-/**
- * Shared recurrence expansion — single source of truth. The days (YYYY-MM-DD)
- * a routine is due in [startDate, endDate]; unsafe stored rules fail explicitly.
- */
-export function expandOccurrences(
-    recurrenceRule: string,
-    createdAt: string,
-    from: LocalDate,
-    to: LocalDate,
-    zone: Zone,
-): LocalDate[] {
-    return habitOccurrences(recurrenceRule, String(createdAt), from, to, zone);
-}
-
 /** Expand the committed SQL snapshot after releasing its RLS connection. */
 export function projectHabitRange(
     {
@@ -437,7 +423,7 @@ async function recomputeStreak(tx: Tx, userId: string, habit: HabitDbRow, target
     const todayStr = todayIn(zone);
     const occurrencesAfter =
         targetDate < todayStr
-            ? expandOccurrences(habit.recurrenceRule, habit.createdAt, addDays(targetDate, 1), todayStr, zone)
+            ? habitOccurrences(habit.recurrenceRule, String(habit.createdAt), addDays(targetDate, 1), todayStr, zone)
             : [];
 
     if (occurrencesAfter.length === 0) {
@@ -472,7 +458,7 @@ async function recomputeStreak(tx: Tx, userId: string, habit: HabitDbRow, target
         (first, log) => (log.targetDate < first ? log.targetDate : first),
         dayOf(habit.createdAt, zone),
     );
-    const allOccurrences = expandOccurrences(habit.recurrenceRule, habit.createdAt, firstDay, todayStr, zone);
+    const allOccurrences = habitOccurrences(habit.recurrenceRule, String(habit.createdAt), firstDay, todayStr, zone);
     const streakData = recomputeStreaks(allLogs, allOccurrences, todayStr);
     return {
         currentStreak: streakData.currentStreak,

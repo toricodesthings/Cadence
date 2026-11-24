@@ -3,7 +3,8 @@ export const PARSER_VERSION = "3.4.0";
 
 // ── Confidence Model (Section 9) ──
 
-export type ConfidenceTier = "high" | "medium" | "low";
+export const CONFIDENCE_TIERS = ["high", "medium", "low"] as const;
+export type ConfidenceTier = (typeof CONFIDENCE_TIERS)[number];
 
 // ── Warning Codes (§11.4) ──
 

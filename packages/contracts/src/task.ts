@@ -10,6 +10,9 @@ export const waitingOnSchema = z.string().max(500);
 
 export const taskStateSchema = z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"]);
 export type TaskState = z.infer<typeof taskStateSchema>;
+/** A task still owed: the states that can go overdue. */
+export const openTaskStateSchema = taskStateSchema.extract(["ACTIVE", "WAITING"]);
+export const OPEN_TASK_STATES = openTaskStateSchema.options;
 
 export const taskInteractionModeSchema = z.enum(["task", "timetable"]);
 export type TaskInteractionMode = z.infer<typeof taskInteractionModeSchema>;
@@ -302,7 +305,7 @@ export const TASK_BATCH_MAX = 10;
 export const taskBatchFiltersSchema = z
     .array(
         taskFiltersSchemaBase
-            .extend({ state: z.enum(["ACTIVE", "WAITING"]) })
+            .extend({ state: openTaskStateSchema })
             .superRefine(refineTaskFilters)
             .superRefine((value, ctx) => {
                 if (

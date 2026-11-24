@@ -122,7 +122,7 @@ export function RoutineStepChecklist({
     );
 }
 
-type CheckMark = "COMPLETED" | "SKIPPED";
+type CheckMark = StepStatus[string];
 
 /**
  * A day's steps or times as soft rows under a segmented progress track: the

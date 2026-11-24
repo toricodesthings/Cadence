@@ -13,7 +13,7 @@ export function useUpdateInboxItem() {
 
     return useMutation({
         mutationFn: withOfflineSupport<{ id: string } & UpdateInboxItem, unknown>(
-            ({ id, ...data }) => ({ type: "update_inbox", id, payload: data as Record<string, unknown> }),
+            ({ id, ...data }) => ({ type: "update_inbox", id, payload: data }),
             async ({ id, ...data }) => {
                 const res = await client.api.inbox[":id"].$patch({
                     param: { id },

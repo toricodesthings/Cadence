@@ -8,7 +8,7 @@ import { useNoteRoomStore } from "../../stores/note-room-store";
 import { extractActionableLines } from "../../lib/notes/markdown-transforms";
 import { getNoteScopeLabel, isSeriesScopedNote } from "../../lib/notes/recurring-note-scope";
 import { isFaithful } from "../../lib/notes/note-markdown";
-import { NOTE_MAX_CHARS } from "../../lib/notes/note-session";
+import { NOTE_MAX_CHARS } from "@cadence/contracts/note";
 import { Skeleton } from "../primitives/Skeleton";
 import { Reveal } from "../shared/Reveal";
 import { NoteEditor } from "./note/NoteEditor";

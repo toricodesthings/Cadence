@@ -1,12 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { TaskNote } from "@cadence/contracts/note";
-import {
-    NoteSession,
-    noteStatus,
-    IDLE_SAVE_MS,
-    NOTE_MAX_CHARS,
-    type SessionDeps,
-} from "../../../../app/lib/notes/note-session";
+import { NOTE_MAX_CHARS, type TaskNote } from "@cadence/contracts/note";
+import { NoteSession, noteStatus, IDLE_SAVE_MS, type SessionDeps } from "../../../../app/lib/notes/note-session";
 import type { DraftRecord, NoteJournal } from "../../../../app/lib/notes/note-journal";
 import type { NoteSavePayload, WalEntry } from "../../../../app/lib/api/offline-wal";
 import { ApiErrorResponse, networkError } from "../../../../app/types/api";

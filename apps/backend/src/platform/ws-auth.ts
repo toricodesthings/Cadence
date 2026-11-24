@@ -1,14 +1,7 @@
+import { WS_CLOSE } from "@cadence/contracts/live";
 import { verifyAppToken } from "./auth";
 import { AppError } from "./errors";
 import type { Env } from "../types/env";
-
-export const WS_CLOSE = {
-    reload: 4000,
-    badToken: 4401,
-    forbidden: 4403,
-    rateLimited: 4429,
-    error: 1011,
-} as const;
 
 export function offeredProtocols(request: Request): string[] {
     return (request.headers.get("Sec-WebSocket-Protocol") ?? "")

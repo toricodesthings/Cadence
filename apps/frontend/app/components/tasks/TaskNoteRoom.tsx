@@ -13,15 +13,11 @@ import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useKeyboardInset } from "../../hooks/ui/use-keyboard-inset";
 import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
 import { getNoteScopeLabel, isSeriesScopedNote } from "../../lib/notes/recurring-note-scope";
-import {
-    extractNoteOutline,
-    findHeading,
-    currentHeadingId,
-    countWords,
-    type NoteHeading,
-} from "../../lib/notes/note-outline";
+import { extractNoteOutline, findHeading, currentHeadingId, type NoteHeading } from "../../lib/notes/note-outline";
 import { docText, isFaithful, markdownToDoc } from "../../lib/notes/note-markdown";
-import { NOTE_MAX_CHARS, type NoteStatus as Status } from "../../lib/notes/note-session";
+import { NOTE_MAX_CHARS } from "@cadence/contracts/note";
+import { countWords } from "@cadence/domain/notes";
+import type { NoteStatus as Status } from "../../lib/notes/note-session";
 import { ImmersiveDetailLayout } from "../shared/ImmersiveDetailLayout";
 import { PageHeader, PAGE_HEADER_SURFACE } from "../layout/PageHeader";
 import { UtilitySheet } from "../shared/UtilitySheet";

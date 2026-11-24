@@ -107,12 +107,18 @@ const HOUR = 60 * 60_000;
 /** Midnight that ends the local day an instant falls on. */
 const endOfDay = (instant: Instant, zone: Zone): Instant => atLocal(addDays(dayOf(instant, zone), 1), "00:00", zone);
 
-/** The day a yearly event falls on this year. Feb 29 is observed on Feb 28 in common years. */
+/** The day a yearly event falls on this year. A day past the month's end (Feb 29 in common years, 04-31) lands on its last day. */
 export function personalEventDay(monthDay: string, year: number): LocalDate {
     const [mm, dd] = monthDay.split("-").map(Number);
-    const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-    const day = mm === 2 && dd === 29 && !leap ? 28 : dd;
+    const day = Math.min(dd, new Date(Date.UTC(year, mm, 0)).getUTCDate());
     return `${year}-${String(mm).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** The event's next day on or after `today`. */
+export function nextPersonalEventDay(monthDay: string, today: LocalDate): LocalDate {
+    const year = Number(today.slice(0, 4));
+    const thisYear = personalEventDay(monthDay, year);
+    return thisYear >= today ? thisYear : personalEventDay(monthDay, year + 1);
 }
 
 /** Where a tap lands: the task's list, else the view that shows its day (Capture only holds tasks with no day). */

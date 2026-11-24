@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countHeadings, countWords, generateExcerpt } from "../../src/domains/notes/note-analysis";
+import { generateExcerpt } from "../../src/domains/notes/note-analysis";
 
 describe("generateExcerpt", () => {
     it("strips markdown to a plain one-line preview", () => {
@@ -21,21 +21,6 @@ describe("generateExcerpt", () => {
 
     it("leaves short text as-is", () => {
         expect(generateExcerpt("short note")).toBe("short note");
-    });
-});
-
-describe("countWords / countHeadings", () => {
-    it.each([
-        ["", 0],
-        ["   \n ", 0],
-        ["one", 1],
-        ["one  two\nthree\tfour", 4],
-    ])("countWords(%j) = %i", (body, n) => {
-        expect(countWords(body)).toBe(n);
-    });
-
-    it("counts only real headings (1–6 #s followed by a space, at line start)", () => {
-        expect(countHeadings("# A\ntext #not\n###### F\n####### seven\n#nospace")).toBe(2);
     });
 });
 

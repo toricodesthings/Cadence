@@ -21,6 +21,7 @@ import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
 import { formatInZone } from "@cadence/domain/time";
 import { toDay } from "../../../lib/utils/date-format";
 import { getUserZone } from "../../../lib/utils/user-zone";
+import type { TaskState } from "@cadence/contracts/task";
 
 type TaskRowsProps = {
     rows: string[];
@@ -57,10 +58,8 @@ function TaskRows({ rows, off, onToggle, countOnly }: TaskRowsProps) {
     );
 }
 
-type State = "COMPLETE" | "ARCHIVED" | "ACTIVE" | "WAITING";
-
 const STATE_COPY: Record<
-    State,
+    TaskState,
     {
         eyebrow: string;
         glyph: LucideIcon;
@@ -91,7 +90,7 @@ const STATE_COPY: Record<
     },
 };
 
-const copyFor = (state: string | undefined) => STATE_COPY[(state ?? "COMPLETE") as State] ?? STATE_COPY.COMPLETE;
+const copyFor = (state: string | undefined) => STATE_COPY[(state ?? "COMPLETE") as TaskState] ?? STATE_COPY.COMPLETE;
 
 /** "Waiting on Sam · check in Mar 8" when the tasks go on hold with either. */
 function waitingLine(input: { state?: string; waitingOn?: string; checkInAt?: string | null }) {

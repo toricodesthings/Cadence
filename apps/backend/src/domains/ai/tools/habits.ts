@@ -1,5 +1,6 @@
 import { tool } from "ai";
 import { ACCENT_COLORS } from "@cadence/contracts/constants";
+import { localDateSchema, wallTimeSchema } from "@cadence/contracts/common";
 import { z } from "zod";
 import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
@@ -43,12 +44,7 @@ const routineFields = z.object({
         .describe(
             "FREQ=DAILY · FREQ=DAILY;INTERVAL=2 (every 2nd day) · FREQ=WEEKLY;BYDAY=MO,WE,FR · FREQ=WEEKLY;INTERVAL=2;BYDAY=SA (every other week).",
         ),
-    targetTime: z
-        .string()
-        .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
-        .nullable()
-        .optional()
-        .describe("Usual local time, HH:MM 24h; null = any time."),
+    targetTime: wallTimeSchema.nullable().optional().describe("Usual local time, HH:MM 24h; null = any time."),
     emoji: insertHabitSchema.shape.emoji.describe("One emoji as its mark, or null for none."),
     description: z.string().max(2_000).nullable().optional().describe("Its purpose, a line or two."),
     reminderEnabled: z.boolean().optional().describe("Remind on due days while still open."),
@@ -285,8 +281,8 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
             "skipped, missed (due, nothing logged), partial (some steps or times settled) and open (today, not logged yet). " +
             "Paused days and days before a routine existed aren't due. Archived routines only when asked.",
         inputSchema: z.object({
-            start: z.iso.date().describe("First local day."),
-            end: z.iso.date().describe("Last local day; later than today reads through today."),
+            start: localDateSchema.describe("First local day."),
+            end: localDateSchema.describe("Last local day; later than today reads through today."),
             habitId: z.uuid().optional().describe("One routine only."),
             includeArchived: z.boolean().default(false),
         }),
@@ -347,10 +343,8 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
             status: z
                 .enum(["COMPLETED", "SKIPPED", "PENDING"])
                 .describe("The whole day. Ignored when stepStatus is sent."),
-            targetDate: z.iso.date().describe("The local day."),
-            time: z
-                .string()
-                .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+            targetDate: localDateSchema.describe("The local day."),
+            time: wallTimeSchema
                 .optional()
                 .describe(
                     "A routine at set times: the HH:MM to mark; only that time changes (PENDING clears it). Required to skip.",

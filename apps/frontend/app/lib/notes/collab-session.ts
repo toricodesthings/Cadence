@@ -1,3 +1,4 @@
+import { WS_CLOSE } from "@cadence/contracts/live";
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-partyserver/provider";
 import type { Editor } from "@tiptap/core";
@@ -95,7 +96,7 @@ export class CollabNoteHandle {
         });
 
         this.provider.on("connection-close", (event: CloseEvent | null) => {
-            if (event?.code === 4401) {
+            if (event?.code === WS_CLOSE.badToken) {
                 if (this.token) dropAuthJwt(this.token);
                 this.token = null;
                 if (this.authRetried) {

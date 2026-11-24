@@ -1,3 +1,4 @@
+import { OPEN_TASK_STATES } from "@cadence/contracts/task";
 import { and, inArray, sql } from "drizzle-orm";
 import type { ListPerson, ListRole } from "@cadence/contracts/sharing";
 import { listMembers, tasks } from "../../../db/schema";
@@ -172,7 +173,7 @@ export async function sharedCreateDuplicates(
         .where(
             and(
                 inArray(tasks.projectId, sharedIds),
-                inArray(tasks.state, ["ACTIVE", "WAITING"]),
+                inArray(tasks.state, OPEN_TASK_STATES),
                 inArray(sql`lower(${tasks.title})`, titles),
             ),
         )

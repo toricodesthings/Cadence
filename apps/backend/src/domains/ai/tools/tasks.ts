@@ -54,7 +54,7 @@ import {
     type ListAccess,
 } from "../../../platform/list-access";
 import type { LiveChange } from "@cadence/contracts/live";
-import { batchTaskIdsSchema, waitingOnSchema } from "@cadence/contracts/task";
+import { batchTaskIdsSchema, OPEN_TASK_STATES, taskStateSchema, waitingOnSchema } from "@cadence/contracts/task";
 import { readFocusView } from "./focus-views";
 import { taskSearch, taskSearchColumns, taskPlaceColumns } from "../../tasks/task-search.service";
 import { effortGuesses, taskHints } from "../memory/task-hints";
@@ -251,10 +251,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         .describe(
                             "Words for ONE task: ALL must match its title, note, list, section, subtask or tag. Word forms match; numbers/versions/codes stay exact. Search separate tasks separately.",
                         ),
-                    state: z
-                        .enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"])
-                        .optional()
-                        .describe("ARCHIVED = Trash."),
+                    state: taskStateSchema.optional().describe("ARCHIVED = Trash."),
                     dueWindow: z
                         .enum(["overdue", "today", "this_week", "this_month"])
                         .optional()
@@ -325,10 +322,10 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             sort ??= applied.sort;
                             // A view's states replace the open-only default.
                             if (!args.state && !applied.hasStates)
-                                conditions.push(inArray(tasks.state, ["ACTIVE", "WAITING"]));
+                                conditions.push(inArray(tasks.state, OPEN_TASK_STATES));
                         } else if (!args.state) {
                             // Done and Trash only when asked for by name.
-                            conditions.push(inArray(tasks.state, ["ACTIVE", "WAITING"]));
+                            conditions.push(inArray(tasks.state, OPEN_TASK_STATES));
                         }
                         conditions.push(...narrowingFilters(args));
                         if (args.query) {
@@ -643,7 +640,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                                 and(
                                     eq(tasks.userId, ownerId),
                                     projectId ? eq(tasks.projectId, projectId) : isNull(tasks.projectId),
-                                    inArray(tasks.state, ["ACTIVE", "WAITING"]),
+                                    inArray(tasks.state, OPEN_TASK_STATES),
                                 ),
                             )
                             .orderBy(asc(tasks.orderIndex), asc(tasks.id));
@@ -1033,7 +1030,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 "Returns each task with the state it was in. Done or Trash holds when another open task has the same title and day: it lists them to ask about.",
             inputSchema: z.object({
                 taskIds: batchTaskIdsSchema,
-                state: z.enum(["COMPLETE", "ARCHIVED", "ACTIVE", "WAITING"]),
+                state: taskStateSchema,
                 waitingOn: waitingOnSchema.min(1).optional().describe("Who or what, with WAITING."),
                 checkInAt: taskPatchSchema.shape.checkInAt
                     .unwrap()
@@ -1250,7 +1247,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             .where(
                 and(
                     or(eq(tasks.userId, userId), inArray(tasks.projectId, memberView)),
-                    inArray(tasks.state, ["ACTIVE", "WAITING"]),
+                    inArray(tasks.state, OPEN_TASK_STATES),
                     ne(tasks.interactionMode, "timetable"),
                     inArray(sql`lower(${tasks.title})`, titles),
                 ),

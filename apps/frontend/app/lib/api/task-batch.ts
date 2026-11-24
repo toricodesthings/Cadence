@@ -1,5 +1,6 @@
+import type { z } from "zod";
 import type { QueryClient } from "@tanstack/react-query";
-import type { TaskBatch } from "@cadence/contracts/task";
+import type { openTaskStateSchema, TaskBatch } from "@cadence/contracts/task";
 import type { ApiClient } from "./client";
 import { unwrapResponse } from "./helpers";
 import { STALE_TIMES } from "./query-keys";
@@ -12,7 +13,7 @@ import { buildTasksQuery, type UseTasksFilterInput } from "../utils/task/task-sc
 export async function prefetchTaskBatch(
     client: ApiClient,
     queryClient: QueryClient,
-    filters: (UseTasksFilterInput & { state: "ACTIVE" | "WAITING" })[],
+    filters: (UseTasksFilterInput & { state: z.infer<typeof openTaskStateSchema> })[],
     signal: AbortSignal,
 ) {
     // A server read must not overwrite edits that haven't synced yet.

@@ -5,6 +5,7 @@ import {
     canonicalNlpEnvelopeSchema,
     effortLevelSchema,
     insertTaskSchema,
+    openTaskStateSchema,
     reorderTaskSchema,
     taskFiltersSchema,
     taskPrioritySchema,
@@ -194,5 +195,12 @@ describe("taskFiltersSchema", () => {
 
     it("accepts a single-day window", () => {
         expect(taskFiltersSchema.safeParse({ from: "2026-03-09", to: "2026-03-09" }).success).toBe(true);
+    });
+});
+
+describe("openTaskStateSchema", () => {
+    it("accepts the open states and rejects finished ones", () => {
+        expect(openTaskStateSchema.safeParse("WAITING").success).toBe(true);
+        expect(openTaskStateSchema.safeParse("COMPLETE").success).toBe(false);
     });
 });

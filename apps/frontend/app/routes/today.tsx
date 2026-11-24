@@ -6,9 +6,9 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { DayEventRows } from "../components/events/DayEventRows";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
-import { EyeOff, Eye, Inbox, Flame, CalendarClock, CalendarRange, Sun } from "lucide-react";
+import { Inbox, Flame, CalendarClock, CalendarRange, Sun } from "lucide-react";
 import { MainLayout } from "../components/layout/MainLayout";
-import { Tip } from "../components/primitives";
+import { EyeToggle } from "../components/shared/EyeToggle";
 import { RoutineAgendaList, routineAgendaItems } from "../components/shared/RoutineAgendaRow";
 import { BucketedRouteBody } from "../components/shared/BucketedCollectionView";
 import { PhoneTaskDetails, TaskDetailsRail } from "../components/shared/TaskDetailsPanels";
@@ -49,23 +49,6 @@ import type { Task } from "@cadence/contracts/task";
 
 const ROUTINES_STORAGE_KEY = "cadence-today-hide-routines";
 const FIXED_STORAGE_KEY = "cadence-today-hide-fixed-column";
-
-/** Show/hide for a section: a quiet moonlit eye on the header's line, 44px hit area around a 16px glyph. */
-function EyeToggle({ hidden, label, onToggle }: { hidden: boolean; label: string; onToggle: () => void }) {
-    return (
-        <Tip label={label} side="bottom">
-            <button
-                type="button"
-                onClick={onToggle}
-                aria-label={label}
-                aria-pressed={hidden}
-                className="touch-target -my-3 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-moonlit transition-colors hover:bg-moonlit/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-            >
-                {hidden ? <Eye size={16} aria-hidden="true" /> : <EyeOff size={16} aria-hidden="true" />}
-            </button>
-        </Tip>
-    );
-}
 
 export default function TodayRoute() {
     const shell = useShellMode();
@@ -218,9 +201,10 @@ export default function TodayRoute() {
         />
     );
 
+    // A phone board shows one column at a time, so only a wider board folds Routines to a rail.
     const routinesHidden = !shell.isCompact && hideRoutines;
-    const totalVisible =
-        grouped.stillOpen.length + grouped.today.length + grouped.fixed.length + (routinesHidden ? 0 : routinesCount);
+    // Folded routines still count: their header (row) or rail (board) stays, so they can be opened again.
+    const totalVisible = grouped.stillOpen.length + grouped.today.length + grouped.fixed.length + routinesCount;
 
     const renderTaskBucket = (tasks: Task[], cardVariant?: "list" | "board") => {
         if (tasks.length > 0) {
@@ -317,9 +301,10 @@ export default function TodayRoute() {
                       icon: Flame,
                       accentClass: "text-moonlit",
                       count: routinesHidden ? routinesCount : grouped.routinesOpen.length,
-                      headerAction: routinesToggle,
+                      // Row view folds with the header's ›; the board's eye shares the same remembered state.
+                      boardHeaderAction: routinesToggle,
                       lineTint: "var(--color-moonlit)",
-                      listOpen: !routinesHidden,
+                      listFold: { open: !hideRoutines, toggle: toggleRoutines },
                       boardCollapsed: routinesHidden,
                       onBoardExpand: toggleRoutines,
                       listContent: renderRoutines(),

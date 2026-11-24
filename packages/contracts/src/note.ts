@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { instantSchema } from "./common";
 
+export const NOTE_MAX_CHARS = 50_000;
+
 export const upsertNoteSchema = z.object({
-    body: z.string().max(50_000),
+    body: z.string().max(NOTE_MAX_CHARS),
     /** The revision this edit builds on (0 = no note yet). New clients always send it. */
     expectedVersion: z.number().int().min(0).optional(),
     /** Older clients' guard; `expectedVersion` supersedes it. */

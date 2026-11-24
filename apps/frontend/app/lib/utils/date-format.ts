@@ -19,13 +19,13 @@ import {
     type LocalDate,
     type WallTime,
 } from "@cadence/domain/time";
-import type { NlpClock } from "@cadence/nlp/core";
+import type { SettingsView } from "@cadence/contracts/settings";
+import type { DateStyle, NlpClock } from "@cadence/nlp/core";
 import { getUserZone, today } from "./user-zone";
 
 // ─── Format Configuration ────────────────────────────────────────────────────
 
-type TimeDisplay = "12h" | "24h";
-type DateStyle = "mdy" | "dmy" | "ymd";
+type TimeDisplay = SettingsView["dateTime"]["timeDisplay"];
 
 interface DateFormatConfig {
     timeDisplay: TimeDisplay;

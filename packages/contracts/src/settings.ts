@@ -4,6 +4,9 @@ import { TASK_PRIORITY_NAMES } from "./constants";
 import { DATE_STYLES } from "@cadence/nlp/core";
 import type { FocusViewDefinition } from "@cadence/nlp/focus-views";
 
+export const CUSTOM_INSTRUCTIONS_MAX = 600;
+export const PALETTE_IDS = ["lantern", "ember", "rose", "violet", "sapphire", "jade", "copper", "frost"] as const;
+
 // ── Focus View schemas ──
 
 export const focusViewSourceSchema = z.enum(["preset", "composed", "manual"]);
@@ -142,7 +145,7 @@ export const userSettingsSchema = z.object({
             accentIntensity: z.enum(["soft", "balanced", "vivid"]),
             motion: z.enum(["system", "full", "reduced"]),
             density: z.enum(["comfortable", "compact"]),
-            palette: z.enum(["lantern", "ember", "rose", "violet", "sapphire", "jade", "copper", "frost"]).optional(),
+            palette: z.enum(PALETTE_IDS).optional(),
             themePreset: z
                 .enum([
                     "default",
@@ -380,7 +383,7 @@ export const userSettingsSchema = z.object({
             emoji: z.boolean().optional(),
             nickname: z.string().max(40).nullable().optional(),
             assistantName: z.string().max(40).optional(),
-            customInstructions: z.string().max(600).nullable().optional(),
+            customInstructions: z.string().max(CUSTOM_INSTRUCTIONS_MAX).nullable().optional(),
             proactiveSuggestions: z.boolean().optional(),
             // Server-owned (POST /ai/memory/mode): the settings PATCH refuses all four, so neither a client nor the model can forge consent.
             memoryMode: z.enum(["off", "basic", "full"]).nullable().optional(),

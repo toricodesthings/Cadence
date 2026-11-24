@@ -2,7 +2,8 @@ import type { CSSProperties } from "react";
 import type { PersonalEvent } from "@cadence/contracts/personal-event";
 import { PROJECT_ACCENT_OPTIONS } from "../constants/colors";
 import { daysBetween, type LocalDate } from "@cadence/domain/time";
-import { formatMonthName, formatMonthYear, formatShortDate, getDaysInMonth, isoDay } from "./date-format";
+import { nextPersonalEventDay, personalEventDay } from "@cadence/domain/reminders";
+import { formatMonthName, formatMonthYear, formatShortDate, isoDay } from "./date-format";
 import { today as todayDay } from "./user-zone";
 
 const EVENT_DEFAULT_TONE = "var(--accent-nav-schedule)";
@@ -56,32 +57,11 @@ export interface PersonalEventViewModel {
     milestoneLabel: string | null;
 }
 
-export function getNormalizedMonthDay(monthDay: string, year: number) {
-    const [rawMonth, rawDay] = monthDay.split("-").map((value) => Number.parseInt(value, 10));
-    const month = Number.isFinite(rawMonth) ? Math.min(Math.max(rawMonth, 1), 12) : 1;
-    const maxDay = getDaysInMonth(year, month - 1); // Feb 29 falls on Feb 28 in non-leap years
-    const day = Number.isFinite(rawDay) ? Math.min(Math.max(rawDay, 1), maxDay) : 1;
-
-    return {
-        month,
-        day,
-        monthDay: `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
-    };
-}
-
-function getPersonalEventOccurrenceDate(monthDay: string, year: number): LocalDate {
-    const normalized = getNormalizedMonthDay(monthDay, year);
-    return isoDay(year, normalized.month - 1, normalized.day);
-}
-
 export function getNextPersonalEventDate(
     event: Pick<PersonalEvent, "monthDay">,
     today: LocalDate = todayDay(),
 ): LocalDate {
-    const year = Number(today.slice(0, 4));
-    const thisYearDate = getPersonalEventOccurrenceDate(event.monthDay, year);
-    if (thisYearDate >= today) return thisYearDate;
-    return getPersonalEventOccurrenceDate(event.monthDay, year + 1);
+    return nextPersonalEventDay(event.monthDay, today);
 }
 
 export function getPersonalEventCountdownLabel(daysUntil: number) {
@@ -91,7 +71,7 @@ export function getPersonalEventCountdownLabel(daysUntil: number) {
 }
 
 function getPersonalEventMonthDayLabel(monthDay: string, year = Number(todayDay().slice(0, 4))) {
-    return formatShortDate(getPersonalEventOccurrenceDate(monthDay, year));
+    return formatShortDate(personalEventDay(monthDay, year));
 }
 
 export function getPersonalEventMilestoneLabel(startedOn: string | null | undefined, nextDate: string) {

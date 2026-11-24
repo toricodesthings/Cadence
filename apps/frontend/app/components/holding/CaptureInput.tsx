@@ -450,7 +450,7 @@ export function CaptureInput() {
             className="capture-surface group px-4 py-3.5"
         >
             <div className="flex items-start gap-3">
-                <Inbox
+                <MessageSquare
                     size={18}
                     strokeWidth={1.75}
                     aria-hidden="true"

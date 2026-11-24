@@ -4,6 +4,7 @@
  * The plan is derived and disposable: any write rebuilds it. The rulebook (`deriveReminders`, `dueAlert`) is
  * the same one the app uses; this only asks it at the instants where its answer can change.
  */
+import { OPEN_TASK_STATES } from "@cadence/contracts/task";
 import { and, between, eq, gt, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
 import { addDays, atLocal, formatInZone, todayIn, type Zone } from "@cadence/domain/time";
 import {
@@ -234,7 +235,7 @@ export async function loadReminderPlan(db: DbClient, userId: string, now: Date):
             .where(
                 and(
                     eq(tasks.userId, userId),
-                    inArray(tasks.state, ["ACTIVE", "WAITING"]),
+                    inArray(tasks.state, OPEN_TASK_STATES),
                     or(
                         sql`${tasks.reminderAt} BETWEEN ${from}::timestamptz AND ${to}::timestamptz`,
                         sql`${tasks.waitingReminder} BETWEEN ${from}::timestamptz AND ${to}::timestamptz`,

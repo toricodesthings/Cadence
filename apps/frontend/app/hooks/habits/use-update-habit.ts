@@ -18,7 +18,7 @@ export function useUpdateHabit() {
         // Inline fields can save together; preserve their order across editor/menu hooks.
         scope: { id: "habit-updates" },
         mutationFn: withOfflineSupport<UpdateHabit & { id: string }, Habit>(
-            ({ id, ...patch }) => ({ type: "update_habit", id, payload: patch as Record<string, unknown> }),
+            ({ id, ...patch }) => ({ type: "update_habit", id, payload: patch }),
             async ({ id, ...patch }) => {
                 const res = await client.api.habits[":id"].$patch({
                     param: { id },

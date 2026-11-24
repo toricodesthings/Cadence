@@ -1,3 +1,4 @@
+import { localDateSchema } from "@cadence/contracts/common";
 import { tool } from "ai";
 import { z } from "zod";
 import { and, eq, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
@@ -60,8 +61,8 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
             "for planning, sorted by day and time. Repeating tasks appear once per occurrence. fixedBlock:true = a class or shift: it " +
             "takes that time, can't be checked off and is never overdue. Tasks page with offset: more:true and nextOffset when there's more.",
         inputSchema: z.object({
-            start: z.iso.date().describe("First local day, YYYY-MM-DD."),
-            end: z.iso.date().describe("Last local day."),
+            start: localDateSchema.describe("First local day, YYYY-MM-DD."),
+            end: localDateSchema.describe("Last local day."),
             includeDone: z.boolean().default(false).describe("Also tasks already done."),
             offset: offsetSchema,
             limit: z.number().int().min(1).max(50).default(50),
@@ -143,7 +144,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
             "They are open space in what Cadence can see, with a buffer around other blocks. Read-only: nothing is placed.",
         inputSchema: z.object({
             taskId: z.uuid(),
-            day: z.iso.date().describe("The local day to look at, YYYY-MM-DD."),
+            day: localDateSchema.describe("The local day to look at, YYYY-MM-DD."),
             minutes: z
                 .number()
                 .int()
@@ -241,7 +242,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
             "With `through` it spreads several days (≤ 6 after `day`) in one call: what didn't fit carries to the next day (never past " +
             "its own deadline), and the result is `days`, one entry per day.",
         inputSchema: z.object({
-            day: z.iso.date().describe("The local day, YYYY-MM-DD; today unless they named another."),
+            day: localDateSchema.describe("The local day, YYYY-MM-DD; today unless they named another."),
             through: z.iso
                 .date()
                 .optional()

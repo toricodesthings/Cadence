@@ -24,7 +24,8 @@
         "./fit-day": "./src/fit-day.ts",
         "./slot-preference": "./src/slot-preference.ts",
         "./planning-offers": "./src/planning-offers.ts",
-        "./auto-tag": "./src/auto-tag.ts"
+        "./auto-tag": "./src/auto-tag.ts",
+        "./notes": "./src/notes.ts"
     },
     "scripts": {
         "typecheck": "tsc --noEmit",

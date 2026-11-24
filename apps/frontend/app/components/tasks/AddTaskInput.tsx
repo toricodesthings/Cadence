@@ -185,7 +185,7 @@ export function AddTaskInput({ projectId, sectionId, tasks, compact = false, pla
             }}
             className={`
                 flex flex-wrap items-center border
-                ${compact ? "gap-2 rounded-[10px] px-3 py-2 shadow-none" : "gap-4 rounded-2xl px-6 py-5"}
+                ${compact ? "gap-2 rounded-[10px] px-3 py-2 shadow-none" : "gap-4 rounded-[28px] px-5 py-[13px]"}
                 transition-[color,background-color,border-color,box-shadow] duration-200
                 ${compact && !isFocused ? "border-transparent bg-transparent hover:bg-white/[0.02]" : ""}
                 ${!compact && !isFocused ? "border-twilight-border bg-transparent hover:border-twilight-border-light" : ""}
@@ -224,7 +224,7 @@ export function AddTaskInput({ projectId, sectionId, tasks, compact = false, pla
                 }}
                 placeholder={placeholder ?? (compact ? "Add task to section..." : "What needs to be done?")}
                 aria-label="New task title"
-                className={`flex-1 bg-transparent text-twilight-text outline-none placeholder:text-twilight-text-muted/60 ${compact ? "text-sm h-7" : "text-base"}`}
+                className={`flex-1 bg-transparent text-twilight-text outline-none placeholder:text-twilight-text-muted/60 ${compact ? "text-sm h-7" : "h-7 text-base"}`}
                 onKeyDown={(e) => {
                     if (e.key === "Escape") {
                         setValue("");

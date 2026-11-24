@@ -9,14 +9,3 @@ export function generateExcerpt(body: string, maxLength = 120): string {
     const cut = plain.lastIndexOf(" ", maxLength);
     return plain.slice(0, cut > 0 ? cut : maxLength) + "…";
 }
-
-/** Count words in markdown body. */
-export function countWords(body: string): number {
-    if (!body.trim()) return 0;
-    return body.trim().split(/\s+/).length;
-}
-
-/** Count headings (lines starting with #). */
-export function countHeadings(body: string): number {
-    return (body.match(/^#{1,6}\s+/gm) || []).length;
-}

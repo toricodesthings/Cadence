@@ -1,5 +1,6 @@
 import { useId, useState, type ComponentType, type ReactNode } from "react";
 import { ChevronDown, SlidersHorizontal } from "lucide-react";
+import type { HABIT_WEEKDAYS } from "@cadence/contracts/habit";
 import { cn } from "../../lib/utils";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { Button } from "../primitives/Button";
@@ -338,7 +339,7 @@ export function ComposerTabs<T extends string>({
     );
 }
 
-export type WeekdayCode = "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU";
+export type WeekdayCode = (typeof HABIT_WEEKDAYS)[number];
 export const WEEKDAY_ORDER: WeekdayCode[] = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
 const WEEKDAY_LABELS: Record<WeekdayCode, { short: string; long: string }> = {
     MO: { short: "Mon", long: "Monday" },

@@ -3,7 +3,8 @@ import { assertTaskOwnership } from "../../platform/ownership";
 import { taskNotes } from "../../db/schema";
 import { AppError, assertNoConflict } from "../../platform/errors";
 import type { Tx } from "../../types/db";
-import { countHeadings, countWords, generateExcerpt } from "./note-analysis";
+import { countHeadings, countWords } from "@cadence/domain/notes";
+import { generateExcerpt } from "./note-analysis";
 import { assertStorageRoom } from "../../platform/storage-ceiling";
 
 const conflict = () => new AppError(409, "CONFLICT", "Note was modified by another client");

@@ -11,7 +11,7 @@ describe("insertPersonalEventSchema", () => {
         [{ label: "x".repeat(81), monthDay: "03-14" }, "an 81-char label"],
         [{ label: "Mom", monthDay: "03-14", emoji: "12345" }, "a 5-char emoji"],
         [{ label: "Mom", monthDay: "03-14", id: "abc123" }, "a non-uuid id"],
-    ])("rejects %j (%s)", (body) => {
+    ])("rejects %j (%s)", (body, _why) => {
         expect(insertPersonalEventSchema.safeParse(body).success).toBe(false);
     });
 });

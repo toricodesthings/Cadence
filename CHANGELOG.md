@@ -6,8 +6,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Capture merges into one empty state with a larger greeting and theme-adaptive weather sky when clear
+- Tap anywhere on a section's header in Today, Upcoming or Capture to fold it; board columns show their icons
+- Further out folds like every other section, with a calmer peek at what's next; the list's add field is now a pill
+
 ### Fixed
 
+- Routines folded on Today's board can be opened again in row view, and stay folded in step across both views
 - Yearly events no longer stop at 50, and saving one can't undo a settings change made at the same time
 - Dismissing or snoozing an event's reminder now sticks across your devices
 

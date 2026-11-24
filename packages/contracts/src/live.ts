@@ -25,3 +25,13 @@ export const presenceMessageSchema = z.object({
     userIds: z.array(z.uuid()),
 });
 export type PresenceMessage = z.infer<typeof presenceMessageSchema>;
+
+/** Close codes shared by every socket the backend opens and the app acts on. */
+export const WS_CLOSE = {
+    reload: 4000,
+    accountGone: 4001,
+    badToken: 4401,
+    forbidden: 4403,
+    rateLimited: 4429,
+    error: 1011,
+} as const;

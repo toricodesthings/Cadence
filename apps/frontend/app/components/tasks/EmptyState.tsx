@@ -1,10 +1,12 @@
 import { Feather, Plus, CalendarRange, CalendarClock, Inbox, CheckCircle2, Flame, Archive } from "lucide-react";
 import { useNavigate } from "react-router";
+import { CaptureWindow } from "../holding/CaptureGreeting";
 
 export type EmptyStateVariant =
     | "today"
     | "upcoming"
     | "holding"
+    | "capture"
     | "completed"
     | "schedule"
     | "routines"
@@ -24,7 +26,7 @@ interface EmptyStateProps {
 }
 
 const VARIANTS: Record<
-    EmptyStateVariant,
+    Exclude<EmptyStateVariant, "capture">,
     {
         icon: typeof Feather;
         title: string;
@@ -87,6 +89,7 @@ export function EmptyState({
     compact = false,
 }: EmptyStateProps) {
     const navigate = useNavigate();
+    if (variant === "capture") return <CaptureWindow variant="clear" />;
     const config = VARIANTS[variant];
     const Icon = icon ?? config.icon;
     const line = description === undefined ? config.description : description;

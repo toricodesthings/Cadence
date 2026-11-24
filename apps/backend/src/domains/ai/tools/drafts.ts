@@ -4,6 +4,7 @@
  * derived (no `scheduledStart`). A deadline is a day (`dueDate`, YYYY-MM-DD, a time in it
  * is rejected); a time means a timed block (`scheduledStart` instant with offset) or a reminder.
  */
+import { instantSchema, localDateSchema } from "@cadence/contracts/common";
 import { z } from "zod";
 
 /** Shared paging offset schema across AI read tools. */
@@ -34,8 +35,12 @@ const dayError =
 const instantError =
     "A time block's start and end are a time with an offset, e.g. 2026-09-22T14:00:00-04:00. For an all-day task use dueDate (YYYY-MM-DD).";
 const dueDate = z.iso.date({ error: dayError }).nullable().optional();
-const instant = () => z.iso.datetime({ offset: true, error: instantError }).nullable().optional();
-const hideUntil = z.iso.date().describe("Hide it from lists until this local day.");
+const instant = () =>
+    instantSchema
+        .clone({ ...instantSchema._zod.def, error: () => instantError })
+        .nullable()
+        .optional();
+const hideUntil = localDateSchema.describe("Hide it from lists until this local day.");
 const when = {
     dueDate: dueDate.describe(
         "The day it sits on, or its deadline, YYYY-MM-DD (never a time). Only a day the user said; null clears.",

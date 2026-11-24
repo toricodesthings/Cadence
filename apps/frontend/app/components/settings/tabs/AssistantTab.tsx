@@ -9,6 +9,7 @@ import {
     type LucideIcon,
     Sparkles,
 } from "lucide-react";
+import { CUSTOM_INSTRUCTIONS_MAX } from "@cadence/contracts/settings";
 import { SettingsSection, SettingsRow } from "../layout/SettingsLayout";
 import { Button, Input, Switch } from "../../primitives";
 import { useSettings, useUpdateSettings } from "../../../hooks/core/use-settings";
@@ -20,8 +21,6 @@ import { ClearArchiveButton } from "../../assistant/ClearArchiveButton";
 import { useMemoryPage, useSetMemoryMode } from "../../../hooks/ai/use-memory";
 import { useAssistantStore } from "../../../stores/assistant-store";
 import { useUtilityNavigation } from "../../../hooks/ui/use-utility-navigation";
-
-const CUSTOM_INSTRUCTIONS_MAX = 600;
 
 type Persona = UserSettings["assistant"]["persona"];
 

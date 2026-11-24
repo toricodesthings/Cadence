@@ -59,6 +59,8 @@ export default function HomeRoute() {
         [captureFeed.inboxItems, captureFeed.notes],
     );
     const tasksLoading = captureFeed.isLoading;
+    // When both New and No day yet are empty, the greeting and weather move into the merged empty state below.
+    const allClear = !tasksLoading && captureFeed.count === 0;
     const { holdingPanelOpen, holdingPanelWidth, setHoldingPanelWidth, toggleHoldingPanel, railView } =
         useRightPanelStore();
     const { assistantPanelOpen, toggleAssistantPanel } = useAssistantStore();
@@ -180,6 +182,10 @@ export default function HomeRoute() {
         </Tip>
     );
 
+    const greetingLine = !allClear && (
+        <CaptureGreeting className="mb-2 pl-4 transition-opacity duration-300 motion-reduce:transition-none group-has-data-active/capture:opacity-0" />
+    );
+
     const feed = tasksLoading ? (
         <TaskListSkeleton />
     ) : (
@@ -221,10 +227,10 @@ export default function HomeRoute() {
                             {!shell.isCompact && <LocationNotice />}
                             <div className="group/capture">
                                 {shell.isTouch ? (
-                                    <CaptureWindow variant="band" />
+                                    !allClear && <CaptureWindow variant="band" />
                                 ) : (
                                     <>
-                                        <CaptureGreeting className="mb-2 pl-4 transition-opacity duration-300 motion-reduce:transition-none group-has-data-active/capture:opacity-0" />
+                                        {greetingLine}
                                         <CaptureInput />
                                     </>
                                 )}
@@ -238,7 +244,7 @@ export default function HomeRoute() {
                             {!shell.isCompact && <LocationNotice />}
                             {!shell.isTouch && (
                                 <div className="group/capture mb-6 pt-1">
-                                    <CaptureGreeting className="mb-2 pl-4 transition-opacity duration-300 motion-reduce:transition-none group-has-data-active/capture:opacity-0" />
+                                    {greetingLine}
                                     <CaptureInput />
                                 </div>
                             )}

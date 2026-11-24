@@ -1,3 +1,4 @@
+import { OPEN_TASK_STATES } from "@cadence/contracts/task";
 import { tool } from "ai";
 import { ACCENT_COLORS } from "@cadence/contracts/constants";
 import { z } from "zod";
@@ -184,7 +185,7 @@ export const projectTools = (env: Env, userId: string, ctx?: AgentContext) => {
                                           and(
                                               or(eq(tasks.userId, userId), inArray(tasks.projectId, memberView)),
                                               inArray(tasks.projectId, ids),
-                                              inArray(tasks.state, ["ACTIVE", "WAITING"]),
+                                              inArray(tasks.state, OPEN_TASK_STATES),
                                               ne(tasks.interactionMode, "timetable"),
                                           ),
                                       )

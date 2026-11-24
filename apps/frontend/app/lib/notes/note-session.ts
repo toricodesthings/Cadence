@@ -6,13 +6,12 @@
  * Plain TypeScript with injected dependencies (React and the network live elsewhere),
  * so every save and sync rule here is unit-testable with fake timers.
  */
-import type { TaskNote } from "@cadence/contracts/note";
+import { NOTE_MAX_CHARS, type TaskNote } from "@cadence/contracts/note";
 import type { NoteSavePayload, WalEntry } from "../api/offline-wal";
 import { ApiErrorResponse, isNetworkFailure } from "../../types/api";
 import { keepRecoveryCopy, type DraftRecord, type NoteJournal } from "./note-journal";
 import { reconcileNote } from "./note-merge";
 
-export const NOTE_MAX_CHARS = 50_000;
 /** Initial tuning targets (0.28.0 plan §4): local checkpoint, idle save, longest wait while typing. */
 export const JOURNAL_MS = 150;
 export const IDLE_SAVE_MS = 600;

@@ -1,4 +1,5 @@
 /** Auto-tag: tasks take the tag named like their list or section (matching lives in @cadence/domain/auto-tag). */
+import { OPEN_TASK_STATES } from "@cadence/contracts/task";
 import { and, eq, inArray, notExists } from "drizzle-orm";
 import { foldName, tagsForPlace } from "@cadence/domain/auto-tag";
 import { projects, tags, taskSections, tasks, taskTags, users } from "../../db/schema";
@@ -83,7 +84,7 @@ export async function placeMatches(tx: Tx, userId: string, tagId: string) {
         .where(
             and(
                 eq(tasks.userId, userId),
-                inArray(tasks.state, ["ACTIVE", "WAITING"]),
+                inArray(tasks.state, OPEN_TASK_STATES),
                 notExists(
                     tx
                         .select({ one: taskTags.id })

@@ -1,8 +1,9 @@
 import { get, set, del } from "idb-keyval";
-import type { CreateTaskInput, UpdateTaskInput } from "@cadence/contracts/task";
+import type { CreateTaskInput, TaskState, UpdateTaskInput } from "@cadence/contracts/task";
 import type { CreateProjectInput, UpdateProject } from "@cadence/contracts/project";
 import type { CreateTagInput, UpdateTag } from "@cadence/contracts/tag";
-import type { ProcessInboxItem } from "@cadence/contracts/inbox";
+import type { ProcessInboxItem, UpdateInboxItemInput, UpdateInboxSectionInput } from "@cadence/contracts/inbox";
+import type { HabitStatus, InsertHabit, StepStatus, UpdateHabit } from "@cadence/contracts/habit";
 import type { Instant, LocalDate } from "@cadence/domain/time";
 import { IS_DESKTOP_RUNTIME, getNativeStore } from "../../platform/runtime";
 
@@ -37,29 +38,29 @@ export type MutationOp =
     | { type: "delete_task"; id: string }
     | { type: "reorder_task"; id: string; payload: { orderIndex: number; orderedTaskIds?: string[] } }
     | { type: "duplicate_task"; id: string }
-    | { type: "batch_state"; payload: { taskIds: string[]; state: string } }
+    | { type: "batch_state"; payload: { taskIds: string[]; state: TaskState } }
     | {
           type: "batch_reschedule";
           payload: { taskIds: string[]; date: LocalDate } | { taskIds: string[]; scheduledStart: Instant };
       }
     | { type: "batch_delete"; payload: { taskIds: string[] } }
     | { type: "create_inbox"; payload: { id: string; rawText: string; sectionId?: string; orderIndex?: number } }
-    | { type: "update_inbox"; id: string; payload: Record<string, unknown> }
+    | { type: "update_inbox"; id: string; payload: UpdateInboxItemInput }
     | { type: "delete_inbox"; id: string }
     | { type: "process_inbox_to_task"; payload: ProcessInboxPayload }
     | { type: "create_inbox_section"; payload: { name: string; orderIndex?: number } }
-    | { type: "update_inbox_section"; id: string; payload: Record<string, unknown> }
+    | { type: "update_inbox_section"; id: string; payload: UpdateInboxSectionInput }
     | { type: "delete_inbox_section"; id: string }
-    | { type: "create_habit"; payload: Record<string, unknown> & { id: string } }
-    | { type: "update_habit"; id: string; payload: Record<string, unknown> }
+    | { type: "create_habit"; payload: InsertHabit & { id: string } }
+    | { type: "update_habit"; id: string; payload: UpdateHabit }
     | { type: "delete_habit"; id: string }
     | {
           type: "resolve_habit";
           id: string;
           payload: {
               targetDate: LocalDate;
-              status: string;
-              stepStatus?: Record<string, "COMPLETED" | "SKIPPED">;
+              status: HabitStatus;
+              stepStatus?: StepStatus;
               time?: string;
               at?: string;
           };

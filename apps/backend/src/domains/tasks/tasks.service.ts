@@ -3,6 +3,7 @@
  * caller's RLS transaction and returns rows; metrics run after commit through
  * `trackTaskChanges`.
  */
+import { OPEN_TASK_STATES } from "@cadence/contracts/task";
 import { and, asc, eq, inArray, isNull, ne, notInArray, sql, type SQL } from "drizzle-orm";
 import { tracing } from "cloudflare:workers";
 import type {
@@ -710,8 +711,6 @@ export async function placeTasks(tx: Tx, userId: string, items: PlaceTaskItem[])
     };
 }
 
-const OPEN_STATES: ("ACTIVE" | "WAITING")[] = ["ACTIVE", "WAITING"];
-
 /** True when this write is what made the task Done: the `tasks_completed_at` trigger stamps `completed_at` with the same instant as `updated_at`. */
 export function justCompleted(task: { completedAt: string | null; updatedAt: string }): boolean {
     return !!task.completedAt && sameVersion(task.completedAt, task.updatedAt);
@@ -755,7 +754,7 @@ export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, schedul
         return tx
             .update(tasks)
             .set({ ...temporalColumns({ scheduledStart }, zone), updatedAt: sql`NOW()` })
-            .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds), inArray(tasks.state, OPEN_STATES)))
+            .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds), inArray(tasks.state, OPEN_TASK_STATES)))
             .returning();
     }
     const rows = await tx
@@ -765,7 +764,7 @@ export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, schedul
             interactionMode: tasks.interactionMode,
         })
         .from(tasks)
-        .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds), inArray(tasks.state, OPEN_STATES)));
+        .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds), inArray(tasks.state, OPEN_TASK_STATES)));
     const onlyFixed = rows.every((row) => row.interactionMode === "timetable");
     // Each task gets its own values; the updates are pipelined like `updateTasks`.
     return Promise.all(
@@ -825,7 +824,7 @@ export async function reorderTasks(tx: Tx, userId: string, taskIds: string[], pl
             and(
                 eq(tasks.userId, userId),
                 projectId ? eq(tasks.projectId, projectId) : isNull(tasks.projectId),
-                inArray(tasks.state, ["ACTIVE", "WAITING"]),
+                inArray(tasks.state, OPEN_TASK_STATES),
                 notInArray(tasks.id, taskIds),
             ),
         )

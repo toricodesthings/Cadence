@@ -30,6 +30,8 @@ import { overridesOf, placementFor } from "../../lib/utils/task/suggested-placem
 import { useEditableProjects } from "../../hooks/projects/use-own-projects";
 import { Reveal } from "../shared/Reveal";
 import { EmptyState } from "../tasks/EmptyState";
+import { PageContent } from "../layout/PageLayout";
+import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
 import { computeNlp, loadParse, TASK_FIELDS, useParseModule, type ParseFn } from "../../hooks/use-nlp-parse";
 
 /** Explicit nulls: the server must not infer a day from a thought's words. */
@@ -342,7 +344,7 @@ export function HoldingFeed({
     const empty = (icon: typeof Inbox, title: string) => (
         <EmptyState compact icon={icon} title={title} description={null} />
     );
-    const shortcuts = !isTouch && (
+    const shortcuts = !isTouch && available.length > 0 && (
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-twilight-text-muted">
             {SHORTCUTS.map(([key, label]) => (
                 <span key={key} className="inline-flex items-center gap-1.5">
@@ -352,6 +354,40 @@ export function HoldingFeed({
             ))}
         </p>
     );
+    const extraFolds = (
+        <>
+            {ordered.older.length > 0 && (
+                <Fold title="Older" count={ordered.older.length}>
+                    {rows(ordered.older)}
+                </Fold>
+            )}
+            {feed.notes.length > 0 && (
+                <Fold title="Notes" count={feed.notes.length}>
+                    {rows(feed.notes)}
+                </Fold>
+            )}
+        </>
+    );
+    const allClear = feed.count === 0;
+    if (allClear) {
+        const clearBody = (
+            <div className="flex min-w-0 flex-col gap-6 pb-24">
+                {toolbar}
+                <EmptyState variant="capture" />
+                {extraFolds}
+                {shortcuts}
+            </div>
+        );
+        return board ? (
+            <ScrollAreaWrapper>
+                <PageContent width="default" verticalPadding="none">
+                    {clearBody}
+                </PageContent>
+            </ScrollAreaWrapper>
+        ) : (
+            clearBody
+        );
+    }
     if (board)
         return (
             <div className="flex h-full min-h-0 flex-col">
@@ -360,7 +396,6 @@ export function HoldingFeed({
                     <BucketedCollectionView
                         view="kanban"
                         fill
-                        headerIcons
                         sections={[
                             {
                                 key: "new",
@@ -456,16 +491,7 @@ export function HoldingFeed({
                     </Reveal>
                 </section>
             </CaptureColumnDrop>
-            {ordered.older.length > 0 && (
-                <Fold title="Older" count={ordered.older.length}>
-                    {rows(ordered.older)}
-                </Fold>
-            )}
-            {feed.notes.length > 0 && (
-                <Fold title="Notes" count={feed.notes.length}>
-                    {rows(feed.notes)}
-                </Fold>
-            )}
+            {extraFolds}
             {shortcuts}
         </div>
     );

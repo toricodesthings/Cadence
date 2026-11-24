@@ -5,6 +5,7 @@
  * Rows are read here under RLS from their ids (another person's id simply isn't found), never from client text.
  * One `decide` request per call (one budget unit), one named question per row. No notes and no subtask text.
  */
+import { OPEN_TASK_STATES } from "@cadence/contracts/task";
 import { and, eq, inArray } from "drizzle-orm";
 import { RESET_DISPOSITIONS, type ResetDisposition, type ResetSuggestionsRequest } from "@cadence/contracts/planning";
 import { addDays, daysBetween, dayOf, formatInZone, todayIn, type Zone } from "@cadence/domain/time";
@@ -109,9 +110,7 @@ export async function resetSuggestions(
                 })
                 .from(tasks)
                 .leftJoin(taskMetrics, eq(taskMetrics.taskId, tasks.id))
-                .where(
-                    and(eq(tasks.userId, userId), inArray(tasks.id, ids), inArray(tasks.state, ["ACTIVE", "WAITING"])),
-                );
+                .where(and(eq(tasks.userId, userId), inArray(tasks.id, ids), inArray(tasks.state, OPEN_TASK_STATES)));
             rows = found.map((t) => {
                 const waiting = t.state === "WAITING";
                 return {
