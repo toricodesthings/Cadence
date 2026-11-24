@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-11-23
+
 ### Changed
 
 - Find a time in chat asks how long a task takes instead of assuming an hour
