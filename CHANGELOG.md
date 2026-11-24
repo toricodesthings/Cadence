@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-11-24
+
 Shared lists now feel like the same room: live presence, co-edited notes, moving work in, and assistant help
 
 ### Added
