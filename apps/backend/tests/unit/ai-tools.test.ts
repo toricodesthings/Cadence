@@ -281,7 +281,9 @@ describe("tool registry", () => {
             (await asSchema(tools[name].inputSchema).validate!(input)).success;
         expect(await ok("save_event", { patch: { label: "Mum" } })).toBe(false);
         expect(await ok("save_event", { patch: { label: "Mum", monthDay: "03-14" } })).toBe(true);
-        expect(await ok("save_event", { eventId: "e1", patch: { emoji: "🌷" } })).toBe(true);
+        expect(
+            await ok("save_event", { eventId: "01970000-0000-7000-8000-000000000001", patch: { emoji: "🌷" } }),
+        ).toBe(true);
         expect(await ok("save_focus_view", { filters: { effortMax: 1 } })).toBe(false);
         expect(await ok("save_focus_view", { name: "Quick", filters: { effortMax: 1 } })).toBe(true);
         expect(await ok("save_focus_view", { focusViewId: "00000000-0000-4000-8000-000000000001", pinned: true })).toBe(
@@ -529,7 +531,7 @@ describe("which calls wait for a tap", () => {
         expect(approval("auto", "set_task_state", { taskIds: ids(6) })).toBe("user-approval");
         expect(approval("auto", "create_tasks", { tasks: ids(6) })).toBe("user-approval");
         expect(approval("auto", "delete_tasks", { tasks: ids(1) })).toBe("user-approval");
-        expect(needsTap("delete_event", { eventId: "e" })).toBe(true);
+        expect(needsTap("delete_event", { eventId: "01970000-0000-7000-8000-000000000001" })).toBe(true);
         expect(needsTap("delete_section", { sectionId: "s" })).toBe(true);
         expect(needsTap("save_event", { eventId: "e", patch: { emoji: "🎂" } })).toBe(false);
         expect(needsTap("edit_subtasks", { add: ["a"] })).toBe(false);

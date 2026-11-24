@@ -11,7 +11,7 @@ import { HOUR_HEIGHT, DAY_GRID_HEIGHT } from "../../lib/utils/calendar/calendar-
 import { useToday } from "../../lib/utils/user-zone";
 import type { Task } from "@cadence/contracts/task";
 import type { HolidayRecord } from "@cadence/contracts/proxy";
-import type { PersonalEvent } from "../../types/settings";
+import type { PersonalEvent } from "@cadence/contracts/personal-event";
 
 export interface DayViewProps extends TimelineProps {
     /** The LocalDate being shown */

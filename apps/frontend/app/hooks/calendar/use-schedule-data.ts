@@ -57,7 +57,9 @@ export function useScheduleData({
     // ── Personal events overlay ────────────────────────────────────────────
     const personalEvents = usePersonalEvents(year, month);
 
-    const personalEventsByDateRecord = useMemo<Record<string, import("../../types/settings").PersonalEvent[]>>(() => {
+    const personalEventsByDateRecord = useMemo<
+        Record<string, import("@cadence/contracts/personal-event").PersonalEvent[]>
+    >(() => {
         return Object.fromEntries(personalEvents.eventsByDate.entries());
     }, [personalEvents.eventsByDate]);
 

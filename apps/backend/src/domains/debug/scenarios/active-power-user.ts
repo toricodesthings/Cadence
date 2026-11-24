@@ -47,6 +47,7 @@ import {
     habits,
     inboxItems,
     inboxSections,
+    personalEvents,
     projects,
     savedFocusViews,
     subtasks,
@@ -746,6 +747,53 @@ export async function seed(db: Tx, userId: string) {
         },
     ]);
 
+    // ── Yearly events ────────────────────────────────────────────────
+    const seededEvents = await db
+        .insert(personalEvents)
+        .values([
+            {
+                userId,
+                label: "First coffee date",
+                monthDay: seedMonthDay(clock, 0),
+                emoji: "☕",
+                notify: true,
+                startedOn: seedStartedOn(clock, 0, 2),
+            },
+            {
+                userId,
+                label: "Mom's Birthday",
+                monthDay: seedMonthDay(clock, 4),
+                emoji: "🎂",
+                notify: true,
+                startedOn: null,
+            },
+            {
+                userId,
+                label: "Cadence launch day",
+                monthDay: seedMonthDay(clock, 11),
+                emoji: "🚀",
+                notify: false,
+                startedOn: seedStartedOn(clock, 11, 1),
+            },
+            {
+                userId,
+                label: "Move-in anniversary",
+                monthDay: seedMonthDay(clock, 26),
+                emoji: "🏡",
+                notify: true,
+                startedOn: seedStartedOn(clock, 26, 4),
+            },
+            {
+                userId,
+                label: "Wedding anniversary",
+                monthDay: seedMonthDay(clock, 63),
+                emoji: "💍",
+                notify: true,
+                startedOn: seedStartedOn(clock, 63, 7),
+            },
+        ])
+        .returning();
+
     // ── AI showcase conversation ─────────────────────────────────────
     await seedAiShowcaseConversation(db, userId, {
         clock,
@@ -756,6 +804,7 @@ export async function seed(db: Tx, userId: string) {
         sections: seededSections,
         tags: seededTags,
         subtasks: seededSubtasks,
+        personalEvents: seededEvents,
     });
 
     // ── Usage diagnostics seed data ──────────────────────────────────
@@ -856,48 +905,6 @@ export async function seed(db: Tx, userId: string) {
                     },
                     personalEvents: {
                         enabled: true,
-                        items: [
-                            {
-                                id: "coffeeversary",
-                                label: "First coffee date",
-                                monthDay: seedMonthDay(clock, 0),
-                                emoji: "☕",
-                                notify: true,
-                                startedOn: seedStartedOn(clock, 0, 2),
-                            },
-                            {
-                                id: "mom-birthday",
-                                label: "Mom's Birthday",
-                                monthDay: seedMonthDay(clock, 4),
-                                emoji: "🎂",
-                                notify: true,
-                                startedOn: null,
-                            },
-                            {
-                                id: "cadence-launch",
-                                label: "Cadence launch day",
-                                monthDay: seedMonthDay(clock, 11),
-                                emoji: "🚀",
-                                notify: false,
-                                startedOn: seedStartedOn(clock, 11, 1),
-                            },
-                            {
-                                id: "move-in-day",
-                                label: "Move-in anniversary",
-                                monthDay: seedMonthDay(clock, 26),
-                                emoji: "🏡",
-                                notify: true,
-                                startedOn: seedStartedOn(clock, 26, 4),
-                            },
-                            {
-                                id: "wedding-day",
-                                label: "Wedding anniversary",
-                                monthDay: seedMonthDay(clock, 63),
-                                emoji: "💍",
-                                notify: true,
-                                startedOn: seedStartedOn(clock, 63, 7),
-                            },
-                        ],
                     },
                 },
                 notifications: {

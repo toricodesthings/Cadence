@@ -1,6 +1,6 @@
 import type { Task } from "@cadence/contracts/task";
 import type { Habit, TimeMarks } from "@cadence/contracts/habit";
-import type { PersonalEvent } from "@cadence/contracts/settings";
+import type { PersonalEvent } from "@cadence/contracts/personal-event";
 import { routineTimesOn, timeMarksOn } from "./repeats";
 import {
     addDays,

@@ -194,3 +194,13 @@ describe("backgroundUploadMetaSchema", () => {
         expect(backgroundUploadMetaSchema.safeParse(meta).success).toBe(false);
     });
 });
+
+describe("settingsPatchSchema: personal events live in their own table", () => {
+    it("rejects a patch carrying calendar.personalEvents.items", () => {
+        expect(settingsPatchSchema.safeParse({ calendar: { personalEvents: { items: [] } } }).success).toBe(false);
+    });
+
+    it("still accepts the display switch", () => {
+        expect(settingsPatchSchema.safeParse({ calendar: { personalEvents: { enabled: false } } }).success).toBe(true);
+    });
+});

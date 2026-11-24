@@ -5,6 +5,7 @@ import { useTasks } from "../tasks/use-tasks";
 import { useHabitsRange } from "../habits/use-habits";
 import { useToday } from "../../lib/utils/user-zone";
 import { useSettings } from "../core/use-settings";
+import { usePersonalEvents } from "../calendar/use-personal-events";
 import { SETTINGS_DEFAULTS } from "../../types/settings";
 import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
@@ -149,11 +150,8 @@ export function useNotificationCenter() {
     const { quietHoursEnabled, quietHoursStart, quietHoursEnd } = prefs;
     const bundleMissedHabits = notif?.bundleMissedRoutinePrompts !== false;
     // Yearly events with their bell on join the reminder candidates.
-    const personalEvents = settings?.calendar?.personalEvents;
-    const notifiedEvents = useMemo(
-        () => (personalEvents?.enabled ? (personalEvents.items ?? []) : []),
-        [personalEvents],
-    );
+    const { enabled: eventsEnabled, items: eventItems } = usePersonalEvents(new Date().getFullYear());
+    const notifiedEvents = useMemo(() => (eventsEnabled ? eventItems : []), [eventsEnabled, eventItems]);
 
     // The bell is decoration: its reads start after the workspace reveals (the badge fades in).
     const revealed = useContext(StartupReadyContext);

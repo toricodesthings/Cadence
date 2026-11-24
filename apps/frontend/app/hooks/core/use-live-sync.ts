@@ -9,7 +9,17 @@ import { liveMessageSchema, type LiveChange } from "@cadence/contracts/live";
 import { reconcileTaskInCaches, removeTaskFromCaches } from "../../lib/api/cache-sync";
 
 /** Query roots a change on another device can touch. Weather, holidays, location, appearance, auth and assistant data stay out. */
-const LIVE_ROOTS = new Set(["tasks", "projects", "inbox", "tags", "habits", "sections", "subtasks", "settings"]);
+const LIVE_ROOTS = new Set([
+    "tasks",
+    "projects",
+    "inbox",
+    "tags",
+    "personal-events",
+    "habits",
+    "sections",
+    "subtasks",
+    "settings",
+]);
 const PING_MS = 45_000;
 const PONG_WAIT_MS = 10_000;
 const DEBOUNCE_MS = 1_000;

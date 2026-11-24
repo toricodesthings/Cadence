@@ -37,7 +37,7 @@ import { useToday } from "../lib/utils/user-zone";
 import { cn } from "../lib/utils";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
-import type { PersonalEvent } from "../types/settings";
+import type { PersonalEvent } from "@cadence/contracts/personal-event";
 import {
     getNextPersonalEventDate,
     sortPersonalEventViewModels,

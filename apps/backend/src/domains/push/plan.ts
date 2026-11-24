@@ -15,7 +15,8 @@ import {
     type ReminderTask,
 } from "@cadence/domain/reminders";
 import { habitDays } from "@cadence/domain/repeats";
-import type { PersonalEvent, SettingsView } from "@cadence/contracts/settings";
+import type { SettingsView } from "@cadence/contracts/settings";
+import type { PersonalEvent } from "@cadence/contracts/personal-event";
 import { withRls } from "../../platform/rls";
 import { userZone } from "../../platform/user-zone";
 import {
@@ -29,6 +30,7 @@ import {
     users,
 } from "../../db/schema";
 import { normalizeSettings } from "../settings/settings.route";
+import { listEvents } from "../personal-events/personal-events.service";
 import type { PushMessage, PushOutcome } from "./web-push";
 import type { DbClient } from "../../platform/db";
 
@@ -330,7 +332,7 @@ export async function loadReminderPlan(db: DbClient, userId: string, now: Date):
             tasks: taskRows,
             habits: habitRows,
             logs,
-            personalEvents: personal.enabled ? personal.items : [],
+            personalEvents: personal.enabled ? await listEvents(tx, userId) : [],
         };
         const sampled = sampleReminders(input, now.getTime(), until);
         if (sampled.length === 0) return { targets, entries: [], until, zone };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { personalEventSchema } from "@cadence/contracts/settings";
+import { personalEventSchema } from "@cadence/contracts/personal-event";
 import {
     EVENT_SWATCHES,
     eventToneColor,
@@ -93,7 +93,14 @@ describe("personal event utilities", () => {
     });
 
     it("accepts stored events saved before colours existed", () => {
-        const legacy = { id: "a", label: "Mom", monthDay: "05-10", emoji: null, notify: true, startedOn: null };
+        const legacy = {
+            id: "01970000-0000-7000-8000-000000000001",
+            label: "Mom",
+            monthDay: "05-10",
+            emoji: null,
+            notify: true,
+            startedOn: null,
+        };
         expect(personalEventSchema.safeParse(legacy).success).toBe(true);
         expect(personalEventSchema.safeParse({ ...legacy, color: null }).success).toBe(true);
         expect(personalEventSchema.safeParse({ ...legacy, color: "teal" }).success).toBe(true);

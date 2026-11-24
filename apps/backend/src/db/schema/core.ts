@@ -523,6 +523,40 @@ export const tags = pgTable(
     }),
 ).enableRLS();
 
+// Yearly personal events (birthdays, anniversaries). `calendar.personalEvents.enabled` stays in settings.
+export const personalEvents = pgTable(
+    "personal_events",
+    {
+        id: id(),
+        userId: ownerId(),
+        label: text("label").notNull(),
+        monthDay: text("month_day").notNull(), // "MM-DD"
+        emoji: text("emoji"),
+        notify: boolean("notify").notNull().default(true),
+        startedOn: date("started_on", { mode: "string" }),
+        color: text("color"),
+        createdAt: createdAt(),
+        updatedAt: timestamptz("updated_at")
+            .default(sql`now()`)
+            .notNull(),
+    },
+    (table) => ({
+        userIdIdx: index("personal_events_user_id_idx").on(table.userId),
+        labelLen: check("personal_events_label_len", sql`char_length(${table.label}) BETWEEN 1 AND 80`),
+        monthDayFormat: check(
+            "personal_events_month_day",
+            sql`${table.monthDay} ~ '^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$'`,
+        ),
+        emojiLen: check("personal_events_emoji_len", sql`${table.emoji} IS NULL OR char_length(${table.emoji}) <= 4`),
+        rlsPolicy: pgPolicy("personal_events_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
+    }),
+).enableRLS();
+
 // 7. Task–Tag associations (many-to-many)
 export const taskTags = pgTable(
     "task_tags",

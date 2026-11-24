@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Fixed
+
+- Yearly events no longer stop at 50, and saving one can't undo a settings change made at the same time
+- Dismissing or snoozing an event's reminder now sticks across your devices
+
 ## [2.4.0] - 2026-11-24
 
 Shared lists now feel like the same room: live presence, co-edited notes, moving work in, and assistant help

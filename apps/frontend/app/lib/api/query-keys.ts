@@ -29,6 +29,9 @@ export const queryKeys = {
     tags: {
         all: ["tags"] as const,
     },
+    personalEvents: {
+        all: ["personal-events"] as const,
+    },
     habits: {
         all: ["habits"] as const,
         weeklyAll: ["habits", "weekly"] as const,
@@ -101,6 +104,7 @@ export const STALE_TIMES = {
     PROJECTS: 5 * 60 * 1000, // 5min — projects rarely change
     INBOX: 60 * 1000, // 1min — inbox items moderate frequency
     TAGS: 10 * 60 * 1000, // 10min — tags very rarely change
+    EVENTS: 10 * 60 * 1000, // 10min — yearly events rarely change
     PEOPLE: Infinity, // who is in a shared list: its key changes when membership does
     NOTIFICATIONS: 60 * 1000, // 1min — shared reminder state across surfaces
     HABITS: 60 * 1000, // 1min — habits have moderate frequency

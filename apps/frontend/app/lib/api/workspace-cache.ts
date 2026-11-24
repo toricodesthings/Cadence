@@ -8,6 +8,7 @@ const WORKSPACE_QUERY_PREFIXES: readonly QueryKey[] = [
     queryKeys.habits.all,
     queryKeys.projects.all,
     queryKeys.tags.all,
+    queryKeys.personalEvents.all,
     queryKeys.inbox.all,
     ["settings"],
     ["inbox_sections"],

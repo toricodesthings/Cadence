@@ -16,6 +16,7 @@ import { decisionRoutes } from "./domains/decisions/reset.route";
 import { healthRoutes } from "./domains/health/health.route";
 import { debugRoutes } from "./domains/debug/debug.route";
 import { tagRoutes } from "./domains/tags/tags.route";
+import { personalEventRoutes } from "./domains/personal-events/personal-events.route";
 import { habitRoutes } from "./domains/habits/habits.route";
 import { subtaskRoutes } from "./domains/subtasks/subtasks.route";
 import { sectionRoutes } from "./domains/sections/sections.route";
@@ -189,6 +190,7 @@ const apiApp = app
     .route("/api/v1/inbox", inboxRoutes)
     .route("/api/v1/search", searchRoutes)
     .route("/api/v1/tags", tagRoutes)
+    .route("/api/v1/personal-events", personalEventRoutes)
     .route("/api/v1/habits", habitRoutes)
     .route("/api/v1", subtaskRoutes)
     .route("/api/v1", noteRoutes)

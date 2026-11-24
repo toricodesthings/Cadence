@@ -5,16 +5,12 @@ import { eq } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
 import { users } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
-import { AppError, throwIfNotFound } from "../../../platform/errors";
 import type { Env } from "../../../types/env";
-import type { Tx } from "../../../types/db";
 import type { AgentContext } from "./index";
 import { safeExecute, once } from "./index";
 import { normalizeSettings } from "../../settings/settings.route";
-import { personalEventSchema, type PersonalEvent, type SettingsView } from "@cadence/contracts/settings";
-
-/** The /events page's cap (`calendar.personalEvents.items`). */
-const MAX_EVENTS = 50;
+import { personalEventSchema, type PersonalEvent } from "@cadence/contracts/personal-event";
+import { createEvent, deleteEvent, listEvents, updateEvent } from "../../personal-events/personal-events.service";
 
 const eventFields = personalEventSchema.omit({ id: true });
 const eventInput = z.object({
@@ -57,43 +53,12 @@ export function toMinimalEvent(event: PersonalEvent, today: string) {
     };
 }
 
-/** `lock`: hold the row until `tx` ends, so concurrent settings writes can't drop each other's change. */
-async function readSettings(tx: Tx, userId: string, lock = false) {
-    const query = tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
-    const [user] = await (lock ? query.for("update") : query);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
-    return normalizeSettings((user?.settings ?? {}) as Record<string, any>);
-}
-
-/** Rewrite the user's event list inside `tx`; `change` gets the current items and returns the new ones. */
-async function writeEvents(tx: Tx, userId: string, change: (items: PersonalEvent[]) => PersonalEvent[]) {
-    const settings = await readSettings(tx, userId, true);
-    const personalEvents = settings.calendar.personalEvents;
-    const items = change(personalEvents.items ?? []);
-    if (items.length > MAX_EVENTS) throw new AppError(400, "VALIDATION_ERROR", `Events hold at most ${MAX_EVENTS}`);
-    await tx
-        .update(users)
-        .set({
-            settings: { ...settings, calendar: { ...settings.calendar, personalEvents: { ...personalEvents, items } } },
-        })
-        .where(eq(users.id, userId));
-}
-
-function findEvent(items: PersonalEvent[], id: string) {
-    const event = items.find((item) => item.id === id);
-    throwIfNotFound(event, "Event");
-    return event;
-}
-
-/** Same event projection for fresh tool reads and the request's already-loaded snapshot settings. */
-export function projectEvents(settings: SettingsView, today: string) {
-    const { enabled, items } = settings.calendar.personalEvents;
+/** Same event projection for fresh tool reads and the request's already-loaded snapshot. */
+export function projectEvents(enabled: boolean, items: PersonalEvent[], today: string) {
     return {
         today,
         shownOnCalendar: enabled ? undefined : false,
-        events: (items as PersonalEvent[])
-            .map((event) => toMinimalEvent(event, today))
-            .sort((a, b) => a.daysUntil - b.daysUntil),
+        events: items.map((event) => toMinimalEvent(event, today)).sort((a, b) => a.daysUntil - b.daysUntil),
     };
 }
 
@@ -105,7 +70,7 @@ export const eventTools = (env: Env, userId: string, ctx: AgentContext) => ({
             "(label and monthDay needed); with eventId it changes only what the patch sends. Returns the event.",
         inputSchema: z
             .object({
-                eventId: z.string().min(1).max(24).optional().describe("The event to change; omit to add one."),
+                eventId: z.uuid().optional().describe("The event to change; omit to add one."),
                 patch: eventInput.partial(),
             })
             .refine(
@@ -116,26 +81,18 @@ export const eventTools = (env: Env, userId: string, ctx: AgentContext) => ({
             safeExecute("save_event", userId, async () =>
                 withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
-                        if (eventId === undefined) {
-                            const event: PersonalEvent = {
-                                id: crypto.randomUUID().slice(0, 12),
-                                label: patch.label!,
-                                monthDay: patch.monthDay!,
-                                emoji: patch.emoji ?? null,
-                                notify: patch.notify ?? true,
-                                startedOn: patch.startedOn ?? null,
-                                ...(patch.color && { color: patch.color }),
-                            };
-                            await writeEvents(tx, userId, (items) => [...items, event]);
-                            // The dedup row points at the user: events live in their settings.
-                            return { result: toMinimalEvent(event, ctx.today), id: userId };
-                        }
-                        let updated!: PersonalEvent;
-                        await writeEvents(tx, userId, (items) => {
-                            updated = { ...findEvent(items, eventId), ...patch };
-                            return items.map((item) => (item.id === eventId ? updated : item));
-                        });
-                        return { result: toMinimalEvent(updated, ctx.today), id: userId };
+                        const row =
+                            eventId === undefined
+                                ? await createEvent(tx, userId, {
+                                      label: patch.label!,
+                                      monthDay: patch.monthDay!,
+                                      emoji: patch.emoji,
+                                      notify: patch.notify,
+                                      startedOn: patch.startedOn,
+                                      color: patch.color,
+                                  })
+                                : await updateEvent(tx, userId, eventId, patch);
+                        return { result: toMinimalEvent(row, ctx.today), id: row.id };
                     }),
                 ),
             ),
@@ -145,29 +102,31 @@ export const eventTools = (env: Env, userId: string, ctx: AgentContext) => ({
     get_events: tool({
         description:
             "The user's yearly personal events from Events, soonest first, each with its next date, daysUntil and, " +
-            "when it has a start date, the years it marks. shownOnCalendar:false when the user hid them from the calendar. Event ids are short strings (not UUIDs): pass them exactly as read.",
+            "when it has a start date, the years it marks. shownOnCalendar:false when the user hid them from the calendar.",
         inputSchema: z.object({}),
         execute: async () =>
-            safeExecute("get_events", userId, async () => {
-                const settings = await withRls(getDbClient(env), userId, (tx) => readSettings(tx, userId));
-                return projectEvents(settings, ctx.today);
-            }),
+            safeExecute("get_events", userId, () =>
+                withRls(getDbClient(env), userId, async (tx) => {
+                    const [user] = await tx
+                        .select({ settings: users.settings })
+                        .from(users)
+                        .where(eq(users.id, userId));
+                    const enabled = user?.settings?.calendar?.personalEvents?.enabled ?? true;
+                    return projectEvents(enabled, await listEvents(tx, userId), ctx.today);
+                }),
+            ),
     }),
 
     // ── D ──────────────────────────────────────────────────────────────────
     delete_event: tool({
         description: "Deletes an event for good (there is no Trash for events).",
-        inputSchema: z.object({ eventId: z.string().min(1).max(24) }),
+        inputSchema: z.object({ eventId: z.uuid() }),
         execute: async ({ eventId }, { toolCallId }) =>
             safeExecute("delete_event", userId, async () =>
                 withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
-                        let label = "";
-                        await writeEvents(tx, userId, (items) => {
-                            label = findEvent(items, eventId).label;
-                            return items.filter((item) => item.id !== eventId);
-                        });
-                        return { result: { deleted: label }, id: userId };
+                        const row = await deleteEvent(tx, userId, eventId);
+                        return { result: { deleted: row.label }, id: row.id };
                     }),
                 ),
             ),

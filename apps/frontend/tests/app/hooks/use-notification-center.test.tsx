@@ -68,6 +68,9 @@ vi.mock("../../../app/hooks/habits/use-habits", () => ({
     },
 }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: undefined }) }));
+vi.mock("../../../app/hooks/calendar/use-personal-events", () => ({
+    usePersonalEvents: () => ({ enabled: true, items: [] }),
+}));
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => fixture.auth }));
 vi.mock("../../../app/hooks/auth/use-api-client", () => ({ useApiClient: () => fixture.client }));
 vi.mock("../../../app/lib/api/track-event", () => ({ trackUsageEvent: vi.fn() }));

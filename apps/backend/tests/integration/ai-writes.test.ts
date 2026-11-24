@@ -8,7 +8,7 @@ import { projectRoutes } from "../../src/domains/projects/projects.route";
 import { subtaskRoutes } from "../../src/domains/subtasks/subtasks.route";
 import { noteRoutes } from "../../src/domains/notes/notes.route";
 import { inboxRoutes } from "../../src/domains/inbox/inbox.route";
-import { settingsRoutes } from "../../src/domains/settings/settings.route";
+import { personalEventRoutes } from "../../src/domains/personal-events/personal-events.route";
 import { buildToolRegistry } from "../../src/domains/ai/tools";
 import { withRls } from "../../src/platform/rls";
 import { projects, taskSections } from "../../src/db/schema";
@@ -533,8 +533,8 @@ describe("captures", () => {
 });
 
 describe("events and routine emoji", () => {
-    it("adds, reads, changes and deletes events in the user's settings, and only theirs", async () => {
-        const settings = apiAs(userId, "/settings", settingsRoutes);
+    it("adds, reads, changes and deletes events in the user's table, and only theirs", async () => {
+        const eventsApi = apiAs(userId, "/personal-events", personalEventRoutes);
         const { id: eventId } = await call("save_event", {
             patch: { label: "Mom's birthday", monthDay: "03-14", emoji: "🎂", startedOn: "1966-03-14" },
         });
@@ -552,7 +552,7 @@ describe("events and routine emoji", () => {
             await call("save_event", { eventId, patch: { emoji: "🌷", notify: false, color: "rose" } }),
         ).toMatchObject({ emoji: "🌷", notify: false, color: "rose", label: "Mom's birthday" });
         expect(await call("delete_event", { eventId })).toEqual({ deleted: "Mom's birthday" });
-        const items = (await settings("GET", "")).body.data.calendar.personalEvents.items;
+        const items = (await eventsApi("GET", "")).body.data;
         expect(items.map((e: any) => e.label)).toEqual(["Anniversary", "Dup"]);
         expect(items[0]).toMatchObject({ emoji: null, notify: true, startedOn: null });
 
@@ -560,10 +560,16 @@ describe("events and routine emoji", () => {
         // Ids match exactly: a prefix of a real id finds nothing and changes nothing.
         const prefixed = await call("save_event", { eventId: items[0].id.slice(0, 8), patch: { label: "x" } });
         expect(prefixed.ok).toBe(false);
-        expect((await settings("GET", "")).body.data.calendar.personalEvents.items.map((e: any) => e.label)).toEqual([
-            "Anniversary",
-            "Dup",
-        ]);
+        // A uuid that isn't theirs finds nothing.
+        const unknown = await call("save_event", {
+            eventId: "01970000-0000-7000-8000-000000000009",
+            patch: { label: "x" },
+        });
+        expect(unknown.ok).toBe(false);
+        expect((await eventsApi("GET", "")).body.data.map((e: any) => e.label)).toEqual(["Anniversary", "Dup"]);
+        // The old 50-event cap is gone.
+        for (let i = 0; i < 60; i++) await call("save_event", { patch: { label: `E${i}`, monthDay: "02-03" } });
+        expect((await eventsApi("GET", "")).body.data).toHaveLength(62);
         const other = await createUser();
         const otherTools = buildToolRegistry({} as never, other, {
             timezone: "UTC",

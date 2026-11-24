@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PersonalEventEditor } from "../../../app/components/events/PersonalEventEditor";
 import { Provider } from "../../../app/components/primitives/Tooltip";
-import type { PersonalEvent } from "../../../app/types/settings";
+import type { PersonalEvent } from "@cadence/contracts/personal-event";
 import { stubTouch } from "../../helpers";
 
 stubTouch(true);

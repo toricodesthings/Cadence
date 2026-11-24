@@ -87,7 +87,7 @@ export const EXAMPLES: Record<PublishedTool, object[]> = {
     log_habit: [{ habitId: ID, status: "COMPLETED", targetDate: "2026-09-22", operationKey: KEY }],
     delete_habit: [{ habitId: ID, title: "Old routine", confirm: true, operationKey: KEY }],
     save_event: [{ patch: { label: "Mum's birthday", monthDay: "03-14", emoji: "🎂" }, operationKey: KEY }],
-    delete_event: [{ eventId: "ev1", confirm: true, operationKey: KEY }],
+    delete_event: [{ eventId: ID, confirm: true, operationKey: KEY }],
     save_focus_view: [{ name: "Quick wins", filters: { effortMax: 1, sortMode: "smart" }, operationKey: KEY }],
     delete_focus_view: [{ focusViewId: ID, name: "Old view", confirm: true, operationKey: KEY }],
     remember: [{ action: "save", kind: "preference", text: "Prefers mornings for deep work.", operationKey: KEY }],

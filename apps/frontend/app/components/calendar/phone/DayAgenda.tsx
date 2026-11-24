@@ -2,7 +2,7 @@ import { Fragment, useCallback, useLayoutEffect, useMemo, useRef, useState } fro
 import { ChevronDown, Flag, Inbox, Plus } from "lucide-react";
 import type { Task } from "@cadence/contracts/task";
 import type { HolidayRecord } from "@cadence/contracts/proxy";
-import type { PersonalEvent } from "../../../types/settings";
+import type { PersonalEvent } from "@cadence/contracts/personal-event";
 import { atLocal, type Instant, type LocalDate } from "@cadence/domain/time";
 import { formatTime } from "../../../lib/utils/date-format";
 import { getUserZone, useToday } from "../../../lib/utils/user-zone";

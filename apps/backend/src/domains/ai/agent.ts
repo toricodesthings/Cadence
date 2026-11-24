@@ -23,8 +23,6 @@ import { loadProfileCoverage, recallFacts, type ProfileLine } from "./memory/mem
 import { getDeploymentStage, type Env } from "../../types/env";
 import { AppError } from "../../platform/errors";
 import { loadAgentSnapshot, loadWeekAhead, userClock } from "./turn";
-import { projectEvents } from "./tools/events";
-import { normalizeSettings } from "../settings/settings.route";
 import type { RunDiagnostics } from "./run-diagnostics";
 
 /** Served by OpenRouter when the chat model is unavailable or rate-limited. */
@@ -374,13 +372,7 @@ export async function getAgentInstance(
             : measurePhase(opts.diagnostics, "snapshot", () =>
                   resetSurface
                       ? loadWeekAhead(env, userId, agentCtx).catch(() => undefined) // a failed read is left out, as the snapshot's are
-                      : loadAgentSnapshot(
-                            env,
-                            userId,
-                            agentCtx,
-                            tools,
-                            projectEvents(normalizeSettings(settings), clock.today),
-                        ),
+                      : loadAgentSnapshot(env, userId, agentCtx, tools),
               ),
     ]);
 

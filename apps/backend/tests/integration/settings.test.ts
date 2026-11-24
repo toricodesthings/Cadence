@@ -69,6 +69,14 @@ describe("reading and patching settings", () => {
         expect((await settings("GET", "")).body.data.tasks.hideCompleted).toBe(false);
     });
 
+    it("refuses events in a settings patch (they have their own table) but saves the display switch", async () => {
+        const items = { calendar: { personalEvents: { items: [] } } };
+        expect((await settings("PATCH", "", items)).status).toBe(400);
+        const saved = await settings("PATCH", "", { calendar: { personalEvents: { enabled: false } } });
+        expect(saved.status).toBe(200);
+        expect(saved.body.data.calendar.personalEvents).toEqual({ enabled: false });
+    });
+
     it("never lets a patch create a background photo (only the upload route can)", async () => {
         const { body } = await settings("PATCH", "", {
             appearance: {

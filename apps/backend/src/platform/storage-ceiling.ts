@@ -3,7 +3,7 @@
  * one script from filling the database for everyone. Never a tier, never a nudge; when met, a calm 413.
  */
 import { count, eq, sql } from "drizzle-orm";
-import { aiConversations, habits, inboxItems, projects, tags, taskNotes, tasks } from "../db/schema";
+import { aiConversations, habits, inboxItems, personalEvents, projects, tags, taskNotes, tasks } from "../db/schema";
 import { AppError } from "./errors";
 import type { Tx } from "../types/db";
 
@@ -15,6 +15,7 @@ export const ROW_CEILINGS = {
     routines: { table: habits, limit: 1_000, things: "routines" },
     lists: { table: projects, limit: 1_000, things: "lists" },
     tags: { table: tags, limit: 1_000, things: "tags" },
+    events: { table: personalEvents, limit: 1_000, things: "events" },
 } as const;
 
 /** Only a write carrying more text than this is checked against the text ceiling. */

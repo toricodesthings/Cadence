@@ -1,6 +1,6 @@
 import type { Task } from "@cadence/contracts/task";
 import type { Habit } from "@cadence/contracts/habit";
-import type { PersonalEvent } from "@cadence/contracts/settings";
+import type { PersonalEvent } from "@cadence/contracts/personal-event";
 import type { AppNotification } from "./notification-model";
 import { addDays, atLocal, todayIn } from "@cadence/domain/time";
 import { deriveReminders, reminderKindEnabled, type ReminderPrefs } from "@cadence/domain/reminders";

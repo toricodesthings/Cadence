@@ -2,7 +2,7 @@ import { lazy } from "react";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import type { Habit } from "@cadence/contracts/habit";
 import type { LocalDate } from "@cadence/domain/time";
-import type { PersonalEvent } from "../../types/settings";
+import type { PersonalEvent } from "@cadence/contracts/personal-event";
 import { StartupSuspense } from "./StartupSuspense";
 
 // Editors load on first selection, never with the first screen (a deep link still waits for its editor).

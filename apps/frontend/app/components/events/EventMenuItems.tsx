@@ -1,6 +1,6 @@
 import { ArrowUpRight, Bell, BellOff, Pencil, Trash2 } from "lucide-react";
 import type { GenericMenu } from "../primitives/menu-styles";
-import type { PersonalEvent } from "../../types/settings";
+import type { PersonalEvent } from "@cadence/contracts/personal-event";
 import type { EventActions } from "./EventCard";
 
 /** An event's actions, in its right-click menu (card) and its ⋯ menu (row): one set of words for both. */

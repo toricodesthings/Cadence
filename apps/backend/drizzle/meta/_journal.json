@@ -225,6 +225,20 @@
       "when": 1795488289790,
       "tag": "0031_move_task_to_shared",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1795541152462,
+      "tag": "0032_tiny_vertigo",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1795541153160,
+      "tag": "0033_personal_events_data",
+      "breakpoints": true
     }
   ]
 }

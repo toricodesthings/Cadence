@@ -10,7 +10,7 @@ import { dayOfMonth, weekdayName } from "../../lib/utils/calendar/calendar-math"
 import type { LocalDate } from "@cadence/domain/time";
 import type { Task } from "@cadence/contracts/task";
 import type { HolidayRecord } from "@cadence/contracts/proxy";
-import type { PersonalEvent } from "../../types/settings";
+import type { PersonalEvent } from "@cadence/contracts/personal-event";
 
 export interface WeekViewProps extends TimelineProps {
     /** The 7 LocalDates of this week in the active configured order */

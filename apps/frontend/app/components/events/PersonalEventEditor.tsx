@@ -1,7 +1,7 @@
 import { Button } from "../primitives/Button";
 import { useState } from "react";
 import { CalendarHeart, Palette, SlidersHorizontal, Trash2 } from "lucide-react";
-import type { PersonalEvent } from "../../types/settings";
+import type { PersonalEvent } from "@cadence/contracts/personal-event";
 import {
     EVENT_SWATCHES,
     eventToneColor,

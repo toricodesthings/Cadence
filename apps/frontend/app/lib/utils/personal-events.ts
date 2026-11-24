@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { PersonalEvent } from "../../types/settings";
+import type { PersonalEvent } from "@cadence/contracts/personal-event";
 import { PROJECT_ACCENT_OPTIONS } from "../constants/colors";
 import { daysBetween, type LocalDate } from "@cadence/domain/time";
 import { formatMonthName, formatMonthYear, formatShortDate, getDaysInMonth, isoDay } from "./date-format";

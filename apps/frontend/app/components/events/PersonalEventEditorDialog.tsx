@@ -5,7 +5,7 @@ import { Composer, ComposerTitle, type ComposerDraft } from "../shared/Composer"
 import { EmojiMarkButton } from "../shared/EmojiMarkButton";
 import { ColourDot } from "../shared/ColourDot";
 import { PersonalEventDetailsFields } from "./PersonalEventDetailsFields";
-import type { PersonalEvent } from "../../types/settings";
+import type { PersonalEvent } from "@cadence/contracts/personal-event";
 import { today } from "../../lib/utils/user-zone";
 import { useNlpParse } from "../../hooks/use-nlp-parse";
 import { useSettings } from "../../hooks/core/use-settings";

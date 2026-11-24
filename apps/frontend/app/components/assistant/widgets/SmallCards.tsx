@@ -8,7 +8,7 @@ import { ApprovalCard, DeleteApprovalCard, type RetiredRenderContext, type ToolR
 import { useHabitLookup, useSectionLookup, useTagsLookup } from "./card-lookups";
 import { TaskDestination } from "./TaskDestination";
 import { useAssistantPersona } from "../../../hooks/ai/use-assistant-persona";
-import { useSettings } from "../../../hooks/core/use-settings";
+import { usePersonalEvents } from "../../../hooks/calendar/use-personal-events";
 import { formatShortDate, formatTime } from "../../../lib/utils/date-format";
 import { getTaskRecurrenceSummary } from "../../../lib/utils/task/task-scheduling";
 import { getNextPersonalEventDate } from "../../../lib/utils/personal-events";
@@ -305,10 +305,10 @@ type EventDraft = {
     color?: string | null;
 };
 
-/** The event as it is now, from the settings cache. */
+/** The event as it is now, from the events cache. */
 function useEventLookup() {
-    const { data: settings } = useSettings();
-    return (id: string) => settings?.calendar?.personalEvents?.items?.find((event) => event.id === id);
+    const { items } = usePersonalEvents(new Date().getFullYear());
+    return (id: string) => items.find((event) => event.id === id);
 }
 
 function eventTitle(draft: EventDraft, fallback: string) {

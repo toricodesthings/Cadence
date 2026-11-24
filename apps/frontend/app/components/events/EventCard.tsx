@@ -6,7 +6,7 @@ import { EventMenuItems } from "./EventMenuItems";
 import { Button } from "../primitives/Button";
 import { useTitleDraft } from "../tasks/SubtaskList";
 import { trackUsageEvent } from "../../lib/api/track-event";
-import type { PersonalEvent } from "../../types/settings";
+import type { PersonalEvent } from "@cadence/contracts/personal-event";
 import { eventToneColor, eventToneStyle, type PersonalEventViewModel } from "../../lib/utils/personal-events";
 
 /** What can be done to an event from a list row or card. `onOpen` opens it, or closes it when already open. */

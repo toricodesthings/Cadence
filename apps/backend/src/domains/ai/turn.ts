@@ -110,7 +110,7 @@ export function loadAgentSnapshot(
     userId: string,
     ctx: AgentContext,
     tools: SnapshotTools,
-    events: ReturnType<typeof projectEvents>,
+    events?: ReturnType<typeof projectEvents>,
 ) {
     let pending: ReturnType<SnapshotRoutineReader> | undefined;
     const readRoutines: SnapshotRoutineReader = (tx) =>

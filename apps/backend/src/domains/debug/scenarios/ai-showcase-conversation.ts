@@ -59,6 +59,7 @@ interface ShowcaseRefs {
     sections: { id: string; name: string; projectId: string | null }[];
     tags: (typeof tags.$inferSelect)[];
     subtasks: (typeof subtasks.$inferSelect)[];
+    personalEvents: { id: string; label: string }[];
 }
 
 // Seeded tool outputs render timed values in UTC; the live tools use the user's zone.
@@ -107,6 +108,7 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
     const habit = (title: string) => find(refs.habits, (h) => h.title === title, `habit "${title}"`);
     const inbox = (prefix: string) => find(refs.inboxItems, (i) => i.rawText.startsWith(prefix), `inbox "${prefix}"`);
     const project = (name: string) => find(refs.projects, (p) => p.name === name, `project "${name}"`);
+    const event = (label: string) => find(refs.personalEvents, (e) => e.label === label, `event "${label}"`).id;
     const mini = (row: TaskRow) => toMinimalTask(row, TZ);
 
     const invoices = task("Reconcile subscription invoices");
@@ -519,7 +521,7 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                         events: [
                             toMinimalEvent(
                                 {
-                                    id: "mom-birthday",
+                                    id: event("Mom's Birthday"),
                                     label: "Mom's Birthday",
                                     monthDay: seedDate(clock, 4).slice(5),
                                     emoji: "🎂",
@@ -586,8 +588,8 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                     steps: ["Neck rolls", "Hamstrings", "Child's pose"],
                 }),
                 waiting("save_event", { patch: { label: "Sam's birthday", monthDay: "11-03", emoji: "🎂" } }),
-                waiting("save_event", { eventId: "mom-birthday", patch: { emoji: "🌷" } }),
-                waiting("delete_event", { eventId: "cadence-launch" }),
+                waiting("save_event", { eventId: event("Mom's Birthday"), patch: { emoji: "🌷" } }),
+                waiting("delete_event", { eventId: event("Cadence launch day") }),
                 waiting("create_sections", { projectId: clientOps.id, names: ["Waiting"] }),
                 waiting("update_section", { sectionId: opsToday.id, name: "Now" }),
                 waiting("delete_section", { sectionId: opsLater.id }),

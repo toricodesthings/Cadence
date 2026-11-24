@@ -14,7 +14,7 @@ import {
     replanAfterWrites,
     replanReminders,
 } from "../../src/domains/push/reminder-clock";
-import { mergeOutcomes } from "../../src/domains/push/plan";
+import { loadReminderPlan, mergeOutcomes } from "../../src/domains/push/plan";
 import { fromBase64Url, toBase64Url } from "../../src/domains/push/web-push";
 import type { Env } from "../../src/types/env";
 
@@ -350,6 +350,24 @@ describe("reminder clock", () => {
         const calls = pushService();
         await replanAndFire(env, userId, NOW); // no log exists yet today
         expect(count(calls, endpoint)).toBe(1);
+    });
+
+    it("plans a yearly event from its table, unless events are hidden from the calendar", async () => {
+        const env = await vapidEnv();
+        const { userId } = await subscriber(env);
+        const [{ id }] = await sql(
+            "INSERT INTO personal_events (user_id, label, month_day, notify) VALUES ($1, 'Mom', '10-08', true) RETURNING id",
+            [userId],
+        );
+        const db = (await import("../helpers/db")).getTestDb();
+        const ids = async () => JSON.stringify((await loadReminderPlan(db, userId, NOW))?.entries ?? []);
+        expect(await ids()).toContain(`personal-event::${id}::2026-10-08`);
+
+        await sql(
+            "UPDATE users SET settings = jsonb_set(settings, '{calendar}', '{\"personalEvents\":{\"enabled\":false}}') WHERE id = $1",
+            [userId],
+        );
+        expect(await ids()).not.toContain("personal-event::");
     });
 
     it("skips a device the person turned off, and keeps sending to their others", async () => {

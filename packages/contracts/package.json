@@ -13,6 +13,7 @@
         "./app-link": "./src/app-link.ts",
         "./project": "./src/project.ts",
         "./tag": "./src/tag.ts",
+        "./personal-event": "./src/personal-event.ts",
         "./subtask": "./src/subtask.ts",
         "./section": "./src/section.ts",
         "./note": "./src/note.ts",

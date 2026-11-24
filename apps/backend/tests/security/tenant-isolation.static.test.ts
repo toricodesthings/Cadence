@@ -36,6 +36,7 @@ const USER_SCOPED_TABLES = [
     "taskSections",
     "projects",
     "tasks",
+    "personalEvents",
     "tags",
     "taskTags",
     "inboxItems",

@@ -262,7 +262,7 @@ export default function Upcoming() {
     const personalEvents = usePersonalEvents(Number(todayISO.slice(0, 4)));
     const upcomingEvents = useMemo(() => {
         if (!personalEvents.enabled) return [];
-        const events: Array<{ event: import("../types/settings").PersonalEvent; dateStr: string }> = [];
+        const events: Array<{ event: import("@cadence/contracts/personal-event").PersonalEvent; dateStr: string }> = [];
         for (let i = 0; i <= 7; i++) {
             const ds = addDays(todayISO, i);
             for (const evt of personalEvents.getEventsForDate(ds)) {

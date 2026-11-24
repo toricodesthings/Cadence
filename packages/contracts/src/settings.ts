@@ -60,20 +60,6 @@ export type SavedFocusViewRow = z.infer<typeof savedFocusViewRowSchema>;
 export const savedFocusViewSchema = savedFocusViewRowSchema.extend({ definition: focusViewDefinitionSchema });
 export type SavedFocusView = z.infer<typeof savedFocusViewSchema>;
 
-// ── Personal calendar event (element of calendar.personalEvents.items) ──
-
-export const personalEventSchema = z.object({
-    id: z.string().min(1).max(24),
-    label: z.string().min(1).max(80),
-    monthDay: z.string().regex(/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/), // "MM-DD"
-    emoji: z.string().max(4).nullable(),
-    notify: z.boolean(),
-    startedOn: localDateSchema.nullable(),
-    // A palette key like the routine colours; missing or null means no colour (the default tint).
-    color: z.string().max(30).nullable().optional(),
-});
-export type PersonalEvent = z.infer<typeof personalEventSchema>;
-
 // ── Location (element shapes of settings.location) ──
 
 export const locationModeSchema = z.enum(["off", "approximate", "precise", "manual"]);
@@ -262,8 +248,9 @@ export const userSettingsSchema = z.object({
             personalEvents: z
                 .object({
                     enabled: z.boolean(),
-                    items: z.array(personalEventSchema).max(50),
                 })
+                // Strict: an old app still sending `items` gets a 400, never a silent loss.
+                .strict()
                 .optional(),
         })
         .optional(),
@@ -588,7 +575,6 @@ export const SETTINGS_DEFAULTS = {
         },
         personalEvents: {
             enabled: true,
-            items: [] as PersonalEvent[],
         },
     },
     location: {

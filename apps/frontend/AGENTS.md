@@ -137,8 +137,10 @@ A toast answers "where did it go?"
 
 ## Browser E2E
 
-- Sign in at `/auth/sign-in` with `E2E_EMAIL` / `E2E_PASSWORD` from `apps/frontend/e2e_credentials.md` (git-ignored). Dev Neon branch only. Use a fresh browser context.
-- User missing after a branch reset:
+- Drive the browser with the Playwright plugin (`mcp__plugin_playwright_playwright__*`), never a CLI or Node Playwright script. Dev Neon branch only; the app runs on `localhost:8788`.
+- Its browser keeps a persistent profile, so it is usually already signed in. Sign in only when a page lands on `/auth/sign-in`: call `browser_close`, run `pnpm e2e:login` (signs that profile in headlessly; refuses while the plugin browser is open), then navigate again. The profile is pinned by `PLAYWRIGHT_MCP_USER_DATA_DIR` in `.claude/settings.local.json` `env` (the plugin and the script both read it); if the script says the plugin uses another profile, set the pin to the path it names and restart Claude Code.
+- Never read `apps/frontend/e2e_credentials.md` or type credentials into the plugin; `pnpm e2e:login` is the only reader.
+- User missing after a branch reset (credentials are in the git-ignored file; the script reads them, you don't):
   1. `POST {VITE_NEON_AUTH_URL}/sign-up/email` with `Origin: http://localhost:8788` and `{email,password,name}`.
   2. Set `neon_auth."user"."emailVerified" = true` on the dev DB.
   3. Add the user id to `ADMIN_USER_IDS` in `apps/backend/.dev.vars`.
