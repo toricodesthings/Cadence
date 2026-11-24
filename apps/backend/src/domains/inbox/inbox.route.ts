@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { eq, and, desc, isNull } from "drizzle-orm";
 import { getIdempotencyKey, createOnce } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
+import { noteAudience, noteChange } from "../../platform/list-access";
 import { withCallerRls } from "../../platform/caller-rls";
 import { inboxItems, inboxSections } from "../../db/schema";
 import {
@@ -35,6 +36,11 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             const result = await withCallerRls(c, (tx, userId) =>
                 processCapture(tx, userId, id, body, { idempotencyKey }),
             );
+
+            if (!result.alreadyProcessed && result.access) {
+                noteAudience(c, result.access);
+                if (result.broadcast) noteChange(c, { type: "task", task: result.broadcast });
+            }
 
             return c.json({ data: result.task }, result.alreadyProcessed ? 200 : 201);
         },

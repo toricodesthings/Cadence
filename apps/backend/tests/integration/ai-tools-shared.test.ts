@@ -15,12 +15,13 @@ import type { Env } from "../../src/types/env";
 
 beforeAll(startTestDb);
 
-const ctx: AgentContext = {
+const makeCtx = (waitUntil?: (p: Promise<unknown>) => void): AgentContext => ({
     today: "2030-03-04",
     timezone: "UTC",
     currentDate: "2030-03-04T12:00:00.000Z",
     weekStart: "Sunday",
-};
+    waitUntil,
+});
 
 const call = (tool: { execute?: unknown }, input: object, id = crypto.randomUUID()) =>
     (tool.execute as (i: object, o: object) => Promise<any>)(input, { toolCallId: id, messages: [] });
@@ -28,20 +29,25 @@ const call = (tool: { execute?: unknown }, input: object, id = crypto.randomUUID
 async function setup() {
     const ownerId = await createUser({ name: "Ada" });
     const editorId = await createUser({ name: "Sam" });
+    const viewerId = await createUser({ name: "Kai" });
     const ownerProjects = apiAs(ownerId, "/projects", projectRoutes);
     const ownerTasks = apiAs(ownerId, "/tasks", taskRoutes);
     const ownerSections = apiAs(ownerId, "/sections", sectionRoutes);
     const ownerNotes = apiAs(ownerId, "", noteRoutes);
     const ownerLists = apiAs(ownerId, "/lists", sharingRoutes);
     const editorLists = apiAs(editorId, "/lists", sharingRoutes);
+    const viewerLists = apiAs(viewerId, "/lists", sharingRoutes);
     const editorTasks = apiAs(editorId, "/tasks", taskRoutes);
 
     const sharedList = (await ownerProjects("POST", "", { name: "Our House" })).body.data;
     const privateList = (await ownerProjects("POST", "", { name: "Private" })).body.data;
     const section = (await ownerSections("POST", "", { name: "Groceries", orderIndex: 1, projectId: sharedList.id }))
         .body.data;
-    const { url } = (await ownerLists("POST", `/${sharedList.id}/invites`, { role: "edit" })).body.data;
-    await editorLists("POST", "/join", { token: tokenOf(url) });
+
+    const editInvite = (await ownerLists("POST", `/${sharedList.id}/invites`, { role: "edit" })).body.data;
+    await editorLists("POST", "/join", { token: tokenOf(editInvite.url) });
+    const viewInvite = (await ownerLists("POST", `/${sharedList.id}/invites`, { role: "view" })).body.data;
+    await viewerLists("POST", "/join", { token: tokenOf(viewInvite.url) });
 
     const sharedTask = (
         await editorTasks("POST", "", {
@@ -58,24 +64,48 @@ async function setup() {
     const privateTask = (await ownerTasks("POST", "", { title: "Pay rent", orderIndex: 1, projectId: privateList.id }))
         .body.data;
 
+    const pending: Promise<unknown>[] = [];
+    const pings: string[] = [];
+    const fakeEnv = {
+        REMINDER_CLOCK: {
+            idFromName: (id: string) => id,
+            get: (id: string) => ({
+                replan: async () => {
+                    pings.push(`replan:${id}`);
+                },
+                ping: async () => {
+                    pings.push(`ping:${id}`);
+                },
+            }),
+        },
+    } as unknown as Env;
+
+    const waitUntil = (p: Promise<unknown>) => {
+        pending.push(p);
+    };
+
     return {
         ownerId,
         editorId,
+        viewerId,
         sharedList,
         privateList,
         section,
         sharedTask,
         privateTask,
-        ownerTools: buildToolRegistry({} as Env, ownerId, ctx),
-        editorTools: buildToolRegistry({} as Env, editorId, ctx),
+        ownerTasks,
+        pings,
+        flush: () => Promise.all(pending.splice(0)),
+        ownerTools: buildToolRegistry(fakeEnv, ownerId, makeCtx(waitUntil)),
+        editorTools: buildToolRegistry(fakeEnv, editorId, makeCtx(waitUntil)),
+        viewerTools: buildToolRegistry(fakeEnv, viewerId, makeCtx(waitUntil)),
     };
 }
 
 describe("assistant tools on shared lists", () => {
-    it("reads shared lists, tasks, details, and schedule with people's names and never emails", async () => {
+    it("reads shared lists, tasks, details, and schedule with people's names, updatedAt, and never emails", async () => {
         const { sharedList, sharedTask, ownerTools, editorTools } = await setup();
 
-        // Editor's get_tasks includes the shared task with names.
         const tasksRes = await call(editorTools.get_tasks, { projectId: sharedList.id });
         expect(tasksRes.tasks).toHaveLength(1);
         expect(tasksRes.tasks[0]).toMatchObject({
@@ -85,13 +115,12 @@ describe("assistant tools on shared lists", () => {
             createdBy: "Sam",
             takenBy: "Sam",
         });
+        expect(typeof tasksRes.tasks[0].updatedAt).toBe("string");
 
-        // Editor's get_task_detail reads the shared note and attribution.
         const detail = await call(editorTools.get_task_detail, { taskId: sharedTask.id });
         expect(detail.task).toMatchObject({ shared: true, createdBy: "Sam", takenBy: "Sam" });
         expect(detail.note.text).toContain("Oat milk please");
 
-        // Editor's get_projects shows role and people without emails or ids.
         const projectsRes = await call(editorTools.get_projects, {});
         expect(projectsRes.projects).toHaveLength(1);
         expect(projectsRes.projects[0].shared).toEqual({
@@ -99,52 +128,129 @@ describe("assistant tools on shared lists", () => {
             people: [
                 { name: "Ada", role: "owner" },
                 { name: "Sam", role: "edit" },
+                { name: "Kai", role: "view" },
             ],
         });
         expect(JSON.stringify(projectsRes)).not.toContain("@example.test");
 
-        // Owner's get_schedule_window includes the shared task with taker's name.
         const sched = await call(ownerTools.get_schedule_window, { start: "2030-03-04", end: "2030-03-04" });
         expect(sched.tasks).toEqual(
             expect.arrayContaining([expect.objectContaining({ id: sharedTask.id, shared: true, takenBy: "Sam" })]),
         );
     });
 
-    it("refuses every write tool on a shared list with SHARED_READ_ONLY (owner and member), while unshared lists still write", async () => {
-        const { sharedList, privateList, section, sharedTask, privateTask, ownerTools, editorTools } = await setup();
+    it("allows owner and editor writes with live fanout, blocks viewers and non-owner list changes", async () => {
+        const {
+            ownerId,
+            editorId,
+            viewerId,
+            sharedList,
+            section,
+            sharedTask,
+            ownerTools,
+            editorTools,
+            viewerTools,
+            pings,
+            flush,
+        } = await setup();
 
-        const attempts = [
-            call(ownerTools.create_tasks, { tasks: [{ title: "Bread", projectId: sharedList.id }] }),
-            call(editorTools.create_tasks, { tasks: [{ title: "Bread", projectId: sharedList.id }] }),
-            call(ownerTools.update_tasks, { taskIds: [sharedTask.id], patch: { title: "Soy milk" } }),
-            call(editorTools.update_tasks, { taskIds: [sharedTask.id], patch: { title: "Soy milk" } }),
-            call(ownerTools.reschedule_tasks, { taskIds: [sharedTask.id], targetDate: "2030-03-05" }),
-            call(ownerTools.set_task_state, { taskIds: [sharedTask.id], state: "COMPLETE" }),
-            call(ownerTools.delete_tasks, { tasks: [{ taskId: sharedTask.id, title: "Buy milk" }] }),
-            call(ownerTools.duplicate_tasks, { tasks: [{ taskId: sharedTask.id }] }),
-            call(ownerTools.reorder_tasks, { taskIds: [sharedTask.id], to: "top" }),
-            call(ownerTools.edit_subtasks, { taskId: sharedTask.id, add: ["Check fridge"] }),
-            call(ownerTools.update_project, { projectId: sharedList.id, patch: { name: "Renamed" } }),
-            call(ownerTools.delete_project, { projectId: sharedList.id, name: "Our House" }),
-            call(ownerTools.create_sections, { projectId: sharedList.id, names: ["Hardware"] }),
-            call(ownerTools.update_section, { sectionId: section.id, name: "Pantry" }),
-            call(ownerTools.delete_section, { sectionId: section.id }),
-        ];
-
-        for (const res of await Promise.all(attempts)) {
-            expect(res.ok).toBe(false);
-            expect(res.code).toBe("SHARED_READ_ONLY");
-        }
-
-        // Unshared list writes still succeed.
-        const okUpdate = await call(ownerTools.update_tasks, {
-            taskIds: [privateTask.id],
-            patch: { title: "Pay rent early" },
+        // Editor creates a task in the shared list -> succeeds and notifies audience.
+        const made = await call(editorTools.create_tasks, {
+            tasks: [{ title: "Buy bread", projectId: sharedList.id }],
         });
-        expect(okUpdate.updated).toBe(1);
-        const okCreate = await call(ownerTools.create_tasks, {
-            tasks: [{ title: "New private", projectId: privateList.id }],
+        expect(made.created).toHaveLength(1);
+        await flush();
+        expect(pings).toContain(`replan:${editorId}`);
+        expect(pings).toContain(`replan:${ownerId}`);
+        expect(pings).toContain(`ping:${viewerId}`);
+
+        // Editor updates, reschedules, edits subtasks, creates & renames sections.
+        const updated = await call(editorTools.update_tasks, {
+            taskIds: [sharedTask.id],
+            patch: { title: "Buy oat milk" },
         });
-        expect(okCreate.created).toHaveLength(1);
+        expect(updated.updated).toBe(1);
+
+        const rescheduled = await call(editorTools.reschedule_tasks, {
+            taskIds: [sharedTask.id],
+            targetDate: "2030-03-05",
+        });
+        expect(rescheduled.moved).toBe(1);
+
+        const subs = await call(editorTools.edit_subtasks, { taskId: sharedTask.id, add: ["Check fridge"] });
+        expect(subs.added).toHaveLength(1);
+
+        const sec = await call(editorTools.create_sections, { projectId: sharedList.id, names: ["Hardware"] });
+        expect(sec.sections).toHaveLength(1);
+
+        // Editor cannot rename/delete the list or delete sections (OWNER_ONLY).
+        const renameDenied = await call(editorTools.update_project, {
+            projectId: sharedList.id,
+            patch: { name: "Renamed" },
+        });
+        expect(renameDenied).toMatchObject({ ok: false, code: "OWNER_ONLY" });
+
+        const delSecDenied = await call(editorTools.delete_section, { sectionId: section.id });
+        expect(delSecDenied).toMatchObject({ ok: false, code: "OWNER_ONLY" });
+
+        // Owner CAN rename the list.
+        const renamed = await call(ownerTools.update_project, {
+            projectId: sharedList.id,
+            patch: { name: "Our Home" },
+        });
+        expect(renamed.name).toBe("Our Home");
+
+        // Viewer cannot write anything (VIEW_ONLY).
+        const viewCreate = await call(viewerTools.create_tasks, {
+            tasks: [{ title: "Sneak", projectId: sharedList.id }],
+        });
+        expect(viewCreate).toMatchObject({ ok: false, code: "VIEW_ONLY" });
+
+        const viewUpdate = await call(viewerTools.update_tasks, {
+            taskIds: [sharedTask.id],
+            patch: { title: "Nope" },
+        });
+        expect(viewUpdate).toMatchObject({ ok: false, code: "VIEW_ONLY" });
+    });
+
+    it("guards against stale writes by naming who changed the shared task", async () => {
+        const { sharedList, sharedTask, ownerTasks, editorTools } = await setup();
+
+        // Editor reads the shared task (records seenTaskUpdatedAt in ctx).
+        const read = await call(editorTools.get_tasks, { projectId: sharedList.id });
+        expect(read.tasks[0].id).toBe(sharedTask.id);
+
+        // Owner edits the task in the meantime.
+        await new Promise((r) => setTimeout(r, 15));
+        await ownerTasks("PATCH", `/${sharedTask.id}`, { title: "Buy almond milk" });
+
+        // Editor attempts to write without re-reading -> STALE_WRITE naming Ada.
+        const stale = await call(editorTools.update_tasks, {
+            taskIds: [sharedTask.id],
+            patch: { title: "Buy soy milk" },
+        });
+        expect(stale).toMatchObject({ ok: false, code: "STALE_WRITE", status: 409 });
+        expect(stale.error).toContain("Ada");
+        expect(stale.error).toContain("changed");
+    });
+
+    it("checks for duplicate titles across all members when creating in a shared list", async () => {
+        const { sharedList, ownerTools } = await setup();
+
+        // "Buy milk" was created by Sam; Ada tries to create "buy milk" without sameTitleOk.
+        const held = await call(ownerTools.create_tasks, {
+            tasks: [{ title: "buy milk", projectId: sharedList.id }],
+        });
+        expect(held.created).toHaveLength(0);
+        expect(held.sameTitle).toEqual(
+            expect.arrayContaining([expect.objectContaining({ title: "Buy milk", createdBy: "Sam" })]),
+        );
+
+        // With sameTitleOk: true it proceeds.
+        const forced = await call(ownerTools.create_tasks, {
+            tasks: [{ title: "buy milk", projectId: sharedList.id }],
+            sameTitleOk: true,
+        });
+        expect(forced.created).toHaveLength(1);
     });
 });

@@ -68,6 +68,8 @@ export interface MinimalTask {
     createdBy?: string;
     /** Name of the person who volunteered to do it (shared lists only). */
     takenBy?: string;
+    /** Last modification instant (shared lists only, used for stale-write protection). */
+    updatedAt?: string;
 }
 
 /** The task columns the projection reads (a full row fits; `content` is dropped). */
@@ -101,6 +103,7 @@ export type TaskRow = Pick<
         shared?: boolean;
         createdByName?: string | null;
         takenByName?: string | null;
+        updatedAt?: Date | string | null;
     };
 
 const EFFORT_WORDS = { 1: "low", 2: "medium", 3: "high" } as const;
@@ -155,6 +158,12 @@ export function toMinimalTask(
         shared: row.shared || undefined,
         createdBy: unset(row.createdByName),
         takenBy: unset(row.takenByName),
+        updatedAt:
+            row.shared && row.updatedAt
+                ? typeof row.updatedAt === "string"
+                    ? row.updatedAt
+                    : row.updatedAt.toISOString()
+                : undefined,
     };
 }
 

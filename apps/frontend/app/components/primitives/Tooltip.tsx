@@ -51,12 +51,14 @@ export interface TipProps {
     children: ReactNode;
     /** Suppress the preview while keeping the trigger mounted (for example, during a drag). */
     disabled?: boolean;
+    /** `label` is a card (e.g. a profile): full-width surface, no padding or arrow. */
+    card?: boolean;
 }
 
 /** Touch screens have no hover: a tip only follows keyboard focus, never a sheet's initial focus. */
 const focusedWithoutKeyboard = () => isTouchFirst() && !document.activeElement?.matches(":focus-visible");
 
-export function Tip({ label, side = "right", children, disabled = false }: TipProps) {
+export function Tip({ label, side = "right", children, disabled = false, card = false }: TipProps) {
     const [open, setOpen] = useState(false);
     const touch = useRef(false);
     return (
@@ -78,9 +80,9 @@ export function Tip({ label, side = "right", children, disabled = false }: TipPr
             </Trigger>
             {!disabled && (
                 <Portal>
-                    <Content side={side}>
+                    <Content side={side} className={card ? "w-72 overflow-hidden !p-0" : ""}>
                         {label}
-                        <Arrow className="fill-twilight-surface" />
+                        {!card && <Arrow className="fill-twilight-surface" />}
                     </Content>
                 </Portal>
             )}

@@ -43,10 +43,6 @@ vi.mock("../../../app/hooks/core/use-settings", () => ({
     }),
 }));
 
-vi.mock("../../../app/components/tasks/QuickAddActionTray", () => ({
-    QuickAddActionTray: () => <div data-testid="quick-add-action-tray" />,
-}));
-
 vi.mock("../../../app/components/tasks/DeadlinePickerPopover", () => ({
     DeadlinePickerPopover: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
@@ -145,5 +141,17 @@ describe("AddTaskInput", () => {
         fireEvent.submit(input.closest("form")!);
         await waitFor(() => expect(createTaskMutateMock).toHaveBeenCalled());
         expect(createTaskMutateMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("puts Date and Tags on one option line, below the title", async () => {
+        renderInput();
+        const input = screen.getByLabelText("New task title");
+        fireEvent.focus(input);
+        const date = await screen.findByLabelText("Add task date");
+        const tags = screen.getByRole("button", { name: /List/ }); // default quick add shows List, not Tags
+        expect(date.closest(".flex-wrap")).toBe(tags.closest(".flex-wrap"));
+        expect(input.closest("form")!.querySelector(":scope > button")).toBeNull();
+        fireEvent.change(input, { target: { value: "Pay rent friday" } });
+        await waitFor(() => expect(screen.getByLabelText(/^Date: /).textContent).not.toMatch(/Scheduled|Add date/));
     });
 });

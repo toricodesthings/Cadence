@@ -55,6 +55,8 @@ export interface AgentContext {
      * Claude leaves unused fields out, so its schemas skip it; calls are validated leniently either way.
      */
     nullableOptionals?: boolean;
+    /** Last `updatedAt` ISO timestamp seen per shared task during reads in this turn/session, for stale-write checks. */
+    seenTaskUpdatedAt?: Map<string, string>;
 }
 
 /**

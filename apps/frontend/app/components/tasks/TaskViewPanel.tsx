@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense, type ElementType } from "react";
+import { useEffect, useState, lazy, Suspense, type ElementType } from "react";
 import {
     Calendar,
     CalendarRange,
@@ -97,11 +97,20 @@ export function TaskViewPanel({ task, onClose, detailMode = "peek", onDetailMode
     const words = (noteState?.body ?? "").trim().split(/\s+/).filter(Boolean).length;
     const done = subtasks.filter((s) => s.isComplete).length;
     const subtaskSummary = subtasks.length ? `${done}/${subtasks.length} complete` : "No subtasks";
-    const noteSummary = !noteState?.loaded
-        ? "Loading…"
-        : words
-          ? `${words.toLocaleString()} word${words === 1 ? "" : "s"}`
-          : "No notes";
+    const noteSummary = words ? `${words.toLocaleString()} word${words === 1 ? "" : "s"}` : "No notes";
+    // A note that exists opens itself once per task; after that the viewer decides. The editor stays mounted
+    // (hidden) once opened, so closing the accordion never refetches or re-seeds it.
+    const [autoOpened, setAutoOpened] = useState<string | null>(null);
+    const [noteMounted, setNoteMounted] = useState(false);
+    useEffect(() => {
+        if (words > 0 && autoOpened !== task.id) {
+            setAutoOpened(task.id);
+            setOpen((current) => current ?? "notes");
+        }
+    }, [words, autoOpened, task.id]);
+    useEffect(() => {
+        if (open === "notes") setNoteMounted(true);
+    }, [open]);
     const toggle = (pane: "notes" | "subtasks") => () => setOpen((current) => (current === pane ? null : pane));
 
     return (
@@ -144,14 +153,17 @@ export function TaskViewPanel({ task, onClose, detailMode = "peek", onDetailMode
                 readOnly
             />
 
-            {open === "notes" ? (
-                <div className={`${CARD} flex shrink-0 flex-col gap-2 px-4 py-3`}>
+            {noteMounted ? (
+                <div className={open === "notes" ? `${CARD} flex shrink-0 flex-col gap-2 px-4 py-3` : "hidden"}>
                     <PanelHeader title="Notes" summary={noteSummary} onDone={toggle("notes")} />
                     <Suspense fallback={<Skeleton className="h-40 w-full rounded-2xl" />}>
-                        <TaskNoteInline taskId={task.id} readOnly />
+                        <TaskNoteInline taskId={task.id} readOnly present={open === "notes"} />
                     </Suspense>
                 </div>
-            ) : (
+            ) : null}
+            {!noteState?.loaded ? (
+                <Skeleton className="h-16 w-full shrink-0 rounded-2xl" aria-hidden="true" />
+            ) : open === "notes" ? null : (
                 <PanelTrigger
                     icon={StickyNote}
                     title="Notes"

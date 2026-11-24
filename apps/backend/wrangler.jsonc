@@ -113,6 +113,8 @@
         "bindings": [
             { "name": "REMINDER_CLOCK", "class_name": "ReminderClock" },
             { "name": "CODE_MODE", "class_name": "CodeModeHost" },
+            { "name": "LIST_PRESENCE", "class_name": "ListPresence" },
+            { "name": "NOTE_COLLAB", "class_name": "NoteCollab" },
         ],
     },
     "worker_loaders": [{ "binding": "LOADER" }],
@@ -120,6 +122,7 @@
     "migrations": [
         { "tag": "v1", "new_sqlite_classes": ["ReminderClock"] },
         { "tag": "v2", "new_sqlite_classes": ["CodeModeHost"] },
+        { "tag": "v3", "new_sqlite_classes": ["ListPresence", "NoteCollab"] },
     ],
 
     // Hourly only, and it touches Neon only at 06:00 UTC (cron/overdue-check.ts).
@@ -250,6 +253,8 @@
                 "bindings": [
                     { "name": "REMINDER_CLOCK", "class_name": "ReminderClock" },
                     { "name": "CODE_MODE", "class_name": "CodeModeHost" },
+                    { "name": "LIST_PRESENCE", "class_name": "ListPresence" },
+                    { "name": "NOTE_COLLAB", "class_name": "NoteCollab" },
                 ],
             },
             "worker_loaders": [{ "binding": "LOADER" }],

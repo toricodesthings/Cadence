@@ -19,7 +19,7 @@ React Router SPA (`ssr: false`, on purpose) served as Cloudflare Workers static 
 - Creates pick their id with `clientIdFor(input)` and send it as both `id` and `Idempotency-Key`. The optimistic row is then the real row.
 - Show only the end state, never an intermediate step.
 - Order with fractional indexes (`lib/utils/order-index.ts`). Never renumber a whole list.
-- A list shared with the caller carries `access` and `members`. Role checks use `useListAccess` / `useTaskAccess` (never `project.access` inline); list pickers use `useOwnProjects`. Rows pushed over the live socket go through `reconcileTaskInCaches`.
+- A list shared with the caller carries `access` and `members`. Role checks use `useListAccess` / `useTaskAccess` (never `project.access` inline); task/capture list pickers use `useEditableProjects` (confirming unshared → shared via `MoveToSharedConfirm`), while habit pickers use `useOwnProjects`. Live presence uses `useListPresence` (`ListPresence` DO). Rows pushed over the live socket go through `reconcileTaskInCaches`.
 
 ## Code rules
 
@@ -96,6 +96,7 @@ A toast answers "where did it go?"
 - Row states set `--row-tint` / `--row-wash`, never a background.
 - Tints come from `panel` / `panel-raised`. Never accent mixes or raw `bg-white/[…]`.
 - Nested corners are concentric: inner radius = outer − inset.
+- Corners are squircles from `app.css` (`--corner-shape`); never set `corner-shape` in a component. Pills stay `rounded-full`.
 - Reuse `app.css` utilities (`.glass*`, `.glow-*`, `.safe-*`, `.mobile-sheet-*`) before adding new ones.
 - Z-index only via `.layer-*`. Popover and menu content already sits above dialogs.
 - Put standard `backdrop-filter` after its WebKit fallback.

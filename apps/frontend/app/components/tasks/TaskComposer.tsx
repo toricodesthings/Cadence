@@ -21,7 +21,7 @@ import { ComposerEffortRow, EffortField, PriorityField } from "./TaskWeightField
 import { useComposerEffort } from "../../hooks/tasks/use-composer-effort";
 import { DraftRow, useDraftChoices } from "./DraftRow";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
-import { useOwnProjects } from "../../hooks/projects/use-own-projects";
+import { useEditableProjects } from "../../hooks/projects/use-own-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { useSections } from "../../hooks/sections/use-sections";
 import { useSettings } from "../../hooks/core/use-settings";
@@ -86,7 +86,7 @@ export function useTaskComposer({
     onSubmitted?: () => void;
 }): ComposerDraft {
     const { data: sections = [] } = useSections(project?.id);
-    const { data: projects = [] } = useOwnProjects();
+    const { data: projects = [] } = useEditableProjects();
     const { data: tags = [] } = useTags();
     const { data: settings } = useSettings();
     const createTask = useCreateTask();

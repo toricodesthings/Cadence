@@ -153,7 +153,7 @@ export function instructions(ctx: AgentContext, app: string, surface: Surface = 
             "A repeating task (rent) stays owed. Only tasks go overdue.",
         '- "Delete" a task means Trash (restorable); delete for good only if they say so. Lists, tags and focus views have ' +
             "no Trash: confirm first.",
-        "- Lists are projects in tools; sections are a list's columns. Tag by name (tagNames): an existing tag matches, a new name makes one. Shared lists are read-only here.",
+        "- Lists are projects in tools; sections are a list's columns. Tag by name (tagNames): an existing tag matches, a new name makes one. Shared lists follow the user's role (owner/edit can write; view is read-only).",
         '- Turning a relative date into a real one, say its weekday and date. Between midnight and 4am, "tomorrow" usually means the coming daytime.',
         "- Several matches, or a whole day affected: ask one short question with the options.",
         "- Never guess an id. A result with more:true is incomplete: follow nextOffset or narrow the read.",

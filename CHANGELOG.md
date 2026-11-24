@@ -6,6 +6,27 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+Shared lists now feel like the same room: live presence, co-edited notes, moving work in, and assistant help
+
+### Added
+
+- See who has a shared list open right now in the list header, and open anyone's profile from any avatar
+- Write a shared task's note together in real time with live cursors and automatic snapshots
+- Move existing tasks and captures into shared lists with a clear visibility confirmation
+- The assistant can now add, edit, and organize tasks in shared lists you can edit, with clash and duplicate checks
+
+### Changed
+
+- Add date and Tags look the same in a list's add row and in Capture, side by side
+- Header buttons share one look, with a hover and a tooltip on each
+- Softer, smoother corners everywhere (in Chrome, Edge and the Windows app)
+- More room to name a new tag
+
+### Fixed
+
+- Rail and profile menu icons now light up in your accent on hover
+- Routine Pause and Archive buttons now match the other rows in the routine panel
+
 ## [2.3.1] - 2026-11-23
 
 ### Changed

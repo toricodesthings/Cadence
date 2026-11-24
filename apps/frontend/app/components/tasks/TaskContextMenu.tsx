@@ -39,6 +39,8 @@ import { MoveToSectionSubmenu } from "./MoveToSectionSubmenu";
 import { TagPickerSubmenu } from "./TagPickerSubmenu";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useTaskAccess } from "../../hooks/sharing/use-list-access";
+import { useEditableProjects } from "../../hooks/projects/use-own-projects";
+import { guardMoveToShared } from "../sharing/MoveToSharedConfirm";
 import { usePersonInList } from "../../hooks/sharing/use-list-people";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { CreatedBy } from "../sharing/CreatedBy";
@@ -159,6 +161,7 @@ export function TaskMenuItems({
     const shownOffer = useShownOffer(task.id);
     const addTaskTag = useAddTaskTag();
     const removeTaskTag = useRemoveTaskTag();
+    const { data: editableProjects = [] } = useEditableProjects();
     const [menuView, setMenuView] = useState<"main" | Subview>("main");
     const { data: settings } = useSettings();
     const deadlineInstant = deadlineReminderAt(task, settings?.notifications?.morningTime);
@@ -330,7 +333,12 @@ export function TaskMenuItems({
                         MenuComponents={Menu}
                         currentProjectId={task.projectId}
                         currentSectionId={task.sectionId ?? null}
-                        onSelect={(projectId, sectionId) => updateTask.mutate({ id: task.id, projectId, sectionId })}
+                        onSelect={(projectId, sectionId) => {
+                            const dest = editableProjects.find((p) => p.id === projectId);
+                            guardMoveToShared(dest, access.isShared, () =>
+                                updateTask.mutate({ id: task.id, projectId, sectionId }),
+                            );
+                        }}
                     />
 
                     <Menu.Separator />
@@ -513,6 +521,8 @@ type OrganizeItemsProps = {
 
 /** Priority, effort, tags, list and section. */
 function OrganizeItems({ Menu, task, isOwner, onUpdate, onAddTag, onRemoveTag }: OrganizeItemsProps) {
+    const { data: editableProjects = [] } = useEditableProjects();
+    const { isShared } = useTaskAccess(task);
     return (
         <>
             {/* ── Priority ── */}
@@ -547,7 +557,10 @@ function OrganizeItems({ Menu, task, isOwner, onUpdate, onAddTag, onRemoveTag }:
                     MenuComponents={Menu}
                     currentProjectId={task.projectId}
                     currentSectionId={task.sectionId ?? null}
-                    onSelect={(projectId, sectionId) => onUpdate({ projectId, sectionId })}
+                    onSelect={(projectId, sectionId) => {
+                        const dest = editableProjects.find((p) => p.id === projectId);
+                        guardMoveToShared(dest, isShared, () => onUpdate({ projectId, sectionId }));
+                    }}
                 />
             )}
 

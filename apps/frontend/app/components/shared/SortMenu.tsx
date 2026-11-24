@@ -5,6 +5,7 @@ import type { SortMode } from "../../lib/utils/task/sort-tasks";
 import type { ViewMode } from "../../hooks/ui/use-view-mode";
 import { ViewToggle } from "./ViewToggle";
 import { MENU_SEGMENT } from "../primitives/menu-styles";
+import { Tip } from "../primitives/Tooltip";
 import { HEADER_ICON_BUTTON } from "../layout/PageHeader";
 import { ClaimHeaderMenu, LayoutScaleMenuRow } from "../layout/LayoutScaleMenu";
 
@@ -37,14 +38,16 @@ export function SortMenu({ mode, onModeChange, view, onViewChange, actions = [] 
         <>
             <ClaimHeaderMenu />
             <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild>
-                    <button
-                        aria-label={onModeChange ? "Sort & display options" : "Display options"}
-                        className={HEADER_ICON_BUTTON}
-                    >
-                        <EllipsisVertical size={18} aria-hidden="true" />
-                    </button>
-                </DropdownMenu.Trigger>
+                <Tip label="Options" side="bottom">
+                    <DropdownMenu.Trigger asChild>
+                        <button
+                            aria-label={onModeChange ? "Sort & display options" : "Display options"}
+                            className={HEADER_ICON_BUTTON}
+                        >
+                            <EllipsisVertical size={18} aria-hidden="true" />
+                        </button>
+                    </DropdownMenu.Trigger>
+                </Tip>
                 <DropdownMenu.Content align="end">
                     {view !== undefined && onViewChange && (
                         <>

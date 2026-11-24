@@ -34,6 +34,7 @@ import * as ContextMenu from "../primitives/ContextMenu";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { Tip } from "../primitives";
+import { HEADER_LABEL_BUTTON } from "../layout/PageHeader";
 import * as Dialog from "../primitives/Dialog";
 import { Button } from "../primitives/Button";
 import { Input } from "../primitives/Input";
@@ -355,19 +356,17 @@ function CompactFocusTrigger({ label, orderLabel, active, open, setOpen, content
 function FocusPopover({ label, active, open, setOpen, content }: FocusTriggerProps) {
     return (
         <Popover.Root open={open} onOpenChange={setOpen}>
-            <Popover.Trigger
-                className={`shrink-0 inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-[13px] font-medium transition-colors ${
-                    active
-                        ? "surface-control-accent text-accent-primary border border-accent-primary/25"
-                        : "surface-control text-twilight-text-muted border border-twilight-border/30 hover:text-twilight-text"
-                }`}
-            >
-                <Zap size={14} aria-hidden="true" />
-                {label}
-            </Popover.Trigger>
+            <Tip label="Show only what matters now" side="bottom">
+                <Popover.Trigger
+                    className={`${HEADER_LABEL_BUTTON} ${active ? "surface-control-accent border-accent-primary/25 text-accent-primary" : ""}`}
+                >
+                    <Zap size={16} aria-hidden="true" />
+                    {label}
+                </Popover.Trigger>
+            </Tip>
 
             <Popover.Content
-                align="start"
+                align="end"
                 sideOffset={6}
                 className="w-[23rem] max-h-[32rem] overflow-y-auto rounded-3xl p-3"
             >

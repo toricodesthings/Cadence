@@ -6,7 +6,8 @@ import { useProcessInboxToTask } from "../../hooks/inbox/use-process-inbox-to-ta
 import { useUpdateInboxItem } from "../../hooks/inbox/use-update-inbox-item";
 import { useCaptureActions } from "../../hooks/inbox/use-capture-actions";
 import { useSettings } from "../../hooks/core/use-settings";
-import { useOwnProjects } from "../../hooks/projects/use-own-projects";
+import { useEditableProjects } from "../../hooks/projects/use-own-projects";
+import { useMoveToSharedGuard } from "../sharing/MoveToSharedConfirm";
 import { useSections } from "../../hooks/sections/use-sections";
 import { PRIORITY_ICON, PRIORITY_OPTIONS } from "../tasks/task-choice-options";
 import {
@@ -49,7 +50,8 @@ export function ClarifySheet({
     const update = useUpdateInboxItem();
     const process = useProcessInboxToTask();
     const status = useCaptureActions();
-    const { data: projects = [] } = useOwnProjects();
+    const { data: projects = [] } = useEditableProjects();
+    const { guard: guardSharedMove, dialog: sharedMoveDialog } = useMoveToSharedGuard("capture");
     const stored = overridesOf(item);
     // Read once: a suggestion that arrives after the sheet is open never changes a field under the user.
     const [suggestion] = useState(() => storedSuggestion(item));
@@ -112,7 +114,10 @@ export function ClarifySheet({
         else onClose();
     };
     const runPlace = (when?: LocalDate | Instant, openEditor = false, useCustom = false) => {
-        void place(when, openEditor, useCustom).catch(() => {});
+        const dest = projects.find((p) => p.id === projectId);
+        guardSharedMove(dest, false, () => {
+            void place(when, openEditor, useCustom).catch(() => {});
+        });
     };
     const openCustom = () => {
         const detected = parse.scheduledStart ?? parse.dueDate;
@@ -128,153 +133,158 @@ export function ClarifySheet({
     const disabled = process.isPending || update.isPending;
 
     return (
-        <DetailPanelLayout
-            title={title}
-            leading={<MessageSquare size={20} aria-hidden />}
-            onClose={onClose}
-            closeLabel="Close thought details"
-            mode={detailMode}
-            onModeChange={onDetailModeChange}
-        >
-            <DetailTitle value={title} label="Edit thought title" onSave={(next) => save({ title: next })}>
-                <DraftRow
-                    applied={parse.applied}
-                    suggestions={[]}
-                    // When, List and Tags show these below; the row covers what has no field of its own.
-                    shownElsewhere={["due_date", "scheduled_start", "project", "tag"]}
-                    literal={false}
-                    onDismiss={(id) =>
-                        update.mutate({
-                            id: item.id,
-                            analysis: { ...item.analysis, dismissedEntityIds: [...dismissed, id] },
-                        })
-                    }
-                    onAccept={() => {}}
-                    onLiteral={() => {}}
-                />
-                {parse.priority == null && wordsPriority > 0 && (
-                    <p className="mt-2 flex items-center gap-1.5 text-xs text-twilight-text-muted">
-                        <PRIORITY_ICON size={12} aria-hidden="true" />
-                        Priority: {PRIORITY_OPTIONS.find((o) => o.value === wordsPriority)?.label} · from your words
-                        <DismissButton label="Don't set this priority" onClick={() => setWordsPriority(0)} />
-                    </p>
-                )}
-                {title.trim() !== item.rawText.trim() && (
-                    <p className="mt-2 text-xs text-twilight-text-muted">From: {item.rawText}</p>
-                )}
-            </DetailTitle>
-            <div className={`${CARD} flex shrink-0 flex-col`}>
-                <DetailGroup title="When">
-                    <FieldBlock icon={CalendarDays} label="Place on">
-                        <CaptureDayChips
-                            detected={parse.scheduledStart ?? parse.dueDate}
-                            lightest={lightest}
-                            onPlace={runPlace}
-                            onPick={openCustom}
-                            disabled={disabled}
-                        />
-                    </FieldBlock>
-                    {custom && (
-                        <div className="flex flex-col gap-3 pt-2">
-                            <QuickScheduleSurface
-                                {...schedule}
-                                onChange={(patch) => setSchedule((old) => ({ ...old, ...patch }))}
-                                onRequestClose={() => setCustom(false)}
-                            />
-                            <Button
-                                disabled={disabled || (!schedule.dueDate && !schedule.scheduledStart)}
-                                onClick={() => runPlace(undefined, false, true)}
-                            >
-                                Place with this schedule
-                            </Button>
-                        </div>
+        <>
+            {sharedMoveDialog}
+            <DetailPanelLayout
+                title={title}
+                leading={<MessageSquare size={20} aria-hidden />}
+                onClose={onClose}
+                closeLabel="Close thought details"
+                mode={detailMode}
+                onModeChange={onDetailModeChange}
+            >
+                <DetailTitle value={title} label="Edit thought title" onSave={(next) => save({ title: next })}>
+                    <DraftRow
+                        applied={parse.applied}
+                        suggestions={[]}
+                        // When, List and Tags show these below; the row covers what has no field of its own.
+                        shownElsewhere={["due_date", "scheduled_start", "project", "tag"]}
+                        literal={false}
+                        onDismiss={(id) =>
+                            update.mutate({
+                                id: item.id,
+                                analysis: { ...item.analysis, dismissedEntityIds: [...dismissed, id] },
+                            })
+                        }
+                        onAccept={() => {}}
+                        onLiteral={() => {}}
+                    />
+                    {parse.priority == null && wordsPriority > 0 && (
+                        <p className="mt-2 flex items-center gap-1.5 text-xs text-twilight-text-muted">
+                            <PRIORITY_ICON size={12} aria-hidden="true" />
+                            Priority: {PRIORITY_OPTIONS.find((o) => o.value === wordsPriority)?.label} · from your words
+                            <DismissButton label="Don't set this priority" onClick={() => setWordsPriority(0)} />
+                        </p>
                     )}
-                </DetailGroup>
-                <DetailGroup title="Organize">
-                    <FieldRow icon={FolderOpen} label="List">
-                        <ValueSelect
-                            label="List"
-                            value={projectId ?? ""}
-                            // A section belongs to its list: changing the list clears it.
-                            onChange={(id) => save({ projectId: id || null, sectionId: null })}
-                            options={[
-                                { value: "", label: "None" },
-                                ...projects.map((p) => ({ value: p.id, label: p.name })),
-                            ]}
-                        />
-                    </FieldRow>
-                    {projectId && sections.length > 0 && (
-                        <FieldRow icon={FolderOpen} label="Section">
+                    {title.trim() !== item.rawText.trim() && (
+                        <p className="mt-2 text-xs text-twilight-text-muted">From: {item.rawText}</p>
+                    )}
+                </DetailTitle>
+                <div className={`${CARD} flex shrink-0 flex-col`}>
+                    <DetailGroup title="When">
+                        <FieldBlock icon={CalendarDays} label="Place on">
+                            <CaptureDayChips
+                                detected={parse.scheduledStart ?? parse.dueDate}
+                                lightest={lightest}
+                                onPlace={runPlace}
+                                onPick={openCustom}
+                                disabled={disabled}
+                            />
+                        </FieldBlock>
+                        {custom && (
+                            <div className="flex flex-col gap-3 pt-2">
+                                <QuickScheduleSurface
+                                    {...schedule}
+                                    onChange={(patch) => setSchedule((old) => ({ ...old, ...patch }))}
+                                    onRequestClose={() => setCustom(false)}
+                                />
+                                <Button
+                                    disabled={disabled || (!schedule.dueDate && !schedule.scheduledStart)}
+                                    onClick={() => runPlace(undefined, false, true)}
+                                >
+                                    Place with this schedule
+                                </Button>
+                            </div>
+                        )}
+                    </DetailGroup>
+                    <DetailGroup title="Organize">
+                        <FieldRow icon={FolderOpen} label="List">
                             <ValueSelect
-                                label="Section"
-                                value={sectionId ?? ""}
-                                onChange={(id) => save({ sectionId: id || null })}
+                                label="List"
+                                value={projectId ?? ""}
+                                // A section belongs to its list: changing the list clears it.
+                                onChange={(id) => save({ projectId: id || null, sectionId: null })}
                                 options={[
                                     { value: "", label: "None" },
-                                    ...sections.map((section) => ({ value: section.id, label: section.name })),
+                                    ...projects.map((p) => ({ value: p.id, label: p.name })),
                                 ]}
                             />
                         </FieldRow>
-                    )}
-                    {suggested && <p className="px-1 text-xs text-twilight-text-muted">Suggested from your lists</p>}
-                    <FieldBlock icon={Tag} label="Tags">
-                        <TagField
-                            tagIds={tagIds}
-                            onAdd={(id) => save({ tagIds: [...tagIds, id] })}
-                            onRemove={(id) => save({ tagIds: tagIds.filter((t) => t !== id) })}
-                        />
-                    </FieldBlock>
-                </DetailGroup>
-            </div>
-            <div className="flex items-center gap-2">
-                <Button variant="secondary" className="flex-1" disabled={disabled} onClick={() => runPlace()}>
-                    Keep with no day
-                </Button>
-                <Menu.Root>
-                    <Tip label="More actions">
-                        <Menu.Trigger asChild>
-                            <Button variant="ghost" size="icon" aria-label="More thought actions">
-                                <EllipsisVertical size={18} />
-                            </Button>
-                        </Menu.Trigger>
-                    </Tip>
-                    <Menu.Content align="end">
-                        {onOpenFullEditor && (
-                            <Menu.Item disabled={disabled} onSelect={() => runPlace(undefined, true)}>
-                                <span>
-                                    Make it a task
-                                    <span className="block text-xs text-twilight-text-muted">
-                                        No day yet · opens it for details
-                                    </span>
-                                </span>
-                            </Menu.Item>
+                        {projectId && sections.length > 0 && (
+                            <FieldRow icon={FolderOpen} label="Section">
+                                <ValueSelect
+                                    label="Section"
+                                    value={sectionId ?? ""}
+                                    onChange={(id) => save({ sectionId: id || null })}
+                                    options={[
+                                        { value: "", label: "None" },
+                                        ...sections.map((section) => ({ value: section.id, label: section.name })),
+                                    ]}
+                                />
+                            </FieldRow>
                         )}
-                        <Menu.Item
-                            disabled={disabled}
-                            onSelect={() => {
-                                void status
-                                    .setStatus(item, "kept")
-                                    .then(onClose)
-                                    .catch(() => {});
-                            }}
-                        >
-                            Keep as a note
-                        </Menu.Item>
-                        <Menu.Item
-                            disabled={disabled}
-                            variant="danger"
-                            onSelect={() => {
-                                void status
-                                    .setStatus(item, "discarded")
-                                    .then(onClose)
-                                    .catch(() => {});
-                            }}
-                        >
-                            Discard
-                        </Menu.Item>
-                    </Menu.Content>
-                </Menu.Root>
-            </div>
-        </DetailPanelLayout>
+                        {suggested && (
+                            <p className="px-1 text-xs text-twilight-text-muted">Suggested from your lists</p>
+                        )}
+                        <FieldBlock icon={Tag} label="Tags">
+                            <TagField
+                                tagIds={tagIds}
+                                onAdd={(id) => save({ tagIds: [...tagIds, id] })}
+                                onRemove={(id) => save({ tagIds: tagIds.filter((t) => t !== id) })}
+                            />
+                        </FieldBlock>
+                    </DetailGroup>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button variant="secondary" className="flex-1" disabled={disabled} onClick={() => runPlace()}>
+                        Keep with no day
+                    </Button>
+                    <Menu.Root>
+                        <Tip label="More actions">
+                            <Menu.Trigger asChild>
+                                <Button variant="ghost" size="icon" aria-label="More thought actions">
+                                    <EllipsisVertical size={18} />
+                                </Button>
+                            </Menu.Trigger>
+                        </Tip>
+                        <Menu.Content align="end">
+                            {onOpenFullEditor && (
+                                <Menu.Item disabled={disabled} onSelect={() => runPlace(undefined, true)}>
+                                    <span>
+                                        Make it a task
+                                        <span className="block text-xs text-twilight-text-muted">
+                                            No day yet · opens it for details
+                                        </span>
+                                    </span>
+                                </Menu.Item>
+                            )}
+                            <Menu.Item
+                                disabled={disabled}
+                                onSelect={() => {
+                                    void status
+                                        .setStatus(item, "kept")
+                                        .then(onClose)
+                                        .catch(() => {});
+                                }}
+                            >
+                                Keep as a note
+                            </Menu.Item>
+                            <Menu.Item
+                                disabled={disabled}
+                                variant="danger"
+                                onSelect={() => {
+                                    void status
+                                        .setStatus(item, "discarded")
+                                        .then(onClose)
+                                        .catch(() => {});
+                                }}
+                            >
+                                Discard
+                            </Menu.Item>
+                        </Menu.Content>
+                    </Menu.Root>
+                </div>
+            </DetailPanelLayout>
+        </>
     );
 }

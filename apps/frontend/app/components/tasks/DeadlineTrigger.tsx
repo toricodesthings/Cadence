@@ -3,22 +3,31 @@ import { formatDateSpan, formatShortDate, formatShortDateTime } from "../../lib/
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import type { ScheduleUpdates } from "./QuickScheduleSurface";
 
+/** The quick option chip (Date, Tags, List, Priority): one look in a list's add row, the tray and Capture. */
+export const QUICK_CHIP =
+    "inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg border px-3 text-xs font-medium transition-colors pointer-coarse:min-h-11 pointer-coarse:rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
+export const quickChipTone = (active: unknown) =>
+    active
+        ? "border-accent-primary/20 bg-accent-primary/10 text-accent-primary"
+        : "border-twilight-border/35 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]";
+
 /**
- * The calendar button beside a new task's field (a list's add row, Capture): it shows the day the draft will save,
- * typed or picked, and opens the full picker. One control in both places, so the habit carries over.
+ * The date chip of a new task (a list's add row, Capture): it shows the day the draft will save, typed or picked,
+ * and opens the full picker. One control in both places, so the habit carries over.
  */
 export function DeadlineTrigger({
     schedule,
     onChange,
     returnFocus,
-    compact = false,
+    iconOnly = false,
     row = false,
 }: {
     schedule: ScheduleUpdates;
     onChange: (updates: ScheduleUpdates) => void;
     /** Where focus goes when the picker closes (default: back to this button). */
     returnFocus?: () => void;
-    compact?: boolean;
+    /** Only the icon shows; the label stays in `aria-label`. */
+    iconOnly?: boolean;
     /** The pill of a composer's Date row (iOS grouped card): "None" until set, no icon (the row has it). */
     row?: boolean;
 }) {
@@ -49,15 +58,11 @@ export function DeadlineTrigger({
                 className={
                     row
                         ? `inline-flex min-h-10 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-full border border-white/[0.06] bg-white/[0.03] px-3.5 text-sm transition-colors hover:border-white/[0.10] hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${set ? "font-medium text-twilight-text" : "text-twilight-text-muted"}`
-                        : `inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 pointer-coarse:min-h-9 ${compact ? "text-[10px]" : "text-[11px]"} font-medium transition-colors duration-200 ${
-                              set
-                                  ? "bg-accent-primary/10 text-accent-primary"
-                                  : "text-twilight-text-muted/90 hover:bg-white/[0.04] hover:text-twilight-text-soft"
-                          }`
+                        : `${QUICK_CHIP} ${quickChipTone(set)}`
                 }
             >
-                {row ? null : <Calendar size={13} aria-hidden="true" />}
-                {label}
+                {row ? null : <Calendar size={14} aria-hidden="true" />}
+                {iconOnly ? null : label}
             </button>
         </DeadlinePickerPopover>
     );

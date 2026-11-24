@@ -4,6 +4,8 @@ import type { LucideIcon } from "lucide-react";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import type { SortMode } from "../../lib/utils/task/sort-tasks";
 import type { ViewMode } from "../../hooks/ui/use-view-mode";
+import { Tip } from "../primitives/Tooltip";
+import { HEADER_LABEL_BUTTON } from "../layout/PageHeader";
 import { ActiveFilterBar } from "./ActiveFilterBar";
 import { ControlsSheet, type ControlsSheetSection } from "./ControlsSheet";
 import { SortMenu } from "./SortMenu";
@@ -80,15 +82,17 @@ export function TaskRouteControls({
                     }))}
                 />
                 {!shell.isWide && onOpenDetails ? (
-                    <button
-                        type="button"
-                        onClick={onOpenDetails}
-                        className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-twilight-border px-4 text-sm font-medium text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text"
-                        aria-label="Open task details"
-                    >
-                        <PanelRightClose size={16} aria-hidden="true" />
-                        Details
-                    </button>
+                    <Tip label="Open task details" side="bottom">
+                        <button
+                            type="button"
+                            onClick={onOpenDetails}
+                            className={HEADER_LABEL_BUTTON}
+                            aria-label="Open task details"
+                        >
+                            <PanelRightClose size={16} aria-hidden="true" />
+                            Details
+                        </button>
+                    </Tip>
                 ) : null}
             </div>
         );

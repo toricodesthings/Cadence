@@ -39,7 +39,7 @@ export function NotificationPreview({
                         className={
                             placement === "header"
                                 ? `${HEADER_ICON_BUTTON} relative`
-                                : "btn-icon relative rounded-2xl text-twilight-text-muted hover:text-twilight-text-soft hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-accent-primary"
+                                : "btn-icon relative rounded-2xl text-twilight-text-muted hover:text-accent-primary hover:bg-accent-primary-dim focus-visible:ring-2 focus-visible:ring-accent-primary"
                         }
                     >
                         <Bell size={18} aria-hidden="true" />

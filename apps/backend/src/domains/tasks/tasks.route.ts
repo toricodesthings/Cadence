@@ -48,8 +48,10 @@ import {
     createTask,
     deleteTasks,
     deleteTrashedTasks,
+    dropTaskLearningRows,
     duplicateTask,
     justCompleted,
+    moveTaskToSharedList,
     overlayPersonalReminders,
     placeTasks,
     rescheduleTasks,
@@ -449,6 +451,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             task: updated,
             broadcast,
             access,
+            destAccess,
             guest,
         } = await withRls(db, userId, async (tx) => {
             const [{ access }] = await tasksByOwner(tx, userId, [id]);
@@ -468,7 +471,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 );
                 const [task] = await withTagIds(tx, rows);
                 throwIfNotFound(task, "Task");
-                return { task, broadcast: null, access, guest };
+                return { task, broadcast: null, access, destAccess: null, guest };
             }
 
             requireEdit(access);
@@ -479,6 +482,39 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                     "Only the owner of this list can move its tasks to another list.",
                 );
             }
+
+            // Moving a caller-owned task into another list (possibly someone else's shared list, or own shared list).
+            const destAccess =
+                !guest && body.projectId && body.projectId !== access?.listId
+                    ? await listAccess(tx, userId, body.projectId)
+                    : null;
+            if (destAccess) {
+                requireEdit(destAccess);
+                await assertListRoom(tx, destAccess.listId);
+            }
+            if (destAccess && destAccess.ownerId !== userId) {
+                const moved = await moveTaskToSharedList(tx, id, destAccess.listId, body.sectionId ?? null);
+                if (!moved) throw new AppError(404, "NOT_FOUND", "Task or list not found");
+                const { projectId: _p, sectionId: _s, ...restShared } = sharedBody;
+                let row: typeof tasks.$inferSelect | undefined;
+                if (Object.keys(restShared).length > 0) {
+                    row = await updateTask(tx, destAccess.ownerId, id, restShared, expectedUpdatedAt);
+                } else {
+                    const [selected] = await tx.select().from(tasks).where(eq(tasks.id, id));
+                    row = selected;
+                }
+                throwIfNotFound(row, "Task");
+                if (hasPersonal) {
+                    await upsertPersonalReminder(tx, userId, id, { reminderAt, reminderSilenced });
+                }
+                const [broadcast] = await withTagIds(tx, [row]);
+                const [task] = await withTagIds(tx, await overlayPersonalReminders(tx, userId, [row]));
+                return { task, broadcast, access, destAccess, guest: true };
+            }
+            if (destAccess && destAccess.audience.length > 1) {
+                await dropTaskLearningRows(tx, userId, id);
+            }
+
             if (body.takenBy !== undefined) {
                 if (body.takenBy !== null && body.takenBy !== userId) {
                     throw new AppError(403, "TAKE_SELF_ONLY", "You can only take a task for yourself.");
@@ -501,9 +537,9 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             const [task] = guest
                 ? await withTagIds(tx, await overlayPersonalReminders(tx, userId, [row]))
                 : [broadcast];
-            return { task, broadcast, access, guest };
+            return { task, broadcast, access, destAccess, guest };
         });
-        if (broadcast) announce(c, [access], [broadcast]);
+        if (broadcast) announce(c, [access, destAccess], [broadcast]);
         if (guest) return c.json({ data: updated });
         trackTaskChanges(
             (p) => c.executionCtx.waitUntil(p),

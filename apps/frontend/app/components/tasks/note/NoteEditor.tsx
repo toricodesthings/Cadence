@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import type { Editor } from "@tiptap/core";
+import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationCaret from "@tiptap/extension-collaboration-caret";
 import { noteExtensions, markdownToDoc, docToMarkdown, isFaithful } from "../../../lib/notes/note-markdown";
 import { NoteFind } from "../../../lib/notes/note-find";
 import type { NoteSession } from "../../../lib/notes/note-session";
+import type { CollabNoteHandle } from "../../../lib/notes/collab-session";
 import { openExternalUrl } from "../../../platform/runtime";
 import { cn } from "../../../lib/utils";
 import { NoteSlashMenu, SLASH_LIST_ID, slashOptionId } from "./NoteSlashMenu";
@@ -38,6 +41,9 @@ function detectSlash(editor: Editor): Slash | null {
 
 export interface NoteEditorProps {
     session: NoteSession;
+    /** When present (shared list notes), enables live Yjs co-editing via `NoteCollab` DO instead of REST last-write-wins. */
+    collab?: CollabNoteHandle | null;
+    collabUser?: { name: string; color: string };
     /** Identifies this editor view to the session (the panel and the room each have one). */
     viewId: string;
     placeholder: string;
@@ -67,6 +73,8 @@ export interface NoteEditorProps {
  */
 export function NoteEditor({
     session,
+    collab = null,
+    collabUser,
     viewId,
     placeholder,
     commandHint,
@@ -123,9 +131,14 @@ export function NoteEditor({
             clearTimeout(timer.current);
             timer.current = undefined;
             dirty.current = false;
-            session.edit(docToMarkdown(editor.getJSON()), viewId);
+            const md = docToMarkdown(editor.getJSON());
+            if (collab) {
+                collab.sendSnapshot(md);
+            } else {
+                session.edit(md, viewId);
+            }
         },
-        [session, viewId],
+        [collab, session, viewId],
     );
 
     const schedule = useCallback(
@@ -208,9 +221,22 @@ export function NoteEditor({
         return false;
     }, []);
 
+    const extensions = useMemo(() => {
+        const base = [...noteExtensions(placeholder, { collaborative: Boolean(collab) }), NoteFind];
+        if (!collab) return base;
+        return [
+            ...base,
+            Collaboration.configure({ document: collab.doc }),
+            CollaborationCaret.configure({
+                provider: collab.provider,
+                user: collabUser ?? { name: "Member", color: "#e8a44a" },
+            }),
+        ];
+    }, [collab, collabUser, placeholder]);
+
     const editor = useEditor({
-        extensions: [...noteExtensions(placeholder), NoteFind],
-        content: markdownToDoc(session.getSnapshot().body),
+        extensions,
+        content: collab ? undefined : markdownToDoc(session.getSnapshot().body),
         editable,
         autofocus: autoFocus ? "end" : false,
         editorProps: {
@@ -285,9 +311,25 @@ export function NoteEditor({
         editor?.setEditable(editable);
     }, [editor, editable]);
 
+    // Seed a collaborative Yjs doc once from the stored Markdown after initial sync.
+    useEffect(() => {
+        if (!editor || !collab) return;
+        const trySeed = () => {
+            const snap = session.getSnapshot();
+            if (snap.loaded) collab.seedOnce(editor, snap.body);
+        };
+        trySeed();
+        const unsubCollab = collab.subscribe(trySeed);
+        const unsubSession = session.subscribe(trySeed);
+        return () => {
+            unsubCollab();
+            unsubSession();
+        };
+    }, [editor, collab, session]);
+
     // The session asks for unreported text before saving, and hands back text from elsewhere.
     useEffect(() => {
-        if (!editor) return;
+        if (!editor || collab) return;
         const apply = (body: string, now = false) => {
             if (editor.isDestroyed) return;
             if (editor.view.composing || (!now && !editor.isFocused)) {
@@ -326,7 +368,7 @@ export function NoteEditor({
             editor.view.dom.removeEventListener("compositionend", settle);
             detach();
         };
-    }, [editor, session, viewId]);
+    }, [editor, collab, session, viewId]);
 
     useEffect(() => () => clearTimeout(timer.current), []);
 

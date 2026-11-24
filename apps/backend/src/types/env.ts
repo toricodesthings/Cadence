@@ -56,6 +56,12 @@ export interface Env {
     /** One `ReminderClock` per person: sends their reminders from a plan, without polling Postgres. When absent, nothing is pushed. */
     REMINDER_CLOCK?: DurableObjectNamespace<import("../domains/push/reminder-clock").ReminderClock>;
 
+    // ── Shared lists: live presence & collaborative notes ──
+    /** One `ListPresence` per shared list: tracks who has the list open right now without touching Postgres. */
+    LIST_PRESENCE?: DurableObjectNamespace<import("../domains/sharing/list-presence").ListPresence>;
+    /** One `NoteCollab` per shared task note: Yjs (`y-partyserver`) live co-editing with snapshots to `task_notes`. */
+    NOTE_COLLAB?: DurableObjectNamespace<import("../domains/notes/note-collab").NoteCollab>;
+
     // ── Code Mode (MCP `/mcp/code`) ──
     /** Dynamic Worker loader the Code Mode sandbox runs in. When absent (or `CODE_MODE`), `search`/`execute` aren't published. */
     LOADER?: WorkerLoader;

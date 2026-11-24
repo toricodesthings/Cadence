@@ -22,12 +22,17 @@ import type { Tx } from "../../../types/db";
 import {
     createTasks,
     deleteTasks,
+    dropTaskLearningRows,
     duplicateTask,
+    moveTaskToSharedList,
     reorderTasks,
     rescheduleTasks,
     setTaskState,
+    toTask,
     trackTaskChanges,
     updateTasks,
+    upsertPersonalReminder,
+    withTagIds,
     buildTaskWhereClause,
     hasNoDay,
     inDayWindow,
@@ -38,13 +43,31 @@ import { findOrCreateTags } from "../../tags/tags.service";
 import { processCapture } from "../../inbox/inbox.service";
 import { editSubtasks } from "../../subtasks/subtasks.service";
 import { writeNote } from "../../notes/notes.service";
+import { resetNoteCollab } from "../../notes/note-collab";
+import { broadcastLive } from "../../push/reminder-clock";
+import {
+    assertListRoom,
+    listAccess,
+    requireEdit,
+    taskAccess,
+    tasksByOwner,
+    type ListAccess,
+} from "../../../platform/list-access";
+import type { LiveChange } from "@cadence/contracts/live";
 import { batchTaskIdsSchema, waitingOnSchema } from "@cadence/contracts/task";
 import { readFocusView } from "./focus-views";
 import { taskSearch, taskSearchColumns, taskPlaceColumns } from "../../tasks/task-search.service";
 import { effortGuesses, taskHints } from "../memory/task-hints";
 import { suggestEffortGuess } from "../../decisions/effort-guess";
 import { checkSaid } from "./said";
-import { assertNotShared, sharedListPeople, sharedTaskMeta } from "./shared-guard";
+import {
+    assertTasksNotStale,
+    audienceOfAccesses,
+    recordSeenSharedTasks,
+    sharedCreateDuplicates,
+    sharedListPeople,
+    sharedTaskMeta,
+} from "./shared-guard";
 
 /**
  * The whole filtered candidate set that matches `query`, best match first unless the
@@ -110,6 +133,7 @@ export const taskCoreColumns = {
     reminderSilenced: tasks.reminderSilenced,
     createdBy: tasks.createdBy,
     takenBy: tasks.takenBy,
+    updatedAt: tasks.updatedAt,
 } as const;
 
 /** Columns returned by the minimal task projection — selected once, reused. */
@@ -125,23 +149,40 @@ const daySql = (zone: string) =>
 
 export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
     const track = ctx.waitUntil ?? (() => {});
-    /** One write per tool call (`once`), then its metrics after commit; a replayed call tracks nothing. */
+    /** One write per tool call (`once`), then its metrics and live broadcast after commit; a replayed call tracks nothing. */
     const write = <T>(
         name: string,
         toolCallId: string,
-        fn: (tx: Tx) => Promise<{ result: T; id: string; changes?: Parameters<typeof trackTaskChanges>[3] }>,
+        fn: (tx: Tx) => Promise<{
+            result: T;
+            id: string;
+            changes?: Parameters<typeof trackTaskChanges>[3];
+            live?: { audience: string[]; changes: LiveChange[] };
+            resetNoteTaskId?: string;
+        }>,
     ) =>
         safeExecute(name, userId, async () => {
             const db = getDbClient(env);
             let changes: Parameters<typeof trackTaskChanges>[3] | undefined;
+            let live: { audience: string[]; changes: LiveChange[] } | undefined;
+            let resetNoteTaskId: string | undefined;
             const result = await withRls(db, userId, (tx) =>
                 once(tx, userId, toolCallId, async () => {
                     const done = await fn(tx);
                     changes = done.changes;
+                    live = done.live;
+                    resetNoteTaskId = done.resetNoteTaskId;
                     return done;
                 }),
             );
-            if (changes) trackTaskChanges(track, db, userId, changes);
+            const isReplay = (result as { deduped?: boolean }).deduped;
+            if (!isReplay) {
+                if (changes) trackTaskChanges(track, db, userId, changes);
+                if (live && live.audience.length > 0) {
+                    track(broadcastLive(env, userId, live.audience, live.changes));
+                }
+                if (resetNoteTaskId) track(resetNoteCollab(env, resetNoteTaskId));
+            }
             return result;
         });
     /** How much of a note this surface reads (and so may rewrite whole): all of it over MCP. */
@@ -314,6 +355,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             tx,
                             shown.map((row) => row.projectId),
                         );
+                        recordSeenSharedTasks(ctx, shown, peopleMap);
                         const tagNames = await tagNamesFor(
                             tx,
                             shown.map((row) => row.id),
@@ -374,6 +416,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         throwIfNotFound(raw, "Task");
                         const [row] = await overlayPersonalReminders(tx, userId, [raw]);
                         const peopleMap = await sharedListPeople(tx, [row.projectId]);
+                        recordSeenSharedTasks(ctx, [row], peopleMap);
 
                         const subs = await tx
                             .select({
@@ -454,6 +497,12 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         .optional()
                         .describe("Put them right before this open task in the same list."),
                     afterTaskId: z.uuid().optional().describe("Put them right after this open task in the same list."),
+                    sameTitleOk: z
+                        .boolean()
+                        .optional()
+                        .describe(
+                            "Set true when adding a task to a shared list even though an open task with the same title already exists there.",
+                        ),
                 })
                 .refine(
                     (v) => [v.to, v.beforeTaskId, v.afterTaskId].filter(Boolean).length <= 1,
@@ -465,12 +514,38 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         v.tasks.every((d) => (d.projectId ?? null) === (v.tasks[0].projectId ?? null)),
                     "Placing them needs every task in one list",
                 ),
-            execute: async ({ tasks: drafts, to, beforeTaskId, afterTaskId }, { toolCallId }) => {
-                const result = await write("create_tasks", toolCallId, async (tx) => {
-                    await assertNotShared(tx, {
-                        projectIds: drafts.map((d) => d.projectId),
-                        sectionIds: drafts.map((d) => d.sectionId),
-                    });
+            execute: async ({ tasks: drafts, to, beforeTaskId, afterTaskId, sameTitleOk }, { toolCallId }) => {
+                const result = await write<{
+                    created: { taskId: string; title: string; subtaskIds?: string[]; inboxItemId?: string }[];
+                    placed: { projectId: string | null; after: string | null; before: string | null }[];
+                    ignored?: string[];
+                    sameTitle?: { id: string; title: string; projectId: string; createdBy?: string }[];
+                    note?: string;
+                }>("create_tasks", toolCallId, async (tx) => {
+                    if (!sameTitleOk) {
+                        const dupes = await sharedCreateDuplicates(tx, drafts);
+                        if (dupes.length) {
+                            return {
+                                result: {
+                                    created: [],
+                                    placed: [],
+                                    sameTitle: dupes,
+                                    note: "Nothing created: an open task with this title already exists in the shared list. Ask if they still want to add another, or call again with sameTitleOk: true.",
+                                },
+                                id: dupes[0].id,
+                            };
+                        }
+                    }
+                    // Resolve access per distinct destination list and enforce edit role + list room.
+                    const accessByList = new Map<string, ListAccess>();
+                    for (const d of drafts) {
+                        if (d.projectId && !accessByList.has(d.projectId)) {
+                            const access = await listAccess(tx, userId, d.projectId);
+                            requireEdit(access);
+                            if (access.audience.length > 1) await assertListRoom(tx, access.listId);
+                            accessByList.set(d.projectId, access);
+                        }
+                    }
                     // One lookup for every draft's tag names, so two drafts never make the same tag twice.
                     const named = await tagIdsByName(
                         tx,
@@ -478,6 +553,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     );
                     const created: { taskId: string; title: string; subtaskIds?: string[]; inboxItemId?: string }[] =
                         [];
+                    const liveChanges: LiveChange[] = [];
                     const ignored: string[] = [];
                     const efforts: (number | null)[] = [];
                     for (const {
@@ -497,16 +573,25 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         ignored.push(...(checked.ignored ?? []).map((reason) => `${unchecked.title}: ${reason}`));
                         efforts.push(checked.fields.effort ?? null);
                         const allTagIds = [...tagIds, ...tagNames.map((name) => named.get(name.trim().toLowerCase())!)];
+                        const destAccess = draft.projectId ? accessByList.get(draft.projectId) : undefined;
+                        const ownerId = destAccess?.ownerId ?? userId;
                         if (!inboxItemId) {
-                            created.push(
-                                ...(await createTasks(tx, userId, [
-                                    { ...draft, tagIds: allTagIds, notBefore: hideUntil },
-                                ])),
+                            const made = await createTasks(
+                                tx,
+                                ownerId,
+                                [{ ...draft, tagIds: allTagIds, notBefore: hideUntil }],
+                                { createdBy: userId, tagOwnerId: userId },
                             );
+                            for (const item of made) {
+                                created.push({ taskId: item.taskId, title: item.title, subtaskIds: item.subtaskIds });
+                                if (destAccess && destAccess.audience.length > 1) {
+                                    liveChanges.push({ type: "task", task: toTask(item.row, item.tagIds) });
+                                }
+                            }
                             continue;
                         }
                         const { subtasks: steps, note, fixed: _fixed, ...fields } = draft;
-                        const { task } = await processCapture(
+                        const { task, broadcast } = await processCapture(
                             tx,
                             userId,
                             inboxItemId,
@@ -525,6 +610,9 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             { subtasks: steps, note },
                         );
                         created.push({ inboxItemId, taskId: task.id, title: task.title });
+                        if (destAccess && destAccess.audience.length > 1 && broadcast) {
+                            liveChanges.push({ type: "task", task: broadcast });
+                        }
                     }
                     // Every create writes orderIndex 0: place the batch per list, in draft order.
                     const placement = to
@@ -539,16 +627,20 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         const list = drafts[i].projectId ?? null;
                         byList.set(list, [...(byList.get(list) ?? []), c.taskId]);
                     });
-                    for (const ids of byList.values()) await reorderTasks(tx, userId, ids, placement);
+                    for (const [projectId, ids] of byList) {
+                        const ownerId = (projectId ? accessByList.get(projectId)?.ownerId : undefined) ?? userId;
+                        await reorderTasks(tx, ownerId, ids, placement);
+                    }
                     // Where each batch landed, by its open neighbours' titles, so a dry run shows the order too.
                     const placed = [];
                     for (const [projectId, ids] of byList) {
+                        const ownerId = (projectId ? accessByList.get(projectId)?.ownerId : undefined) ?? userId;
                         const rows = await tx
                             .select({ id: tasks.id, title: tasks.title })
                             .from(tasks)
                             .where(
                                 and(
-                                    eq(tasks.userId, userId),
+                                    eq(tasks.userId, ownerId),
                                     projectId ? eq(tasks.projectId, projectId) : isNull(tasks.projectId),
                                     inArray(tasks.state, ["ACTIVE", "WAITING"]),
                                 ),
@@ -581,10 +673,14 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         const level = guesses.get(c.taskId);
                         if (level) (c as { effortGuess?: number }).effortGuess = level;
                     }
+                    const sharedAccesses = [...accessByList.values()].filter((a) => a.audience.length > 1);
                     return {
                         result: { created, placed, ...(ignored.length && { ignored }) },
                         id: created[0].taskId,
                         changes: { created: created.map((task) => task.taskId) },
+                        ...(sharedAccesses.length > 0 && {
+                            live: { audience: audienceOfAccesses(sharedAccesses), changes: liveChanges },
+                        }),
                     };
                 });
                 // After the commit, so the task exists for the background guess; a replayed call already started it.
@@ -618,19 +714,48 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             }),
             execute: async ({ tasks: sources }, { toolCallId }) =>
                 write("duplicate_tasks", toolCallId, async (tx) => {
-                    await assertNotShared(tx, { taskIds: sources.map((s) => s.taskId) });
+                    const groups = await tasksByOwner(
+                        tx,
+                        userId,
+                        sources.map((s) => s.taskId),
+                    );
+                    const accessByTask = new Map<string, { ownerId: string; access: ListAccess | null }>();
+                    for (const group of groups) {
+                        requireEdit(group.access);
+                        if (group.access && group.access.audience.length > 1) {
+                            await assertListRoom(tx, group.access.listId);
+                        }
+                        const ownerId = group.access?.ownerId ?? userId;
+                        for (const id of group.ids) {
+                            accessByTask.set(id, { ownerId, access: group.access });
+                        }
+                    }
                     const created: { taskId: string; title: string; from: string }[] = [];
+                    const liveChanges: LiveChange[] = [];
                     for (const { taskId, title, targetDate } of sources) {
-                        const copy = await duplicateTask(tx, userId, taskId, title);
+                        const info = accessByTask.get(taskId);
+                        const ownerId = info?.ownerId ?? userId;
+                        let copy = await duplicateTask(tx, ownerId, taskId, title);
                         if (targetDate) {
-                            await rescheduleTasks(tx, userId, { taskIds: [copy.id], date: targetDate });
+                            const [moved] = await rescheduleTasks(tx, ownerId, {
+                                taskIds: [copy.id],
+                                date: targetDate,
+                            });
+                            if (moved) copy = toTask(moved, copy.tagIds);
                         }
                         created.push({ taskId: copy.id, title: copy.title, from: taskId });
+                        if (info?.access && info.access.audience.length > 1) {
+                            liveChanges.push({ type: "task", task: copy });
+                        }
                     }
+                    const sharedAccesses = groups.map((g) => g.access).filter((a) => a && a.audience.length > 1);
                     return {
                         result: { created },
                         id: created[0].taskId,
                         changes: { created: created.map((task) => task.taskId) },
+                        ...(sharedAccesses.length > 0 && {
+                            live: { audience: audienceOfAccesses(sharedAccesses), changes: liveChanges },
+                        }),
                     };
                 }),
         }),
@@ -641,7 +766,14 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 "Only the fields that change, plus tags to add (by id or name) or remove. " +
                 "Also sets or clears a reminder, a Waiting check-in, a hide-until day, pinning and Fixed. Returns how many changed.",
             inputSchema: z
-                .object({ taskIds: batchTaskIdsSchema, patch: taskPatchSchema })
+                .object({
+                    taskIds: batchTaskIdsSchema,
+                    patch: taskPatchSchema,
+                    expectedUpdatedAt: z.iso
+                        .datetime({ offset: true })
+                        .optional()
+                        .describe("For shared tasks: the updatedAt seen on the last read, to catch concurrent edits."),
+                })
                 .refine(
                     ({ taskIds, patch }) =>
                         taskIds.length === 1 ||
@@ -656,13 +788,12 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     ({ patch }) => Object.values(patch).some((v) => v !== undefined),
                     "Nothing to change: set a field, or name it in clear to empty it (null changes nothing)",
                 ),
-            execute: async ({ taskIds, patch }, { toolCallId }) => {
+            execute: async ({ taskIds, patch, expectedUpdatedAt }, { toolCallId }) => {
                 const result = await write("update_tasks", toolCallId, async (tx) => {
-                    await assertNotShared(tx, {
-                        taskIds,
-                        projectIds: [patch.projectId],
-                        sectionIds: [patch.sectionId],
-                    });
+                    await assertTasksNotStale(tx, taskIds, ctx, expectedUpdatedAt);
+                    const groups = await tasksByOwner(tx, userId, taskIds);
+                    const destAccess = patch.projectId ? await listAccess(tx, userId, patch.projectId) : null;
+                    if (destAccess) requireEdit(destAccess);
                     const {
                         addTagIds = [],
                         addTagNames,
@@ -697,32 +828,134 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     if (checked.ignored && [...Object.values(checked.fields), ...rest].every((v) => v === undefined)) {
                         return { result: { updated: 0, ignored: checked.ignored }, id: taskIds[0] };
                     }
-                    const rows = await updateTasks(tx, userId, {
-                        taskIds,
-                        patch: {
-                            ...fields,
-                            ...(checkInAt !== undefined && { waitingReminder: checkInAt }),
-                            ...(hideUntil !== undefined && { notBefore: hideUntil }),
-                            ...(fixed !== undefined && {
-                                interactionMode: fixed ? ("timetable" as const) : ("task" as const),
-                            }),
-                        },
-                        addTagIds: [
-                            ...addTagIds,
-                            ...(addTagNames?.length ? await findOrCreateTags(tx, userId, addTagNames) : []),
-                        ],
-                        removeTagIds: [
-                            ...removeTagIds,
-                            ...(removeTagNames?.length ? await existingTagIds(tx, removeTagNames) : []),
-                        ],
-                    });
-                    if (note !== undefined || appendNote)
-                        await changeNote(tx, userId, taskIds[0], { note, appendNote, noteVersion }, noteLimit);
-                    const changes = hasTaskTemporalMutation(fields) ? { rescheduled: rows } : undefined;
+                    const resolvedAddTags = [
+                        ...addTagIds,
+                        ...(addTagNames?.length ? await findOrCreateTags(tx, userId, addTagNames) : []),
+                    ];
+                    const resolvedRemoveTags = [
+                        ...removeTagIds,
+                        ...(removeTagNames?.length ? await existingTagIds(tx, removeTagNames) : []),
+                    ];
+                    const allRows: Awaited<ReturnType<typeof updateTasks>> = [];
+                    const touchedAccesses: (ListAccess | null)[] = [destAccess];
+                    let resetNoteTaskId: string | undefined;
+
+                    for (const group of groups) {
+                        touchedAccesses.push(group.access);
+                        const ownerId = group.access?.ownerId ?? userId;
+                        const guest = ownerId !== userId;
+                        const { reminderAt, ...nonReminderFields } = fields;
+                        const hasSharedChanges =
+                            Object.keys(nonReminderFields).length > 0 ||
+                            checkInAt !== undefined ||
+                            hideUntil !== undefined ||
+                            fixed !== undefined ||
+                            note !== undefined ||
+                            Boolean(appendNote);
+                        if (guest && !hasSharedChanges && reminderAt !== undefined) {
+                            for (const id of group.ids) {
+                                await upsertPersonalReminder(tx, userId, id, { reminderAt });
+                            }
+                            if (resolvedAddTags.length || resolvedRemoveTags.length) {
+                                await updateTasks(tx, ownerId, {
+                                    taskIds: group.ids,
+                                    patch: {},
+                                    addTagIds: resolvedAddTags,
+                                    removeTagIds: resolvedRemoveTags,
+                                    tagOwnerId: userId,
+                                });
+                            }
+                            const rows = await tx.select().from(tasks).where(inArray(tasks.id, group.ids));
+                            allRows.push(...rows);
+                            continue;
+                        }
+                        requireEdit(group.access);
+                        if (guest && fields.projectId !== undefined && fields.projectId !== group.access?.listId) {
+                            throw new AppError(
+                                403,
+                                "OWNER_ONLY",
+                                "Only the owner of this list can move its tasks to another list.",
+                            );
+                        }
+                        // Moving caller-owned tasks into someone else's shared list.
+                        if (!guest && destAccess && destAccess.ownerId !== userId) {
+                            await assertListRoom(tx, destAccess.listId);
+                            for (const id of group.ids) {
+                                const moved = await moveTaskToSharedList(
+                                    tx,
+                                    id,
+                                    destAccess.listId,
+                                    fields.sectionId ?? null,
+                                );
+                                if (!moved) throw new AppError(404, "NOT_FOUND", "Task or list not found");
+                            }
+                            const { projectId: _p, sectionId: _s, ...remaining } = nonReminderFields;
+                            const rows = await updateTasks(tx, destAccess.ownerId, {
+                                taskIds: group.ids,
+                                patch: {
+                                    ...remaining,
+                                    ...(checkInAt !== undefined && { waitingReminder: checkInAt }),
+                                    ...(hideUntil !== undefined && { notBefore: hideUntil }),
+                                    ...(fixed !== undefined && {
+                                        interactionMode: fixed ? ("timetable" as const) : ("task" as const),
+                                    }),
+                                },
+                                addTagIds: resolvedAddTags,
+                                removeTagIds: resolvedRemoveTags,
+                                tagOwnerId: userId,
+                            });
+                            if (reminderAt !== undefined) {
+                                for (const id of group.ids) {
+                                    await upsertPersonalReminder(tx, userId, id, { reminderAt });
+                                }
+                            }
+                            allRows.push(...rows);
+                            continue;
+                        }
+                        if (!guest && destAccess && destAccess.audience.length > 1) {
+                            await assertListRoom(tx, destAccess.listId);
+                            for (const id of group.ids) await dropTaskLearningRows(tx, userId, id);
+                        }
+                        const rows = await updateTasks(tx, ownerId, {
+                            taskIds: group.ids,
+                            patch: {
+                                ...(guest ? nonReminderFields : fields),
+                                ...(checkInAt !== undefined && { waitingReminder: checkInAt }),
+                                ...(hideUntil !== undefined && { notBefore: hideUntil }),
+                                ...(fixed !== undefined && {
+                                    interactionMode: fixed ? ("timetable" as const) : ("task" as const),
+                                }),
+                            },
+                            addTagIds: resolvedAddTags,
+                            removeTagIds: resolvedRemoveTags,
+                            tagOwnerId: userId,
+                        });
+                        if (guest && reminderAt !== undefined) {
+                            for (const id of group.ids) {
+                                await upsertPersonalReminder(tx, userId, id, { reminderAt });
+                            }
+                        }
+                        allRows.push(...rows);
+                    }
+                    if (note !== undefined || appendNote) {
+                        const firstOwner = destAccess?.ownerId ?? groups[0]?.access?.ownerId ?? userId;
+                        await changeNote(tx, firstOwner, taskIds[0], { note, appendNote, noteVersion }, noteLimit);
+                        const isSharedNote = touchedAccesses.some((a) => a && a.audience.length > 1);
+                        if (isSharedNote) resetNoteTaskId = taskIds[0];
+                    }
+                    const changes = hasTaskTemporalMutation(fields) ? { rescheduled: allRows } : undefined;
+                    const sharedAccesses = touchedAccesses.filter((a) => a && a.audience.length > 1);
+                    const liveChanges: LiveChange[] = sharedAccesses.length
+                        ? (await withTagIds(tx, allRows)).map((task) => ({ type: "task" as const, task }))
+                        : [];
                     return {
-                        result: { updated: rows.length, ...(checked.ignored && { ignored: checked.ignored }) },
+                        result: { updated: allRows.length, ...(checked.ignored && { ignored: checked.ignored }) },
                         id: taskIds[0],
                         changes,
+                        resetNoteTaskId,
+                        ...(sharedAccesses.length > 0 && {
+                            live: { audience: audienceOfAccesses(sharedAccesses), changes: liveChanges },
+                        }),
                     };
                 });
                 // A new title or list: the old guess was cleared, so score the new one.
@@ -752,15 +985,25 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 ),
             execute: async ({ taskIds, to, beforeTaskId, afterTaskId }, { toolCallId }) =>
                 write("reorder_tasks", toolCallId, async (tx) => {
-                    await assertNotShared(tx, { taskIds: [...taskIds, beforeTaskId, afterTaskId] });
+                    const groups = await tasksByOwner(tx, userId, taskIds);
+                    for (const group of groups) requireEdit(group.access);
+                    const ownerId = groups[0]?.access?.ownerId ?? userId;
+                    const placed = await reorderTasks(
+                        tx,
+                        ownerId,
+                        taskIds,
+                        to ? { to } : beforeTaskId ? { beforeTaskId } : { afterTaskId: afterTaskId! },
+                    );
+                    const sharedAccesses = groups.map((g) => g.access).filter((a) => a && a.audience.length > 1);
                     return {
-                        result: await reorderTasks(
-                            tx,
-                            userId,
-                            taskIds,
-                            to ? { to } : beforeTaskId ? { beforeTaskId } : { afterTaskId: afterTaskId! },
-                        ),
+                        result: placed,
                         id: taskIds[0],
+                        ...(sharedAccesses.length > 0 && {
+                            live: {
+                                audience: audienceOfAccesses(sharedAccesses),
+                                changes: sharedAccesses.map((a) => ({ type: "list" as const, listId: a!.listId })),
+                            },
+                        }),
                     };
                 }),
         }),
@@ -772,10 +1015,21 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             inputSchema: subtaskEditSchema,
             execute: async (input, { toolCallId }) =>
                 write("edit_subtasks", toolCallId, async (tx) => {
-                    await assertNotShared(tx, { taskIds: [input.taskId] });
+                    await assertTasksNotStale(tx, [input.taskId], ctx);
+                    const access = await taskAccess(tx, userId, input.taskId);
+                    requireEdit(access);
+                    const ownerId = access?.ownerId ?? userId;
+                    const res = await editSubtasks(tx, ownerId, input);
                     return {
-                        result: await editSubtasks(tx, userId, input),
+                        result: res,
                         id: input.taskId,
+                        ...(access &&
+                            access.audience.length > 1 && {
+                                live: {
+                                    audience: audienceOfAccesses([access]),
+                                    changes: [{ type: "list", listId: access.listId }],
+                                },
+                            }),
                     };
                 }),
         }),
@@ -796,15 +1050,21 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         "With WAITING: when to check again, local time with its UTC offset (2026-09-22T14:00:00-04:00), never Z.",
                     ),
                 sameTitleOk: z.boolean().optional().describe("The user said which of the same-titled tasks they mean."),
+                expectedUpdatedAt: z.iso
+                    .datetime({ offset: true })
+                    .optional()
+                    .describe("For shared tasks: the updatedAt seen on the last read, to catch concurrent edits."),
             }),
             execute: async (input, { toolCallId }) =>
                 write<{ updated: number; tasks?: object[]; sameTitle?: object[]; note?: string }>(
                     "set_task_state",
                     toolCallId,
                     async (tx) => {
-                        const { taskIds, state, waitingOn, checkInAt, sameTitleOk } = input;
-                        await assertNotShared(tx, { taskIds });
+                        const { taskIds, state, waitingOn, checkInAt, sameTitleOk, expectedUpdatedAt } = input;
+                        await assertTasksNotStale(tx, taskIds, ctx, expectedUpdatedAt);
                         const before = await tasksBefore(tx, taskIds);
+                        const groups = await tasksByOwner(tx, userId, taskIds);
+                        for (const group of groups) requireEdit(group.access);
                         // A tapped card is the user's own pick; otherwise a same-titled twin means the model may have guessed.
                         const tapped =
                             !ctx.approvalMode ||
@@ -824,15 +1084,34 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                                 id: taskIds[0],
                             };
                         }
-                        const rows = await setTaskState(tx, userId, taskIds, state, waitingOn, checkInAt);
-                        const changes = state === "COMPLETE" ? { completed: rows.map((row) => row.id) } : undefined;
+                        const allRows = [];
+                        for (const group of groups) {
+                            allRows.push(
+                                ...(await setTaskState(
+                                    tx,
+                                    group.access?.ownerId ?? userId,
+                                    group.ids,
+                                    state,
+                                    waitingOn,
+                                    checkInAt,
+                                )),
+                            );
+                        }
+                        const changes = state === "COMPLETE" ? { completed: allRows.map((row) => row.id) } : undefined;
+                        const sharedAccesses = groups.map((g) => g.access).filter((a) => a && a.audience.length > 1);
+                        const liveChanges: LiveChange[] = sharedAccesses.length
+                            ? (await withTagIds(tx, allRows)).map((task) => ({ type: "task" as const, task }))
+                            : [];
                         return {
                             result: {
-                                updated: rows.length,
+                                updated: allRows.length,
                                 tasks: before.map(({ id, title, state: was }) => ({ id, title, was })),
                             },
                             id: taskIds[0],
                             changes,
+                            ...(sharedAccesses.length > 0 && {
+                                live: { audience: audienceOfAccesses(sharedAccesses), changes: liveChanges },
+                            }),
                         };
                     },
                 ),
@@ -847,14 +1126,35 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     .array(z.object({ taskId: z.uuid(), title: z.string().max(500) }))
                     .min(1)
                     .max(20),
+                expectedUpdatedAt: z.iso
+                    .datetime({ offset: true })
+                    .optional()
+                    .describe("For shared tasks: the updatedAt seen on the last read, to catch concurrent edits."),
             }),
-            execute: async ({ tasks: targets }, { toolCallId }) =>
+            execute: async ({ tasks: targets, expectedUpdatedAt }, { toolCallId }) =>
                 write("delete_tasks", toolCallId, async (tx) => {
                     const taskIds = targets.map((target) => target.taskId);
-                    await assertNotShared(tx, { taskIds });
+                    await assertTasksNotStale(tx, taskIds, ctx, expectedUpdatedAt);
                     await tasksBefore(tx, taskIds); // an unknown id fails, never a silent "deleted: 0"
-                    const rows = await deleteTasks(tx, userId, taskIds);
-                    return { result: { deleted: rows.length }, id: targets[0].taskId };
+                    const groups = await tasksByOwner(tx, userId, taskIds);
+                    for (const group of groups) requireEdit(group.access);
+                    let deleted = 0;
+                    const gone: LiveChange[] = [];
+                    for (const group of groups) {
+                        const rows = await deleteTasks(tx, group.access?.ownerId ?? userId, group.ids);
+                        deleted += rows.length;
+                        if (group.access && group.access.audience.length > 1) {
+                            for (const row of rows) gone.push({ type: "task.gone", id: row.id });
+                        }
+                    }
+                    const sharedAccesses = groups.map((g) => g.access).filter((a) => a && a.audience.length > 1);
+                    return {
+                        result: { deleted },
+                        id: targets[0].taskId,
+                        ...(sharedAccesses.length > 0 && {
+                            live: { audience: audienceOfAccesses(sharedAccesses), changes: gone },
+                        }),
+                    };
                 }),
         }),
 
@@ -865,21 +1165,42 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             inputSchema: z.object({
                 taskIds: batchTaskIdsSchema,
                 targetDate: z.iso.date().describe("The new local day."),
+                expectedUpdatedAt: z.iso
+                    .datetime({ offset: true })
+                    .optional()
+                    .describe("For shared tasks: the updatedAt seen on the last read, to catch concurrent edits."),
             }),
-            execute: async ({ taskIds, targetDate }, { toolCallId }) =>
+            execute: async ({ taskIds, targetDate, expectedUpdatedAt }, { toolCallId }) =>
                 write("reschedule_tasks", toolCallId, async (tx) => {
-                    await assertNotShared(tx, { taskIds });
+                    await assertTasksNotStale(tx, taskIds, ctx, expectedUpdatedAt);
                     const before = await tasksBefore(tx, taskIds);
-                    const rows = await rescheduleTasks(tx, userId, { taskIds, date: targetDate });
-                    const moved = new Set(rows.map((row) => row.id));
+                    const groups = await tasksByOwner(tx, userId, taskIds);
+                    for (const group of groups) requireEdit(group.access);
+                    const allRows = [];
+                    for (const group of groups) {
+                        allRows.push(
+                            ...(await rescheduleTasks(tx, group.access?.ownerId ?? userId, {
+                                taskIds: group.ids,
+                                date: targetDate,
+                            })),
+                        );
+                    }
+                    const moved = new Set(allRows.map((row) => row.id));
                     // The day each left, so "undo that" can put each one back where it was.
                     const left = before
                         .filter((row) => moved.has(row.id))
                         .map(({ id, title, day }) => ({ id, title, from: day }));
+                    const sharedAccesses = groups.map((g) => g.access).filter((a) => a && a.audience.length > 1);
+                    const liveChanges: LiveChange[] = sharedAccesses.length
+                        ? (await withTagIds(tx, allRows)).map((task) => ({ type: "task" as const, task }))
+                        : [];
                     return {
-                        result: { moved: rows.length, tasks: left },
+                        result: { moved: allRows.length, tasks: left },
                         id: taskIds[0],
-                        changes: { rescheduled: rows },
+                        changes: { rescheduled: allRows },
+                        ...(sharedAccesses.length > 0 && {
+                            live: { audience: audienceOfAccesses(sharedAccesses), changes: liveChanges },
+                        }),
                     };
                 }),
         }),
@@ -899,7 +1220,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 scheduledStart: tasks.scheduledStart,
             })
             .from(tasks)
-            .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds)));
+            .where(inArray(tasks.id, taskIds));
         const missing = new Set(taskIds).size - rows.length;
         if (missing)
             throw new AppError(
@@ -931,7 +1252,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             .from(tasks)
             .where(
                 and(
-                    eq(tasks.userId, userId),
+                    or(eq(tasks.userId, userId), inArray(tasks.projectId, memberView)),
                     inArray(tasks.state, ["ACTIVE", "WAITING"]),
                     ne(tasks.interactionMode, "timetable"),
                     inArray(sql`lower(${tasks.title})`, titles),

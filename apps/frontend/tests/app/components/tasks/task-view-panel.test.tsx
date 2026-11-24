@@ -74,11 +74,10 @@ describe("a task in a list you can only view", () => {
         expect(screen.queryByRole("button", { name: /Subtasks/ })).toBeNull();
     });
 
-    it("opens the note and the steps to read", async () => {
+    it("opens a note that exists on its own, and the steps to read", async () => {
         state.note = { loaded: true, body: "Window seats please" };
         state.subtasks = [{ id: "a", title: "Compare fares", isComplete: true }];
         render(<TaskViewPanel task={task} onClose={() => {}} />);
-        fireEvent.click(screen.getByRole("button", { name: /Notes.*3 words/ }));
         expect(await screen.findByText("note body")).toBeTruthy();
         fireEvent.click(screen.getByRole("button", { name: /Subtasks.*1\/1 complete/ }));
         expect(screen.getByText("Compare fares")).toBeTruthy();

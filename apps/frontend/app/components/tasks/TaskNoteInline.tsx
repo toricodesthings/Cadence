@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { Editor } from "@tiptap/core";
 import { ExternalLink, ListChecks } from "lucide-react";
 import { useTaskNote } from "../../hooks/tasks/use-task-note";
+import { useCollabNote } from "../../hooks/tasks/use-collab-note";
+import { useTaskAccess } from "../../hooks/sharing/use-list-access";
 import { useNoteRoomStore } from "../../stores/note-room-store";
 import { extractActionableLines } from "../../lib/notes/markdown-transforms";
 import { getNoteScopeLabel, isSeriesScopedNote } from "../../lib/notes/recurring-note-scope";
@@ -13,7 +15,7 @@ import { NoteEditor } from "./note/NoteEditor";
 import { NoteToolbar } from "./note/NoteToolbar";
 import { NoteLinkPopover } from "./note/NoteLinkPopover";
 import { NoteSourceEditor } from "./note/NoteSourceEditor";
-import { NoteStatus } from "./note/NoteStatus";
+import { CollabNoteStatus, NoteStatus } from "./note/NoteStatus";
 import { NoteConvertSheet } from "./note/NoteConvertSheet";
 import { copyNote } from "./note/note-export";
 
@@ -25,13 +27,18 @@ export function TaskNoteInline({
     taskId,
     onOpenRoom,
     readOnly = false,
+    present = true,
 }: {
     taskId: string;
     onOpenRoom?: () => void;
     /** A list you can only view: the note reads and cannot be changed. */
     readOnly?: boolean;
+    /** False while the note is folded away: connected, but not shown to others as "here". */
+    present?: boolean;
 }) {
-    const { task, session, state, status, isLoading, loadFailed } = useTaskNote(taskId);
+    const { task, noteOwnerTask, session, state, status, isLoading, loadFailed } = useTaskNote(taskId);
+    const { isShared } = useTaskAccess(task ?? undefined);
+    const { collab, collabUser, collabStatus, peers } = useCollabNote(noteOwnerTask?.id, isShared, present);
     const openRoom = useNoteRoomStore((s) => s.open);
     const [editor, setEditor] = useState<Editor | null>(null);
     const [focused, setFocused] = useState(false);
@@ -90,8 +97,10 @@ export function TaskNoteInline({
                             />
                         ) : (
                             <NoteEditor
-                                key={session.branch}
+                                key={collab ? `collab:${collab.taskId}` : session.branch}
                                 session={session}
+                                collab={collab}
+                                collabUser={collabUser}
                                 viewId="inline"
                                 variant="inline"
                                 editable={!readOnly}
@@ -104,16 +113,25 @@ export function TaskNoteInline({
                         )}
                         {/* Save state sits in the note's own corner instead of a row of its own. */}
                         <div className="pointer-events-none absolute bottom-1 right-2 flex items-center gap-3 [&_button]:pointer-events-auto">
-                            <NoteStatus
-                                status={status}
-                                onAct={(s) =>
-                                    s === "save-failed"
-                                        ? copyNote(body)
-                                        : s === "review" && task
-                                          ? (onOpenRoom?.(), openRoom(task.id, task.title))
-                                          : void session.flush()
-                                }
-                            />
+                            {collab ? (
+                                <CollabNoteStatus
+                                    status={collabStatus}
+                                    peers={peers}
+                                    self={collabUser}
+                                    projectId={task?.projectId}
+                                />
+                            ) : (
+                                <NoteStatus
+                                    status={status}
+                                    onAct={(s) =>
+                                        s === "save-failed"
+                                            ? copyNote(body)
+                                            : s === "review" && task
+                                              ? (onOpenRoom?.(), openRoom(task.id, task.title))
+                                              : void session.flush()
+                                    }
+                                />
+                            )}
                             {/* The counter only surfaces near the limit: no running tally to watch. */}
                             {near && (
                                 <span

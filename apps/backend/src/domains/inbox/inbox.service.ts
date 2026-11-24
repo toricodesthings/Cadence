@@ -5,10 +5,18 @@ import { validateTaskRecurrenceRule } from "@cadence/domain/task-recurrence";
 import { inboxItems, subtasks, tasks, taskTags } from "../../db/schema";
 import { checkIdempotency, insertWithClientId, recordMutation } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
+import { assertListRoom, listAccess, requireEdit, taskAccess, type ListAccess } from "../../platform/list-access";
 import { AppError, throwIfNotFound } from "../../platform/errors";
 import type { Tx } from "../../types/db";
 import { sourceSurfaceSchema } from "@cadence/contracts/task";
-import { effortProvenance, temporalColumns, toTask, withTagIds } from "../tasks/tasks.service";
+import {
+    effortProvenance,
+    overlayPersonalReminders,
+    temporalColumns,
+    toTask,
+    upsertPersonalReminder,
+    withTagIds,
+} from "../tasks/tasks.service";
 import { userZone } from "../../platform/user-zone";
 import type { Zone } from "@cadence/domain/time";
 import { loadNlpRuntime, inferTaskFieldsFromParse, persistNlpSnapshot } from "../tasks/task-nlp";
@@ -31,7 +39,7 @@ export async function processCapture(
     const { idempotencyKey } = extras;
     const existingId = await checkIdempotency(tx, userId, idempotencyKey);
     const replayed = existingId ? await findTask(tx, userId, existingId) : undefined;
-    if (replayed) return { task: replayed, alreadyProcessed: true };
+    if (replayed) return { task: replayed, broadcast: undefined, access: null, alreadyProcessed: true };
 
     const [item] = await tx
         .select()
@@ -41,7 +49,7 @@ export async function processCapture(
     throwIfNotFound(item, "Inbox item");
     // Already placed (double submit, second device): return that task, never a duplicate.
     const placed = item.processed && item.placedTaskId ? await findTask(tx, userId, item.placedTaskId) : undefined;
-    if (placed) return { task: placed, alreadyProcessed: true };
+    if (placed) return { task: placed, broadcast: undefined, access: null, alreadyProcessed: true };
 
     const zone = await userZone(tx, userId);
     const { parsed, inferred } = await inferPlacement(tx, userId, item, body, zone);
@@ -55,34 +63,61 @@ export async function processCapture(
 
     validateTaskRecurrenceRule(taskValues.recurrenceRule, taskValues.zone ?? zone);
 
-    await assertOwnership(tx, userId, {
+    const destAccess: ListAccess | null = taskValues.projectId
+        ? await listAccess(tx, userId, taskValues.projectId)
+        : null;
+    if (destAccess) {
+        requireEdit(destAccess);
+        await assertListRoom(tx, destAccess.listId);
+    }
+    const ownerId = destAccess?.ownerId ?? userId;
+    const guest = ownerId !== userId;
+    const isSharedDest = Boolean(destAccess && destAccess.audience.length > 1);
+
+    await assertOwnership(tx, ownerId, {
         // A section with no list can't match: reject it rather than drop it silently.
         projectId: taskValues.sectionId ? (taskValues.projectId ?? null) : taskValues.projectId,
         sectionId: taskValues.sectionId,
-        tagIds: taskTagIds,
     });
+    if (taskTagIds.length > 0) {
+        await assertOwnership(tx, userId, { tagIds: taskTagIds });
+    }
 
     // 1. Create the task atomically
-    await assertRowRoom(tx, userId, "tasks");
+    if (!guest) await assertRowRoom(tx, userId, "tasks");
+    const insertValues = {
+        ...taskValues,
+        userId: ownerId,
+        createdBy: userId,
+        ...(guest ? { reminderAt: null } : {}),
+    };
     const [task] = await insertWithClientId(() =>
         tx
             .insert(tasks)
-            .values(body.taskId ? { ...taskValues, id: body.taskId } : taskValues)
+            .values(body.taskId ? { ...insertValues, id: body.taskId } : insertValues)
             .returning(),
     );
+
+    if (guest && taskValues.reminderAt) {
+        await upsertPersonalReminder(tx, userId, task.id, { reminderAt: taskValues.reminderAt });
+    }
 
     if (taskTagIds.length > 0) {
         await tx.insert(taskTags).values(taskTagIds.map((tagId) => ({ taskId: task.id, tagId })));
     }
 
-    await persistNlpSnapshot(tx, parsed, task.id, userId);
+    if (!isSharedDest) {
+        await persistNlpSnapshot(tx, parsed, task.id, userId);
+    }
 
     if (extras.subtasks?.length) {
         await tx
             .insert(subtasks)
-            .values(extras.subtasks.map((title, orderIndex) => ({ taskId: task.id, userId, title, orderIndex })));
+            .values(
+                extras.subtasks.map((title, orderIndex) => ({ taskId: task.id, userId: ownerId, title, orderIndex })),
+            );
     }
-    if (extras.note) await writeNote(tx, userId, task.id, extras.note, { expectedVersion: 0 });
+    if (extras.note) await writeNote(tx, ownerId, task.id, extras.note, { expectedVersion: 0 });
 
     // 2. Transition inbox item (never delete — preserves audit trail)
     await tx
@@ -107,7 +142,10 @@ export async function processCapture(
 
     await recordMutation(tx, userId, idempotencyKey, task.id);
 
-    return { task: toTask(task, taskTagIds), alreadyProcessed: false };
+    const broadcast = toTask(task, taskTagIds);
+    const [callerRow] = guest && taskValues.reminderAt ? await overlayPersonalReminders(tx, userId, [task]) : [task];
+    const callerTask = callerRow === task ? broadcast : toTask(callerRow, taskTagIds);
+    return { task: callerTask, broadcast, access: destAccess, alreadyProcessed: false };
 }
 
 /** The model's Effort score for the capture (placement's batched E3) becomes the task's guess, never its Effort. */
@@ -180,13 +218,8 @@ function captureTaskValues(
 }
 
 async function findTask(tx: Tx, userId: string, taskId: string) {
-    const [task] = await withTagIds(
-        tx,
-        await tx
-            .select()
-            .from(tasks)
-            .where(and(eq(tasks.id, taskId), eq(tasks.userId, userId))),
-    );
+    const rows = await tx.select().from(tasks).where(eq(tasks.id, taskId));
+    const [task] = await withTagIds(tx, await overlayPersonalReminders(tx, userId, rows));
     return task;
 }
 
@@ -257,10 +290,13 @@ export async function unprocessCapture(tx: Tx, userId: string, id: string) {
         .for("update");
     throwIfNotFound(capture, "Inbox item");
     if (capture.placedTaskId) {
+        const access = await taskAccess(tx, userId, capture.placedTaskId);
+        if (access) requireEdit(access);
+        const ownerId = access?.ownerId ?? userId;
         await tx
             .update(tasks)
             .set({ state: "ARCHIVED", updatedAt: sql`NOW()` })
-            .where(and(eq(tasks.id, capture.placedTaskId), eq(tasks.userId, userId)));
+            .where(and(eq(tasks.id, capture.placedTaskId), eq(tasks.userId, ownerId)));
     }
     const [restored] = await tx
         .update(inboxItems)

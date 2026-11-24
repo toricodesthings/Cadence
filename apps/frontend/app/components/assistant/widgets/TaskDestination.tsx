@@ -1,10 +1,10 @@
 import { Columns3, FolderOpen } from "lucide-react";
-import { useOwnProjects } from "../../../hooks/projects/use-own-projects";
+import { useEditableProjects } from "../../../hooks/projects/use-own-projects";
 import { useSections } from "../../../hooks/sections/use-sections";
 import { MetaPill } from "./ProposalCard";
 
 function ListPill({ id }: { id: string }) {
-    const { data, isPending } = useOwnProjects();
+    const { data, isPending } = useEditableProjects();
     return (
         <MetaPill icon={FolderOpen}>
             {data?.find((p) => p.id === id)?.name ?? (isPending ? "Loading list…" : "List unavailable")}

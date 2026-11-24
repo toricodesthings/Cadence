@@ -33,6 +33,8 @@ import { accountRoutes } from "./domains/account/account.route";
 import { meRoutes } from "./domains/account/me.route";
 import { isMcpRequest, mcpOrigin, mcpProvider } from "./domains/mcp/oauth";
 import { LIVE_PATH, ORIGIN_HEADER, connectLive, replanAfterWrites } from "./domains/push/reminder-clock";
+import { PRESENCE_PATH_RE, connectPresence } from "./domains/sharing/list-presence";
+import { NOTE_COLLAB_PATH_RE, connectNoteCollab } from "./domains/notes/note-collab";
 
 const PRODUCTION_ORIGIN = "https://dashboard.cadenceapp.cloud";
 
@@ -214,6 +216,8 @@ import { handleMemoryBatch } from "./domains/ai/memory/memory-job";
 
 export { ReminderClock } from "./domains/push/reminder-clock";
 export { CodeModeHost } from "./domains/mcp/code-mode";
+export { ListPresence } from "./domains/sharing/list-presence";
+export { NoteCollab } from "./domains/notes/note-collab";
 // The runtime facet class must be on ctx.exports (no Vite plugin here).
 export { CodemodeRuntime } from "@cloudflare/codemode";
 
@@ -226,8 +230,14 @@ export default {
         // Clients that show a connector by its domain's favicon get Cadence's.
         if (url.pathname === "/favicon.ico" && url.origin === mcpOrigin(env))
             return Response.redirect(`${appOrigin(env)}/favicon.ico`, 301);
-        if (!isMcpRequest(request, env))
-            return url.pathname === LIVE_PATH ? connectLive(request, env) : app.fetch(request, env, ctx);
+        if (!isMcpRequest(request, env)) {
+            if (url.pathname === LIVE_PATH) return connectLive(request, env);
+            const presenceMatch = PRESENCE_PATH_RE.exec(url.pathname);
+            if (presenceMatch) return connectPresence(request, env, presenceMatch[1]!);
+            const collabMatch = NOTE_COLLAB_PATH_RE.exec(url.pathname);
+            if (collabMatch) return connectNoteCollab(request, env, collabMatch[1]!);
+            return app.fetch(request, env, ctx);
+        }
         const ip = request.headers.get("cf-connecting-ip") || "unknown";
         // Registration (anyone, and each one writes KV) and /authorize get the tight door, per IP.
         // ponytail: per-IP only; key registration by client name too if one assistant's egress IP ever hits 30/min.

@@ -8,12 +8,15 @@ import { memberView } from "../../../db/schema/columns";
 import { withRls } from "../../../platform/rls";
 import { throwIfNotFound } from "../../../platform/errors";
 import { assertProjectOwnership } from "../../../platform/ownership";
+import { listAccess, requireEdit, requireOwner, type ListAccess } from "../../../platform/list-access";
+import type { LiveChange } from "@cadence/contracts/live";
+import { broadcastLive } from "../../push/reminder-clock";
 import type { Tx } from "../../../types/db";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
 import { safeExecute, once, MAX_LIST_LIMIT } from "./index";
 import { toMinimalProject } from "./projections";
-import { assertNotShared, sharedListPeople, sharedProjectMeta } from "./shared-guard";
+import { audienceOfAccesses, sharedListPeople, sharedProjectMeta } from "./shared-guard";
 import { createProject, deleteProject, updateProject } from "../../projects/projects.service";
 import { checkIdempotency } from "../../../platform/idempotency";
 import { createSectionSchema } from "@cadence/contracts/section";
@@ -25,20 +28,51 @@ const offsetSchema = z.number().int().min(0).max(2_147_483_647).optional();
 const sectionName = createSectionSchema.shape.name;
 const colorAccent = z.enum(ACCENT_COLORS);
 
-async function findSection(tx: Tx, userId: string, sectionId: string) {
+async function findSection(tx: Tx, sectionId: string) {
     const [row] = await tx
-        .select({ id: taskSections.id, name: taskSections.name, projectId: taskSections.projectId })
+        .select({
+            id: taskSections.id,
+            name: taskSections.name,
+            projectId: taskSections.projectId,
+            userId: taskSections.userId,
+        })
         .from(taskSections)
-        .where(and(eq(taskSections.id, sectionId), eq(taskSections.userId, userId)));
+        .where(eq(taskSections.id, sectionId));
     throwIfNotFound(row, "Section");
     return row;
 }
 
-export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => {
-    const runWrite = <T>(name: string, toolCallId: string, fn: (tx: Tx) => Promise<{ result: T; id: string }>) =>
-        safeExecute(name, userId, async () =>
-            withRls(getDbClient(env), userId, (tx) => once(tx, userId, toolCallId, () => fn(tx))),
-        );
+const listLive = (access: ListAccess | null) =>
+    access
+        ? {
+              live: {
+                  audience: audienceOfAccesses([access]),
+                  changes: [{ type: "list" as const, listId: access.listId }],
+              },
+          }
+        : {};
+
+export const projectTools = (env: Env, userId: string, ctx?: AgentContext) => {
+    const track = ctx?.waitUntil ?? (() => {});
+    const runWrite = <T>(
+        name: string,
+        toolCallId: string,
+        fn: (tx: Tx) => Promise<{ result: T; id: string; live?: { audience: string[]; changes: LiveChange[] } }>,
+    ) =>
+        safeExecute(name, userId, async () => {
+            let live: { audience: string[]; changes: LiveChange[] } | undefined;
+            const result = await withRls(getDbClient(env), userId, (tx) =>
+                once(tx, userId, toolCallId, async () => {
+                    const done = await fn(tx);
+                    live = done.live;
+                    return done;
+                }),
+            );
+            if (live && live.audience.length > 0 && !(result as { deduped?: boolean }).deduped) {
+                track(broadcastLive(env, userId, live.audience, live.changes));
+            }
+            return result;
+        });
 
     return {
         // ── R ──────────────────────────────────────────────────────────────────
@@ -258,18 +292,20 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => {
             }),
             execute: async ({ projectId, names }, { toolCallId }) =>
                 runWrite("create_sections", toolCallId, async (tx) => {
-                    await assertNotShared(tx, { projectIds: [projectId] });
-                    await assertProjectOwnership(tx, userId, projectId);
+                    const access = await listAccess(tx, userId, projectId);
+                    requireEdit(access);
+                    const ownerId = access.ownerId;
+                    await assertProjectOwnership(tx, ownerId, projectId);
                     const [{ last }] = await tx
                         .select({ last: max(taskSections.orderIndex) })
                         .from(taskSections)
-                        .where(and(eq(taskSections.userId, userId), eq(taskSections.projectId, projectId)));
+                        .where(and(eq(taskSections.userId, ownerId), eq(taskSections.projectId, projectId)));
                     const start = (last ?? -1) + 1;
                     const rows = await tx
                         .insert(taskSections)
-                        .values(names.map((name, i) => ({ userId, projectId, name, orderIndex: start + i })))
+                        .values(names.map((name, i) => ({ userId: ownerId, projectId, name, orderIndex: start + i })))
                         .returning({ sectionId: taskSections.id, name: taskSections.name });
-                    return { result: { sections: rows }, id: rows[0].sectionId };
+                    return { result: { sections: rows }, id: rows[0].sectionId, ...listLive(access) };
                 }),
         }),
 
@@ -288,9 +324,10 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => {
             }),
             execute: async ({ projectId, patch }, { toolCallId }) =>
                 runWrite("update_project", toolCallId, async (tx) => {
-                    await assertNotShared(tx, { projectIds: [projectId] });
+                    const access = await listAccess(tx, userId, projectId);
+                    requireOwner(access);
                     const row = await updateProject(tx, userId, projectId, patch);
-                    return { result: toMinimalProject(row), id: row.id };
+                    return { result: toMinimalProject(row), id: row.id, ...listLive(access) };
                 }),
         }),
 
@@ -311,13 +348,15 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => {
                 .refine((v) => v.name !== undefined || v.position !== undefined, "Send a name or a position"),
             execute: async ({ sectionId, name, position }, { toolCallId }) =>
                 runWrite("update_section", toolCallId, async (tx) => {
-                    await assertNotShared(tx, { sectionIds: [sectionId] });
-                    const section = await findSection(tx, userId, sectionId);
+                    const section = await findSection(tx, sectionId);
+                    const access = section.projectId ? await listAccess(tx, userId, section.projectId) : null;
+                    requireEdit(access);
+                    const ownerId = access?.ownerId ?? section.userId;
                     if (name !== undefined) {
                         await tx
                             .update(taskSections)
                             .set({ name })
-                            .where(and(eq(taskSections.id, sectionId), eq(taskSections.userId, userId)));
+                            .where(and(eq(taskSections.id, sectionId), eq(taskSections.userId, ownerId)));
                     }
                     if (position !== undefined) {
                         // Renumber the list's sections 0..n with this one at its new place.
@@ -326,7 +365,7 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => {
                             .from(taskSections)
                             .where(
                                 and(
-                                    eq(taskSections.userId, userId),
+                                    eq(taskSections.userId, ownerId),
                                     section.projectId
                                         ? eq(taskSections.projectId, section.projectId)
                                         : isNull(taskSections.projectId),
@@ -339,10 +378,14 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => {
                             await tx
                                 .update(taskSections)
                                 .set({ orderIndex })
-                                .where(and(eq(taskSections.id, id), eq(taskSections.userId, userId)));
+                                .where(and(eq(taskSections.id, id), eq(taskSections.userId, ownerId)));
                         }
                     }
-                    return { result: { sectionId, name: name ?? section.name, position }, id: sectionId };
+                    return {
+                        result: { sectionId, name: name ?? section.name, position },
+                        id: sectionId,
+                        ...listLive(access),
+                    };
                 }),
         }),
 
@@ -358,11 +401,16 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => {
             }),
             execute: async ({ projectId, tasks: fate }, { toolCallId }) =>
                 runWrite("delete_project", toolCallId, async (tx) => {
-                    await assertNotShared(tx, { projectIds: [projectId] });
+                    const access = await listAccess(tx, userId, projectId);
+                    requireOwner(access);
                     const { project, tasksTrashed, tasksUnlisted } = await deleteProject(tx, userId, projectId, {
                         trashOpenTasks: fate === "trash",
                     });
-                    return { result: { deleted: project.name, tasksUnlisted, tasksTrashed }, id: userId };
+                    return {
+                        result: { deleted: project.name, tasksUnlisted, tasksTrashed },
+                        id: userId,
+                        ...listLive(access),
+                    };
                 }),
         }),
 
@@ -372,17 +420,23 @@ export const projectTools = (env: Env, userId: string, _ctx?: AgentContext) => {
             inputSchema: z.object({ sectionId: z.uuid() }),
             execute: async ({ sectionId }, { toolCallId }) =>
                 runWrite("delete_section", toolCallId, async (tx) => {
-                    await assertNotShared(tx, { sectionIds: [sectionId] });
-                    const section = await findSection(tx, userId, sectionId);
+                    const section = await findSection(tx, sectionId);
+                    const access = section.projectId ? await listAccess(tx, userId, section.projectId) : null;
+                    requireOwner(access);
+                    const ownerId = access?.ownerId ?? section.userId;
                     const [{ tasksUnsectioned }] = await tx
                         .select({ tasksUnsectioned: count() })
                         .from(tasks)
-                        .where(and(eq(tasks.userId, userId), eq(tasks.sectionId, sectionId)));
+                        .where(and(eq(tasks.userId, ownerId), eq(tasks.sectionId, sectionId)));
                     // The foreign key sets each task's section to null.
                     await tx
                         .delete(taskSections)
-                        .where(and(eq(taskSections.id, sectionId), eq(taskSections.userId, userId)));
-                    return { result: { deleted: section.name, tasksUnsectioned }, id: sectionId };
+                        .where(and(eq(taskSections.id, sectionId), eq(taskSections.userId, ownerId)));
+                    return {
+                        result: { deleted: section.name, tasksUnsectioned },
+                        id: sectionId,
+                        ...listLive(access),
+                    };
                 }),
         }),
     };

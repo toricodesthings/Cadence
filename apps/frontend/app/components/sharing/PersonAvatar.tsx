@@ -74,7 +74,7 @@ export function PersonAvatar({
                 </button>
             }
         >
-            <ProfileCard person={person} userId={userId ?? project.userId} former={former} />
+            <ProfileCard person={person} userId={userId ?? project.userId} projectId={project.id} former={former} />
         </PickerSurface>
     );
 }

@@ -24,6 +24,7 @@ import { UtilitySheet } from "../shared/UtilitySheet";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useListPeople } from "../../hooks/sharing/use-list-people";
+import { useListPresence } from "../../hooks/sharing/use-list-presence";
 import {
     useCreateInvite,
     useLeaveList,
@@ -36,7 +37,7 @@ import {
 import { toastName } from "../../lib/utils/undo-toast";
 import { SPRINGS } from "../../lib/constants/motion";
 import { AvatarFace } from "./PersonAvatar";
-import { ROLE_ICON, ROLE_LABEL, tagOf } from "./ProfileCard";
+import { ProfileCard, ROLE_ICON, ROLE_LABEL, tagOf } from "./ProfileCard";
 
 const ROLES: { role: ShareRole; label: string; icon: typeof Eye }[] = [
     { role: "view", label: ROLE_LABEL.view, icon: Eye },
@@ -202,19 +203,47 @@ function RolePill({ role, mine }: { role: ListPerson["role"]; mine: boolean }) {
     );
 }
 
-function PersonRow({ project, person, isYou }: { project: Project; person: ListPerson; isYou: boolean }) {
+function PersonRow({
+    project,
+    person,
+    isYou,
+    online,
+    onInspect,
+}: {
+    project: Project;
+    person: ListPerson;
+    isYou: boolean;
+    online: boolean;
+    onInspect: (person: ListPerson) => void;
+}) {
     const controls = project.access === "owner" && person.role !== "owner";
-    const detail = [tagOf(person.userId), person.pronouns].filter(Boolean).join(" · ");
+    const detail = [tagOf(person.userId), person.pronouns, online ? "Here now" : null].filter(Boolean).join(" · ");
+    const name = person.name ?? "Cadence user";
     return (
         <li className="flex min-h-14 items-center gap-3 rounded-2xl px-2.5 py-2">
-            <AvatarFace person={person} size={32} />
-            <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-twilight-text">
-                    {person.name ?? "Cadence user"}
-                    {isYou && <span className="font-normal text-twilight-text-soft"> (you)</span>}
-                </p>
-                <p className="truncate text-xs text-twilight-text-soft">{detail}</p>
-            </div>
+            <button
+                type="button"
+                onClick={() => onInspect(person)}
+                aria-label={`${name}, view profile`}
+                className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-xl text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-primary)]"
+            >
+                <span className="relative inline-flex shrink-0">
+                    <AvatarFace person={person} size={32} />
+                    {online && (
+                        <span
+                            aria-hidden="true"
+                            className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-feedback-success ring-2 ring-twilight-surface"
+                        />
+                    )}
+                </span>
+                <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-twilight-text">
+                        {name}
+                        {isYou && <span className="font-normal text-twilight-text-soft"> (you)</span>}
+                    </p>
+                    <p className="truncate text-xs text-twilight-text-soft">{detail}</p>
+                </div>
+            </button>
             {controls ? (
                 <RoleMenu project={project} person={person} />
             ) : (
@@ -239,9 +268,12 @@ export function ShareListPanel({
 }) {
     const owner = project.access === "owner";
     const shared = (project.members?.length ?? 0) > 0;
+    const { isPhone, isTouch } = useShellMode();
     const { session } = useAuthState();
     const me = session?.user;
     const { data: fetched } = useListPeople(project);
+    const onlineIds = useListPresence(project.id, shared);
+    const [viewing, setViewing] = useState<ListPerson | null>(null);
     const createInvite = useCreateInvite();
     // The link's role is chosen before copying; most links are for viewing.
     const [linkRole, setLinkRole] = useState<ShareRole>("view");
@@ -268,6 +300,8 @@ export function ShareListPanel({
                             project={project}
                             person={person}
                             isYou={person.userId === me?.id}
+                            online={onlineIds.has(person.userId)}
+                            onInspect={setViewing}
                         />
                     ))}
                 </ul>
@@ -276,6 +310,37 @@ export function ShareListPanel({
                     Loading people…
                 </p>
             )}
+            {viewing &&
+                (isPhone && isTouch ? (
+                    <UtilitySheet
+                        open={Boolean(viewing)}
+                        onClose={() => setViewing(null)}
+                        title={viewing.name ?? "Profile"}
+                        fit
+                    >
+                        <ProfileCard
+                            person={viewing}
+                            userId={viewing.userId}
+                            projectId={project.id}
+                            online={onlineIds.has(viewing.userId)}
+                        />
+                    </UtilitySheet>
+                ) : (
+                    <Dialog.Dialog open={Boolean(viewing)} onOpenChange={(open) => !open && setViewing(null)}>
+                        <Dialog.DialogContent className="max-w-sm overflow-hidden p-0">
+                            <Dialog.DialogTitle className="sr-only">{viewing.name ?? "Profile"}</Dialog.DialogTitle>
+                            <Dialog.DialogDescription className="sr-only">
+                                Profile details for {viewing.name ?? "this member"}.
+                            </Dialog.DialogDescription>
+                            <ProfileCard
+                                person={viewing}
+                                userId={viewing.userId}
+                                projectId={project.id}
+                                online={onlineIds.has(viewing.userId)}
+                            />
+                        </Dialog.DialogContent>
+                    </Dialog.Dialog>
+                ))}
 
             {owner && (
                 <div className="flex flex-col gap-1.5 rounded-[22px] surface-item p-1.5">

@@ -9,7 +9,7 @@ import { useParams, useNavigate } from "react-router";
 import { useProjects } from "../hooks/projects/use-projects";
 import { useDeleteProject } from "../hooks/projects/use-delete-project";
 import { useListAccess } from "../hooks/sharing/use-list-access";
-import { ShareHeader, ViewOnlyBadge } from "../components/sharing/ShareHeader";
+import { ShareHeader } from "../components/sharing/ShareHeader";
 import { ShareListDialog } from "../components/sharing/ShareListDialog";
 import { ConfirmDanger } from "../components/shared/ConfirmDanger";
 import { useLeaveList } from "../hooks/sharing/use-share-list";
@@ -307,15 +307,7 @@ export default function ProjectView() {
                 }
                 pageTitle={project?.name ?? "List"}
                 shellHeader={{
-                    title:
-                        project && access.isShared && !access.canEdit ? (
-                            <span className="inline-flex min-w-0 items-center gap-2.5">
-                                <span className="truncate">{project.name}</span>
-                                <ViewOnlyBadge />
-                            </span>
-                        ) : (
-                            (project?.name ?? "List")
-                        ),
+                    title: project?.name ?? "List",
                     icon: project?.emoji ? (
                         <span className="text-xl leading-none">{project.emoji}</span>
                     ) : (

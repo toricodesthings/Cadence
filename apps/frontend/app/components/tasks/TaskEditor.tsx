@@ -27,7 +27,8 @@ import { useEffortGuess } from "../../hooks/tasks/use-effort-guess";
 import { EffortSuggestionRow } from "./TaskWeightFields";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
 import { useArchiveTask } from "../../hooks/tasks/use-archive-task";
-import { useOwnProjects } from "../../hooks/projects/use-own-projects";
+import { useEditableProjects } from "../../hooks/projects/use-own-projects";
+import { useMoveToSharedGuard } from "../sharing/MoveToSharedConfirm";
 import { useTaskAccess } from "../../hooks/sharing/use-list-access";
 import { usePersonInList } from "../../hooks/sharing/use-list-people";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
@@ -770,13 +771,13 @@ function WeightGroup({ task }: { task: Task }) {
 
 /** Its list and section, tags, and pin. */
 function OrganizeGroup({ task }: { task: Task }) {
-    // Tags and the list a task is in belong to its owner; a collaborator works in place.
-    const { isOwner } = useTaskAccess(task);
-    const { data: projects } = useOwnProjects();
+    const { isOwner, isShared } = useTaskAccess(task);
+    const { data: projects } = useEditableProjects();
     const { data: sections = [] } = useSections(task.projectId);
     const updateTask = useUpdateTask();
     const addTagAssoc = useAddTaskTag();
     const removeTagAssoc = useRemoveTaskTag();
+    const { guard: guardSharedMove, dialog: sharedMoveDialog } = useMoveToSharedGuard("task");
 
     const handlePinToggle = () => {
         updateTask.mutate({ id: task.id, isPinned: !task.isPinned });
@@ -784,12 +785,19 @@ function OrganizeGroup({ task }: { task: Task }) {
 
     return (
         <DetailGroup title="Organize">
+            {sharedMoveDialog}
             {isOwner ? (
                 <FieldRow icon={FolderOpen} label="List">
                     <ValueSelect
                         label="List"
                         value={task.projectId ?? ""}
-                        onChange={(id) => updateTask.mutate({ id: task.id, projectId: id || null, sectionId: null })}
+                        onChange={(id) => {
+                            const nextId = id || null;
+                            const dest = projects?.find((p) => p.id === nextId);
+                            guardSharedMove(dest, isShared, () =>
+                                updateTask.mutate({ id: task.id, projectId: nextId, sectionId: null }),
+                            );
+                        }}
                         options={[
                             { value: "", label: "None" },
                             ...(projects ?? []).map((p) => ({ value: p.id, label: p.name })),

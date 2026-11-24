@@ -222,7 +222,7 @@ export function IconRail({
                 <button
                     onClick={onSearchOpen}
                     aria-label="Search"
-                    className="btn-icon rounded-2xl text-twilight-text-muted hover:text-twilight-text-soft hover:bg-white/[0.04] outline-none"
+                    className="btn-icon rounded-2xl text-twilight-text-muted hover:text-accent-primary hover:bg-accent-primary-dim outline-none"
                 >
                     <Search size={18} aria-hidden="true" />
                 </button>
@@ -248,7 +248,7 @@ export function IconRail({
                 <button
                     onClick={() => navigate("?settings=account")}
                     aria-label="Settings"
-                    className="btn-icon rounded-2xl text-twilight-text-muted hover:text-twilight-text-soft hover:bg-white/[0.04] outline-none"
+                    className="btn-icon rounded-2xl text-twilight-text-muted hover:text-accent-primary hover:bg-accent-primary-dim outline-none"
                 >
                     <Settings size={18} aria-hidden="true" />
                 </button>
@@ -310,22 +310,30 @@ export function IconRail({
 
                         <div className="p-1">
                             <DropdownMenu.Item
-                                className="flex items-center gap-3 px-3 py-2.5 text-[15px] rounded-lg hover:bg-white/5 cursor-pointer outline-none transition-colors"
+                                className="group flex items-center gap-3 px-3 py-2.5 text-[15px] rounded-lg hover:bg-white/5 cursor-pointer outline-none transition-colors"
                                 onSelect={() => navigate("?settings=account")}
                             >
-                                <Settings size={16} className="text-twilight-text-muted" aria-hidden="true" />
+                                <Settings
+                                    size={16}
+                                    className="text-twilight-text-muted group-data-[highlighted]:text-accent-primary"
+                                    aria-hidden="true"
+                                />
                                 <span>Preferences</span>
                             </DropdownMenu.Item>
                             {PROFILE_SUPPORT_LINKS.map(({ to, href, settingsTab, icon: Icon, label }) => (
                                 <DropdownMenu.Item
                                     key={to ?? href ?? settingsTab}
-                                    className="flex items-center gap-3 px-3 py-2.5 text-[15px] rounded-lg hover:bg-white/5 cursor-pointer outline-none transition-colors"
+                                    className="group flex items-center gap-3 px-3 py-2.5 text-[15px] rounded-lg hover:bg-white/5 cursor-pointer outline-none transition-colors"
                                     onSelect={() => {
                                         if (href) void openExternalUrl(href);
                                         else navigate(settingsTab ? `?settings=${settingsTab}` : to!);
                                     }}
                                 >
-                                    <Icon size={16} className="text-twilight-text-muted" aria-hidden="true" />
+                                    <Icon
+                                        size={16}
+                                        className="text-twilight-text-muted group-data-[highlighted]:text-accent-primary"
+                                        aria-hidden="true"
+                                    />
                                     <span>{label}</span>
                                 </DropdownMenu.Item>
                             ))}
@@ -378,7 +386,7 @@ function SyncButton() {
                 onClick={() => void sync()}
                 disabled={isSyncing}
                 aria-label="Sync workspace"
-                className="btn-icon rounded-2xl text-twilight-text-muted hover:text-twilight-text-soft hover:bg-white/[0.04] disabled:opacity-50 outline-none"
+                className="btn-icon rounded-2xl text-twilight-text-muted hover:text-accent-primary hover:bg-accent-primary-dim disabled:opacity-50 outline-none"
             >
                 <RefreshCw size={18} className={isSyncing ? "sync-spin" : ""} aria-hidden="true" />
             </button>

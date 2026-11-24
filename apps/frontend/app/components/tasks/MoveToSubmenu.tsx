@@ -1,9 +1,10 @@
 import React from "react";
-import { ChevronRight, FolderOpen } from "lucide-react";
+import { ChevronRight, FolderOpen, Users } from "lucide-react";
 import type { Project } from "@cadence/contracts/project";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 import type { GenericMenu } from "../primitives/menu-styles";
-import { useOwnProjects } from "../../hooks/projects/use-own-projects";
+import { useEditableProjects } from "../../hooks/projects/use-own-projects";
+import { isSharedList } from "../../hooks/sharing/use-list-access";
 import { useSections } from "../../hooks/sections/use-sections";
 
 const CURRENT = "bg-white/[0.04] text-accent-primary";
@@ -28,16 +29,22 @@ function ListRow({
 }: { Menu: GenericMenu; project: Project } & Omit<MoveToSubmenuProps, "MenuComponents" | "hideNoList">) {
     const { data: sections = [] } = useSections(project.id);
     const here = currentProjectId === project.id;
+    const shared = isSharedList(project);
     if (sections.length === 0)
         return (
-            <Menu.Item onSelect={() => onSelect(project.id, null)} className={here ? CURRENT : ""}>
-                {project.name}
+            <Menu.Item
+                onSelect={() => onSelect(project.id, null)}
+                className={`flex items-center gap-2 ${here ? CURRENT : ""}`}
+            >
+                <span className="truncate">{project.name}</span>
+                {shared && <Users aria-hidden size={12} className="ml-auto shrink-0 text-twilight-text-muted" />}
             </Menu.Item>
         );
     return (
         <Menu.Sub>
             <Menu.SubTrigger className={`flex items-center gap-2 ${here ? CURRENT : ""}`}>
                 <span className="truncate">{project.name}</span>
+                {shared && <Users aria-hidden size={12} className="shrink-0 text-twilight-text-muted" />}
                 <ChevronRight aria-hidden size={14} className="ml-auto text-twilight-text-muted" />
             </Menu.SubTrigger>
             <Menu.Portal>
@@ -71,7 +78,7 @@ export const MoveToSubmenu: React.FC<MoveToSubmenuProps> = ({
     hideNoList = false,
     MenuComponents: Menu = DropdownMenu,
 }) => {
-    const { data: projects = [] } = useOwnProjects();
+    const { data: projects = [] } = useEditableProjects();
 
     return (
         <Menu.Sub>

@@ -1,8 +1,8 @@
-import { Calendar, FolderOpen, Tag } from "lucide-react";
+import { FolderOpen, Tag } from "lucide-react";
 import * as Popover from "../primitives/Popover";
-import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
+import { DeadlineTrigger, QUICK_CHIP, quickChipTone } from "./DeadlineTrigger";
 import type { ScheduleUpdates } from "./QuickScheduleSurface";
-import { useOwnProjects } from "../../hooks/projects/use-own-projects";
+import { useEditableProjects } from "../../hooks/projects/use-own-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { resolveQuickAddActions } from "../../lib/utils/quick-add-parser";
 import type { Instant, LocalDate } from "@cadence/domain/time";
@@ -38,11 +38,6 @@ const PRIORITY_CHOICES: Array<{ value: TaskPriority | null; label: string }> = [
     })),
 ];
 
-const TRIGGER = "inline-flex min-h-10 items-center gap-2 rounded-xl border px-3 text-xs font-medium transition-colors";
-const triggerTone = (active: unknown) =>
-    active
-        ? "border-accent-primary/20 bg-accent-primary/10 text-accent-primary"
-        : "border-twilight-border/35 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]";
 const choiceTone = (active: boolean) =>
     active ? "bg-accent-primary/12 text-accent-primary" : "text-twilight-text-soft hover:bg-white/[0.05]";
 
@@ -75,38 +70,6 @@ export function PickerChoice({
     );
 }
 
-type DateActionProps = Pick<
-    QuickAddActionTrayProps,
-    "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "recurrenceRule" | "onScheduleChange"
-> & { iconOnly: boolean };
-
-function DateAction({
-    dueDate,
-    endDate,
-    scheduledStart,
-    scheduledEnd,
-    recurrenceRule,
-    onScheduleChange,
-    iconOnly,
-}: DateActionProps) {
-    const scheduled = dueDate || scheduledStart;
-    return (
-        <DeadlinePickerPopover
-            dueDate={dueDate}
-            endDate={endDate}
-            scheduledStart={scheduledStart}
-            scheduledEnd={scheduledEnd}
-            recurrenceRule={recurrenceRule}
-            onChange={onScheduleChange}
-        >
-            <button type="button" className={`relative ${TRIGGER} ${triggerTone(scheduled)}`}>
-                <Calendar size={14} aria-hidden="true" />
-                {!iconOnly ? <span>{scheduled ? "Scheduled" : "Date"}</span> : null}
-            </button>
-        </DeadlinePickerPopover>
-    );
-}
-
 type PriorityActionProps = Pick<QuickAddActionTrayProps, "priority" | "onPriorityChange"> & { iconOnly: boolean };
 
 function PriorityAction({ priority, onPriorityChange, iconOnly }: PriorityActionProps) {
@@ -114,7 +77,7 @@ function PriorityAction({ priority, onPriorityChange, iconOnly }: PriorityAction
     return (
         <Popover.Root>
             <Popover.Trigger asChild>
-                <button type="button" className={`${TRIGGER} ${triggerTone(priority)}`}>
+                <button type="button" className={`${QUICK_CHIP} ${quickChipTone(priority)}`}>
                     <PriorityIcon size={14} aria-hidden="true" />
                     {!iconOnly ? <span>{priority ? `P${5 - priority}` : "Priority"}</span> : null}
                 </button>
@@ -140,12 +103,12 @@ function PriorityAction({ priority, onPriorityChange, iconOnly }: PriorityAction
 type ProjectActionProps = Pick<QuickAddActionTrayProps, "projectId" | "onProjectChange"> & { iconOnly: boolean };
 
 function ProjectAction({ projectId, onProjectChange, iconOnly }: ProjectActionProps) {
-    const { data: projects = [] } = useOwnProjects();
+    const { data: projects = [] } = useEditableProjects();
     const selectedProject = projectId ? projects.find((item) => item.id === projectId) : null;
     return (
         <Popover.Root>
             <Popover.Trigger asChild>
-                <button type="button" className={`${TRIGGER} ${triggerTone(selectedProject)}`}>
+                <button type="button" className={`${QUICK_CHIP} ${quickChipTone(selectedProject)}`}>
                     <FolderOpen size={14} aria-hidden="true" />
                     {!iconOnly ? <span>{selectedProject?.name ?? "List"}</span> : null}
                 </button>
@@ -182,7 +145,7 @@ function TagAction({ tagIds, onToggleTag, iconOnly }: TagActionProps) {
     return (
         <Popover.Root>
             <Popover.Trigger asChild>
-                <button type="button" className={`${TRIGGER} ${triggerTone(selectedCount)}`}>
+                <button type="button" className={`${QUICK_CHIP} ${quickChipTone(selectedCount)}`}>
                     <Tag size={14} aria-hidden="true" />
                     {!iconOnly ? <span>{tagCountLabel(selectedCount)}</span> : null}
                 </button>
@@ -224,7 +187,19 @@ export function QuickAddActionTray({
     }
 
     const actions: Record<QuickAddAction, React.ReactNode> = {
-        date: <DateAction {...fields} iconOnly={iconOnly} />,
+        date: (
+            <DeadlineTrigger
+                schedule={{
+                    dueDate: fields.dueDate,
+                    endDate: fields.endDate ?? null,
+                    scheduledStart: fields.scheduledStart,
+                    scheduledEnd: fields.scheduledEnd ?? null,
+                    recurrenceRule: fields.recurrenceRule,
+                }}
+                onChange={fields.onScheduleChange}
+                iconOnly={iconOnly}
+            />
+        ),
         priority: <PriorityAction {...fields} iconOnly={iconOnly} />,
         project: <ProjectAction {...fields} iconOnly={iconOnly} />,
         tag: <TagAction {...fields} iconOnly={iconOnly} />,

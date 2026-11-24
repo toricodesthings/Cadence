@@ -1,14 +1,13 @@
 import { useRef, useState } from "react";
 import { Plus, CalendarHeart } from "lucide-react";
 import { useCreateTask } from "../../hooks/tasks/use-create-task";
-import { useOwnProjects } from "../../hooks/projects/use-own-projects";
+import { useEditableProjects } from "../../hooks/projects/use-own-projects";
 import { useTags } from "../../hooks/tags/use-tags";
 import { computeNextOrderIndex } from "../../lib/utils/order-index";
 import { useSettings } from "../../hooks/core/use-settings";
 import { mapPriorityNameToNumber } from "../../lib/utils/task/task-defaults";
 import { buildTypedTaskInput } from "../../lib/utils/task/typed-task-input";
 import type { EffortLevel, Task, TaskPriority } from "@cadence/contracts/task";
-import { DeadlineTrigger } from "./DeadlineTrigger";
 import { isFloatingFocus } from "../../lib/utils/dom";
 import type { ScheduleUpdates } from "./QuickScheduleSurface";
 import { QuickAddActionTray } from "./QuickAddActionTray";
@@ -73,7 +72,7 @@ export function AddTaskInput({ projectId, sectionId, tasks, compact = false, pla
     const submitting = useRef(false);
 
     const createTask = useCreateTask();
-    const { data: projects = [] } = useOwnProjects();
+    const { data: projects = [] } = useEditableProjects();
     const { data: tags = [] } = useTags();
     const { data: userSettings } = useSettings();
     const taskDefaults = userSettings?.tasks;
@@ -165,7 +164,6 @@ export function AddTaskInput({ projectId, sectionId, tasks, compact = false, pla
 
     const previewDeadline = schedule(parsedInput);
     const hasDeadlineSet = Boolean(previewDeadline.dueDate || previewDeadline.scheduledStart);
-    const showScheduleTrigger = isFocused || hasDeadlineSet || value.trim().length > 0;
 
     return (
         <form
@@ -235,9 +233,6 @@ export function AddTaskInput({ projectId, sectionId, tasks, compact = false, pla
                 }}
             />
 
-            {showScheduleTrigger ? (
-                <DeadlineTrigger schedule={previewDeadline} onChange={setDeadline} compact={compact} />
-            ) : null}
             {isTrayOpen ||
             parsedInput.applied.length > 0 ||
             parsedInput.suggestions.length > 0 ||
@@ -248,7 +243,7 @@ export function AddTaskInput({ projectId, sectionId, tasks, compact = false, pla
                     <QuickAddActionTray
                         quickAddSettings={taskDefaults?.quickAdd}
                         projectLocked={Boolean(projectId)}
-                        excludeActions={["date", "priority"]}
+                        excludeActions={["priority"]}
                         dueDate={previewDeadline.dueDate}
                         scheduledStart={previewDeadline.scheduledStart}
                         endDate={previewDeadline.endDate}

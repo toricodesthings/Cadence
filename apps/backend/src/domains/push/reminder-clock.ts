@@ -416,6 +416,25 @@ async function tellPerson(env: Env, id: string, _writerId: string, origin: strin
     return pingLive(env, id, { origin, changes: shaped });
 }
 
+/**
+ * Fan out a committed write from outside a REST route (assistant tools, MCP) to the caller
+ * and every other member of affected shared lists, shaped per recipient.
+ */
+export async function broadcastLive(
+    env: Env,
+    callerId: string,
+    audience: string[],
+    changes: LiveChange[],
+    origin?: string,
+): Promise<void> {
+    const callerChanges = changes.length > 0 ? changes.map((change) => shapeFor(change, callerId)) : undefined;
+    const others = [...new Set(audience)].filter((id) => id !== callerId);
+    await Promise.all([
+        replanReminders(env, callerId, { origin, ...(callerChanges && { changes: callerChanges }) }),
+        ...others.map((id) => tellPerson(env, id, callerId, origin, changes)),
+    ]);
+}
+
 /** Shape changes for `recipientId` and attach only that recipient's own tag ids (via their RLS). */
 async function withRecipientTags(env: Env, recipientId: string, changes: LiveChange[]): Promise<LiveChange[]> {
     const base = changes.map((change) => shapeFor(change, recipientId));

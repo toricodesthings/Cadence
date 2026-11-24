@@ -141,6 +141,33 @@
     --input: var(--color-twilight-border-light);
     --ring: color-mix(in srgb, var(--accent-primary) 45%, transparent);
     --radius: 1rem;
+    /* 1 is a plain arc, 2 a full iOS squircle. One number to tune every corner. */
+    --corner-shape: superellipse(1.3);
+}
+
+/* Squircle corners (Chromium today; other engines keep round arcs). Pills and circles stay true: a superellipse
+   pinches them. Components never set corner-shape; pseudo-elements and rounded-[inherit] children follow their parent. */
+@supports (corner-shape: squircle) {
+    [class*="rounded-"]:not([class*="rounded-full"], [class*="rounded-none"], [class*="rounded-[inherit]"]),
+    [data-task-card],
+    [role="dialog"][data-state="open"],
+    .offline-banner__action,
+    .cadence-toast,
+    .capture-surface,
+    .mobile-icon-button,
+    .mobile-focus-options button,
+    .note-content code,
+    .note-content pre,
+    .note-content img,
+    .note-surface {
+        corner-shape: var(--corner-shape);
+    }
+
+    [class*="rounded-[inherit]"],
+    ::before,
+    ::after {
+        corner-shape: inherit;
+    }
 }
 
 /* === MOTION TOKENS === */
@@ -2681,6 +2708,8 @@ body:has(.layer-system-dialog, .layer-route-backdrop, .layer-room-sheet-backdrop
 
 button.surface-control:not(:disabled):hover {
     --control-tint: var(--control-tint-up);
+    /* A wash of the text colour, so hover shows over a dark room (lightens at night, darkens by day). */
+    box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--color-twilight-text) 6%, transparent);
 }
 
 .surface-control-accent:hover {
@@ -3901,6 +3930,30 @@ body:has([data-capture-selection]) .mobile-floating-action:not([data-capture-sel
 }
 .note-content .ProseMirror-gapcursor::after {
     border-top-color: var(--accent-primary);
+}
+/* Live collaborative carets for shared task notes (Yjs / Tiptap CollaborationCaret). */
+.note-content .collaboration-carets__caret {
+    position: relative;
+    margin-left: -1px;
+    margin-right: -1px;
+    border-left: 2px solid var(--accent-primary);
+    word-break: normal;
+    pointer-events: none;
+}
+.note-content .collaboration-carets__label {
+    position: absolute;
+    top: -1.35em;
+    left: -1px;
+    border-radius: 6px 6px 6px 0;
+    padding: 1px 6px;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.3;
+    color: var(--primary-foreground);
+    white-space: nowrap;
+    user-select: none;
+    pointer-events: none;
 }
 /* The writing surface lights softly when focused (the capture composer's treatment), with no ring round the page. */
 .note-surface {

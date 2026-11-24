@@ -95,6 +95,21 @@ const VALUE_TIME =
 const MENU_ITEM =
     "flex min-h-10 w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 text-left text-[13px] text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
+/** Icon tile + title + hint, same face as the panel's other rows. */
+function RowFace({ icon: Icon, title, hint }: { icon: React.ElementType; title: string; hint: string }) {
+    return (
+        <>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.04] text-twilight-text-muted">
+                <Icon size={16} aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-twilight-text">{title}</span>
+                <span className="block text-xs text-twilight-text-muted">{hint}</span>
+            </span>
+        </>
+    );
+}
+
 /** "Pause ▾": how long, from today. Sits beside Archive. */
 function PauseMenu({ onPause }: { onPause: (until: LocalDate) => void }) {
     const [open, setOpen] = useState(false);
@@ -105,10 +120,9 @@ function PauseMenu({ onPause }: { onPause: (until: LocalDate) => void }) {
     return (
         <Popover.Root open={open} onOpenChange={setOpen}>
             <Popover.Trigger asChild>
-                <Button variant="ghost" size="md">
-                    <Pause size={16} aria-hidden="true" />
-                    Pause
-                    <ChevronDown size={14} aria-hidden="true" className="opacity-60" />
+                <Button variant="ghost" size="none" type="button" className={`${PANEL_TRIGGER} font-normal`}>
+                    <RowFace icon={Pause} title="Pause" hint="Skip for a while, no catch-up." />
+                    <ChevronDown size={16} className="shrink-0 text-twilight-text-muted" aria-hidden="true" />
                 </Button>
             </Popover.Trigger>
             <Popover.Content align="end" side="top" className="w-60 p-1.5" aria-label="Pause for">
@@ -648,25 +662,40 @@ export function HabitEditor({
                 </Reveal>
 
                 {habit.archived ? (
-                    <Button variant="ghost" size="md" onClick={actions.toggleArchive}>
-                        <ArchiveRestore size={16} aria-hidden="true" />
-                        Restore routine
+                    <Button
+                        variant="ghost"
+                        size="none"
+                        type="button"
+                        onClick={actions.toggleArchive}
+                        className={`${PANEL_TRIGGER} font-normal`}
+                    >
+                        <RowFace icon={ArchiveRestore} title="Restore routine" hint="Bring it back to your routines." />
                     </Button>
                 ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                        <Button variant="ghost" size="md" onClick={actions.toggleArchive}>
-                            <Archive size={16} aria-hidden="true" />
-                            Archive
-                        </Button>
+                    <>
                         {actions.isPaused ? (
-                            <Button variant="ghost" size="md" onClick={actions.resume}>
-                                <Play size={16} aria-hidden="true" />
-                                Resume today
+                            <Button
+                                variant="ghost"
+                                size="none"
+                                type="button"
+                                onClick={actions.resume}
+                                className={`${PANEL_TRIGGER} font-normal`}
+                            >
+                                <RowFace icon={Play} title="Resume today" hint="Pick this routine back up." />
                             </Button>
                         ) : (
                             <PauseMenu onPause={actions.pause} />
                         )}
-                    </div>
+                        <Button
+                            variant="ghost"
+                            size="none"
+                            type="button"
+                            onClick={actions.toggleArchive}
+                            className={`${PANEL_TRIGGER} font-normal`}
+                        >
+                            <RowFace icon={Archive} title="Archive" hint="Hide it. Your history stays." />
+                        </Button>
+                    </>
                 )}
                 <Button
                     variant="ghost"

@@ -27,7 +27,7 @@ import { addDays, daysBetween, type Zone } from "@cadence/domain/time";
 import { validateTaskRecurrenceRule } from "@cadence/domain/task-recurrence";
 import { suggestInteractionMode } from "@cadence/domain/repeats";
 import { ORDER_INDEX_GAP } from "@cadence/domain/ordering";
-import { subtasks, taskPersonal, tasks, taskTags } from "../../db/schema";
+import { aiMemoryNotes, subtasks, taskMetrics, taskNlpMetadata, taskPersonal, tasks, taskTags } from "../../db/schema";
 import { AppError, assertNoConflict, sameVersion, throwIfNotFound } from "../../platform/errors";
 import { insertWithClientId } from "../../platform/idempotency";
 import { assertOwnership } from "../../platform/ownership";
@@ -336,9 +336,17 @@ export async function createTask(
  * Create drafted tasks with their checklist steps and notes, all in the caller's
  * transaction: one bad reference (another user's list, say) and none are created.
  */
-export async function createTasks(tx: Tx, userId: string, drafts: TaskDraft[]) {
-    const created: { taskId: string; title: string; subtaskIds: string[] }[] = [];
-    const zone = await userZone(tx, userId);
+export async function createTasks(
+    tx: Tx,
+    userId: string,
+    drafts: TaskDraft[],
+    actor?: { createdBy?: string; tagOwnerId?: string },
+) {
+    const created: { taskId: string; title: string; subtaskIds: string[]; row: TaskRow; tagIds: string[] }[] = [];
+    const createdBy = actor?.createdBy ?? userId;
+    const tagOwnerId = actor?.tagOwnerId ?? userId;
+    const guest = createdBy !== userId;
+    const zone = await userZone(tx, createdBy);
     for (const {
         subtasks: steps = [],
         fixed,
@@ -349,14 +357,17 @@ export async function createTasks(tx: Tx, userId: string, drafts: TaskDraft[]) {
         scheduledStart,
         scheduledEnd,
         notBefore,
+        reminderAt,
         ...draft
     } of drafts) {
-        const { row } = await createTask(
+        const { row, tagIds: linkedTags } = await createTask(
             tx,
             userId,
             {
                 ...draft,
+                createdBy,
                 orderIndex: 0,
+                ...(guest ? {} : { reminderAt }),
                 ...temporalColumns(
                     { dueDate, endDate, scheduledStart, scheduledEnd, ...(notBefore !== undefined && { notBefore }) },
                     zone,
@@ -364,7 +375,11 @@ export async function createTasks(tx: Tx, userId: string, drafts: TaskDraft[]) {
                 ...(fixed && { interactionMode: "timetable" as const }),
             },
             [...new Set(tagIds)],
+            tagOwnerId,
         );
+        if (guest && reminderAt) {
+            await upsertPersonalReminder(tx, createdBy, row.id, { reminderAt });
+        }
         const stepRows = steps.length
             ? await tx
                   .insert(subtasks)
@@ -372,7 +387,13 @@ export async function createTasks(tx: Tx, userId: string, drafts: TaskDraft[]) {
                   .returning({ id: subtasks.id })
             : [];
         if (note) await writeNote(tx, userId, row.id, note, { expectedVersion: 0 });
-        created.push({ taskId: row.id, title: row.title, subtaskIds: stepRows.map((step) => step.id) });
+        created.push({
+            taskId: row.id,
+            title: row.title,
+            subtaskIds: stepRows.map((step) => step.id),
+            row,
+            tagIds: linkedTags,
+        });
     }
     return created;
 }
@@ -576,6 +597,29 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
     return row;
 }
 
+/**
+ * Re-own a caller's task (plus its subtasks and note) into a shared list where the caller has edit access,
+ * preserving the caller's reminder in `task_personal` and dropping their personal learning rows.
+ */
+export async function moveTaskToSharedList(
+    tx: Tx,
+    taskId: string,
+    toListId: string,
+    toSectionId: string | null = null,
+): Promise<boolean> {
+    const [row] = await tx
+        .select({ ok: sql<boolean>`r.ok` })
+        .from(sql`cadence_move_task_to_list(${taskId}::uuid, ${toListId}::uuid, ${toSectionId}::uuid) AS r(ok)`);
+    return Boolean(row?.ok);
+}
+
+/** Drop a user's personal learning rows on a task (used when moving an unshared task into a shared list). */
+export async function dropTaskLearningRows(tx: Tx, userId: string, taskId: string): Promise<void> {
+    await tx.delete(taskMetrics).where(and(eq(taskMetrics.userId, userId), eq(taskMetrics.taskId, taskId)));
+    await tx.delete(taskNlpMetadata).where(and(eq(taskNlpMetadata.userId, userId), eq(taskNlpMetadata.taskId, taskId)));
+    await tx.delete(aiMemoryNotes).where(and(eq(aiMemoryNotes.userId, userId), eq(aiMemoryNotes.taskId, taskId)));
+}
+
 /** The same patch and tag changes on several tasks. Any missing task fails the whole batch (404). */
 export async function updateTasks(
     tx: Tx,
@@ -585,9 +629,10 @@ export async function updateTasks(
         patch,
         addTagIds = [],
         removeTagIds = [],
-    }: { taskIds: string[]; patch: TaskPatch; addTagIds?: string[]; removeTagIds?: string[] },
+        tagOwnerId = userId,
+    }: { taskIds: string[]; patch: TaskPatch; addTagIds?: string[]; removeTagIds?: string[]; tagOwnerId?: string },
 ) {
-    await assertOwnership(tx, userId, { tagIds: addTagIds });
+    if (addTagIds.length) await assertOwnership(tx, tagOwnerId, { tagIds: addTagIds });
     // Issued together: postgres.js pipelines them on the transaction's connection, so the
     // batch costs a couple of round trips instead of two per task.
     const rows = await Promise.all(taskIds.map((id) => updateTask(tx, userId, id, patch)));

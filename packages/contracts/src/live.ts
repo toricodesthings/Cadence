@@ -19,3 +19,9 @@ export const liveMessageSchema = z.object({
     changes: z.array(liveChangeSchema).max(LIVE_MAX_CHANGES).optional(),
 });
 export type LiveMessage = z.infer<typeof liveMessageSchema>;
+
+export const presenceMessageSchema = z.object({
+    type: z.literal("presence"),
+    userIds: z.array(z.uuid()),
+});
+export type PresenceMessage = z.infer<typeof presenceMessageSchema>;

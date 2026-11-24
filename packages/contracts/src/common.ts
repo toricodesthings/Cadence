@@ -90,6 +90,7 @@ export const ERROR_CODES = [
     "SHARE_LIMIT",
     "TAKE_SELF_ONLY",
     "SHARED_READ_ONLY",
+    "STALE_WRITE",
     // Push
     "PUSH_UNAVAILABLE",
     // Server

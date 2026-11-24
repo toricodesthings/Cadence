@@ -7,6 +7,8 @@ import { useEditorState } from "@tiptap/react";
 import { toast } from "sonner";
 import { useNoteRoomStore } from "../../stores/note-room-store";
 import { useTaskNote } from "../../hooks/tasks/use-task-note";
+import { useCollabNote } from "../../hooks/tasks/use-collab-note";
+import { useTaskAccess } from "../../hooks/sharing/use-list-access";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useKeyboardInset } from "../../hooks/ui/use-keyboard-inset";
 import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
@@ -31,7 +33,7 @@ import { cn } from "../../lib/utils";
 import { NoteEditor } from "./note/NoteEditor";
 import { NoteToolbar, ToolButton } from "./note/NoteToolbar";
 import { NoteMoreMenu } from "./note/NoteMoreMenu";
-import { NoteStatus } from "./note/NoteStatus";
+import { CollabNoteStatus, NoteStatus } from "./note/NoteStatus";
 import { NoteFindBar } from "./note/NoteFindBar";
 import { NoteOutline } from "./note/NoteOutline";
 import { NoteSourceEditor } from "./note/NoteSourceEditor";
@@ -71,7 +73,9 @@ export function TaskNoteRoom() {
 }
 
 function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTitle: string; onClose: () => void }) {
-    const { task, session, state, status, isLoading, loadFailed } = useTaskNote(taskId);
+    const { task, noteOwnerTask, session, state, status, isLoading, loadFailed } = useTaskNote(taskId);
+    const { isShared } = useTaskAccess(task ?? undefined);
+    const { collab, collabUser, collabStatus, peers } = useCollabNote(noteOwnerTask?.id, isShared);
     const shell = useShellMode();
     const phone = shell.isPhone;
     const fade = useReducedMotionSetting() ? 0 : 0.15;
@@ -385,8 +389,10 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
             />
         ) : (
             <NoteEditor
-                key={session.branch}
+                key={collab ? `collab:${collab.taskId}` : session.branch}
                 session={session}
+                collab={collab}
+                collabUser={collabUser}
                 viewId="room"
                 variant="room"
                 placeholder="Start writing…"
@@ -540,7 +546,17 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
                                 </AnimatePresence>
                             </div>
                             <div className="flex min-w-0 flex-1 justify-center">
-                                {!editing && <NoteStatus status={status} onAct={onStatusAct} />}
+                                {!editing &&
+                                    (collab ? (
+                                        <CollabNoteStatus
+                                            status={collabStatus}
+                                            peers={peers}
+                                            self={collabUser}
+                                            projectId={task?.projectId}
+                                        />
+                                    ) : (
+                                        <NoteStatus status={status} onAct={onStatusAct} />
+                                    ))}
                             </div>
                             <div className="flex shrink-0 items-center gap-1">
                                 {editing && (
@@ -683,7 +699,16 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
                                     Done
                                 </Button>
                             )}
-                            <NoteStatus status={status} onAct={onStatusAct} />
+                            {collab ? (
+                                <CollabNoteStatus
+                                    status={collabStatus}
+                                    peers={peers}
+                                    self={collabUser}
+                                    projectId={task?.projectId}
+                                />
+                            ) : (
+                                <NoteStatus status={status} onAct={onStatusAct} />
+                            )}
                             <ToolButton
                                 label={shell.isDesktop ? (outlineRail ? "Hide outline" : "Show outline") : "Outline"}
                                 pressed={shell.isDesktop ? outlineRail : undefined}

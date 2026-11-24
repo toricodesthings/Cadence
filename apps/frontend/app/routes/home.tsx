@@ -16,6 +16,7 @@ import { HoldingFeed } from "../components/holding/HoldingFeed";
 import { ScrollAreaWrapper } from "../components/shared/ScrollAreaWrapper";
 import { EditSidePanelRail } from "../components/shared/EditSidePanelRail";
 import { Button } from "../components/primitives/Button";
+import { Tip } from "../components/primitives/Tooltip";
 import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPanel";
 import { HoldingPlannerPanel } from "../components/holding/HoldingPlannerPanel";
 import { PlaceDndProvider } from "../components/holding/PlaceSheet";
@@ -142,34 +143,41 @@ export default function HomeRoute() {
         } else toggleHoldingPanel();
     };
     const headerRight = shell.isWide ? (
-        <Button
-            variant="ghost"
-            size="icon"
-            type="button"
-            onClick={toggleRail}
-            className="btn-icon rounded-2xl"
-            aria-label={railShowsAssistant ? "Hide Cadence" : railOpen ? "Hide Place panel" : "Show Place panel"}
+        <Tip
+            label={railShowsAssistant ? "Hide Cadence" : railOpen ? "Hide Place panel" : "Show Place panel"}
+            side="bottom"
         >
-            {railOpen ? (
-                <PanelRightClose size={18} aria-hidden="true" />
-            ) : (
-                <PanelRightOpen size={18} aria-hidden="true" />
-            )}
-        </Button>
+            <Button
+                variant="ghost"
+                size="icon"
+                type="button"
+                onClick={toggleRail}
+                className="btn-icon rounded-2xl"
+                aria-label={railShowsAssistant ? "Hide Cadence" : railOpen ? "Hide Place panel" : "Show Place panel"}
+            >
+                {railOpen ? (
+                    <PanelRightClose size={18} aria-hidden="true" />
+                ) : (
+                    <PanelRightOpen size={18} aria-hidden="true" />
+                )}
+            </Button>
+        </Tip>
     ) : shell.isCompact ? null : (
-        <Button
-            variant="ghost"
-            size="icon"
-            type="button"
-            onClick={() => {
-                clearSelection();
-                setMobilePanelOpen(true);
-            }}
-            className={HEADER_ICON_BUTTON}
-            aria-label="Place"
-        >
-            <CalendarDays size={16} aria-hidden="true" />
-        </Button>
+        <Tip label="Place" side="bottom">
+            <Button
+                variant="ghost"
+                size="icon"
+                type="button"
+                onClick={() => {
+                    clearSelection();
+                    setMobilePanelOpen(true);
+                }}
+                className={HEADER_ICON_BUTTON}
+                aria-label="Place"
+            >
+                <CalendarDays size={16} aria-hidden="true" />
+            </Button>
+        </Tip>
     );
 
     const feed = tasksLoading ? (

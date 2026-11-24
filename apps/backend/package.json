@@ -53,8 +53,11 @@
         "drizzle-orm": "^0.45.4",
         "hono": "^4.13.19",
         "jose": "^6.2.18",
+        "partyserver": "^0.5.10",
         "postgres": "^4.1.1",
         "remove-markdown": "^0.8.0",
+        "y-partyserver": "^2.2.0",
+        "yjs": "^13.6.33",
         "zod": "^4.6.7"
     },
     "devDependencies": {

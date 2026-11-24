@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import type { NoteStatus as Status } from "../../../lib/notes/note-session";
+import type { CollabPeer, CollabStatus } from "../../../lib/notes/collab-session";
 import { cn } from "../../../lib/utils";
+import { PersonAvatar } from "../../sharing/PersonAvatar";
 
 const LABEL: Record<Status, string> = {
     loading: "",
@@ -89,5 +91,77 @@ export function NoteStatus({
                 {message}
             </span>
         </>
+    );
+}
+
+const MAX_FACES = 4;
+
+/**
+ * Who is in this note right now: your own face plus anyone else who has it open, each with the live dot and
+ * a tap-through to their profile. Quiet while connecting; a plain word only when offline.
+ */
+export function CollabNoteStatus({
+    status,
+    peers,
+    self,
+    projectId,
+    className,
+}: {
+    status: CollabStatus;
+    peers: CollabPeer[];
+    self: { id: string; name: string };
+    projectId: string | null | undefined;
+    className?: string;
+}) {
+    const others = [...new Map(peers.filter((p) => p.userId !== self.id).map((p) => [p.userId, p])).values()];
+    const ids = [self.id, ...others.map((p) => p.userId)];
+    const shown = ids.slice(0, MAX_FACES);
+    const extra = ids.length - shown.length;
+    const names = [self.name, ...others.map((p) => p.name)];
+    const label =
+        status === "offline"
+            ? "Offline"
+            : status === "connecting"
+              ? "Connecting…"
+              : others.length
+                ? `${names.slice(0, MAX_FACES).join(", ")} here`
+                : "Only you here";
+
+    return (
+        <span
+            role="status"
+            aria-live="polite"
+            className={cn("inline-flex min-h-11 items-center gap-2 whitespace-nowrap px-2 text-[13px]", className)}
+        >
+            <span className="sr-only">{label}</span>
+            {status === "connecting" ? (
+                <LoaderCircle
+                    size={14}
+                    className="text-twilight-text-muted motion-safe:animate-spin"
+                    aria-hidden="true"
+                />
+            ) : status === "offline" ? (
+                <span aria-hidden="true" className="text-[var(--offline-accent,var(--accent-primary))]">
+                    Offline
+                </span>
+            ) : (
+                <span className="flex items-center -space-x-1.5">
+                    {shown.map((id) => (
+                        <span key={id} className="pointer-events-auto relative inline-flex">
+                            <PersonAvatar projectId={projectId} userId={id} size={24} />
+                            <span
+                                aria-hidden="true"
+                                className="absolute -bottom-0.5 -right-0.5 size-2 rounded-full bg-feedback-success ring-2 ring-[var(--panel-raised,transparent)]"
+                            />
+                        </span>
+                    ))}
+                    {extra > 0 ? (
+                        <span aria-hidden="true" className="pl-2.5 text-twilight-text-muted">
+                            +{extra}
+                        </span>
+                    ) : null}
+                </span>
+            )}
+        </span>
     );
 }

@@ -28,6 +28,7 @@ import { apiValidator } from "../../platform/validation";
 import type { AuthVariables } from "../../platform/auth";
 import { appOrigin, type Env } from "../../types/env";
 import { replanReminders } from "../push/reminder-clock";
+import { evictFromPresence } from "./list-presence";
 import {
     createInvite,
     joinList,
@@ -168,10 +169,12 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         });
         noteAudience(c, access);
         noteChange(c, { type: "list", listId: id });
+        c.executionCtx.waitUntil(evictFromPresence(c.env, id, memberId));
         return c.json({ data: { success: true } });
     })
     .delete("/:id/members", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
         await ownerChange(c, id, (tx, userId, access) => stopSharing(tx, userId, access));
+        c.executionCtx.waitUntil(evictFromPresence(c.env, id));
         return c.json({ data: { success: true } });
     });

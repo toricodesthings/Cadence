@@ -22,6 +22,7 @@ import { useZoneSync } from "./hooks/core/use-zone-sync";
 import { useWakeRefresh } from "./hooks/core/use-wake-refresh";
 import { useLiveSync } from "./hooks/core/use-live-sync";
 import { useJoinAnnouncements } from "./hooks/sharing/use-join-announcements";
+import { SharedMoveConfirmHost } from "./components/sharing/MoveToSharedConfirm";
 import { SPRINGS } from "./lib/constants/motion";
 import { getWalSnapshot, initWal } from "./lib/api/offline-wal";
 import { startWalSync } from "./lib/api/mutation-executor";
@@ -458,7 +459,7 @@ function AccountSync() {
     useWakeRefresh();
     useLiveSync();
     useJoinAnnouncements();
-    return null;
+    return <SharedMoveConfirmHost />;
 }
 
 const REDUCED_MOTION = { reduced: "always", full: "never" } as const;

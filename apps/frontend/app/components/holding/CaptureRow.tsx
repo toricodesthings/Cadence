@@ -37,7 +37,8 @@ import { today } from "../../lib/utils/user-zone";
 import { ThoughtMark } from "../tasks/ThoughtMark";
 import { TagSignal } from "../tasks/TagSignal";
 import { useTags } from "../../hooks/tags/use-tags";
-import { useOwnProjects } from "../../hooks/projects/use-own-projects";
+import { useEditableProjects } from "../../hooks/projects/use-own-projects";
+import { useMoveToSharedGuard } from "../sharing/MoveToSharedConfirm";
 import { useSections } from "../../hooks/sections/use-sections";
 import { overridesOf, placementFor } from "../../lib/utils/task/suggested-placement";
 import { useAddTaskTag } from "../../hooks/tags/use-task-tags";
@@ -79,7 +80,7 @@ function rowSubject(item: InboxItem | undefined, task: Task | undefined) {
 function usePlacementChip(item: InboxItem | undefined, cueProjectId: string | null | undefined) {
     const placement = item ? placementFor(item, { cue: cueProjectId }) : null;
     const chip = item?.captureStatus !== "kept" && placement?.projectId !== cueProjectId ? placement : null;
-    const { data: lists = [] } = useOwnProjects();
+    const { data: lists = [] } = useEditableProjects();
     const { data: listSections = [] } = useSections(chip?.projectId);
     const listName = chip ? lists.find((list) => list.id === chip.projectId)?.name : undefined;
     const sectionName = chip?.sectionId
@@ -418,19 +419,23 @@ export function CaptureRow({
         complete,
         nlp: resolvedNlp(item!.rawText, "inbox", dateStyle, dismissedIds, overrides ?? {}),
     });
-    const { data: lists = [] } = useOwnProjects();
+    const { data: lists = [] } = useEditableProjects();
+    const { guard: guardSharedMove, dialog: sharedMoveDialog } = useMoveToSharedGuard(task ? "task" : "capture");
     /** A thought becomes a task with no day in that list; a task just changes list. Either way it leaves Capture. */
     const moveToList = (projectId: string | null, sectionId: string | null) => {
         if (disabled || !projectId) return;
-        if (!task) {
-            process.mutate({ ...capturePayload(undefined, false), projectId, sectionId });
-            return;
-        }
-        const was = { projectId: task.projectId, sectionId: task.sectionId ?? null };
-        // Toasted now, not on success: the row leaves the feed at once, and a per-call callback dies with it.
-        update.mutate({ id: task.id, projectId, sectionId });
-        toastUndo(toastName(task.title), () => update.mutate({ id: task.id, ...was }), {
-            description: `In ${lists.find((list) => list.id === projectId)?.name ?? "a list"}`,
+        const dest = lists.find((list) => list.id === projectId);
+        guardSharedMove(dest, false, () => {
+            if (!task) {
+                process.mutate({ ...capturePayload(undefined, false), projectId, sectionId });
+                return;
+            }
+            const was = { projectId: task.projectId, sectionId: task.sectionId ?? null };
+            // Toasted now, not on success: the row leaves the feed at once, and a per-call callback dies with it.
+            update.mutate({ id: task.id, projectId, sectionId });
+            toastUndo(toastName(task.title), () => update.mutate({ id: task.id, ...was }), {
+                description: `In ${dest?.name ?? "a list"}`,
+            });
         });
     };
     /** A task dragged back to New becomes a thought again; the task goes to Trash, so Undo (or Trash) restores it whole. */
@@ -690,6 +695,7 @@ export function CaptureRow({
                     )}
                 </article>
             </RowContextMenu>
+            {sharedMoveDialog}
         </PlaceDraggable>
     );
 }

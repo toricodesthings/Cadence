@@ -10,6 +10,7 @@ import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { apiValidator } from "../../platform/validation";
 import { writeNote } from "./notes.service";
+import { resetNoteCollab } from "./note-collab";
 import { AppError } from "../../platform/errors";
 import { checkIdempotency, getIdempotencyKey, recordMutation, storedResult } from "../../platform/idempotency";
 import { readMemoryState, scheduleLearn } from "../ai/memory/memory.service";
@@ -31,9 +32,11 @@ export const noteRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             // A retry under the same key replays the first answer (not whatever is latest now);
             // the same key with a different edit is a client bug.
             let learnsNotes = false;
+            let isShared = false;
             const result = await withCallerRls(c, async (tx, userId) => {
                 const access = await taskAccess(tx, userId, taskId);
                 requireEdit(access);
+                isShared = Boolean(access && access.audience.length > 1);
                 const ownerId = access?.ownerId ?? userId;
                 noteAudience(c, access);
                 if (key && (await checkIdempotency(tx, userId, key))) {
@@ -57,6 +60,7 @@ export const noteRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             });
             // Full learns from notes: the reading is queued for when this note goes quiet.
             if (learnsNotes) c.executionCtx.waitUntil(scheduleLearn(c.env, c.get("userId")));
+            if (isShared) c.executionCtx.waitUntil(resetNoteCollab(c.env, taskId));
 
             return c.json({ data: result });
         },

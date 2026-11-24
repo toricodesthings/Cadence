@@ -1,56 +1,15 @@
-import { inArray } from "drizzle-orm";
+import { and, inArray, sql } from "drizzle-orm";
 import type { ListPerson, ListRole } from "@cadence/contracts/sharing";
-import { listMembers, taskSections, tasks } from "../../../db/schema";
+import { listMembers, tasks } from "../../../db/schema";
 import { AppError } from "../../../platform/errors";
+import type { ListAccess } from "../../../platform/list-access";
 import { listPeople } from "../../sharing/sharing.service";
 import type { Tx } from "../../../types/db";
+import type { AgentContext } from "./index";
 
 const nonEmpty = (ids?: (string | null | undefined)[]): string[] => [
     ...new Set((ids ?? []).filter((id): id is string => Boolean(id))),
 ];
-
-/**
- * Assistant writes to shared lists (lists with at least one member) are refused in 2.3.0,
- * owner included. Unshared lists pass through unchanged.
- */
-export async function assertNotShared(
-    tx: Tx,
-    targets: {
-        taskIds?: (string | null | undefined)[];
-        projectIds?: (string | null | undefined)[];
-        sectionIds?: (string | null | undefined)[];
-    },
-): Promise<void> {
-    const listIds = new Set(nonEmpty(targets.projectIds));
-    const taskIds = nonEmpty(targets.taskIds);
-    const sectionIds = nonEmpty(targets.sectionIds);
-
-    if (taskIds.length) {
-        const rows = await tx.select({ projectId: tasks.projectId }).from(tasks).where(inArray(tasks.id, taskIds));
-        for (const row of rows) if (row.projectId) listIds.add(row.projectId);
-    }
-    if (sectionIds.length) {
-        const rows = await tx
-            .select({ projectId: taskSections.projectId })
-            .from(taskSections)
-            .where(inArray(taskSections.id, sectionIds));
-        for (const row of rows) if (row.projectId) listIds.add(row.projectId);
-    }
-    if (!listIds.size) return;
-
-    const shared = await tx
-        .select({ listId: listMembers.listId })
-        .from(listMembers)
-        .where(inArray(listMembers.listId, [...listIds]))
-        .limit(1);
-    if (shared.length > 0) {
-        throw new AppError(
-            403,
-            "SHARED_READ_ONLY",
-            "Changes to shared lists aren't available to the assistant yet. Open the list to change it.",
-        );
-    }
-}
 
 export type SharedPeopleMap = Map<string, ListPerson[]>;
 
@@ -104,4 +63,136 @@ export function sharedProjectMeta(
         role,
         people: people.map(({ name, role: personRole }) => ({ name, role: personRole })),
     };
+}
+
+/** Record the `updatedAt` timestamps of shared tasks read in this session so subsequent writes catch stale edits. */
+export function recordSeenSharedTasks(
+    ctx: AgentContext,
+    rows: { id: string; projectId: string | null; updatedAt?: Date | string | null }[],
+    peopleMap: SharedPeopleMap,
+): void {
+    for (const row of rows) {
+        if (!row.projectId || !peopleMap.has(row.projectId) || !row.updatedAt) continue;
+        if (!ctx.seenTaskUpdatedAt) ctx.seenTaskUpdatedAt = new Map();
+        const iso = typeof row.updatedAt === "string" ? row.updatedAt : row.updatedAt.toISOString();
+        ctx.seenTaskUpdatedAt.set(row.id, iso);
+    }
+}
+
+/**
+ * Stale-write guard for shared tasks: compares the stored `updated_at` against `expectedUpdatedAt`
+ * (or the timestamp seen on the last read in `ctx.seenTaskUpdatedAt`). If another person changed
+ * the task in the meantime, throws `409 STALE_WRITE` naming them so the assistant never overwrites blindly.
+ */
+export async function assertTasksNotStale(
+    tx: Tx,
+    taskIds: string[],
+    ctx: AgentContext,
+    explicitExpected?: string,
+): Promise<void> {
+    const checked = taskIds
+        .map((id) => ({ id, expected: explicitExpected ?? ctx.seenTaskUpdatedAt?.get(id) }))
+        .filter((entry): entry is { id: string; expected: string } => Boolean(entry.expected));
+    if (!checked.length) return;
+
+    const rows = await tx
+        .select({
+            id: tasks.id,
+            title: tasks.title,
+            projectId: tasks.projectId,
+            userId: tasks.userId,
+            updatedBy: tasks.updatedBy,
+            updatedAt: tasks.updatedAt,
+        })
+        .from(tasks)
+        .where(
+            inArray(
+                tasks.id,
+                checked.map((c) => c.id),
+            ),
+        );
+
+    const peopleMap = await sharedListPeople(
+        tx,
+        rows.map((r) => r.projectId),
+    );
+    if (!peopleMap.size) return;
+
+    const expectedById = new Map(checked.map((c) => [c.id, new Date(c.expected).getTime()]));
+    for (const row of rows) {
+        if (!row.projectId) continue;
+        const people = peopleMap.get(row.projectId);
+        if (!people) continue;
+        const expectedMs = expectedById.get(row.id);
+        if (expectedMs === undefined || Number.isNaN(expectedMs)) continue;
+        const actualMs = new Date(row.updatedAt).getTime();
+        // Truncate sub-millisecond drift from Postgres microsecond timestamps.
+        if (Math.floor(actualMs) > Math.floor(expectedMs)) {
+            const editor = people.find((p) => p.userId === (row.updatedBy ?? row.userId))?.name ?? "Someone";
+            throw new AppError(
+                409,
+                "STALE_WRITE",
+                `${editor} changed "${row.title}" a moment ago. Read it again before changing it.`,
+            );
+        }
+    }
+}
+
+/**
+ * Duplicate check for creates in shared lists: returns any open task in the same shared list
+ * (created by any member) that shares a title (case-insensitive) with one of the drafts.
+ */
+export async function sharedCreateDuplicates(
+    tx: Tx,
+    drafts: { title: string; projectId?: string | null }[],
+): Promise<{ id: string; title: string; projectId: string; createdBy?: string }[]> {
+    const projectIds = nonEmpty(drafts.map((d) => d.projectId));
+    if (!projectIds.length) return [];
+    const peopleMap = await sharedListPeople(tx, projectIds);
+    const sharedIds = [...peopleMap.keys()];
+    if (!sharedIds.length) return [];
+
+    const wantedPairs = new Set(
+        drafts
+            .filter((d) => d.projectId && peopleMap.has(d.projectId))
+            .map((d) => `${d.projectId}|${d.title.trim().toLowerCase()}`),
+    );
+    if (!wantedPairs.size) return [];
+
+    const titles = [...new Set(drafts.map((d) => d.title.trim().toLowerCase()))];
+    const existing = await tx
+        .select({
+            id: tasks.id,
+            title: tasks.title,
+            projectId: tasks.projectId,
+            userId: tasks.userId,
+            createdBy: tasks.createdBy,
+        })
+        .from(tasks)
+        .where(
+            and(
+                inArray(tasks.projectId, sharedIds),
+                inArray(tasks.state, ["ACTIVE", "WAITING"]),
+                inArray(sql`lower(${tasks.title})`, titles),
+            ),
+        )
+        .limit(20);
+
+    return existing
+        .filter((row) => row.projectId && wantedPairs.has(`${row.projectId}|${row.title.trim().toLowerCase()}`))
+        .map((row) => {
+            const people = peopleMap.get(row.projectId!) ?? [];
+            const creator = people.find((p) => p.userId === (row.createdBy ?? row.userId))?.name ?? undefined;
+            return { id: row.id, title: row.title, projectId: row.projectId!, ...(creator && { createdBy: creator }) };
+        });
+}
+
+/** Deduplicated audience userIds from a set of resolved list accesses. */
+export function audienceOfAccesses(accesses: (ListAccess | null | undefined)[]): string[] {
+    const out = new Set<string>();
+    for (const access of accesses) {
+        if (!access) continue;
+        for (const id of access.audience) out.add(id);
+    }
+    return [...out];
 }

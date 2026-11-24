@@ -27,7 +27,7 @@ import { toast } from "sonner";
 import { toastUndo } from "../../lib/utils/undo-toast";
 import { useUnprocessInbox } from "../../hooks/inbox/use-unprocess-inbox";
 import { overridesOf, placementFor } from "../../lib/utils/task/suggested-placement";
-import { useOwnProjects } from "../../hooks/projects/use-own-projects";
+import { useEditableProjects } from "../../hooks/projects/use-own-projects";
 import { Reveal } from "../shared/Reveal";
 import { EmptyState } from "../tasks/EmptyState";
 import { computeNlp, loadParse, TASK_FIELDS, useParseModule, type ParseFn } from "../../hooks/use-nlp-parse";
@@ -73,7 +73,7 @@ export function HoldingFeed({
     const [focusedId, setFocusedId] = useState<string | null>(null);
     const [busy, startBusy] = useTransition();
     const process = useProcessInboxToTask();
-    const { data: projects = [] } = useOwnProjects();
+    const { data: projects = [] } = useEditableProjects();
     const unprocess = useUnprocessInbox();
     const status = useCaptureActions();
     const updateTask = useUpdateTask();

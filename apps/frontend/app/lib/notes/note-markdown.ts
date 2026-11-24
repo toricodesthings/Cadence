@@ -11,10 +11,14 @@ import { TaskList, TaskItem } from "@tiptap/extension-list";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 
-export function noteExtensions(placeholder?: string): Extensions {
+export function noteExtensions(placeholder?: string, opts?: { collaborative?: boolean }): Extensions {
     return [
         // Underline has no Markdown form, so it isn't offered.
-        StarterKit.configure({ underline: false, link: { openOnClick: false, autolink: false } }),
+        StarterKit.configure({
+            underline: false,
+            link: { openOnClick: false, autolink: false },
+            ...(opts?.collaborative ? { undoRedo: false } : {}),
+        }),
         TaskList,
         TaskItem.configure({ nested: true }),
         Table,

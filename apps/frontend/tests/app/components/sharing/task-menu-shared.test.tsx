@@ -11,6 +11,9 @@ const state = vi.hoisted(() => ({
 vi.mock("../../../../app/hooks/auth/use-auth-state", () => ({
     useAuthState: () => ({ session: { user: { id: "me-1" } } }),
 }));
+vi.mock("../../../../app/hooks/projects/use-own-projects", () => ({
+    useEditableProjects: () => ({ data: [] }),
+}));
 vi.mock("../../../../app/hooks/sharing/use-list-access", () => ({ useTaskAccess: () => state.access }));
 vi.mock("../../../../app/hooks/sharing/use-list-people", () => ({
     usePersonInList: () => ({ person: state.person, former: state.former, loaded: true, project: { userId: "o" } }),
