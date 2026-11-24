@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [2.4.1] - 2026-11-24
+
 ### Changed
 
 - Capture merges into one empty state with a larger greeting and theme-adaptive weather sky when clear
