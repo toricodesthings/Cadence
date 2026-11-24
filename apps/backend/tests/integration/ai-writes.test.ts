@@ -557,6 +557,13 @@ describe("events and routine emoji", () => {
         expect(items[0]).toMatchObject({ emoji: null, notify: true, startedOn: null });
 
         expect((await call("save_event", { eventId, patch: { label: "x" } })).ok).toBe(false);
+        // Ids match exactly: a prefix of a real id finds nothing and changes nothing.
+        const prefixed = await call("save_event", { eventId: items[0].id.slice(0, 8), patch: { label: "x" } });
+        expect(prefixed.ok).toBe(false);
+        expect((await settings("GET", "")).body.data.calendar.personalEvents.items.map((e: any) => e.label)).toEqual([
+            "Anniversary",
+            "Dup",
+        ]);
         const other = await createUser();
         const otherTools = buildToolRegistry({} as never, other, {
             timezone: "UTC",

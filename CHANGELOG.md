@@ -6,6 +6,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Changed
+
+- Find a time in chat asks how long a task takes instead of assuming an hour
+
+### Fixed
+
+- Routine streaks now reset after a missed day even if you haven't checked in since
+- Connected assistants now find the right tools for plain requests
+- Your weekly classes and shifts now count toward how busy the assistant sees your week
+- Classes and shifts that repeat no longer show a made-up due date to connected assistants
+
 ## [2.3.0] - 2026-11-23
 
 A shared list now feels like your own: your reminders, your tags, and who's doing what.

@@ -103,11 +103,12 @@ export function projectHabitRange(
 
 /**
  * Deterministic streak recomputation from habit log history.
- * Walks backward from the most recent completed date; skipped days are neutral.
+ * Walks backward from today: only today is grace (still open); skipped days are neutral.
  */
 function recomputeStreaks(
     logs: Array<{ targetDate: string; status: string }>,
     occurrenceDates: string[],
+    today: string,
 ): { currentStreak: number; longestStreak: number; totalCompletions: number; totalSkips: number } {
     const logByDate = new Map<string, string>();
     let totalCompletions = 0;
@@ -120,7 +121,7 @@ function recomputeStreaks(
 
     // Sort occurrence dates descending for streak computation
     const sorted = [...occurrenceDates].sort((a, b) => b.localeCompare(a));
-    let currentStreak = 0;
+    let currentStreak: number | null = null;
     let longestStreak = 0;
     let streak = 0;
 
@@ -129,15 +130,17 @@ function recomputeStreaks(
         if (status === "COMPLETED") {
             streak++;
         } else if (status !== "SKIPPED") {
+            if (date >= today) continue; // today (or later) is still open
+
             // a skip is a planned rest: it neither extends nor breaks a run
             if (streak > longestStreak) longestStreak = streak;
             // Current streak is only from the most recent unbroken run
-            if (currentStreak === 0) currentStreak = streak;
+            currentStreak ??= streak;
             streak = 0;
         }
     }
     if (streak > longestStreak) longestStreak = streak;
-    if (currentStreak === 0) currentStreak = streak;
+    currentStreak ??= streak;
 
     return { currentStreak, longestStreak, totalCompletions, totalSkips };
 }
@@ -166,22 +169,19 @@ async function loadResolvedOccurrenceDates(
 
 type ResolvedStatus = "COMPLETED" | "SKIPPED";
 
-const STREAK_LEADING_LIMIT = 60;
+const STREAK_BATCH = 60;
 
 /** Mutable accumulator threaded across occurrence windows by {@link scanStreak}. */
-type StreakScanState = { streak: number; runStarted: boolean; leadingGap: number };
+type StreakScanState = { streak: number; runStarted: boolean };
 
 /**
  * Pure current-streak reducer. Folds one window of occurrence dates (ordered
  * newest → oldest) into the running streak state.
  *
  * Semantics:
- *  - Trailing not-yet-resolved occurrences (e.g. today still PENDING) are skipped
- *    as a grace period — they do not break the streak before the run begins.
+ *  - Only today (or later) is grace: still open, it never breaks the streak.
  *  - Skipped occurrences are neutral: they neither extend nor end a run.
- *  - The first missed occurrence *after* the run has started ends it.
- *  - If `leadingLimit` occurrences pass with no completion at all, the streak is
- *    considered broken (0).
+ *  - The first past due day not done or skipped ends the run (0 if none started).
  *
  * `terminated` signals the streak is fully determined so the caller can stop
  * fetching further history.
@@ -190,22 +190,22 @@ export function scanStreak(
     windowNewestFirst: string[],
     resolved: ReadonlyMap<string, ResolvedStatus>,
     state: StreakScanState,
-    leadingLimit = STREAK_LEADING_LIMIT,
+    today: string,
 ): StreakScanState & { terminated: boolean } {
-    let { streak, runStarted, leadingGap } = state;
+    let { streak, runStarted } = state;
     for (const date of windowNewestFirst) {
         const status = resolved.get(date);
         if (status === "SKIPPED") continue;
         if (status === "COMPLETED") {
             streak++;
             runStarted = true;
-        } else if (runStarted) {
-            return { streak, runStarted, leadingGap, terminated: true };
-        } else if (++leadingGap >= leadingLimit) {
-            return { streak: 0, runStarted, leadingGap, terminated: true };
+        } else if (date >= today) {
+            continue;
+        } else {
+            return { streak, runStarted, terminated: true };
         }
     }
-    return { streak, runStarted, leadingGap, terminated: false };
+    return { streak, runStarted, terminated: false };
 }
 
 /**
@@ -231,17 +231,54 @@ export async function computeCurrentStreak(
     const from = earliest && earliest < created ? earliest : created;
     const dates = habitOccurrences(recurrenceRule, String(createdAt), from, asOfDateStr, timeZone).reverse();
 
-    const BATCH_SIZE = STREAK_LEADING_LIMIT;
-    let state: StreakScanState = { streak: 0, runStarted: false, leadingGap: 0 };
+    const BATCH_SIZE = STREAK_BATCH;
+    let state: StreakScanState = { streak: 0, runStarted: false };
     for (let cursor = 0; cursor < dates.length; cursor += BATCH_SIZE) {
         const window = dates.slice(cursor, cursor + BATCH_SIZE);
 
-        const result = scanStreak(window, await loadResolved(window), state);
+        const result = scanStreak(window, await loadResolved(window), state, asOfDateStr);
         if (result.terminated) return result.streak;
-        state = { streak: result.streak, runStarted: result.runStarted, leadingGap: result.leadingGap };
+        state = { streak: result.streak, runStarted: result.runStarted };
     }
 
     return state.streak;
+}
+
+/**
+ * Rows with a live streak. The stored streak counts through the last check-in; days passing don't touch it,
+ * so it stands only while the latest due day before today is done or skipped, else 0.
+ */
+export async function withLiveStreaks<
+    T extends {
+        id: string;
+        recurrenceRule: string;
+        createdAt: string;
+        pausedUntil: string | null;
+        currentStreak: number;
+    },
+>(tx: Tx, userId: string, rows: T[], zone: Zone, today: LocalDate = todayIn(zone)): Promise<T[]> {
+    const lasts = new Map<string, string>();
+    for (const row of rows) {
+        const last = habitDays(row, new Map(), addDays(today, -400), addDays(today, -1), zone, today).at(-1)?.date;
+        if (last) lasts.set(row.id, last);
+    }
+    if (lasts.size === 0) return rows;
+    const resolved = await tx
+        .select({ habitId: habitLogs.habitId, targetDate: habitLogs.targetDate })
+        .from(habitLogs)
+        .where(
+            and(
+                eq(habitLogs.userId, userId),
+                inArray(habitLogs.habitId, [...lasts.keys()]),
+                inArray(habitLogs.targetDate, [...new Set(lasts.values())]),
+                inArray(habitLogs.status, ["COMPLETED", "SKIPPED"]),
+            ),
+        );
+    const ok = new Set(resolved.map((r) => `${r.habitId}|${r.targetDate}`));
+    return rows.map((row) => {
+        const last = lasts.get(row.id);
+        return last && !ok.has(`${row.id}|${last}`) ? { ...row, currentStreak: 0 } : row;
+    });
 }
 
 // ── Create ────────────────────────────────────────────────────────────
@@ -436,7 +473,7 @@ async function recomputeStreak(tx: Tx, userId: string, habit: HabitDbRow, target
         dayOf(habit.createdAt, zone),
     );
     const allOccurrences = expandOccurrences(habit.recurrenceRule, habit.createdAt, firstDay, todayStr, zone);
-    const streakData = recomputeStreaks(allLogs, allOccurrences);
+    const streakData = recomputeStreaks(allLogs, allOccurrences, todayStr);
     return {
         currentStreak: streakData.currentStreak,
         longestStreak: Math.max(habit.longestStreak, streakData.longestStreak),

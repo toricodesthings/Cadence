@@ -13,7 +13,10 @@ export const EXAMPLES: Record<PublishedTool, object[]> = {
     get_tasks: [{ query: "COMP3005 assignment" }, { projectId: ID, sort: "list", details: true }],
     get_task_detail: [{ taskId: ID }],
     get_schedule_window: [{ start: "2026-09-21", end: "2026-09-27" }],
-    find_time: [{ taskId: ID, day: "2026-09-22" }],
+    find_time: [
+        { taskId: ID, day: "2026-09-22" },
+        { taskId: ID, day: "2026-09-22", minutes: 45 },
+    ],
     fit_day: [{ day: "2026-09-22" }, { day: "2026-09-22", through: "2026-09-25", includeUnscheduled: true }],
     get_projects: [{ query: "University" }, { projectId: ID, offset: 200 }],
     get_tags: [{ query: "errands" }],

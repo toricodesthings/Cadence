@@ -4,7 +4,7 @@ import type { Tx } from "../types/db";
 import { withRls } from "./rls";
 import { tasks, taskMetrics, usageEvents, userMetrics, habitLogs, habits } from "../db/schema";
 import { habitDays } from "@cadence/domain/repeats";
-import { addDays, dayOf, startOfDay, todayIn, type LocalDate, type Zone } from "@cadence/domain/time";
+import { addDays, dayOf, expandSeries, startOfDay, todayIn, type LocalDate, type Zone } from "@cadence/domain/time";
 import { logger, hashIdentifier, issuesFromError } from "./log";
 import { userZone } from "./user-zone";
 
@@ -120,7 +120,7 @@ export async function computeWorkloadSignals(db: DbClient, userId: string) {
             queryOverdueCarryLoad(tx, userId, today, zone),
             queryCompletedCount(tx, userId, fourteenDaysAgo, nowIso),
             queryHabitAdherenceRate(tx, userId, addDays(today, -14), today, zone),
-            queryScheduleDensity(tx, userId, sevenDaysAgo, nowIso),
+            queryScheduleDensity(tx, userId, sevenDaysAgo, nowIso, zone),
         ]);
 
         const denominator = completedCount + overdue.overdue;
@@ -245,8 +245,17 @@ async function queryHabitAdherenceRate(tx: Tx, userId: string, since: LocalDate,
     return { rate: total > 0 ? completed / total : 0, logs: total };
 }
 
-/** Timed blocks that started within [since, until]: the load already carried, not what is planned ahead. */
-async function queryScheduleDensity(tx: Tx, userId: string, since: string, until: string) {
+/**
+ * Timed minutes that started within [since, until]: the load already carried, not what is planned ahead.
+ * A repeating series is one row anchored at its first day, so each of its occurrences in the window counts.
+ */
+async function queryScheduleDensity(tx: Tx, userId: string, since: string, until: string, zone: Zone) {
+    const timed = and(
+        eq(tasks.userId, userId),
+        ne(tasks.state, "ARCHIVED"),
+        sql`${tasks.scheduledStart} IS NOT NULL`,
+        sql`${tasks.scheduledEnd} IS NOT NULL`,
+    );
     const [stats] = await tx
         .select({
             totalMinutes: sql<number>`COALESCE(SUM(EXTRACT(EPOCH FROM (${tasks.scheduledEnd} - ${tasks.scheduledStart})) / 60), 0)`,
@@ -255,14 +264,38 @@ async function queryScheduleDensity(tx: Tx, userId: string, since: string, until
         .from(tasks)
         .where(
             and(
-                eq(tasks.userId, userId),
-                sql`${tasks.scheduledStart} IS NOT NULL`,
-                sql`${tasks.scheduledEnd} IS NOT NULL`,
+                timed,
+                isNull(tasks.recurrenceRule),
                 gte(tasks.scheduledStart, since),
                 lte(tasks.scheduledStart, until),
             ),
         );
-    return { minutesPerDay: (Number(stats?.totalMinutes) || 0) / 7, blocks: stats?.blocks ?? 0 };
+    const series = await tx
+        .select({
+            recurrenceRule: tasks.recurrenceRule,
+            scheduledStart: tasks.scheduledStart,
+            scheduledEnd: tasks.scheduledEnd,
+            zone: tasks.zone,
+        })
+        .from(tasks)
+        .where(and(timed, sql`${tasks.recurrenceRule} IS NOT NULL`));
+    let totalMinutes = Number(stats?.totalMinutes) || 0;
+    let blocks = stats?.blocks ?? 0;
+    const [from, to] = [Date.parse(since), Date.parse(until)];
+    for (const row of series) {
+        const occurrences = expandSeries({
+            rule: row.recurrenceRule!,
+            start: { instant: row.scheduledStart!, end: row.scheduledEnd! },
+            zone: (row.zone as Zone | null) ?? zone,
+            range: { from: dayOf(since, zone), to: dayOf(until, zone) },
+        });
+        for (const { start, end } of occurrences) {
+            if (!start || !end || Date.parse(start) < from || Date.parse(start) > to) continue;
+            totalMinutes += (Date.parse(end) - Date.parse(start)) / 60_000;
+            blocks++;
+        }
+    }
+    return { minutesPerDay: totalMinutes / 7, blocks };
 }
 
 /**

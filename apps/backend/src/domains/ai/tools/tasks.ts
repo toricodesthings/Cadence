@@ -195,7 +195,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
         // ── R ──────────────────────────────────────────────────────────────────
         get_tasks: tool({
             description:
-                "The user's tasks, open ones (Active and Waiting) unless a state is given. Filters combine. " +
+                "The user's tasks, open ones (Active and Waiting) unless a state is given. Filters combine: words, list, section, tag, state, priority, due window (overdue, today, this week, this month) or a day range. " +
                 "When a query finds nothing, possibleMatch may name the task they probably meant: offer it as a guess, never act on it unasked. " +
                 "Leaves out Fixed blocks and the days of repeating series (see get_schedule_window). Rows carry their tag names. Pages with offset: more:true and nextOffset when there's more.",
             inputSchema: z
@@ -637,7 +637,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
 
         update_tasks: tool({
             description:
-                "Applies one change to 1–50 tasks. A title or note change takes exactly one taskId. " +
+                "Applies one change to 1–50 tasks, such as moving them to another list or section, or changing a day, time or priority. A title or note change takes exactly one taskId. " +
                 "Only the fields that change, plus tags to add (by id or name) or remove. " +
                 "Also sets or clears a reminder, a Waiting check-in, a hide-until day, pinning and Fixed. Returns how many changed.",
             inputSchema: z

@@ -137,13 +137,23 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
 
     find_time: tool({
         description:
-            "Gaps in the calendar on one local day where a task of its own length fits, best first (at most 3, spaced apart; empty when none fits). " +
+            "Gaps in the calendar on one local day where the task fits, best first (at most 3, spaced apart; empty when none fits). " +
+            "Its length is the task's own, else a sure guess, else the minutes you pass. With none, it comes back notSized:true with no proposals: ask how long it takes, then call again with minutes. " +
             "They are open space in what Cadence can see, with a buffer around other blocks. Read-only: nothing is placed.",
         inputSchema: z.object({
             taskId: z.uuid(),
             day: z.iso.date().describe("The local day to look at, YYYY-MM-DD."),
+            minutes: z
+                .number()
+                .int()
+                .min(5)
+                .max(720)
+                .optional()
+                .describe(
+                    "How long it takes, when the task has no length of its own and the person said. Sizes this search only; the task isn't changed.",
+                ),
         }),
-        execute: async ({ taskId, day }) =>
+        execute: async ({ taskId, day, minutes: said }) =>
             safeExecute("find_time", userId, async () => {
                 const zone = ctx.timezone as Zone;
                 if (day < ctx.today) return refuse("INVALID_REQUEST", "That day has passed; look at today or later.");
@@ -175,10 +185,18 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                         return refuse("INVALID_REQUEST", "Only an open, one-off task has a time to find.");
                     }
                     const hint = (await durationHints(tx, userId, [task])).get(task.id);
-                    const minutes = taskMinutes(
-                        task,
-                        hint?.takesAbout ? { state: "supported", minutes: hint.takesAbout } : null,
-                    );
+                    // Its own block or estimate wins, then the minutes said, then a supported guess; never an invented length.
+                    const guess = hint?.takesAbout ? { state: "supported" as const, minutes: hint.takesAbout } : null;
+                    const block = task.scheduledStart && task.scheduledEnd ? taskMinutes(task) : null;
+                    const minutes = block ?? fitMinutes(task, said ? { state: "supported", minutes: said } : guess);
+                    if (minutes === null) {
+                        return {
+                            ok: true as const,
+                            task: { id: task.id, title: task.title, notSized: true as const },
+                            day,
+                            proposals: [],
+                        };
+                    }
                     const busy = busyBlocks(await readTasks(tx, userId, { from: day, to: day }), task.id);
                     const input = {
                         task: { minutes, notBefore: task.notBefore, currentStart: task.scheduledStart },

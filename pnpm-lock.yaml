@@ -171,6 +171,7 @@ overrides:
   better-auth@<1.7.7: ~1.7.20
 
 patchedDependencies:
+  '@cloudflare/codemode@0.5.6': c41fb6d2efe4154c32f25d06c8985ee618befedc6331c3af71314ae69e02ce4f
   rrule@2.8.1: 661fd4ea69e60f3cd4a46de4aaaf11c609023726d74ac10d51c3cf49fee0c8a1
 
 importers:
@@ -215,7 +216,7 @@ importers:
         version: link:../../packages/search
       '@cloudflare/codemode':
         specifier: 0.5.6
-        version: 0.5.6(ai@7.0.179(zod@4.6.7))(zod@4.6.7)
+        version: 0.5.6(patch_hash=c41fb6d2efe4154c32f25d06c8985ee618befedc6331c3af71314ae69e02ce4f)(ai@7.0.179(zod@4.6.7))(zod@4.6.7)
       '@cloudflare/workers-oauth-provider':
         specifier: ^1.2.4
         version: 1.2.4
@@ -7478,7 +7479,7 @@ snapshots:
 
   '@captchafox/types@1.7.0': {}
 
-  '@cloudflare/codemode@0.5.6(ai@7.0.179(zod@4.6.7))(zod@4.6.7)':
+  '@cloudflare/codemode@0.5.6(patch_hash=c41fb6d2efe4154c32f25d06c8985ee618befedc6331c3af71314ae69e02ce4f)(ai@7.0.179(zod@4.6.7))(zod@4.6.7)':
     dependencies:
       '@types/json-schema': 7.0.15
       acorn: 8.19.0

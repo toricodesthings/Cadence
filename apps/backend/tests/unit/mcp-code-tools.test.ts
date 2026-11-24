@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { TOOL_CATALOG } from "@cadence/contracts/ai-tools";
 import type { PublishedEntry, PublishedTool } from "../../src/domains/mcp/server";
 import { coreTools } from "../../src/domains/ai/tools";
+import { publishedTools } from "../../src/domains/mcp/server";
 import { REVERTS, callKey, codeTools, publicOutcome, unwrap } from "../../src/domains/mcp/code-tools";
 
 const ok = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value) }] });
@@ -130,5 +131,29 @@ describe("publicOutcome", () => {
         const out = publicOutcome({ status: "completed", calls: [{ seq: 0 }], logs }) as Record<string, unknown>;
         expect(out).not.toHaveProperty("calls");
         expect(out.logs).toEqual(logs.slice(-20));
+    });
+});
+
+describe("search index", () => {
+    const published = publishedTools(
+        {} as never,
+        "u",
+        "c",
+        new Set(["cadence:read", "cadence:write"]),
+        { timezone: "UTC", currentDate: "2026-11-23T12:00:00Z", today: "2026-11-23" } as never,
+        true,
+    );
+
+    it("indexes summaries without the JSON example", () => {
+        for (const entry of published) expect(entry.summary).not.toContain("Example (");
+    });
+
+    it("lets get_tasks be found by its filters", () => {
+        const summary = published.find((e) => e.name === "get_tasks")!.summary;
+        for (const word of ["due", "this week", "overdue"]) expect(summary).toContain(word);
+    });
+
+    it("keeps the example in the direct tool description", () => {
+        for (const entry of published) expect(entry.description).toContain("Example (");
     });
 });

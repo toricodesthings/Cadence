@@ -19,7 +19,14 @@ import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
 import { recordPersonActivity } from "../ai/memory/memory.service";
-import { createHabit, deleteHabit, projectHabitRange, resolveHabit, updateHabit } from "./habits.service";
+import {
+    createHabit,
+    deleteHabit,
+    projectHabitRange,
+    resolveHabit,
+    updateHabit,
+    withLiveStreaks,
+} from "./habits.service";
 
 export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post(
@@ -75,11 +82,12 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const { archived } = c.req.valid("query");
 
         const allHabits = await withCallerRls(c, async (tx, userId) => {
-            return tx
+            const rows = await tx
                 .select()
                 .from(habits)
                 .where(and(eq(habits.userId, userId), eq(habits.archived, archived)))
                 .orderBy(desc(habits.createdAt));
+            return withLiveStreaks(tx, userId, rows, await userZone(tx, userId));
         });
 
         c.header("Cache-Control", "private, no-store");
@@ -90,10 +98,15 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
         const snapshot = await withCallerRls(c, async (tx, userId) => {
             const zone = await userZone(tx, userId);
-            const userHabits = await tx
-                .select()
-                .from(habits)
-                .where(and(eq(habits.userId, userId), eq(habits.archived, archived || false)));
+            const userHabits = await withLiveStreaks(
+                tx,
+                userId,
+                await tx
+                    .select()
+                    .from(habits)
+                    .where(and(eq(habits.userId, userId), eq(habits.archived, archived || false))),
+                zone,
+            );
 
             if (userHabits.length === 0) return { userHabits, logs: [], allTags: [], zone };
 
@@ -149,7 +162,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 .select()
                 .from(habits)
                 .where(and(eq(habits.id, id), eq(habits.userId, userId)));
-            return row;
+            return row && (await withLiveStreaks(tx, userId, [row], await userZone(tx, userId)))[0];
         });
 
         throwIfNotFound(habit, "Habit");

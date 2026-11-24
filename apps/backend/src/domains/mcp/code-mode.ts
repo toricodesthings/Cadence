@@ -10,7 +10,11 @@ import { appOrigin, type Env } from "../../types/env";
 import { logger, issuesFromError } from "../../platform/log";
 import type { AgentContext } from "../ai/tools/index";
 import { codeTools, publicOutcome } from "./code-tools";
+import { installCadenceSearch } from "./method-search";
 import { instructions, publishedTools, type PublishedEntry } from "./server";
+
+// Search ranking is Cadence's (patched hook); the rest of Code Mode is the library's.
+installCadenceSearch();
 
 /**
  * Code Mode: the model writes JavaScript against a typed `cadence.*` SDK that runs in an isolated Dynamic Worker and

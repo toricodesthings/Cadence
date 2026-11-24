@@ -1,0 +1,58 @@
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index 203f181a7a5e47b1fbdf5585bd04dc83655e40e7..488fee3845812f99f80880d157fad6d23827069a 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts	
+@@ -693,7 +693,12 @@ declare function createCodemodeRuntime(
+   options: CreateCodemodeRuntimeOptions
+ ): CodemodeRuntimeHandle;
+ //#endregion
++type SearchItem = Omit<SearchResult, "score">;
++declare function setSearchRanker(fn: ((query: string, items: SearchItem[]) => SearchResult[] | null) | null): void;
++
+ export {
++  setSearchRanker,
++  type SearchItem,
+   type CodemodeApproveOptions,
+   CodemodeConnector,
+   type CodemodeExpireOptions,
+diff --git a/dist/index.js b/dist/index.js
+index 170f2bf6ea1620301935ace18481cbee11e9b622..98da05647fb6763e907cdbd21740b1ea67ba1a60 100644
+--- a/dist/index.js
++++ b/dist/index.js	
+@@ -1290,6 +1290,10 @@ function pointer(root, segments) {
+ //#endregion
+ //#region src/connectors/search.ts
+ const SEARCH_RESULT_LIMIT = 50;
++let searchRanker = null;
++function setSearchRanker(fn) {
++	searchRanker = fn;
++}
+ const FIELD_WEIGHTS = {
+ 	path: 12,
+ 	connector: 8,
+@@ -1392,6 +1396,17 @@ function searchConnectors(query, descriptions, snippets) {
+ 		description: snippet.description,
+ 		kind: "snippet"
+ 	});
++	if (searchRanker) try {
++		const custom = searchRanker(query, items);
++		// null = the ranker declines (e.g. an all-stopword query): the library ranks as before.
++		if (custom) return {
++			results: custom.slice(0, SEARCH_RESULT_LIMIT),
++			total: custom.length,
++			truncated: custom.length > SEARCH_RESULT_LIMIT
++		};
++	} catch (err) {
++		console.error("codemode: custom search ranker failed; using the built-in one", err);
++	}
+ 	const ranked = items.map((item) => scoreMatch(item, query)).filter((r) => r !== null).sort((a, b) => b.score - a.score || a.path.localeCompare(b.path));
+ 	const total = ranked.length;
+ 	return {
+@@ -2033,6 +2048,6 @@ var DefaultCodemodeRuntimeHandle = class {
+ 	}
+ };
+ //#endregion
+-export { CodemodeConnector, CodemodeRuntime, DEFAULT_MAX_EXECUTIONS, DEFAULT_PAUSED_TTL_MS, DynamicWorkerExecutor, MAX_DURABLE_VALUE_BYTES, McpConnector, OpenApiConnector, ToolDispatcher, createCodemodeRuntime, generateTypesFromJsonSchema, jsonSchemaToType, normalizeCode, resolveProvider, runCode, sanitizeToolName, truncateResponse, truncateResult };
++export { setSearchRanker, CodemodeConnector, CodemodeRuntime, DEFAULT_MAX_EXECUTIONS, DEFAULT_PAUSED_TTL_MS, DynamicWorkerExecutor, MAX_DURABLE_VALUE_BYTES, McpConnector, OpenApiConnector, ToolDispatcher, createCodemodeRuntime, generateTypesFromJsonSchema, jsonSchemaToType, normalizeCode, resolveProvider, runCode, sanitizeToolName, truncateResponse, truncateResult };
+ 
+ //# sourceMappingURL=index.js.map

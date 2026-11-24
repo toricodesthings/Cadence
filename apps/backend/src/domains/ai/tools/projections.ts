@@ -28,7 +28,7 @@ export interface MinimalTask {
     title: string;
     /** Left out for an active Fixed block: it just passes, so "ACTIVE" would read as not done yet. */
     state?: string;
-    /** The day it sits on, or its deadline (YYYY-MM-DD). */
+    /** The day it sits on, or its deadline (YYYY-MM-DD); never on a timed repeating block. */
     dueDate?: string;
     /** An all-day multi-day task's last day (YYYY-MM-DD). */
     endDate?: string;
@@ -129,7 +129,8 @@ export function toMinimalTask(
         id: row.seriesId ?? row.id,
         title: row.title,
         state: fixedBlock && row.state === "ACTIVE" ? undefined : row.state,
-        dueDate: unset(row.dueDate),
+        // A timed series' due_on is its anchor day, not a deadline.
+        dueDate: row.recurrenceRule && row.scheduledStart ? undefined : unset(row.dueDate),
         endDate: unset(row.endDate),
         scheduledStart: show(row.scheduledStart),
         scheduledEnd: show(row.scheduledEnd),

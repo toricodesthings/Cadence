@@ -155,6 +155,47 @@ describe("updating habits", () => {
 });
 
 describe("resolving occurrences", () => {
+    it("a streak ends once a past due day goes unlogged, with no new check-in (regression 2.3.1)", async () => {
+        const habit = await create();
+        await backdate(habit.id, 10);
+        for (const offset of [-3, -2, -1]) await resolve(habit.id, day(offset), "COMPLETED");
+        const streakOf = async () => [
+            (await habits("GET", "")).body.data.find((h: { id: string }) => h.id === habit.id).currentStreak,
+            (await habits("GET", `/${habit.id}`)).body.data.currentStreak,
+            (await habits("GET", `/weekly?start=${day(-5)}&end=${day()}`)).body.data.find(
+                (h: { id: string }) => h.id === habit.id,
+            ).currentStreak,
+        ];
+        expect(await streakOf()).toEqual([3, 3, 3]);
+
+        // Yesterday goes by unlogged: the stored column still says 3, every read says 0.
+        await asOwner((pg) =>
+            pg.query("DELETE FROM habit_logs WHERE habit_id = $1 AND target_date = $2", [habit.id, day(-1)]),
+        );
+        const stored = await asOwner(
+            async (pg) =>
+                (
+                    await pg.query<{ current_streak: number }>("SELECT current_streak FROM habits WHERE id = $1", [
+                        habit.id,
+                    ])
+                ).rows[0],
+        );
+        expect(stored.current_streak).toBe(3);
+        expect(await streakOf()).toEqual([0, 0, 0]);
+
+        await resolve(habit.id, day(-1), "COMPLETED");
+        expect(await streakOf()).toEqual([3, 3, 3]);
+    });
+
+    it("un-checking today after a missed yesterday drops to 0 (regression 2.3.1)", async () => {
+        const habit = await create();
+        await backdate(habit.id, 10);
+        await resolve(habit.id, day(-3), "COMPLETED");
+        await resolve(habit.id, day(), "COMPLETED");
+        const undone = await resolve(habit.id, day(), "PENDING");
+        expect(undone.body.data.habit.currentStreak).toBe(0);
+    });
+
     it("completing today starts a streak; skipping it instead moves the count; clearing removes the log", async () => {
         const habit = await create();
 

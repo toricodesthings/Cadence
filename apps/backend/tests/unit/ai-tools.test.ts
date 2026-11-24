@@ -60,6 +60,21 @@ describe("toMinimalTask", () => {
         ).toEqual({ id: "t1", title: "Write report", state: "ACTIVE" });
     });
 
+    it("hides a timed series' anchor dueDate but keeps an all-day one's", () => {
+        const series = {
+            ...baseTask,
+            recurrenceRule: "FREQ=WEEKLY;BYDAY=TU",
+            scheduledStart: "2026-09-16T14:00:00.000Z",
+            scheduledEnd: "2026-09-16T15:30:00.000Z",
+            dueDate: "2026-09-16",
+            interactionMode: "timetable" as const,
+        };
+        expect(toMinimalTask(series, "UTC").dueDate).toBeUndefined();
+        expect(toMinimalTask({ ...series, scheduledStart: null, scheduledEnd: null }, "UTC").dueDate).toBe(
+            "2026-09-16",
+        );
+    });
+
     it("flags timetable blocks and repeats, and names an occurrence by its series id", () => {
         const occurrence = {
             ...baseTask,

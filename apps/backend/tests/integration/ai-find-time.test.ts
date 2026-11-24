@@ -57,6 +57,27 @@ describe("find_time", () => {
         expect(JSON.stringify((await tasks("GET", `/${target.id}`)).body.data)).toBe(before);
     });
 
+    it("a task with no length gets no proposals until minutes is given (regression 2.3.1)", async () => {
+        const bare = (await tasks("POST", "", { title: "Essay", orderIndex: 1 })).body.data;
+        const before = JSON.stringify((await tasks("GET", `/${bare.id}`)).body.data);
+
+        expect(await run("find_time", { taskId: bare.id, day: "2026-10-20" })).toMatchObject({
+            ok: true,
+            task: { id: bare.id, notSized: true },
+            proposals: [],
+        });
+
+        const said = await run("find_time", { taskId: bare.id, day: "2026-10-20", minutes: 45 });
+        expect(said.proposals.length).toBeGreaterThan(0);
+        for (const p of said.proposals) expect(Date.parse(p.end) - Date.parse(p.start)).toBe(45 * 60_000);
+        expect(JSON.stringify((await tasks("GET", `/${bare.id}`)).body.data)).toBe(before);
+
+        // The task's own estimate beats what was said.
+        const sized = (await tasks("POST", "", { title: "Quiz", orderIndex: 2, durationEstimate: 30 })).body.data;
+        const own = await run("find_time", { taskId: sized.id, day: "2026-10-20", minutes: 90 });
+        for (const p of own.proposals) expect(Date.parse(p.end) - Date.parse(p.start)).toBe(30 * 60_000);
+    });
+
     it("orders by a time of day they said they like", async () => {
         const target = (await tasks("POST", "", { title: "Study for stats", orderIndex: 1, durationEstimate: 60 })).body
             .data;

@@ -531,6 +531,26 @@ describe("duplicating tasks", () => {
     });
 });
 
+describe("timed Fixed series", () => {
+    const timed = {
+        title: "Lecture",
+        recurrenceRule: "FREQ=WEEKLY;BYDAY=WE",
+        scheduledStart: "2026-09-16T14:00:00.000Z",
+        scheduledEnd: "2026-09-16T15:30:00.000Z",
+        dueDate: "2026-09-16",
+    };
+
+    it("is stored with no due date, and a copy too; a plain repeating task keeps its own (regression 2.3.1)", async () => {
+        const fixed = await create({ ...timed, interactionMode: "timetable" });
+        expect(fixed.dueDate).toBeNull();
+        expect((await tasks("GET", `/${fixed.id}`)).body.data.dueDate).toBeNull();
+        expect((await tasks("POST", `/${fixed.id}/duplicate`)).body.data.dueDate).toBeNull();
+
+        const task = await create({ ...timed, interactionMode: "task" });
+        expect(task.dueDate).toBe("2026-09-16");
+    });
+});
+
 describe("task tags", () => {
     it("adds, lists, and removes a tag", async () => {
         const task = await create({ title: "T" });

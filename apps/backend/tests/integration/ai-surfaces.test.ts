@@ -301,8 +301,13 @@ describe("routine history", () => {
             { habitId: gym.habitId, title: "Workout", due: 2, done: ["2026-09-21"], missed: ["2026-09-22"] },
         ]);
 
+        // A stale stored streak (counted at the last check-in) never outlives the missed day after it.
+        await withRls(getTestDb(), userId, (tx) =>
+            tx.update(habits).set({ currentStreak: 1 }).where(eq(habits.id, anki.habitId)),
+        );
         const listed = (await call("get_habits", {})).habits;
         const ankiRow = listed.find((h: any) => h.id === anki.habitId);
+        expect(ankiRow.currentStreak).toBe(0);
         // Since the 1st: one day done, one skipped (neutral), the rest due and never logged.
         expect(ankiRow.adherence).toBeLessThan(0.1);
         expect(ankiRow.missedLast30).toBeGreaterThan(15);

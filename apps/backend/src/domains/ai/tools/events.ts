@@ -145,7 +145,7 @@ export const eventTools = (env: Env, userId: string, ctx: AgentContext) => ({
     get_events: tool({
         description:
             "The user's yearly personal events from Events, soonest first, each with its next date, daysUntil and, " +
-            "when it has a start date, the years it marks. shownOnCalendar:false when the user hid them from the calendar.",
+            "when it has a start date, the years it marks. shownOnCalendar:false when the user hid them from the calendar. Event ids are short strings (not UUIDs): pass them exactly as read.",
         inputSchema: z.object({}),
         execute: async () =>
             safeExecute("get_events", userId, async () => {

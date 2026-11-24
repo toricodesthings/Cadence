@@ -24,36 +24,62 @@ function lookup(completed: Iterable<string>, skipped: Iterable<string> = []) {
 }
 
 describe("scanStreak (pure reducer)", () => {
-    const init = { streak: 0, runStarted: false, leadingGap: 0 };
+    const init = { streak: 0, runStarted: false };
 
     it("counts a fully completed window", () => {
-        const r = scanStreak(["d3", "d2", "d1"], done(["d3", "d2", "d1"]), init);
+        const r = scanStreak(["d3", "d2", "d1"], done(["d3", "d2", "d1"]), init, "d3");
         expect(r.streak).toBe(3);
         expect(r.terminated).toBe(false);
     });
 
-    it("grants grace to trailing unresolved occurrences before the run starts", () => {
-        // d3 (newest) not yet resolved; the run d2..d1 is preserved.
-        const r = scanStreak(["d3", "d2", "d1"], done(["d2", "d1"]), init);
+    it("grants grace only to today", () => {
+        const r = scanStreak(["d3", "d2", "d1"], done(["d2", "d1"]), init, "d3");
         expect(r.streak).toBe(2);
     });
 
+    it("a missed day before the run ends it at 0", () => {
+        const r = scanStreak(["d4", "d3", "d2", "d1"], done(["d2", "d1"]), init, "d4");
+        expect(r.streak).toBe(0);
+        expect(r.terminated).toBe(true);
+    });
+
     it("terminates at the first gap after the run has started", () => {
-        const r = scanStreak(["d3", "d2", "d1"], done(["d3", "d1"]), init);
+        const r = scanStreak(["d3", "d2", "d1"], done(["d3", "d1"]), init, "d3");
         expect(r.streak).toBe(1);
         expect(r.terminated).toBe(true);
     });
 
     it("treats a skipped day as neutral: done, skip, done is a run of 2", () => {
-        const r = scanStreak(["d3", "d2", "d1", "d0"], done(["d3", "d1"], ["d2"]), init);
+        const r = scanStreak(["d3", "d2", "d1", "d0"], done(["d3", "d1"], ["d2"]), init, "d3");
         expect(r.streak).toBe(2);
         expect(r.terminated).toBe(true);
     });
+});
 
-    it("returns 0 once the leading-gap limit is reached with no completion", () => {
-        const r = scanStreak(["a", "b"], done([]), init, 2);
-        expect(r.streak).toBe(0);
-        expect(r.terminated).toBe(true);
+describe("computeCurrentStreak (live definition)", () => {
+    it("posture: done, done, missed, missed, open today is 0", async () => {
+        const streak = await computeCurrentStreak(
+            "FREQ=DAILY",
+            "2026-11-14",
+            "2026-11-23",
+            lookup(["2026-11-19", "2026-11-20"]),
+        );
+        expect(streak).toBe(0);
+    });
+
+    it("counts four straight days with today still open", async () => {
+        const days = ["2026-11-19", "2026-11-20", "2026-11-21", "2026-11-22"];
+        expect(await computeCurrentStreak("FREQ=DAILY", "2026-11-14", "2026-11-23", lookup(days))).toBe(4);
+    });
+
+    it("counts only due days: a missed due day cuts the run", async () => {
+        const streak = await computeCurrentStreak(
+            "FREQ=WEEKLY;BYDAY=TU,TH,SA,SU",
+            "2026-11-01",
+            "2026-11-23",
+            lookup(["2026-11-17", "2026-11-19", "2026-11-22"]),
+        );
+        expect(streak).toBe(1);
     });
 });
 

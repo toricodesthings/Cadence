@@ -12,7 +12,14 @@ import { toMinimalHabit } from "./projections";
 import { offsetSchema } from "./drafts";
 import { readSnapshotRoutines, routinesDue, type SnapshotRoutineReader } from "./routine-reads";
 import { habitDays } from "@cadence/domain/repeats";
-import { createHabit, deleteHabit, moveHabit, resolveHabit, updateHabit } from "../../habits/habits.service";
+import {
+    createHabit,
+    deleteHabit,
+    moveHabit,
+    resolveHabit,
+    updateHabit,
+    withLiveStreaks,
+} from "../../habits/habits.service";
 import {
     habitTargetTimesSchema,
     insertHabitSchema,
@@ -22,7 +29,7 @@ import {
     stepStatusSchema,
 } from "@cadence/contracts/habit";
 import { stepMarksOn, timeMarksOn } from "@cadence/domain/repeats";
-import { addDays } from "@cadence/domain/time";
+import { addDays, type Zone } from "@cadence/domain/time";
 import type { Tx } from "../../../types/db";
 
 const stepTitle = routineStepSchema.shape.title;
@@ -166,7 +173,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
             safeExecute("get_habits", userId, async () => {
                 const cap = clampLimit(limit);
                 const db = getDbClient(env);
-                const { rows, links, recent } = await withRls(db, userId, async (tx) => {
+                const { rows, live, links, recent } = await withRls(db, userId, async (tx) => {
                     const rows = await tx
                         .select(routineColumns)
                         .from(habits)
@@ -178,7 +185,8 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
                         .orderBy(habits.sortOrder, habits.createdAt, habits.id)
                         .limit(cap + 1)
                         .offset(offset);
-                    const ids = rows.slice(0, cap).map((row) => row.id);
+                    const live = await withLiveStreaks(tx, userId, rows.slice(0, cap), ctx.timezone as Zone, ctx.today);
+                    const ids = live.map((row) => row.id);
                     const links = ids.length
                         ? await tx
                               .select({ habitId: habitTags.habitId, tagId: habitTags.tagId })
@@ -188,27 +196,25 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
                     const recent = await routineDays(
                         tx,
                         userId,
-                        rows.slice(0, cap),
+                        live,
                         addDays(ctx.today, -30),
                         addDays(ctx.today, -1),
                         ctx.timezone,
                         ctx.today,
                     );
-                    return { rows, links, recent };
+                    return { rows, live, links, recent };
                 });
                 const count = (id: string, status: DayStatus) =>
                     recent.get(id)?.filter((day) => day.status === status).length ?? 0;
                 const more = rows.length > cap;
                 return {
-                    habits: rows
-                        .slice(0, cap)
-                        .map((r) =>
-                            toMinimalHabit(
-                                { ...r, tagIds: links.filter((l) => l.habitId === r.id).map((l) => l.tagId) },
-                                ctx.today,
-                                { done: count(r.id, "done"), missed: count(r.id, "missed") + count(r.id, "partial") },
-                            ),
+                    habits: live.map((r) =>
+                        toMinimalHabit(
+                            { ...r, tagIds: links.filter((l) => l.habitId === r.id).map((l) => l.tagId) },
+                            ctx.today,
+                            { done: count(r.id, "done"), missed: count(r.id, "missed") + count(r.id, "partial") },
                         ),
+                    ),
                     ...(more && { more, nextOffset: offset + cap }),
                 };
             }),

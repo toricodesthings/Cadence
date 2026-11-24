@@ -284,7 +284,7 @@ export const memoryTools = (env: Env, userId: string, ctx: AgentContext) => {
 
         search_past_chats: tool({
             description:
-                'Searches what the user themselves said in past chats, by words (never your own replies). For "what was that book I mentioned in March?". ' +
+                'Searches the words the user typed in their Cadence assistant chats (never your replies, never other apps). Word forms match; the words must be ones they used. For what Cadence remembers about them, by meaning, use recall. For "what was that book I mentioned in March?". ' +
                 "Results carry the day and the chat; after and before bound the days.",
             inputSchema: z.object({
                 query: z.string().trim().min(2).max(200),

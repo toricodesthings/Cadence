@@ -141,6 +141,24 @@ describe("assistant reads leave out what isn't on the user's plate", () => {
         expect(titles((await run("get_tasks", { dueWindow: "overdue", limit: 20 })).tasks)).toEqual([]);
     });
 
+    it("a timed Fixed series shows no dueDate and is never overdue (regression 2.3.1)", async () => {
+        await tasks("POST", "", {
+            title: "COMP3000 Lecture",
+            orderIndex: 9,
+            dueDate: "2026-09-01",
+            scheduledStart: "2026-09-01T14:00:00.000Z",
+            scheduledEnd: "2026-09-01T15:30:00.000Z",
+            recurrenceRule: "FREQ=WEEKLY;BYDAY=TU",
+            interactionMode: "timetable",
+        });
+
+        const { tasks: rows } = await run("get_schedule_window", { start: "2026-09-22", end: "2026-09-22", limit: 50 });
+        const lecture = rows.find((t: { title: string }) => t.title === "COMP3000 Lecture");
+        expect(lecture).toMatchObject({ fixedBlock: true });
+        expect(lecture.dueDate).toBeUndefined();
+        expect(titles((await run("get_tasks", { dueWindow: "overdue", limit: 20 })).tasks)).toEqual([]);
+    });
+
     it("lists a Mon/Wed routine only on its days, and not while paused", async () => {
         const gym = (await habits("POST", "", { title: "Gym", recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,WE" })).body.data;
         await asOwner((pg) =>

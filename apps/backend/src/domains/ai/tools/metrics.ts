@@ -13,9 +13,10 @@ export const metricTools = (env: Env, userId: string, _ctx?: AgentContext) => ({
     // ── R ──────────────────────────────────────────────────────────────────
     get_user_metrics: tool({
         description:
-            "The user's workload signals: burnout index, reschedule velocity, completion ratio, overdue load, " +
-            "routine adherence and schedule density. A null burnout index means there is not enough history " +
-            "to estimate one — say it is unknown, never guess a number.",
+            "The user's workload signals: currentBurnoutIndex (1–100; null = not enough history: say unknown, never guess), " +
+            "rescheduleVelocity (average reschedules of tasks moved in the last 14 days), completionRatio (tasks finished in the last 14 days ÷ those plus tasks overdue now; open undated tasks don't count, so 1 = nothing overdue), " +
+            "overdueCarryLoad (open tasks dated before today), habitAdherenceRate (routine due days done, last 14 days, skips left out) and " +
+            "scheduleDensity (timed minutes per day over the last 7 days, classes and other repeating blocks included). Recomputed when older than a day.",
         inputSchema: z.object({}),
         execute: async () =>
             safeExecute("get_user_metrics", userId, async () => {

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CalendarRange, Check, Clock } from "lucide-react";
+import { CalendarRange, Check, Clock, Hourglass } from "lucide-react";
 import { bucketOf } from "@cadence/domain/find-time";
 import type { FitDayResult } from "@cadence/domain/fit-day";
 import { Button } from "../../primitives/Button";
@@ -133,7 +133,13 @@ export function FindTimeCard({ ctx }: { ctx: ToolRenderContext<"find_time"> }) {
     return <FindTimeCardBody output={output} task={output.task} />;
 }
 
-function FindTimeCardBody({ output, task: about }: { output: FindTimeOutput; task: { id: string; title: string } }) {
+function FindTimeCardBody({
+    output,
+    task: about,
+}: {
+    output: FindTimeOutput;
+    task: NonNullable<FindTimeOutput["task"]>;
+}) {
     const task = useTask(about.id);
     const find = useFindTime();
     const updateTask = useUpdateTask();
@@ -155,6 +161,13 @@ function FindTimeCardBody({ output, task: about }: { output: FindTimeOutput; tas
     );
     const proposal = proposals[index];
 
+    if ("notSized" in about && about.notSized)
+        return (
+            <div className={SETTLED}>
+                <Hourglass size={12} className="shrink-0" aria-hidden="true" />
+                <span>No length yet</span>
+            </div>
+        );
     if (!proposal)
         return (
             <div className={SETTLED}>

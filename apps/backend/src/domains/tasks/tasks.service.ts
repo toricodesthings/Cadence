@@ -291,6 +291,13 @@ export async function withTagIds(tx: Tx, rows: TaskRow[]): Promise<Task[]> {
 
 // ── Create ────────────────────────────────────────────────────────────
 
+/** A timed Fixed series starts on its first block; it has no deadline. */
+const isTimedFixedSeries = (t: {
+    interactionMode?: string | null;
+    recurrenceRule?: string | null;
+    scheduledStart?: string | null;
+}) => t.interactionMode === "timetable" && Boolean(t.recurrenceRule && t.scheduledStart);
+
 /** Insert one task (temporal fields already normalized) and link its tags. */
 export async function createTask(
     tx: Tx,
@@ -306,12 +313,14 @@ export async function createTask(
     await assertRowRoom(tx, userId, "tasks");
     await assertStorageRoom(tx, userId, [values.content]);
 
+    const interactionMode = values.interactionMode ?? suggestInteractionMode(values);
     const [row] = await insertWithClientId(() =>
         tx
             .insert(tasks)
             .values({
                 ...values,
-                interactionMode: values.interactionMode ?? suggestInteractionMode(values),
+                ...(isTimedFixedSeries({ ...values, interactionMode }) && { dueDate: null, endDate: null }),
+                interactionMode,
                 userId,
                 ...effortProvenance(values.effort, values.effortOrigin),
             })
@@ -392,8 +401,9 @@ export async function duplicateTask(tx: Tx, userId: string, id: string, title?: 
             content: original.content,
             state: "ACTIVE",
             orderIndex: original.orderIndex + 0.001,
-            dueDate: original.dueDate,
-            endDate: original.endDate,
+            ...(isTimedFixedSeries(original)
+                ? { dueDate: null, endDate: null }
+                : { dueDate: original.dueDate, endDate: original.endDate }),
             scheduledStart: original.scheduledStart,
             scheduledEnd: original.scheduledEnd,
             zone: original.zone,

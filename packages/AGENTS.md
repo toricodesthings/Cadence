@@ -6,7 +6,7 @@ Shared, dependency-light packages used by every app. A break here breaks every s
 domain     pure rules (no I/O, no framework)     → contracts, nlp
 contracts  Zod schemas → inferred wire types      → nlp
 nlp        parse / resolve / rank / focus views
-search     token search and ranking
+search     token search and ranking (tasks; `methods` for Code Mode's SDK search)
 geometry   SVG scene math (loading screen + landing)
 tests      @cadence/package-tests, mirroring each package's src/
 ```

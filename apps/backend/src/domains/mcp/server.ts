@@ -322,7 +322,7 @@ export type PublishedEntry = {
     destructive: boolean;
     /** The shared schema (the factory's `inputSchema`; `TODAY_SCHEMA` for get_today). */
     schema: z.ZodObject;
-    /** What the tool does, plus its example. */
+    /** What the tool does (no example: Code Mode indexes it for search). */
     summary: string;
     /** `summary` as the direct tools publish it: with the dry-run and retry notes. */
     description: string;
@@ -392,7 +392,7 @@ export function publishedTools(
             write,
             destructive: Boolean(spec.destructive),
             schema,
-            summary: [base, example(published)].filter(Boolean).join(" "),
+            summary: base ?? "",
             description: [base, DRY_RUN_TOOLS.has(name) && DRY_NOTE, write && RETRY_NOTE, example(published)]
                 .filter(Boolean)
                 .join(" "),
@@ -410,18 +410,18 @@ export function publishedTools(
                 ...JSON.parse(await loadSnapshot(tools as never, ctx.today, undefined, limit)),
             }),
         };
-        const description =
+        const base =
             "Today at a glance, in the user's time zone: today's schedule, overdue tasks and the newest captures (5 each, or limit), " +
             "routines due today and personal events in the next 7 days. The cheapest first call. more:true on either = there are more: " +
             "raise limit or page with get_tasks / get_inbox_items. fixedBlock:true = a class or " +
-            "shift: it takes that time and just passes, never checked off and never overdue. " +
-            example("get_today");
+            "shift: it takes that time and just passes, never checked off and never overdue.";
+        const description = `${base} ${example("get_today")}`;
         entries.push({
             name: "get_today",
             write: false,
             destructive: false,
             schema: TODAY_SCHEMA,
-            summary: description,
+            summary: base,
             description,
             inputSchema: TODAY_SCHEMA,
             call: (args) => callPublishedTool("get_today", today as never, false, args),
@@ -485,7 +485,7 @@ function buildServer(
             "search",
             {
                 description:
-                    'Finds methods of the cadence SDK that execute runs. query: plain words → ranked methods (path, description, requiresApproval). path: "cadence" or one method ("cadence.get_tasks") → its TypeScript input types. ' +
+                    'Finds methods of the cadence SDK that execute runs. query: plain words → ranked methods (path, description, requiresApproval). path: one method ("cadence.get_tasks") → its TypeScript input types; "cadence" → the whole SDK (about 50 KB), only when one method won\'t do. ' +
                     'Example: {"query":"tasks due this week"} or {"path":"cadence.reschedule_tasks"}',
                 inputSchema: withoutPatterns(SEARCH_INPUT),
                 annotations: READ_ONLY,

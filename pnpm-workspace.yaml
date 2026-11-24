@@ -39,6 +39,7 @@ peerDependencyRules:
         "@triplit/logger>typescript": "7"
 
 patchedDependencies:
+    "@cloudflare/codemode@0.5.6": "patches/@cloudflare__codemode@0.5.6.patch"
     "rrule@2.8.1": "patches/rrule@2.8.1.patch"
 minimumReleaseAgeExclude:
     - "@vitest/coverage-v8@5.1.1"
