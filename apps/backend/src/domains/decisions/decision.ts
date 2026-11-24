@@ -9,7 +9,7 @@
  */
 import { eq } from "drizzle-orm";
 import { users } from "../../db/schema";
-import { addDailySpend, withinDailyBudget } from "../../platform/daily-budget";
+import { addDailySpend, spendWithinCap, withinDailyBudget } from "../../platform/daily-budget";
 import { logger } from "../../platform/log";
 import type { Tx } from "../../types/db";
 import type { Env } from "../../types/env";
@@ -122,6 +122,7 @@ export async function decide(
         Object.keys(input.questions).map((name) => [name, null]),
     );
     if (!model || names.length === 0) return out;
+    if (!(await spendWithinCap(env))) return out;
     // Counted before the fetch so a flood can't spend tokens. No userHash = not a person's call (the eval).
     if (input.userHash && !(await withinDailyBudget(env, "decision", input.userHash, DAILY_DECISIONS))) return out;
 

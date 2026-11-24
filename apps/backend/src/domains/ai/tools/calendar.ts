@@ -11,7 +11,7 @@ import type { AgentContext } from "./index";
 import { safeExecute, clampLimit, refuse } from "./index";
 import { taskCoreColumns } from "./tasks";
 import { inDayWindow, overlayPersonalReminders, readTasks } from "../../tasks/tasks.service";
-import { sharedListPeople, sharedTaskMeta } from "./shared-guard";
+import { recordSeenSharedTasks, sharedListPeople, sharedTaskMeta } from "./shared-guard";
 import { expandScheduleScopedTasks, taskDay } from "@cadence/domain/task-recurrence";
 import { addDays, formatInZone, toZonedIso, type Zone } from "@cadence/domain/time";
 import { busyBlocks, feasibleBuckets, findTimes } from "@cadence/domain/find-time";
@@ -111,6 +111,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                         tx,
                         shown.map((row) => row.projectId),
                     );
+                    recordSeenSharedTasks(ctx, shown, peopleMap);
                     const idOf = (row: (typeof shown)[number]) => (row as { seriesId?: string }).seriesId ?? row.id;
                     const hints = await taskHints(
                         tx,

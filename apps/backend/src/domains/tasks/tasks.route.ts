@@ -11,7 +11,7 @@ import {
     tasksByOwner,
     type ListAccess,
 } from "../../platform/list-access";
-import { AppError, throwIfNotFound } from "../../platform/errors";
+import { AppError, assertNoConflict, throwIfNotFound } from "../../platform/errors";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { parseCanonicalNlpEnvelope, type CanonicalNlpEnvelope } from "@cadence/nlp";
@@ -482,6 +482,18 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                     "Only the owner of this list can move its tasks to another list.",
                 );
             }
+            if (body.takenBy !== undefined) {
+                if (body.takenBy !== null && body.takenBy !== userId) {
+                    throw new AppError(403, "TAKE_SELF_ONLY", "You can only take a task for yourself.");
+                }
+                if (body.takenBy === null) {
+                    const [current] = await tx
+                        .select({ takenBy: tasks.takenBy })
+                        .from(tasks)
+                        .where(and(eq(tasks.id, id), eq(tasks.userId, ownerId)));
+                    if (current?.takenBy && current.takenBy !== userId) requireOwner(access);
+                }
+            }
 
             // Moving a caller-owned task into another list (possibly someone else's shared list, or own shared list).
             const destAccess =
@@ -493,12 +505,21 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 await assertListRoom(tx, destAccess.listId);
             }
             if (destAccess && destAccess.ownerId !== userId) {
+                if (expectedUpdatedAt) {
+                    const [existing] = await tx
+                        .select({ updatedAt: tasks.updatedAt })
+                        .from(tasks)
+                        .where(and(eq(tasks.id, id), eq(tasks.userId, userId)))
+                        .for("update");
+                    throwIfNotFound(existing, "Task");
+                    assertNoConflict(expectedUpdatedAt, existing.updatedAt, "Task");
+                }
                 const moved = await moveTaskToSharedList(tx, id, destAccess.listId, body.sectionId ?? null);
                 if (!moved) throw new AppError(404, "NOT_FOUND", "Task or list not found");
                 const { projectId: _p, sectionId: _s, ...restShared } = sharedBody;
                 let row: typeof tasks.$inferSelect | undefined;
                 if (Object.keys(restShared).length > 0) {
-                    row = await updateTask(tx, destAccess.ownerId, id, restShared, expectedUpdatedAt);
+                    row = await updateTask(tx, destAccess.ownerId, id, restShared);
                 } else {
                     const [selected] = await tx.select().from(tasks).where(eq(tasks.id, id));
                     row = selected;
@@ -513,19 +534,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             }
             if (destAccess && destAccess.audience.length > 1) {
                 await dropTaskLearningRows(tx, userId, id);
-            }
-
-            if (body.takenBy !== undefined) {
-                if (body.takenBy !== null && body.takenBy !== userId) {
-                    throw new AppError(403, "TAKE_SELF_ONLY", "You can only take a task for yourself.");
-                }
-                if (body.takenBy === null) {
-                    const [current] = await tx
-                        .select({ takenBy: tasks.takenBy })
-                        .from(tasks)
-                        .where(and(eq(tasks.id, id), eq(tasks.userId, ownerId)));
-                    if (current?.takenBy && current.takenBy !== userId) requireOwner(access);
-                }
             }
             if (moving || findTime) from = await slotsOf(tx, ownerId, [id]);
             const patch = guest ? sharedBody : body;

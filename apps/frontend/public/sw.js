@@ -267,10 +267,21 @@ function idb(mode, run) {
         open.onupgradeneeded = () => open.result.createObjectStore("keyval");
         open.onerror = () => reject(open.error);
         open.onsuccess = () => {
-            const tx = open.result.transaction("keyval", mode);
+            const db = open.result;
+            const tx = db.transaction("keyval", mode);
             const request = run(tx.objectStore("keyval"));
-            tx.oncomplete = () => resolve(request.result);
-            tx.onerror = () => reject(tx.error);
+            tx.oncomplete = () => {
+                db.close?.();
+                resolve(request.result);
+            };
+            tx.onerror = () => {
+                db.close?.();
+                reject(tx.error);
+            };
+            tx.onabort = () => {
+                db.close?.();
+                reject(tx.error ?? new Error("Transaction aborted"));
+            };
         };
     });
 }
@@ -281,7 +292,22 @@ async function changeQueue(userId, change) {
         const next = change((await idb("readonly", (s) => s.get(key))) ?? []);
         await idb("readwrite", (s) => (next.length ? s.put(next, key) : s.delete(key)));
     });
-    new BroadcastChannel("cadence-wal").postMessage(userId);
+    const channel = new BroadcastChannel("cadence-wal");
+    channel.postMessage(userId);
+    channel.close?.();
+}
+
+function jwtSub(token) {
+    try {
+        const parts = token.split(".");
+        if (parts.length !== 3) return null;
+        const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+        const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+        const payload = JSON.parse(atob(padded));
+        return typeof payload?.sub === "string" ? payload.sub : null;
+    } catch {
+        return null;
+    }
 }
 
 function isOwnApi(href) {
@@ -297,6 +323,8 @@ async function replayQueue(userId) {
     const response = await fetch("/api/auth/token", { credentials: "include", cache: "no-store" });
     const { token } = response.ok ? await response.json() : {};
     if (!token) throw new Error("No session");
+    // Never replay one person's offline queue under another signed-in account's token.
+    if (jwtSub(token) !== userId) return;
 
     for (;;) {
         const entries = (await idb("readonly", (s) => s.get(WAL_PREFIX + userId))) ?? [];

@@ -121,11 +121,14 @@ export async function markAccountDeleted(env: Env, userId: string): Promise<void
  * account is refused (401) instead of recreated.
  */
 async function ensureUserExists(env: Env, userId: string) {
-    if (ensuredUsers.has(userId)) return;
     const deleted = await getRateLimitRedis(env)
         ?.get(deletedKey(await hashIdentifier(userId)))
         .catch(() => null);
-    if (deleted) throw new AppError(401, "UNAUTHORIZED", "This account was deleted");
+    if (deleted) {
+        ensuredUsers.delete(userId);
+        throw new AppError(401, "UNAUTHORIZED", "This account was deleted");
+    }
+    if (ensuredUsers.has(userId)) return;
     const db = getDbClient(env);
     await withRls(db, userId, async (tx) => {
         await tx.insert(users).values({ id: userId }).onConflictDoNothing();

@@ -135,14 +135,15 @@ export class NoteCollab extends YServer {
             const ownerId = this.ownerId;
             const taskId = this.taskId;
             this.pendingMarkdown = null;
+            const db = getDbClient(this.env as unknown as Env);
             try {
-                await withRls(getDbClient(this.env as unknown as Env), actorId, (tx) =>
-                    writeNote(tx, ownerId, taskId, markdown),
-                );
+                await withRls(db, actorId, (tx) => writeNote(tx, ownerId, taskId, markdown));
             } catch (err) {
-                // Keep the pending markdown so the next save or disconnect retries.
-                this.pendingMarkdown = markdown;
+                // Only restore if no newer snapshot arrived while this flush was in flight.
+                if (this.pendingMarkdown === null) this.pendingMarkdown = markdown;
                 logger.warn("http", "note_collab_snapshot_failed", { issues: issuesFromError(err) });
+            } finally {
+                await db.$client.end({ timeout: 1 }).catch(() => {});
             }
         }
     }
@@ -151,9 +152,40 @@ export class NoteCollab extends YServer {
     async resetFromExternal(): Promise<void> {
         this.pendingMarkdown = null;
         this.ctx.storage.sql.exec("DELETE FROM note_state WHERE id = 1");
+        // Clear the warm in-memory Y.Doc too so reconnecting clients re-seed from Postgres instead of stale memory.
+        this.document.transact(() => {
+            const frag = this.document.getXmlFragment("default");
+            if (frag.length > 0) frag.delete(0, frag.length);
+            this.document.getMap("meta").delete("seeded");
+        });
         for (const ws of this.ctx.getWebSockets()) {
             try {
                 ws.close(WS_CLOSE.reload, "updated");
+            } catch {
+                // Already closed.
+            }
+        }
+    }
+
+    /** Close active collab sockets for a removed or downgraded user so they immediately lose access. */
+    async evict(userId: string): Promise<void> {
+        for (const conn of this.getConnections()) {
+            const state = conn.state as CollabConnState | null;
+            if (state?.userId === userId) {
+                try {
+                    conn.close(WS_CLOSE.forbidden, "revoked");
+                } catch {
+                    // Already closed.
+                }
+            }
+        }
+    }
+
+    /** Close all collab sockets on this note (stop sharing, transfer, or delete). */
+    async closeAll(): Promise<void> {
+        for (const ws of this.ctx.getWebSockets()) {
+            try {
+                ws.close(WS_CLOSE.forbidden, "unshared");
             } catch {
                 // Already closed.
             }
@@ -209,4 +241,20 @@ export async function resetNoteCollab(env: Env, taskId: string): Promise<void> {
     } catch (err) {
         logger.warn("http", "note_collab_reset_failed", { issues: issuesFromError(err) });
     }
+}
+
+/** Best-effort eviction of a user (or everyone) from active collab notes in a list. */
+export async function evictFromNoteCollab(env: Env, taskIds: string[], userId?: string): Promise<void> {
+    if (!env.NOTE_COLLAB || taskIds.length === 0) return;
+    await Promise.all(
+        taskIds.map(async (taskId) => {
+            try {
+                const stub = env.NOTE_COLLAB!.get(env.NOTE_COLLAB!.idFromName(taskId));
+                if (userId) await stub.evict(userId);
+                else await stub.closeAll();
+            } catch (err) {
+                logger.warn("http", "note_collab_evict_failed", { issues: issuesFromError(err) });
+            }
+        }),
+    );
 }

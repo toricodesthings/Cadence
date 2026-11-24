@@ -74,7 +74,7 @@ export function TaskNoteRoom() {
 
 function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTitle: string; onClose: () => void }) {
     const { task, noteOwnerTask, session, state, status, isLoading, loadFailed } = useTaskNote(taskId);
-    const { isShared } = useTaskAccess(task ?? undefined);
+    const { isShared, canEdit } = useTaskAccess(task ?? undefined);
     const { collab, collabUser, collabStatus, peers } = useCollabNote(noteOwnerTask?.id, isShared);
     const shell = useShellMode();
     const phone = shell.isPhone;
@@ -275,14 +275,14 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
 
     const startEditing = useCallback(
         (pos: number | null) => {
-            if (!editor) return;
+            if (!canEdit || !editor) return;
             setEditing(true);
             editor
                 .chain()
                 .focus(pos ?? lastPos.current ?? "end")
                 .run();
         },
-        [editor],
+        [canEdit, editor],
     );
 
     const over = body.length > NOTE_MAX_CHARS;
@@ -384,8 +384,13 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
         ) : sourceMode ? (
             <NoteSourceEditor
                 value={body}
-                onChange={(text) => session.edit(text, "source")}
-                onSave={() => void saveNow()}
+                readOnly={!canEdit}
+                onChange={(text) => {
+                    if (canEdit) session.edit(text, "source");
+                }}
+                onSave={() => {
+                    if (canEdit) void saveNow();
+                }}
             />
         ) : (
             <NoteEditor
@@ -395,14 +400,17 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
                 collabUser={collabUser}
                 viewId="room"
                 variant="room"
-                placeholder="Start writing…"
-                commandHint={!phone}
-                autoFocus={!phone && !shell.isTablet && !scrollToHeading}
+                editable={canEdit}
+                placeholder={canEdit ? "Start writing…" : "No notes yet"}
+                commandHint={canEdit && !phone}
+                autoFocus={canEdit && !phone && !shell.isTablet && !scrollToHeading}
                 onEditor={setEditor}
-                onSave={() => void saveNow()}
+                onSave={() => {
+                    if (canEdit) void saveNow();
+                }}
                 onFind={() => setFindOpen(true)}
                 onUnfaithful={() => setSourceMode(true)}
-                onRequestEdit={startEditing}
+                onRequestEdit={canEdit ? startEditing : undefined}
                 onFocusChange={(focused) => {
                     if (focused && (phone || shell.isTablet)) {
                         setEditing(true);

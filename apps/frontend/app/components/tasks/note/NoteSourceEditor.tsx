@@ -10,15 +10,18 @@ export function NoteSourceEditor({
     value,
     onChange,
     onSave,
+    readOnly = false,
     className,
 }: {
     value: string;
     onChange: (value: string) => void;
     onSave?: () => void;
+    readOnly?: boolean;
     className?: string;
 }) {
     const ref = useRef<HTMLTextAreaElement>(null);
     const apply = (action: MarkdownAction) => {
+        if (readOnly) return;
         const el = ref.current;
         if (!el) return;
         const result = applyMarkdownAction(value, el.selectionStart, el.selectionEnd, action);
@@ -32,7 +35,10 @@ export function NoteSourceEditor({
         <textarea
             ref={ref}
             value={value}
-            onChange={(e) => onChange(e.target.value)}
+            readOnly={readOnly}
+            onChange={(e) => {
+                if (!readOnly) onChange(e.target.value);
+            }}
             onKeyDown={(e) => {
                 if (e.nativeEvent.isComposing || !(e.metaKey || e.ctrlKey)) return;
                 const key = e.key.toLowerCase();

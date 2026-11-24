@@ -421,6 +421,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
                                 <RequiredDesktopUpdateGate />
                                 {/* The quick-capture window is a second copy of the app: the main window keeps things in sync. */}
                                 {!pathname.startsWith("/desktop/") && <AccountSync />}
+                                <SharedMoveConfirmHost />
                             </TooltipProvider>
                         </AppMotion>
                     </div>
@@ -459,7 +460,7 @@ function AccountSync() {
     useWakeRefresh();
     useLiveSync();
     useJoinAnnouncements();
-    return <SharedMoveConfirmHost />;
+    return null;
 }
 
 const REDUCED_MOTION = { reduced: "always", full: "never" } as const;

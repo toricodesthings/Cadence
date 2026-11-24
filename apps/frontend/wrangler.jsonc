@@ -41,6 +41,8 @@
     "env": {
         "dev": {
             "name": "cadence-frontend-dev",
+            // Never inherit production's custom domain: a dev deploy would take it over.
+            "routes": [],
             "services": [{ "binding": "BACKEND", "service": "cadence-backend-dev" }],
             "ratelimits": [
                 { "name": "AUTH_LIMITER", "namespace_id": "2026111011", "simple": { "limit": 300, "period": 60 } },

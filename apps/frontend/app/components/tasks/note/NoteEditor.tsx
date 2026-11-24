@@ -10,7 +10,7 @@ import type { CollabNoteHandle } from "../../../lib/notes/collab-session";
 import { openExternalUrl } from "../../../platform/runtime";
 import { cn } from "../../../lib/utils";
 import { NoteSlashMenu, SLASH_LIST_ID, slashOptionId } from "./NoteSlashMenu";
-import { NoteLinkPopover } from "./NoteLinkPopover";
+import { NoteLinkPopover, normalizeLink } from "./NoteLinkPopover";
 import { applyRemoteDoc, posAtPoint } from "./note-selection";
 import { filterSlashCommands, type NoteCommand } from "./note-commands";
 
@@ -205,21 +205,26 @@ export function NoteEditor({
     );
 
     /** ⌘/Ctrl shortcuts: S saves, F finds, K links. */
-    const shortcutKey = useCallback((key: string) => {
-        if (key === "s") {
-            handlers.current.onSave?.();
-            return true;
-        }
-        if (key === "f") {
-            handlers.current.onFind?.();
-            return true;
-        }
-        if (key === "k") {
-            setLinkOpen(true);
-            return true;
-        }
-        return false;
-    }, []);
+    const shortcutKey = useCallback(
+        (key: string) => {
+            if (key === "s") {
+                const e = editorRef.current;
+                if (collab && e && !e.isDestroyed && dirty.current) report(e);
+                handlers.current.onSave?.();
+                return true;
+            }
+            if (key === "f") {
+                handlers.current.onFind?.();
+                return true;
+            }
+            if (key === "k") {
+                setLinkOpen(true);
+                return true;
+            }
+            return false;
+        },
+        [collab, report],
+    );
 
     const extensions = useMemo(() => {
         const base = [...noteExtensions(placeholder, { collaborative: Boolean(collab) }), NoteFind];
@@ -263,8 +268,9 @@ export function NoteEditor({
                     .resolve(pos)
                     .marks()
                     .find((m) => m.type.name === "link")?.attrs.href as string | undefined;
-                if (!href) return false;
-                void openExternalUrl(href);
+                const safe = href ? normalizeLink(href) : null;
+                if (!safe) return false;
+                void openExternalUrl(safe);
                 return true;
             },
         },
@@ -369,6 +375,20 @@ export function NoteEditor({
             detach();
         };
     }, [editor, collab, session, viewId]);
+
+    // Flush any pending collab snapshot before the editor unmounts or the page hides.
+    useEffect(() => {
+        if (!collab) return;
+        const flush = () => {
+            const e = editorRef.current;
+            if (e && !e.isDestroyed && dirty.current) report(e);
+        };
+        window.addEventListener("pagehide", flush);
+        return () => {
+            window.removeEventListener("pagehide", flush);
+            flush();
+        };
+    }, [collab, report]);
 
     useEffect(() => () => clearTimeout(timer.current), []);
 

@@ -29,6 +29,7 @@ import type { AuthVariables } from "../../platform/auth";
 import { appOrigin, type Env } from "../../types/env";
 import { replanReminders } from "../push/reminder-clock";
 import { evictFromPresence } from "./list-presence";
+import { evictFromNoteCollab } from "../notes/note-collab";
 import {
     createInvite,
     joinList,
@@ -118,7 +119,15 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
             });
 
             await ownerChange(c, id, (tx) => transferList(tx, id, toUserId));
+            const transferTaskIds = await withCallerRls(c, (tx) =>
+                tx
+                    .select({ id: tasks.id })
+                    .from(tasks)
+                    .where(eq(tasks.projectId, id))
+                    .then((rows) => rows.map((r) => r.id)),
+            );
             c.executionCtx.waitUntil(replanReminders(c.env, toUserId));
+            c.executionCtx.waitUntil(evictFromNoteCollab(c.env, transferTaskIds));
             return c.json({ data: { listId: id } });
         },
     )
@@ -129,7 +138,12 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         async (c) => {
             const { id, userId: memberId } = c.req.valid("param");
             const { role } = c.req.valid("json");
-            const member = await ownerChange(c, id, (tx, userId) => setMemberRole(tx, userId, id, memberId, role));
+            const { member, taskIds } = await ownerChange(c, id, async (tx, userId) => {
+                const updated = await setMemberRole(tx, userId, id, memberId, role);
+                const rows = await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, id));
+                return { member: updated, taskIds: rows.map((r) => r.id) };
+            });
+            c.executionCtx.waitUntil(evictFromNoteCollab(c.env, taskIds, memberId));
             return c.json({ data: member });
         },
     )
@@ -158,23 +172,30 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
     })
     .delete("/:id/members/:userId", apiValidator("param", listMemberParamSchema), async (c) => {
         const { id, userId: memberId } = c.req.valid("param");
-        const access = await withCallerRls(c, async (tx, userId) => {
+        const { access, taskIds } = await withCallerRls(c, async (tx, userId) => {
             // Read first: the person removed hears of it too.
             const access = await listAccess(tx, userId, id);
             if (memberId !== userId) requireOwner(access);
             else if (access.role === "owner")
                 throw new AppError(403, "OWNER_ONLY", "The owner can stop sharing, not leave.");
+            const rows = await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, id));
             await removeMember(tx, access, memberId);
-            return access;
+            return { access, taskIds: rows.map((r) => r.id) };
         });
         noteAudience(c, access);
         noteChange(c, { type: "list", listId: id });
         c.executionCtx.waitUntil(evictFromPresence(c.env, id, memberId));
+        c.executionCtx.waitUntil(evictFromNoteCollab(c.env, taskIds, memberId));
         return c.json({ data: { success: true } });
     })
     .delete("/:id/members", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
-        await ownerChange(c, id, (tx, userId, access) => stopSharing(tx, userId, access));
+        const taskIds = await ownerChange(c, id, async (tx, userId, access) => {
+            const rows = await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, id));
+            await stopSharing(tx, userId, access);
+            return rows.map((r) => r.id);
+        });
         c.executionCtx.waitUntil(evictFromPresence(c.env, id));
+        c.executionCtx.waitUntil(evictFromNoteCollab(c.env, taskIds));
         return c.json({ data: { success: true } });
     });

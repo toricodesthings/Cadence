@@ -58,7 +58,7 @@ export async function addDailySpend(env: Env, usd: number | undefined, now: Date
     try {
         const key = spendKey(now);
         const total = Number(await redis.incrbyfloat(key, usd));
-        if (total === usd) await redis.expire(key, 26 * 60 * 60);
+        await redis.expire(key, 26 * 60 * 60, "NX");
         const cap = dailySpendCap(env);
         if (total >= cap && (await redis.set(`${key}:reached`, "1", { nx: true, ex: 26 * 60 * 60 }))) {
             logger.error("ai", "ai_spend_cap_reached", { capUsd: cap, spentUsd: Math.round(total * 100) / 100 });

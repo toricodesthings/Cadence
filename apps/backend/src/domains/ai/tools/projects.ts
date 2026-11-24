@@ -374,11 +374,15 @@ export const projectTools = (env: Env, userId: string, ctx?: AgentContext) => {
                             .orderBy(asc(taskSections.orderIndex), asc(taskSections.createdAt));
                         const order = siblings.map((row) => row.id).filter((id) => id !== sectionId);
                         order.splice(Math.min(position - 1, order.length), 0, sectionId);
-                        for (const [orderIndex, id] of order.entries()) {
+                        if (order.length > 0) {
+                            const cases = sql.join(
+                                order.map((id, idx) => sql`WHEN ${taskSections.id} = ${id} THEN ${idx}`),
+                                sql` `,
+                            );
                             await tx
                                 .update(taskSections)
-                                .set({ orderIndex })
-                                .where(and(eq(taskSections.id, id), eq(taskSections.userId, ownerId)));
+                                .set({ orderIndex: sql`CASE ${cases} ELSE ${taskSections.orderIndex} END` })
+                                .where(and(eq(taskSections.userId, ownerId), inArray(taskSections.id, order)));
                         }
                     }
                     return {

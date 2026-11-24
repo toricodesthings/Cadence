@@ -3,6 +3,7 @@ import { presenceMessageSchema } from "@cadence/contracts/live";
 import { API_BASE_URL } from "../../lib/env";
 import { dropAuthJwt, getAuthJwt } from "../../lib/api/client";
 import { useAuthState } from "../auth/use-auth-state";
+import { WAKE_EVENT } from "../core/use-wake-refresh";
 
 const PRESENCE_PROTOCOL = "cadence.presence";
 const PING_MS = 45_000;
@@ -20,12 +21,46 @@ interface RoomEntry {
     retryTimer: number | undefined;
     attempt: number;
     authRetried: boolean;
+    paused: boolean;
     stopped: boolean;
     connecting: boolean;
 }
 
 const rooms = new Map<string, RoomEntry>();
 const listeners = new Set<() => void>();
+let wakeAttached = false;
+
+function reconnectRooms() {
+    for (const [listId, entry] of rooms) {
+        if (entry.stopped || entry.refs <= 0) continue;
+        entry.paused = false;
+        entry.authRetried = false;
+        if (!entry.connecting && (!entry.socket || entry.socket.readyState === WebSocket.CLOSED)) {
+            clearTimers(entry);
+            void connectRoom(listId, entry);
+        }
+    }
+}
+
+function syncWakeListeners() {
+    if (typeof window === "undefined") return;
+    if (rooms.size > 0 && !wakeAttached) {
+        window.addEventListener("online", reconnectRooms);
+        window.addEventListener(WAKE_EVENT, reconnectRooms);
+        wakeAttached = true;
+    } else if (rooms.size === 0 && wakeAttached) {
+        window.removeEventListener("online", reconnectRooms);
+        window.removeEventListener(WAKE_EVENT, reconnectRooms);
+        wakeAttached = false;
+    }
+}
+
+function scheduleRetry(listId: string, entry: RoomEntry) {
+    if (entry.stopped || entry.paused || entry.refs <= 0) return;
+    const delay = Math.min(1000 * 2 ** entry.attempt, BACKOFF_CAP_MS);
+    entry.attempt += 1;
+    entry.retryTimer = window.setTimeout(() => void connectRoom(listId, entry), delay);
+}
 
 function emit() {
     for (const fn of listeners) fn();
@@ -54,12 +89,17 @@ function clearTimers(entry: RoomEntry) {
 }
 
 async function connectRoom(listId: string, entry: RoomEntry) {
-    if (entry.stopped || entry.connecting || entry.refs <= 0) return;
+    if (entry.stopped || entry.paused || entry.connecting || entry.refs <= 0) return;
     entry.connecting = true;
     try {
         const jwt = await getAuthJwt();
-        if (!jwt || entry.stopped || entry.refs <= 0) {
+        if (entry.stopped || entry.refs <= 0) {
             entry.connecting = false;
+            return;
+        }
+        if (!jwt) {
+            entry.connecting = false;
+            scheduleRetry(listId, entry);
             return;
         }
         entry.token = jwt;
@@ -70,6 +110,7 @@ async function connectRoom(listId: string, entry: RoomEntry) {
             entry.connecting = false;
             entry.attempt = 0;
             entry.authRetried = false;
+            entry.paused = false;
             clearTimers(entry);
             entry.pingTimer = window.setInterval(() => {
                 if (ws.readyState === WebSocket.OPEN) ws.send("ping");
@@ -99,15 +140,18 @@ async function connectRoom(listId: string, entry: RoomEntry) {
                 emit();
                 return;
             }
-            if (event.code === BAD_TOKEN && !entry.authRetried) {
-                entry.authRetried = true;
+            if (event.code === BAD_TOKEN) {
                 if (entry.token) dropAuthJwt(entry.token);
-                void connectRoom(listId, entry);
+                if (!entry.authRetried) {
+                    entry.authRetried = true;
+                    void connectRoom(listId, entry);
+                    return;
+                }
+                // Second consecutive 4401: pause until online/wake rather than looping against Neon Auth.
+                entry.paused = true;
                 return;
             }
-            const delay = Math.min(1000 * 2 ** entry.attempt, BACKOFF_CAP_MS);
-            entry.attempt += 1;
-            entry.retryTimer = window.setTimeout(() => void connectRoom(listId, entry), delay);
+            scheduleRetry(listId, entry);
         };
 
         ws.onerror = () => {
@@ -119,6 +163,7 @@ async function connectRoom(listId: string, entry: RoomEntry) {
         };
     } catch {
         entry.connecting = false;
+        scheduleRetry(listId, entry);
     }
 }
 
@@ -134,6 +179,7 @@ function retain(listId: string) {
             retryTimer: undefined,
             attempt: 0,
             authRetried: false,
+            paused: false,
             stopped: false,
             connecting: false,
         };
@@ -141,6 +187,7 @@ function retain(listId: string) {
     }
     entry.refs += 1;
     entry.stopped = false;
+    syncWakeListeners();
     if (entry.refs === 1) void connectRoom(listId, entry);
     return () => {
         const current = rooms.get(listId);
@@ -155,6 +202,7 @@ function retain(listId: string) {
                 // Already closed.
             }
             rooms.delete(listId);
+            syncWakeListeners();
             emit();
         }
     };

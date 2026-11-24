@@ -2,14 +2,16 @@ import { Hono } from "hono";
 import { and, desc, eq, gt, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { deleteAccountSchema, type DataExport } from "@cadence/contracts/account";
-import { dataExports, users } from "../../db/schema";
+import { dataExports, listMembers, projects, tasks, users } from "../../db/schema";
 import { markAccountDeleted, type AuthVariables } from "../../platform/auth";
 import { getDbClient } from "../../platform/db";
 import { AppError } from "../../platform/errors";
 import { hashIdentifier, logger } from "../../platform/log";
 import { withRls } from "../../platform/rls";
 import { apiValidator } from "../../platform/validation";
+import { evictFromNoteCollab } from "../notes/note-collab";
 import { forgetReminders } from "../push/reminder-clock";
+import { evictFromPresence } from "../sharing/list-presence";
 import { forgetCodeMode } from "../mcp/code-mode";
 import type { Env } from "../../types/env";
 import { backgroundPrefix } from "../settings/background-image";
@@ -154,8 +156,40 @@ export const accountRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
             await deletePrefix(c.env.USER_ASSETS, `ai-images/${userHash}/`);
         }
         await revokeAllGrants(c.env, userId);
-        await withRls(getDbClient(c.env), userId, (tx) => tx.delete(users).where(eq(users.id, userId)));
+        const { ownedListIds, memberListIds, ownedTaskIds, memberTaskIds } = await withRls(
+            getDbClient(c.env),
+            userId,
+            async (tx) => {
+                const [owned, memberships] = await Promise.all([
+                    tx.select({ id: projects.id }).from(projects).where(eq(projects.userId, userId)),
+                    tx.select({ listId: listMembers.listId }).from(listMembers).where(eq(listMembers.userId, userId)),
+                ]);
+                const ownedIds = owned.map((r) => r.id);
+                const memberIds = memberships.map((r) => r.listId);
+                const [ownedTasks, memberTasks] = await Promise.all([
+                    ownedIds.length > 0
+                        ? tx.select({ id: tasks.id }).from(tasks).where(inArray(tasks.projectId, ownedIds))
+                        : Promise.resolve([]),
+                    memberIds.length > 0
+                        ? tx.select({ id: tasks.id }).from(tasks).where(inArray(tasks.projectId, memberIds))
+                        : Promise.resolve([]),
+                ]);
+                await tx.delete(users).where(eq(users.id, userId));
+                return {
+                    ownedListIds: ownedIds,
+                    memberListIds: memberIds,
+                    ownedTaskIds: ownedTasks.map((r) => r.id),
+                    memberTaskIds: memberTasks.map((r) => r.id),
+                };
+            },
+        );
         await markAccountDeleted(c.env, userId);
+        await Promise.all([
+            ...ownedListIds.map((listId) => evictFromPresence(c.env, listId)),
+            ...memberListIds.map((listId) => evictFromPresence(c.env, listId, userId)),
+            evictFromNoteCollab(c.env, ownedTaskIds),
+            evictFromNoteCollab(c.env, memberTaskIds, userId),
+        ]);
         await forgetReminders(c.env, userId);
         await forgetCodeMode(c.env, userId);
         await deleteAuthUser(c.env, userId);

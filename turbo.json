@@ -4,6 +4,7 @@
         "build": {
             "dependsOn": ["^build"],
             "env": ["VITE_*"],
+            "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/CHANGELOG.md"],
             "outputs": ["build/**", "dist/**"]
         },
         "typecheck": {
@@ -26,6 +27,10 @@
             "outputs": []
         },
         "@cadence/package-tests#test": {
+            "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/*/src/**"],
+            "outputs": []
+        },
+        "@cadence/package-tests#test:tz": {
             "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/*/src/**"],
             "outputs": []
         },

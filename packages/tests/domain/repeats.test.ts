@@ -203,3 +203,10 @@ describe("routine at set times", () => {
         ).toBe("20:00");
     });
 });
+
+describe("habitOccurrences leap-day clamping", () => {
+    it("clamps a Feb 29 routine to Feb 28 when stepping back to a non-leap year instead of throwing", () => {
+        const days = habitOccurrences("FREQ=YEARLY", "2024-02-29T10:00:00Z", "2023-02-25", "2023-03-02", "UTC");
+        expect(days).toEqual(["2023-02-28"]);
+    });
+});

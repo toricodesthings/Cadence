@@ -10,7 +10,8 @@ import { embed, embedMany } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { logger } from "../../../platform/log";
 import { addStepSpend, type TurnSpend } from "../safety/rate-limit";
-import { addDailySpend } from "../../../platform/daily-budget";
+import { addDailySpend, spendWithinCap } from "../../../platform/daily-budget";
+import { AppError } from "../../../platform/errors";
 import type { Env } from "../../../types/env";
 
 /** Dimensionality of the `ai_memories.embedding` column (halfvec) — embeddings MUST match. */
@@ -64,6 +65,7 @@ export async function embedText(
     text: string,
     ctx: { requestId?: string; userHash?: string } = {},
 ): Promise<{ embedding: number[]; spend: EmbeddingSpend }> {
+    if (!(await spendWithinCap(env))) throw new AppError(503, "AI_SPEND_CAPPED", "Daily assistant spend cap reached");
     const { embedding, usage, providerMetadata, response } = await embed({
         model: getEmbeddingModel(env, ctx.userHash),
         value: text,
@@ -90,6 +92,7 @@ export async function embedTexts(
     ctx: { userHash?: string; inTurn?: boolean } = {},
 ): Promise<number[][]> {
     if (texts.length === 0) return [];
+    if (!(await spendWithinCap(env))) throw new AppError(503, "AI_SPEND_CAPPED", "Daily assistant spend cap reached");
     const timeout = ctx.inTurn ? EMBED_TIMEOUT_MS : BATCH_TIMEOUT_MS;
     const { embeddings, usage, providerMetadata } = await embedMany({
         model: getEmbeddingModel(env, ctx.userHash),

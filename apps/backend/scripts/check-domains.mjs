@@ -13,10 +13,11 @@ const PUBLIC = [
     "decisions/did-you-mean",
     "mcp/oauth",
     "mcp/code-mode", // account deletion drops the person's Code Mode history
-    "notes/note-collab", // assistant note writes reset active collab rooms
+    "notes/note-collab", // assistant note writes and membership/account changes reset or evict collab rooms
     "push/reminder-clock", // writes elsewhere (chat, MCP, account deletion) ask the person's reminder clock to rebuild or forget
     "settings/settings.route",
     "settings/background-image",
+    "sharing/list-presence", // list/account deletion evicts open presence sockets
     "tasks/task-nlp",
 ];
 

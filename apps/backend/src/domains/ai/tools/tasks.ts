@@ -62,11 +62,12 @@ import { suggestEffortGuess } from "../../decisions/effort-guess";
 import { checkSaid } from "./said";
 import {
     assertTasksNotStale,
-    audienceOfAccesses,
     recordSeenSharedTasks,
+    scopeLiveBroadcasts,
     sharedCreateDuplicates,
     sharedListPeople,
     sharedTaskMeta,
+    type ScopedBroadcast,
 } from "./shared-guard";
 
 /**
@@ -157,14 +158,14 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             result: T;
             id: string;
             changes?: Parameters<typeof trackTaskChanges>[3];
-            live?: { audience: string[]; changes: LiveChange[] };
+            live?: ScopedBroadcast[];
             resetNoteTaskId?: string;
         }>,
     ) =>
         safeExecute(name, userId, async () => {
             const db = getDbClient(env);
             let changes: Parameters<typeof trackTaskChanges>[3] | undefined;
-            let live: { audience: string[]; changes: LiveChange[] } | undefined;
+            let live: ScopedBroadcast[] | undefined;
             let resetNoteTaskId: string | undefined;
             const result = await withRls(db, userId, (tx) =>
                 once(tx, userId, toolCallId, async () => {
@@ -178,8 +179,8 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             const isReplay = (result as { deduped?: boolean }).deduped;
             if (!isReplay) {
                 if (changes) trackTaskChanges(track, db, userId, changes);
-                if (live && live.audience.length > 0) {
-                    track(broadcastLive(env, userId, live.audience, live.changes));
+                if (live && live.length > 0) {
+                    track(Promise.all(live.map((entry) => broadcastLive(env, userId, entry.audience, entry.changes))));
                 }
                 if (resetNoteTaskId) track(resetNoteCollab(env, resetNoteTaskId));
             }
@@ -673,14 +674,12 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         const level = guesses.get(c.taskId);
                         if (level) (c as { effortGuess?: number }).effortGuess = level;
                     }
-                    const sharedAccesses = [...accessByList.values()].filter((a) => a.audience.length > 1);
+                    const live = scopeLiveBroadcasts([...accessByList.values()], liveChanges);
                     return {
                         result: { created, placed, ...(ignored.length && { ignored }) },
                         id: created[0].taskId,
                         changes: { created: created.map((task) => task.taskId) },
-                        ...(sharedAccesses.length > 0 && {
-                            live: { audience: audienceOfAccesses(sharedAccesses), changes: liveChanges },
-                        }),
+                        ...(live.length > 0 && { live }),
                     };
                 });
                 // After the commit, so the task exists for the background guess; a replayed call already started it.
@@ -748,14 +747,15 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             liveChanges.push({ type: "task", task: copy });
                         }
                     }
-                    const sharedAccesses = groups.map((g) => g.access).filter((a) => a && a.audience.length > 1);
+                    const live = scopeLiveBroadcasts(
+                        groups.map((g) => g.access),
+                        liveChanges,
+                    );
                     return {
                         result: { created },
                         id: created[0].taskId,
                         changes: { created: created.map((task) => task.taskId) },
-                        ...(sharedAccesses.length > 0 && {
-                            live: { audience: audienceOfAccesses(sharedAccesses), changes: liveChanges },
-                        }),
+                        ...(live.length > 0 && { live }),
                     };
                 }),
         }),
@@ -948,14 +948,13 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     const liveChanges: LiveChange[] = sharedAccesses.length
                         ? (await withTagIds(tx, allRows)).map((task) => ({ type: "task" as const, task }))
                         : [];
+                    const live = scopeLiveBroadcasts(sharedAccesses, liveChanges);
                     return {
                         result: { updated: allRows.length, ...(checked.ignored && { ignored: checked.ignored }) },
                         id: taskIds[0],
                         changes,
                         resetNoteTaskId,
-                        ...(sharedAccesses.length > 0 && {
-                            live: { audience: audienceOfAccesses(sharedAccesses), changes: liveChanges },
-                        }),
+                        ...(live.length > 0 && { live }),
                     };
                 });
                 // A new title or list: the old guess was cleared, so score the new one.
@@ -995,15 +994,14 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         to ? { to } : beforeTaskId ? { beforeTaskId } : { afterTaskId: afterTaskId! },
                     );
                     const sharedAccesses = groups.map((g) => g.access).filter((a) => a && a.audience.length > 1);
+                    const live = scopeLiveBroadcasts(
+                        sharedAccesses,
+                        sharedAccesses.map((a) => ({ type: "list" as const, listId: a!.listId })),
+                    );
                     return {
                         result: placed,
                         id: taskIds[0],
-                        ...(sharedAccesses.length > 0 && {
-                            live: {
-                                audience: audienceOfAccesses(sharedAccesses),
-                                changes: sharedAccesses.map((a) => ({ type: "list" as const, listId: a!.listId })),
-                            },
-                        }),
+                        ...(live.length > 0 && { live }),
                     };
                 }),
         }),
@@ -1020,16 +1018,11 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     requireEdit(access);
                     const ownerId = access?.ownerId ?? userId;
                     const res = await editSubtasks(tx, ownerId, input);
+                    const live = access ? scopeLiveBroadcasts([access], [{ type: "list", listId: access.listId }]) : [];
                     return {
                         result: res,
                         id: input.taskId,
-                        ...(access &&
-                            access.audience.length > 1 && {
-                                live: {
-                                    audience: audienceOfAccesses([access]),
-                                    changes: [{ type: "list", listId: access.listId }],
-                                },
-                            }),
+                        ...(live.length > 0 && { live }),
                     };
                 }),
         }),
@@ -1102,6 +1095,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         const liveChanges: LiveChange[] = sharedAccesses.length
                             ? (await withTagIds(tx, allRows)).map((task) => ({ type: "task" as const, task }))
                             : [];
+                        const live = scopeLiveBroadcasts(sharedAccesses, liveChanges);
                         return {
                             result: {
                                 updated: allRows.length,
@@ -1109,9 +1103,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             },
                             id: taskIds[0],
                             changes,
-                            ...(sharedAccesses.length > 0 && {
-                                live: { audience: audienceOfAccesses(sharedAccesses), changes: liveChanges },
-                            }),
+                            ...(live.length > 0 && { live }),
                         };
                     },
                 ),
@@ -1140,20 +1132,26 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     for (const group of groups) requireEdit(group.access);
                     let deleted = 0;
                     const gone: LiveChange[] = [];
+                    const goneListById = new Map<string, string>();
                     for (const group of groups) {
                         const rows = await deleteTasks(tx, group.access?.ownerId ?? userId, group.ids);
                         deleted += rows.length;
                         if (group.access && group.access.audience.length > 1) {
-                            for (const row of rows) gone.push({ type: "task.gone", id: row.id });
+                            for (const row of rows) {
+                                gone.push({ type: "task.gone", id: row.id });
+                                goneListById.set(row.id, group.access.listId);
+                            }
                         }
                     }
-                    const sharedAccesses = groups.map((g) => g.access).filter((a) => a && a.audience.length > 1);
+                    const live = scopeLiveBroadcasts(
+                        groups.map((g) => g.access),
+                        gone,
+                        goneListById,
+                    );
                     return {
                         result: { deleted },
                         id: targets[0].taskId,
-                        ...(sharedAccesses.length > 0 && {
-                            live: { audience: audienceOfAccesses(sharedAccesses), changes: gone },
-                        }),
+                        ...(live.length > 0 && { live }),
                     };
                 }),
         }),
@@ -1194,13 +1192,12 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     const liveChanges: LiveChange[] = sharedAccesses.length
                         ? (await withTagIds(tx, allRows)).map((task) => ({ type: "task" as const, task }))
                         : [];
+                    const live = scopeLiveBroadcasts(sharedAccesses, liveChanges);
                     return {
                         result: { moved: allRows.length, tasks: left },
                         id: taskIds[0],
                         changes: { rescheduled: allRows },
-                        ...(sharedAccesses.length > 0 && {
-                            live: { audience: audienceOfAccesses(sharedAccesses), changes: liveChanges },
-                        }),
+                        ...(live.length > 0 && { live }),
                     };
                 }),
         }),

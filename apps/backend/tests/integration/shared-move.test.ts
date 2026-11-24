@@ -123,6 +123,28 @@ describe("moving tasks into a shared list", () => {
         );
         expect(metrics.rows).toHaveLength(0);
     });
+
+    it("accepts expectedUpdatedAt alongside extra fields when moving, and blocks TAKE_SELF_ONLY bypass", async () => {
+        const { ownerId, list, editor } = await sharedSetup();
+        const personal = (await editor.tasks("POST", "", { title: "Before move", orderIndex: 1 })).body.data;
+
+        // Trying to assign someone else while moving is rejected before the move happens.
+        const forbidden = await editor.tasks("PATCH", `/${personal.id}`, {
+            projectId: list.id,
+            takenBy: ownerId,
+        });
+        expect(forbidden.status).toBe(403);
+        expect(forbidden.body.error.code).toBe("TAKE_SELF_ONLY");
+
+        // Moving with expectedUpdatedAt + title succeeds without a false 409 conflict.
+        const moved = await editor.tasks("PATCH", `/${personal.id}`, {
+            projectId: list.id,
+            title: "After move",
+            expectedUpdatedAt: personal.updatedAt,
+        });
+        expect(moved.status).toBe(200);
+        expect(moved.body.data).toMatchObject({ projectId: list.id, title: "After move", userId: ownerId });
+    });
 });
 
 describe("processing a capture into a shared list", () => {

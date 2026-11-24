@@ -253,4 +253,27 @@ describe("assistant tools on shared lists", () => {
         });
         expect(forced.created).toHaveLength(1);
     });
+
+    it("isolates private tasks from shared-list live broadcasts via scopeLiveBroadcasts", async () => {
+        const { scopeLiveBroadcasts } = await import("../../src/domains/ai/tools/shared-guard");
+        const priv = { type: "task" as const, task: { id: "t-priv", projectId: null } as never };
+        const sh1 = { type: "task" as const, task: { id: "t-s1", projectId: "list-1" } as never };
+        const sh2 = { type: "task" as const, task: { id: "t-s2", projectId: "list-2" } as never };
+        const batches = scopeLiveBroadcasts(
+            [
+                { listId: "list-1", role: "edit", ownerId: "u-owner", audience: ["u-owner", "u-a"] },
+                { listId: "list-2", role: "edit", ownerId: "u-owner", audience: ["u-owner", "u-b"] },
+            ],
+            [priv, sh1, sh2],
+        );
+        // Private task is never included in any shared-list broadcast; each shared list gets only its own task.
+        expect(batches).toHaveLength(2);
+        expect(batches.some((b) => b.changes.some((c) => c.type === "task" && c.task.id === "t-priv"))).toBe(false);
+        const s1Batch = batches.find((b) => b.changes.some((c) => c.type === "task" && c.task.id === "t-s1"));
+        expect(s1Batch?.audience).toEqual(["u-owner", "u-a"]);
+        expect(s1Batch?.changes).toHaveLength(1);
+        const s2Batch = batches.find((b) => b.changes.some((c) => c.type === "task" && c.task.id === "t-s2"));
+        expect(s2Batch?.audience).toEqual(["u-owner", "u-b"]);
+        expect(s2Batch?.changes).toHaveLength(1);
+    });
 });

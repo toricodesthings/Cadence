@@ -11,6 +11,7 @@ import { withRls } from "../../../platform/rls";
 import { logger, hashIdentifier, issuesFromError } from "../../../platform/log";
 import type { Env } from "../../../types/env";
 import { getRateLimitRedis } from "../../../platform/redis";
+import { withinDailyBudget } from "../../../platform/daily-budget";
 import { learnFromConversation } from "./learn";
 import { learnFromNote, pendingNotes } from "./note-learn";
 import { isLearning, readMemoryState } from "./memory-mode";
@@ -40,16 +41,9 @@ export const DAILY_EXTRACTIONS = 15;
  * budget is cost control, not a promise about "today". No Redis (or an error) means no cap, never a stuck job.
  */
 export async function withinDailyCap(env: Env, userId: string, now: Date): Promise<boolean> {
-    const redis = getRateLimitRedis(env);
-    if (!redis) return true;
-    try {
-        const key = `memory:extract:${await hashIdentifier(userId)}:${now.toISOString().slice(0, 10)}`; // time-ok: a cost-control bucket named by the UTC date
-        const used = await redis.incr(key);
-        if (used === 1) await redis.expire(key, 26 * 60 * 60);
-        return used <= DAILY_EXTRACTIONS;
-    } catch {
-        return true;
-    }
+    return withinDailyBudget(env, "memory-extract", await hashIdentifier(userId), DAILY_EXTRACTIONS, now, {
+        failOpen: true,
+    });
 }
 
 /**

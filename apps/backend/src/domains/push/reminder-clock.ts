@@ -32,6 +32,7 @@ import {
 } from "./plan";
 import { verifyAppToken, type AuthVariables } from "../../platform/auth";
 import { AppError } from "../../platform/errors";
+import { offeredProtocols, refuseWs } from "../../platform/ws-auth";
 import type { Env } from "../../types/env";
 
 /** Sent keys are kept this long: longer than any alert can stay due, so nothing goes out twice. */
@@ -52,8 +53,6 @@ const LIVE_PROTOCOL = "cadence.live";
 /** One open copy of Cadence: sent on its requests (`X-Cadence-Origin`) and its socket, so its own writes don't make it refetch. */
 export const ORIGIN_HEADER = "X-Cadence-Origin";
 const originOf = (value: string | null | undefined) => (value && /^[\w-]{1,64}$/.test(value) ? value : undefined);
-const offeredProtocols = (request: Request) =>
-    (request.headers.get("Sec-WebSocket-Protocol") ?? "").split(",").map((part) => part.trim());
 const CLOSE = { badToken: 4401, rateLimited: 4429, accountGone: 4001, error: 1011 } as const;
 
 /**
@@ -67,14 +66,6 @@ const ticketOf = (token: string) => /^t\.([0-9a-f-]{36})\.([0-9a-f]{32})$/.exec(
 /** Set by `connectLive` only (any copy the client sent is overwritten): who the socket is for, and how they proved it. */
 const LIVE_USER_HEADER = "X-Live-User";
 const LIVE_AUTH_HEADER = "X-Live-Auth";
-
-/** A browser sees no HTTP status on a failed handshake, so a refusal is an accepted socket closed at once with a 4xxx code. */
-function refuse(code: number, reason: string) {
-    const { 0: client, 1: server } = new WebSocketPair();
-    server.accept();
-    server.close(code, reason);
-    return new Response(null, { status: 101, webSocket: client, headers: { "Sec-WebSocket-Protocol": LIVE_PROTOCOL } });
-}
 
 /** How a write is told to a person's open copies: not to the one that wrote (`origin`), not at all (`quiet`), with the rows (`changes`). */
 type LiveOptions = { origin?: string; quiet?: boolean; changes?: LiveChange[] };
@@ -106,7 +97,7 @@ export class ReminderClock extends DurableObject<Env> {
             tickets[secret] = now + TICKET_TTL_MS;
             ticket = `t.${request.headers.get(LIVE_USER_HEADER)}.${secret}`;
         } else if (!tickets[ticketOf(token ?? "")?.[2] ?? ""]) {
-            return refuse(CLOSE.badToken, "sign in again");
+            return refuseWs(LIVE_PROTOCOL, CLOSE.badToken, "sign in again");
         }
         // The newest few only: one per open copy of Cadence is all that's ever in use.
         await this.ctx.storage.put(
@@ -389,7 +380,8 @@ export const replanAfterWrites: MiddlewareHandler<{ Bindings: Env; Variables: Au
     if (c.req.method === "GET" || c.req.method === "OPTIONS" || c.res.status >= 300) return;
     const path = c.req.path;
     if (path.startsWith("/api/v1/ai/") && !path.startsWith("/api/v1/ai/memory/")) return;
-    if (["/api/v1/events", "/api/v1/search"].some((prefix) => path.startsWith(prefix))) return;
+    if (["/api/v1/events", "/api/v1/search", "/api/v1/account/delete"].some((prefix) => path.startsWith(prefix)))
+        return;
     // A device saying hello changes who gets reminders (replan) but nothing another device shows (no ping).
     const quiet = c.req.method === "PUT" && path === "/api/v1/push/devices";
     const callerId = c.get("userId");
@@ -404,14 +396,23 @@ export const replanAfterWrites: MiddlewareHandler<{ Bindings: Env; Variables: Au
     );
     // Everyone else who can read what changed hears of it: the list's owner replans too (their reminders may have changed).
     const others = (c.get("liveAudience") ?? []).filter((id) => id !== callerId);
-    if (others.length)
-        c.executionCtx.waitUntil(Promise.all(others.map((id) => tellPerson(c.env, id, callerId, origin, changes))));
+    if (others.length) {
+        const db = getDbClient(c.env);
+        c.executionCtx.waitUntil(Promise.all(others.map((id) => tellPerson(c.env, id, callerId, origin, changes, db))));
+    }
 };
 
 /** One person who isn't the writer: their own tasks replan their clock, and every recipient gets only their own tags. */
-async function tellPerson(env: Env, id: string, _writerId: string, origin: string | undefined, changes: LiveChange[]) {
+async function tellPerson(
+    env: Env,
+    id: string,
+    _writerId: string,
+    origin: string | undefined,
+    changes: LiveChange[],
+    db?: ReturnType<typeof getDbClient>,
+) {
     const owns = changes.some((change) => change.type === "task" && change.task.userId === id);
-    const shaped = await withRecipientTags(env, id, changes);
+    const shaped = await withRecipientTags(env, id, changes, db);
     if (owns) return replanReminders(env, id, { origin, changes: shaped });
     return pingLive(env, id, { origin, changes: shaped });
 }
@@ -429,19 +430,25 @@ export async function broadcastLive(
 ): Promise<void> {
     const callerChanges = changes.length > 0 ? changes.map((change) => shapeFor(change, callerId)) : undefined;
     const others = [...new Set(audience)].filter((id) => id !== callerId);
+    const db = others.length > 0 ? getDbClient(env) : undefined;
     await Promise.all([
         replanReminders(env, callerId, { origin, ...(callerChanges && { changes: callerChanges }) }),
-        ...others.map((id) => tellPerson(env, id, callerId, origin, changes)),
+        ...others.map((id) => tellPerson(env, id, callerId, origin, changes, db)),
     ]);
 }
 
 /** Shape changes for `recipientId` and attach only that recipient's own tag ids (via their RLS). */
-async function withRecipientTags(env: Env, recipientId: string, changes: LiveChange[]): Promise<LiveChange[]> {
+async function withRecipientTags(
+    env: Env,
+    recipientId: string,
+    changes: LiveChange[],
+    db?: ReturnType<typeof getDbClient>,
+): Promise<LiveChange[]> {
     const base = changes.map((change) => shapeFor(change, recipientId));
     const taskIds = base.flatMap((change) => (change.type === "task" ? [change.task.id] : []));
     if (!taskIds.length) return base;
     try {
-        const links = await withRls(getDbClient(env), recipientId, (tx) =>
+        const links = await withRls(db ?? getDbClient(env), recipientId, (tx) =>
             tx
                 .select({ taskId: taskTags.taskId, tagId: taskTags.tagId })
                 .from(taskTags)
@@ -489,26 +496,26 @@ export async function connectLive(request: Request, env: Env): Promise<Response>
 
     const ip = request.headers.get("cf-connecting-ip") || "unknown";
     if (env.RATE_LIMITER && !(await env.RATE_LIMITER.limit({ key: ip })).success)
-        return refuse(CLOSE.rateLimited, "slow down");
+        return refuseWs(LIVE_PROTOCOL, CLOSE.rateLimited, "slow down");
     const ticket = ticketOf(token);
     let userId: string;
     if (ticket) {
         // The ticket's id is unchecked until the clock reads the secret: it never names a clock that isn't a person's id,
         // and it spends the caller's (IP) budget, never that person's.
-        if (!z.uuid().safeParse(ticket[1]).success) return refuse(CLOSE.badToken, "sign in again");
+        if (!z.uuid().safeParse(ticket[1]).success) return refuseWs(LIVE_PROTOCOL, CLOSE.badToken, "sign in again");
         userId = ticket[1];
     } else {
         try {
             ({ userId } = await verifyAppToken(env, token));
         } catch (err) {
             return err instanceof AppError && err.statusCode === 401
-                ? refuse(CLOSE.badToken, "sign in again")
-                : refuse(CLOSE.error, "unavailable");
+                ? refuseWs(LIVE_PROTOCOL, CLOSE.badToken, "sign in again")
+                : refuseWs(LIVE_PROTOCOL, CLOSE.error, "unavailable");
         }
     }
     if (env.RATE_LIMITER_READ && !(await env.RATE_LIMITER_READ.limit({ key: ticket ? `live:${ip}` : userId })).success)
-        return refuse(CLOSE.rateLimited, "slow down");
-    if (!env.REMINDER_CLOCK) return refuse(CLOSE.error, "unavailable");
+        return refuseWs(LIVE_PROTOCOL, CLOSE.rateLimited, "slow down");
+    if (!env.REMINDER_CLOCK) return refuseWs(LIVE_PROTOCOL, CLOSE.error, "unavailable");
     const headers = new Headers(request.headers);
     headers.set(LIVE_USER_HEADER, userId);
     headers.set(LIVE_AUTH_HEADER, ticket ? "ticket" : "jwt");

@@ -60,6 +60,7 @@ export class CollabNoteHandle {
 
     private readonly user: CollabUser;
     private token: string | null = null;
+    private authRetried = false;
     private disposed = false;
     private status: CollabStatus = "connecting";
     private peers: CollabPeer[] = [];
@@ -83,7 +84,10 @@ export class CollabNoteHandle {
         this.provider.on("status", ({ status }: { status: "connected" | "connecting" | "disconnected" }) => {
             if (status === "disconnected") this.updateStatus("offline");
             else if (status === "connecting") this.updateStatus("connecting");
-            else if (this.provider.synced) this.updateStatus("synced");
+            else {
+                this.authRetried = false;
+                if (this.provider.synced) this.updateStatus("synced");
+            }
         });
 
         this.provider.on("sync", (synced: boolean) => {
@@ -93,6 +97,13 @@ export class CollabNoteHandle {
         this.provider.on("connection-close", (event: CloseEvent | null) => {
             if (event?.code === 4401) {
                 if (this.token) dropAuthJwt(this.token);
+                this.token = null;
+                if (this.authRetried) {
+                    this.provider.disconnect();
+                    this.updateStatus("offline");
+                    return;
+                }
+                this.authRetried = true;
                 void this.refreshAndReconnect();
             }
         });
@@ -131,9 +142,15 @@ export class CollabNoteHandle {
     }
 
     private async refreshAndReconnect() {
+        this.provider.disconnect();
         const jwt = await getAuthJwt();
         if (this.disposed) return;
         this.token = jwt;
+        if (!jwt) {
+            this.updateStatus("offline");
+            return;
+        }
+        this.provider.connect();
     }
 
     private updateStatus(next: CollabStatus) {
@@ -168,6 +185,10 @@ export class CollabNoteHandle {
         if (fragment.length > 0) {
             meta.set("seeded", true);
             return;
+        }
+        // Deterministic single-seeder: if multiple peers join an unseeded room together, only the lowest clientID seeds.
+        for (const clientId of this.provider.awareness.getStates().keys()) {
+            if (clientId < this.doc.clientID) return;
         }
         this.doc.transact(() => {
             meta.set("seeded", true);

@@ -52,9 +52,13 @@ function habitStart(recurrenceRule: string, createdAt: string, from: LocalDate, 
             const period = freq === RRule.DAILY ? 1 : 7;
             anchor = addDays(anchor, -Math.ceil(daysBetween(from, anchor) / period) * period);
         } else {
-            // Months and years: step back whole years so the day of the month stays.
-            const [y, rest] = [Number(anchor.slice(0, 4)), anchor.slice(4)];
-            anchor = `${String(y - (y - Number(from.slice(0, 4)) + 1)).padStart(4, "0")}${rest}`;
+            // Months and years: step back whole years so the day of the month stays (clamp Feb 29 on non-leap years).
+            const y = Number(anchor.slice(0, 4));
+            const targetYear = y - (y - Number(from.slice(0, 4)) + 1);
+            const rest = anchor.slice(4);
+            const isLeap = (targetYear % 4 === 0 && targetYear % 100 !== 0) || targetYear % 400 === 0;
+            const safeRest = rest === "-02-29" && !isLeap ? "-02-28" : rest;
+            anchor = `${String(targetYear).padStart(4, "0")}${safeRest}`;
         }
     }
     return anchor;

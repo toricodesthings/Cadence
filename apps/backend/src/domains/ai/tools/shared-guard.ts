@@ -196,3 +196,33 @@ export function audienceOfAccesses(accesses: (ListAccess | null | undefined)[]):
     }
     return [...out];
 }
+
+export type ScopedBroadcast = { audience: string[]; changes: import("@cadence/contracts/live").LiveChange[] };
+
+/**
+ * Partition live changes strictly by shared list so a batch touching mixed private and shared
+ * tasks (or two different shared lists) never sends one list's rows to another list's members.
+ */
+export function scopeLiveBroadcasts(
+    accesses: (ListAccess | null | undefined)[],
+    changes: import("@cadence/contracts/live").LiveChange[],
+    goneListById?: Map<string, string>,
+): ScopedBroadcast[] {
+    const byList = new Map<string, ScopedBroadcast>();
+    for (const access of accesses) {
+        if (!access || access.audience.length <= 1) continue;
+        if (!byList.has(access.listId)) byList.set(access.listId, { audience: access.audience, changes: [] });
+    }
+    if (!byList.size) return [];
+    for (const change of changes) {
+        const listId =
+            change.type === "task"
+                ? change.task.projectId
+                : change.type === "list"
+                  ? change.listId
+                  : goneListById?.get(change.id);
+        if (!listId) continue;
+        byList.get(listId)?.changes.push(change);
+    }
+    return [...byList.values()].filter((entry) => entry.changes.length > 0);
+}

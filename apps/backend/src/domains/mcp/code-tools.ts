@@ -22,10 +22,14 @@ export function unwrap(result: CallToolResult): unknown {
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const REVERTS: Partial<Record<PublishedTool, (args: any, result: any) => [PublishedTool, object][]>> = {
-    create_tasks: (_a, r) => [["set_task_state", { taskIds: r.created.map((c: any) => c.taskId), state: "ARCHIVED" }]],
-    duplicate_tasks: (_a, r) => [
-        ["set_task_state", { taskIds: r.created.map((c: any) => c.taskId), state: "ARCHIVED" }],
-    ],
+    create_tasks: (_a, r) =>
+        r.created?.length
+            ? [["set_task_state", { taskIds: r.created.map((c: any) => c.taskId), state: "ARCHIVED" }]]
+            : [],
+    duplicate_tasks: (_a, r) =>
+        r.created?.length
+            ? [["set_task_state", { taskIds: r.created.map((c: any) => c.taskId), state: "ARCHIVED" }]]
+            : [],
     create_project: (_a, r) => [["delete_project", { projectId: r.projectId, name: r.name, tasks: "trash" }]],
     create_sections: (_a, r) => r.sections.map((s: any) => ["delete_section", { sectionId: s.sectionId }]),
     create_tag: (_a, r) => [["delete_tag", { tagId: r.tagId, name: r.name }]],
@@ -72,8 +76,12 @@ export function codeTools(entries: PublishedEntry[]): ConnectorTools {
             ...(revert && {
                 revert: async (args: unknown, result: unknown, c?: { executionId: string }) => {
                     for (const [name, input] of revert(args, result)) {
+                        const target = byName.get(name);
+                        if (!target) {
+                            throw new Error(`Undo requires ${name}, which is not granted by this token's scopes`);
+                        }
                         unwrap(
-                            await byName.get(name)!.call({
+                            await target.call({
                                 ...input,
                                 operationKey: callKey(c!.executionId, true),
                                 ...(isDelete(name) && { confirm: true }),

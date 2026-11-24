@@ -5,6 +5,7 @@ import { getNoteOwnerTaskId } from "../../lib/notes/recurring-note-scope";
 import { useTaskNoteQuery } from "./use-task-note-api";
 import { useAuthState } from "../auth/use-auth-state";
 import { useOnlineStatus } from "../core/use-online-status";
+import { useTaskAccess } from "../sharing/use-list-access";
 import { acquireNoteSession, releaseNoteSession } from "../../lib/notes/note-registry";
 import { onNoteSaved } from "../../lib/notes/note-channel";
 import { queryKeys } from "../../lib/api/query-keys";
@@ -32,10 +33,10 @@ function useNoteSession(
 }
 
 /** Server data from elsewhere: poll/focus/reconnect, other tabs' announcements, and the online state. */
-function useRemoteNote(session: NoteSession | null, userId: string | null, ownerId: string | null) {
+function useRemoteNote(session: NoteSession | null, userId: string | null, ownerId: string | null, poll: boolean) {
     const queryClient = useQueryClient();
     const online = useOnlineStatus();
-    const { data: remote } = useTaskNoteQuery(ownerId ?? null, { live: true });
+    const { data: remote } = useTaskNoteQuery(ownerId ?? null, { live: poll });
     useEffect(() => {
         if (session && remote) session.receiveRemote(remote);
     }, [session, remote]);
@@ -71,7 +72,8 @@ export function useTaskNote(taskId: string | null) {
         () => session?.getSnapshot() ?? null,
         () => null,
     );
-    useRemoteNote(session, userId, ownerId);
+    const { isShared } = useTaskAccess(task ?? undefined);
+    useRemoteNote(session, userId, ownerId, !isShared);
 
     return { task, noteOwnerTask, session, state, ...noteView(session, state) };
 }

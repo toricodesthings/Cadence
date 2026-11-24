@@ -8,6 +8,7 @@ import type { AuthVariables } from "../../platform/auth";
 import { throwIfNotFound } from "../../platform/errors";
 import { listAccess, noteAudience, noteChange, requireOwner } from "../../platform/list-access";
 import { apiValidator } from "../../platform/validation";
+import { evictFromPresence } from "../sharing/list-presence";
 import { createProject, deleteProject, readProjects, updateProject } from "./projects.service";
 
 export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
@@ -61,5 +62,6 @@ export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
 
         noteAudience(c, access);
         noteChange(c, { type: "list", listId: id });
+        await evictFromPresence(c.env, id);
         return c.json({ data: { ...project, access: "owner" as const, members: [] } });
     });

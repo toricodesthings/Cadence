@@ -1,8 +1,13 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { collabColorFor } from "~/lib/notes/collab-session";
+import { CollabNoteHandle, collabColorFor } from "~/lib/notes/collab-session";
 import { CollabNoteStatus } from "~/components/tasks/note/NoteStatus";
+
+vi.mock("~/lib/api/client", () => ({
+    getAuthJwt: vi.fn().mockResolvedValue(null),
+    dropAuthJwt: vi.fn(),
+}));
 
 vi.mock("~/components/sharing/PersonAvatar", () => ({
     PersonAvatar: ({ userId }: { userId: string }) => <i data-testid="face" data-user={userId} />,
@@ -41,5 +46,31 @@ describe("collaborative notes UI helpers", () => {
         rerender(ui("offline", []));
         expect(faces()).toEqual([]);
         expect(screen.getByRole("status").textContent).toContain("Offline");
+    });
+
+    it("only seeds an unseeded collab doc when this client has the lowest active clientID", () => {
+        const handle = new CollabNoteHandle("task-1", { id: "u-1", name: "Ada", color: "#e8a44a" });
+        const setContent = vi.fn();
+        const editor = { isDestroyed: false, commands: { setContent } } as never;
+        Object.defineProperty(handle.provider, "synced", { value: true, configurable: true });
+
+        // Another peer with a lower clientID is present -> defer seeding to them.
+        const lowerPeer = handle.doc.clientID - 1;
+        vi.spyOn(handle.provider.awareness, "getStates").mockReturnValue(
+            new Map([
+                [lowerPeer, { user: { id: "u-2", name: "Sam" } }],
+                [handle.doc.clientID, { user: { id: "u-1", name: "Ada" } }],
+            ]),
+        );
+        handle.seedOnce(editor, "Hello world");
+        expect(setContent).not.toHaveBeenCalled();
+
+        // Only this client (or higher peers) -> seed once.
+        vi.spyOn(handle.provider.awareness, "getStates").mockReturnValue(
+            new Map([[handle.doc.clientID, { user: { id: "u-1", name: "Ada" } }]]),
+        );
+        handle.seedOnce(editor, "Hello world");
+        expect(setContent).toHaveBeenCalledOnce();
+        handle.destroy();
     });
 });

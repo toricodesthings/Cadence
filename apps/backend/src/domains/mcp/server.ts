@@ -460,8 +460,10 @@ function buildServer(
         { instructions: instructions(ctx, app, surface), capabilities: { tools: { listChanged: false } } },
     );
 
+    const tools = publishedTools(env, userId, connectionId, scopes, ctx, memoryOn);
+
     if (surface === "all") {
-        for (const entry of publishedTools(env, userId, connectionId, scopes, ctx, memoryOn)) {
+        for (const entry of tools) {
             server.registerTool(
                 entry.name,
                 {
@@ -478,7 +480,7 @@ function buildServer(
         const { waitUntil: _waitUntil, ...rest } = ctx;
         const session: CodeSession = { userId, connectionId, scopes: [...scopes], memoryOn, ctx: rest };
         const host = () => codeHost(env, userId);
-        const methods = publishedTools(env, userId, connectionId, scopes, ctx, memoryOn).map((e) => e.name);
+        const methods = tools.map((e) => e.name);
         const canWrite = scopes.has("cadence:write") || scopes.has("cadence:capture");
 
         server.registerTool(

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { instantSchema, localDateSchema } from "./common";
+import { instantSchema, localDateSchema, wallTimeSchema } from "./common";
 import { linkedAppIdSchema, linkedUrlSchema } from "./app-link";
 
 export const habitStatusSchema = z.enum(["COMPLETED", "SKIPPED", "PENDING"]);
@@ -7,7 +7,7 @@ export type HabitStatus = z.infer<typeof habitStatusSchema>;
 
 /** RRULE weekday keys, Monday first. */
 export const HABIT_WEEKDAYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
-const habitTimeSchema = z.union([z.string().regex(/^\d{2}:\d{2}$/), z.literal("")]);
+const habitTimeSchema = z.union([wallTimeSchema, z.literal("")]);
 /** Per-weekday time overrides; a day without a key uses `targetTime`, "" means any time. */
 export const habitTargetTimesSchema = z.partialRecord(z.enum(HABIT_WEEKDAYS), habitTimeSchema);
 
@@ -35,7 +35,7 @@ export const routineTimesSchema = z
 export const timeMarkSchema = z.object({ status: z.enum(["COMPLETED", "SKIPPED"]), at: instantSchema.nullable() });
 export type TimeMark = z.infer<typeof timeMarkSchema>;
 export const timeMarksSchema = z
-    .record(z.string().regex(/^\d{2}:\d{2}$/), timeMarkSchema)
+    .record(wallTimeSchema, timeMarkSchema)
     .refine((marks) => Object.keys(marks).length <= MAX_ROUTINE_TIMES, "Too many times");
 export type TimeMarks = z.infer<typeof timeMarksSchema>;
 
@@ -48,7 +48,7 @@ export const insertHabitSchema = z.object({
     description: z.string().max(10_000).nullable().optional(),
     notes: z.string().nullable().optional(),
     recurrenceRule: z.string().max(500),
-    targetTime: z.string().max(30).nullable().optional(),
+    targetTime: wallTimeSchema.nullable().optional(),
     targetTimes: habitTargetTimesSchema.nullable().optional(),
     emoji: z.string().max(16).nullable().optional(),
     reminderEnabled: z.boolean().optional(),
@@ -81,10 +81,7 @@ export const resolveHabitActionSchema = z.object({
     /** A routine with steps: the day's step marks. The server derives `status` from them (see `stepDayStatus`). */
     stepStatus: stepStatusSchema.optional(),
     /** A routine at set times: change just this time (`status` PENDING clears it); other times are kept. */
-    time: z
-        .string()
-        .regex(/^\d{2}:\d{2}$/)
-        .optional(),
+    time: wallTimeSchema.optional(),
     /** When it happened, for a late or corrected check-in; the server's clock when absent. */
     at: instantSchema.optional(),
 });
