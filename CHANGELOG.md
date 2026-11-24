@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-23
+
 A shared list now feels like your own: your reminders, your tags, and who's doing what.
 
 ### Added
