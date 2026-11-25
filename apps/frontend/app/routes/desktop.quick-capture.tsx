@@ -14,7 +14,7 @@ import { Loading } from "../components/shared/Loading";
 import { IS_DESKTOP_RUNTIME } from "../platform/runtime";
 
 function normalizeQuickAddTab(value: string | null): QuickAddTab {
-    return value === "capture" || value === "habit" ? value : "task";
+    return value === "capture" || value === "habit" || value === "event" ? value : "task";
 }
 
 export default function DesktopQuickCaptureRoute() {

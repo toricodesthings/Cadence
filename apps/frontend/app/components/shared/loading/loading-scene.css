@@ -615,6 +615,9 @@ path.lg-part {
 .lg-petal {
     scale: var(--e);
     rotate: calc((1 - var(--e)) * -50deg);
+}
+
+.ls-logo .lg-petal {
     animation: var(
         --ls-still,
         ls-leaf-sway calc(var(--ls-grow-loop) / 2) var(--ls-ease-sine) var(--sway-delay, 0s) infinite
@@ -622,71 +625,71 @@ path.lg-part {
 }
 
 /* The orbit is the trunk; the arcs branch off it, the road and its dashes follow, leaves open as the line passes them, the check lands last */
-#lg-orbit {
+[id$="lg-orbit"] {
     --from: 0;
     --span: 0.543;
 }
-#lg-orbit-inner {
+[id$="lg-orbit-inner"] {
     --from: 0.087;
     --span: 0.326;
 }
-#lg-swash {
+[id$="lg-swash"] {
     --from: 0.152;
     --span: 0.348;
 }
-#lg-horizon {
+[id$="lg-horizon"] {
     --from: 0.217;
     --span: 0.457;
 }
-#lg-horizon-tail {
+[id$="lg-horizon-tail"] {
     --from: 0.652;
     --span: 0.109;
 }
-#lg-dash-2 {
+[id$="lg-dash-2"] {
     --from: 0.435;
     --span: 0.109;
 }
-#lg-dash-1 {
+[id$="lg-dash-1"] {
     --from: 0.5;
     --span: 0.109;
 }
-#lg-petal-3 {
+[id$="lg-petal-3"] {
     --from: 0.13;
     --span: 0.174;
 }
-#lg-petal-2 {
+[id$="lg-petal-2"] {
     --from: 0.163;
     --span: 0.174;
     --sway-delay: -0.6s;
 }
-#lg-petal-4 {
+[id$="lg-petal-4"] {
     --from: 0.217;
     --span: 0.239;
     --sway-delay: -1.1s;
 }
-#lg-petal-1 {
+[id$="lg-petal-1"] {
     --from: 0.196;
     --span: 0.174;
     --sway-delay: -1.7s;
 }
-#lg-check {
+[id$="lg-check"] {
     --from: 0.525;
     --span: 0.261;
 }
-#lg-petal-5 {
+[id$="lg-petal-5"] {
     --from: 0.848;
     --span: 0.13;
     --sway-delay: -2.3s;
 }
-#lg-petal-6 {
+[id$="lg-petal-6"] {
     --from: 0.87;
     --span: 0.13;
     --sway-delay: -0.9s;
 }
 
 /* Two petals let go of the check's blossom once it has opened, and drift down and out before the mark folds back */
-.lg-petal#lg-petal-7,
-.lg-petal#lg-petal-8 {
+.ls-logo .lg-petal[id$="lg-petal-7"],
+.ls-logo .lg-petal[id$="lg-petal-8"] {
     scale: none;
     rotate: none;
     animation: var(
@@ -697,14 +700,54 @@ path.lg-part {
     );
 }
 
-#lg-petal-7 {
+[id$="lg-petal-7"] {
     --dx: -18px;
     --dy: -60px;
 }
-#lg-petal-8 {
+[id$="lg-petal-8"] {
     --dx: 12px;
     --dy: -118px;
     --fall-delay: 0.12s;
+}
+
+/* Sidebar rail logo: still at rest, plays one opening cycle immediately while the icon rail is hovered */
+.rail-logo {
+    --ls-ease-sine: cubic-bezier(0.37, 0, 0.63, 1);
+}
+
+.rail-logo svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.icon-rail:hover .rail-logo {
+    animation: var(--ls-still, rail-logo-grow 0.9s linear 1);
+}
+
+.icon-rail:hover .rail-logo .lg-petal {
+    animation: var(--ls-still, ls-leaf-sway 0.9s var(--ls-ease-sine) var(--sway-delay, 0s) 1);
+}
+
+.icon-rail:hover .rail-logo .lg-petal[id$="lg-petal-7"],
+.icon-rail:hover .rail-logo .lg-petal[id$="lg-petal-8"] {
+    scale: none;
+    rotate: none;
+    animation: var(
+        --ls-still,
+        rail-petal-fall 0.9s cubic-bezier(0.45, 0, 0.75, 0.75) calc(var(--fall-delay, 0s) * 0.5) 1 both
+    );
+}
+
+[data-motion="reduced"] .rail-logo {
+    --ls-still: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root:not([data-motion="full"]) .rail-logo {
+        --ls-still: none;
+    }
 }
 
 .ls-wordmark {
@@ -1154,6 +1197,32 @@ path.lg-part {
     }
     100% {
         --ls-grow: 1;
+    }
+}
+
+/* Opening-only cycle for the sidebar rail logo on rail hover */
+@keyframes rail-logo-grow {
+    from {
+        --ls-grow: 0;
+    }
+    to {
+        --ls-grow: 1;
+    }
+}
+
+/* Waits at the blossom while the mark grows, then drifts into its resting spot */
+@keyframes rail-petal-fall {
+    0%,
+    74% {
+        opacity: 0;
+        transform: translate(var(--dx), var(--dy)) rotate(-40deg) scale(0.4);
+    }
+    84% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 1;
+        transform: none;
     }
 }
 

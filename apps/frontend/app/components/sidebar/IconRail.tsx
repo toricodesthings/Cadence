@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import logoSvg from "../../../public/logo.svg?raw";
 import { weekdayOf } from "@cadence/domain/time";
 import { today } from "../../lib/utils/user-zone";
 import { ActivityBadge } from "../primitives/ActivityBadge";
@@ -136,16 +137,14 @@ export function IconRail({
     return (
         <div
             className={cn(
-                "flex h-full w-[60px] flex-col items-center gap-1 border-r border-twilight-border py-3 shrink-0 [&>*]:shrink-0",
+                "icon-rail flex h-full w-[60px] flex-col items-center gap-1 border-r border-twilight-border py-3 shrink-0 [&>*]:shrink-0",
                 className,
             )}
             role="navigation"
             aria-label="Icon navigation rail"
         >
             {/* Logo */}
-            <div className="size-10 flex items-center justify-center mb-0.5" aria-label="Cadence">
-                <img src="/logo.svg" alt="Cadence" className="size-full object-cover" />
-            </div>
+            <RailLogo />
 
             <div className="w-[60%] h-px bg-twilight-border rounded-full my-0.5" aria-hidden="true" />
 
@@ -372,6 +371,18 @@ export function IconRail({
             )}
             {signOutDialog}
         </div>
+    );
+}
+
+const RAIL_LOGO_SVG = logoSvg.replace(/(id="|href="#|url\(#)lg-/g, "$1rail-lg-");
+
+/** Sidebar logo mark; replays its opening branch-growth animation once when the icon rail is hovered. */
+export function RailLogo() {
+    return (
+        <div
+            className="rail-logo size-10 flex items-center justify-center mb-0.5"
+            dangerouslySetInnerHTML={{ __html: RAIL_LOGO_SVG }}
+        />
     );
 }
 

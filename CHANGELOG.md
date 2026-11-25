@@ -11,6 +11,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 - Share a yearly date, like an anniversary, with the people it belongs to
 - Each person chooses whether a shared date reminds them
 - Share a routine to do it together, take turns, or let someone cheer you on
+- Add yearly events right from Quick Add, alongside tasks, thoughts and routines
 
 ### Changed
 
@@ -18,6 +19,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 - Focus opens as a calm dialog with one searchable list of presets; describing a view and Order fold away until needed
 - Saved views and presets are one list: rename, recolour, pick an icon, pin to top or delete any of them, built-ins too
 - Task cards are calmer: a smaller tick aligned to the title, the pin beside ⋮, no chip repeating what the card shows
+- Hovering the sidebar rail replays the Cadence logo's opening animation once
 
 ### Fixed
 

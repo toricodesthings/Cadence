@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { CheckSquare, Flame, MessageSquare, Plus, X } from "lucide-react";
+import { CalendarHeart, CheckSquare, Flame, MessageSquare, Plus, X } from "lucide-react";
 import { Tip } from "../primitives/Tooltip";
 import type { QuickAddTab } from "../quick-add/QuickAddSurface";
 
@@ -15,6 +15,7 @@ const OPTIONS: Array<{ tab: QuickAddTab; label: string; icon: typeof CheckSquare
     { tab: "task", label: "Task", icon: CheckSquare },
     { tab: "capture", label: "Thought", icon: MessageSquare },
     { tab: "habit", label: "Routine", icon: Flame },
+    { tab: "event", label: "Event", icon: CalendarHeart },
 ];
 
 export function ContextualAddOrb({

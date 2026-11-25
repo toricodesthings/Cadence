@@ -1,25 +1,33 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
-import { CheckSquare, Flame, MessageSquare } from "lucide-react";
+import { CalendarHeart, CheckSquare, Flame, MessageSquare } from "lucide-react";
 import { Composer, ComposerTabs } from "../shared/Composer";
 import { useTaskComposer } from "../tasks/TaskComposer";
 import { useCaptureComposer } from "../holding/CaptureInput";
 import { useRoutineComposer } from "../habits/CreateHabitDialog";
+import { usePersonalEventComposer } from "../events/PersonalEventEditorDialog";
+import { useAddPersonalEvent } from "../calendar/AddPersonalEventDialog";
 import { useTasks } from "../../hooks/tasks/use-tasks";
 import { buildFocusSearchParams } from "../../hooks/search/use-route-focus";
 import { trackUsageEvent } from "../../lib/api/track-event";
 
-export type QuickAddTab = "task" | "capture" | "habit";
+export type QuickAddTab = "task" | "capture" | "habit" | "event";
 
 const TABS = [
     { id: "task", label: "Task", icon: CheckSquare },
     { id: "capture", label: "Thought", icon: MessageSquare },
     { id: "habit", label: "Routine", icon: Flame },
+    {
+        id: "event",
+        label: "Event",
+        icon: CalendarHeart,
+        activeClassName: "bg-accent-nav-schedule/15 text-accent-nav-schedule",
+    },
 ] as const;
 
 /**
- * Quick Add: the task, thought and routine composers behind one type switch,
+ * Quick Add: the task, thought, routine and event composers behind one type switch,
  * in the shared `Composer` (dialog on desktop, sheet on phones, in place in the
  * desktop quick-capture window). Each tab keeps its draft while you switch.
  */
@@ -84,6 +92,7 @@ export function QuickAddSurface({
                 );
         },
     });
+    const addPersonalEvent = useAddPersonalEvent();
     const routine = useRoutineComposer({
         onSaved: (created) =>
             finish(
@@ -91,8 +100,15 @@ export function QuickAddSurface({
                 focusRoute("/routines", { focusKind: "habit", focusId: created?.id ?? "", focusSource: "quick-add" }),
             ),
     });
+    const { titleRef: _eventTitleRef, ...event } = usePersonalEventComposer({
+        open: open && tab === "event",
+        onSubmit: (value) => {
+            addPersonalEvent(value);
+            finish("Event added", "/events");
+        },
+    });
 
-    const drafts = { task, capture, habit: routine };
+    const drafts = { task, capture, habit: routine, event };
     const { reset: _reset, ...active } = drafts[tab];
 
     return (
@@ -105,12 +121,13 @@ export function QuickAddSurface({
             switcher={
                 <ComposerTabs role="tablist" ariaLabel="What to add" value={tab} onChange={setTab} options={TABS} />
             }
-            isDirty={task.isDirty || capture.isDirty || routine.isDirty}
+            isDirty={task.isDirty || capture.isDirty || routine.isDirty || event.isDirty}
             discardDescription="This closes Quick Add and loses what you've typed in any tab."
             onClose={() => {
                 task.reset();
                 capture.reset();
                 routine.reset();
+                event.reset();
                 onOpenChange(false);
             }}
         />
