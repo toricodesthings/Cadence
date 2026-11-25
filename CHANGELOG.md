@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-11-25
+
 - Settings → Date & Time → Your day sets when your day starts and ends; planning looks for time only inside it.
 - Phone buttons are true circles again, instead of pinched squircles.
 - Weekly Reset on phone shows each step's name and count in the header.
