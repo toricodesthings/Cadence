@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-11-25
+
 ### Added
 
 - Share a yearly date, like an anniversary, with the people it belongs to
