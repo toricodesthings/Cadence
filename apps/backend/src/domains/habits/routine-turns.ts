@@ -1,8 +1,18 @@
 import { and, eq } from "drizzle-orm";
 import { habitOccurrences } from "@cadence/domain/repeats";
 import { addDays, type LocalDate, type Zone } from "@cadence/domain/time";
+import type { RoutineAccess } from "../../platform/list-access";
 import { habits } from "../../db/schema";
 import type { Tx } from "../../types/db";
+
+export const turnHabitFrom = (access: RoutineAccess) => ({
+    id: access.habitId,
+    userId: access.ownerId,
+    recurrenceRule: access.recurrenceRule,
+    createdAt: access.createdAt,
+    turnOrder: access.turnOrder,
+    turnsFrom: access.turnsFrom,
+});
 
 /**
  * Resolve the effective turn order for a turns-mode routine: drops departed ids and appends missing participants

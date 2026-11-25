@@ -86,10 +86,12 @@ function ShareRoutineBody({
         setTurnOrder.mutate({ habitId: habit.id, order: next.map((p) => p.userId) });
     };
 
-    const nextPerson =
-        habit.shareMode === "turns" && orderedParticipants.length > 1
-            ? (orderedParticipants[1]?.name ?? "someone")
-            : null;
+    const nextPerson = (() => {
+        if (habit.shareMode !== "turns" || orderedParticipants.length < 2) return null;
+        const currentIdx = habit.today?.turn ? orderedParticipants.findIndex((p) => p.userId === habit.today?.turn) : 0;
+        const nextIdx = ((currentIdx >= 0 ? currentIdx : 0) + 1) % orderedParticipants.length;
+        return orderedParticipants[nextIdx]?.name ?? "someone";
+    })();
     const otherMode: RoutineShareMode | null =
         habit.shareMode === "together" ? "turns" : habit.shareMode === "turns" ? "together" : null;
 

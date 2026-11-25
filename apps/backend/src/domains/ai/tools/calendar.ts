@@ -97,7 +97,9 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                         .where(and(open, isNotNull(tasks.recurrenceRule)))
                         .limit(WINDOW_ROW_GUARD);
 
-                    const habitRows = await (readRoutines ? readRoutines(tx) : readSnapshotRoutines(tx, userId));
+                    const habitRows = await (readRoutines
+                        ? readRoutines(tx)
+                        : readSnapshotRoutines(tx, userId, ctx.timezone as Zone));
 
                     // Same expansion as GET /tasks for a day window: each occurrence of a
                     // repeating series lands on its own day, in the series' zone.

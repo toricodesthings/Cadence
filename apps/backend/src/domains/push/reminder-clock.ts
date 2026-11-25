@@ -402,7 +402,7 @@ export const replanAfterWrites: MiddlewareHandler<{ Bindings: Env; Variables: Au
     }
 };
 
-/** One person who isn't the writer: their own tasks replan their clock, and every recipient gets only their own tags. */
+/** One person who isn't the writer: shared event/routine changes and their own tasks replan their clock, and every recipient gets only their own tags. */
 async function tellPerson(
     env: Env,
     id: string,
@@ -411,9 +411,14 @@ async function tellPerson(
     changes: LiveChange[],
     db?: ReturnType<typeof getDbClient>,
 ) {
-    const owns = changes.some((change) => change.type === "task" && change.task.userId === id);
+    const replan = changes.some(
+        (change) =>
+            (change.type === "task" && change.task.userId === id) ||
+            change.type === "event" ||
+            change.type === "routine",
+    );
     const shaped = await withRecipientTags(env, id, changes, db);
-    if (owns) return replanReminders(env, id, { origin, changes: shaped });
+    if (replan) return replanReminders(env, id, { origin, changes: shaped });
     return pingLive(env, id, { origin, changes: shaped });
 }
 

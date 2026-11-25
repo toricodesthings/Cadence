@@ -315,8 +315,7 @@ export default function EventsRoute() {
     };
 
     const closeDetails = () => setSelectedEventId(null);
-    const toggleReminder = (event: MaybeSharedEvent) =>
-        personalEvents.updateEvent(event.id, { ...event, notify: !event.notify });
+    const toggleReminder = (event: MaybeSharedEvent) => personalEvents.updateEvent(event.id, { notify: !event.notify });
 
     const commitDeleteEvent = (event: MaybeSharedEvent) => {
         personalEvents.removeEvent(event.id);
@@ -400,7 +399,7 @@ export default function EventsRoute() {
                         onRemoveFromMyEvents={handleRemoveFromMyEvents}
                         onToggleReminder={toggleReminder}
                         onOpenInSchedule={(event) => handleOpenSchedule(getNextPersonalEventDate(event))}
-                        onRename={(event, label) => personalEvents.updateEvent(event.id, { ...event, label })}
+                        onRename={(event, label) => personalEvents.updateEvent(event.id, { label })}
                     />
                 </PageContent>
             </ScrollAreaWrapper>

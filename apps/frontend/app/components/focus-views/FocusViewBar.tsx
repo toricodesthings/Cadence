@@ -357,7 +357,7 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
         onSelect: (view) => {
             const preset = presetFor(view);
             if (isActive(view)) clear();
-            else if (preset) setPreset(preset);
+            else if (preset) setPreset({ ...preset, definition: view.definition });
             else applySavedView(view.id);
             setOpen(false);
         },

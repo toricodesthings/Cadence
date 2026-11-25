@@ -13,7 +13,6 @@ import {
     inviteCreated,
     peopleResponse,
     removeEventMember,
-    replanAudience,
     resetInvitesResponse,
     stopSharingEvent,
     stopSharingResponse,
@@ -54,7 +53,6 @@ export const personalEventSharingRoutes = new Hono<{ Bindings: Env; Variables: A
         });
         noteAudience(c, access);
         noteChange(c, { type: "event" });
-        replanAudience(c, access.audience);
         return c.json({ data: { success: true } });
     })
     .delete("/:id/members", apiValidator("param", uuidParamSchema), async (c) => {

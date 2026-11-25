@@ -7,7 +7,6 @@ import { eventAccess, noteAudience, noteChange, requireOwner } from "../../platf
 import { apiValidator } from "../../platform/validation";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
-import { replanReminders } from "../push/reminder-clock";
 import {
     createEvent,
     deleteEvent,
@@ -16,8 +15,6 @@ import {
     setEventNotify,
     updateEvent,
 } from "./personal-events.service";
-
-const REMINDER_FIELDS = new Set(["label", "monthDay", "startedOn", "notify"]);
 
 export const personalEventRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
@@ -55,9 +52,6 @@ export const personalEventRoutes = new Hono<{ Bindings: Env; Variables: AuthVari
             if (access.audience.length > 1) {
                 noteAudience(c, access);
                 noteChange(c, { type: "event" });
-                if (Object.keys(body).some((k) => REMINDER_FIELDS.has(k))) {
-                    for (const uid of access.audience) c.executionCtx.waitUntil(replanReminders(c.env, uid));
-                }
             }
             return c.json({ data });
         },
@@ -80,7 +74,6 @@ export const personalEventRoutes = new Hono<{ Bindings: Env; Variables: AuthVari
         if (access.audience.length > 1) {
             noteAudience(c, access);
             noteChange(c, { type: "event" });
-            for (const uid of access.audience) c.executionCtx.waitUntil(replanReminders(c.env, uid));
         }
         return c.json({ data });
     });

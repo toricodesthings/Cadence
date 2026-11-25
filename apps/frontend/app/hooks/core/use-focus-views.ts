@@ -66,12 +66,9 @@ function useFocusViewWrite<TInput, TResult>(
     });
 }
 
-// "custom" is a FE-only source; it is never persisted (DB enum is preset|composed|manual), so it is written as
-// "manual". The nlp definition types `states` as the loose `string[]`; the values are valid task states, so it
-// narrows to the contract shape.
+// The nlp definition types `states` as the loose `string[]`; the values are valid task states, so it narrows to the contract shape.
 const toWire = <T extends Partial<FocusViewInput>>(view: T) => ({
     ...view,
-    source: view.source === "custom" ? ("manual" as const) : view.source,
     definition: view.definition as FocusViewDefinitionInput,
 });
 

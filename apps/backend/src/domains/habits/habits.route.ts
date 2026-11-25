@@ -16,10 +16,9 @@ import { uuidParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { AppError, throwIfNotFound } from "../../platform/errors";
-import { noteAudience, noteChange, requireOwner, routineAccess } from "../../platform/list-access";
+import { noteAudience, noteChange, requireOwner, routineAccess, type RoutineAccess } from "../../platform/list-access";
 import { apiValidator } from "../../platform/validation";
 import { recordPersonActivity } from "../ai/memory/memory.service";
-import { replanReminders } from "../push/reminder-clock";
 import {
     createHabit,
     deleteHabit,
@@ -29,6 +28,13 @@ import {
     setRoutineMemberPrefs,
     updateHabit,
 } from "./habits.service";
+
+const noteSharedRoutine = (c: Parameters<typeof noteAudience>[0], access: RoutineAccess) => {
+    if (access.audience.length > 1) {
+        noteAudience(c, access);
+        noteChange(c, { type: "routine" });
+    }
+};
 
 export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post(
@@ -45,13 +51,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 const access = await routineAccess(tx, userId, id);
                 return { result, access };
             });
-            if (access.audience.length > 1) {
-                noteAudience(c, access);
-                noteChange(c, { type: "routine" });
-                if (access.shareMode === "turns") {
-                    for (const uid of access.audience) c.executionCtx.waitUntil(replanReminders(c.env, uid));
-                }
-            }
+            noteSharedRoutine(c, access);
             // A check-in the person made in the app: a signal for memory (Full), never one from the assistant.
             if (body.status === "COMPLETED") {
                 c.executionCtx.waitUntil(
@@ -103,7 +103,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 await setRoutineMemberPrefs(tx, id, { reminderEnabled, sortOrder, pausedUntil });
             }
             if (Object.keys(defPatch).length > 0) {
-                await updateHabit(tx, access.ownerId, id, defPatch);
+                await updateHabit(tx, access.ownerId, id, defPatch, userId);
             }
             const { rows } = await loadHabitsForCaller(tx, userId, { habitId: id });
             const row = rows[0];
@@ -112,10 +112,7 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             return { updated: rest, access, tagIds: [] as string[] };
         });
 
-        if (access.audience.length > 1) {
-            noteAudience(c, access);
-            noteChange(c, { type: "routine" });
-        }
+        noteSharedRoutine(c, access);
 
         return c.json({ data: { ...updated, tagIds } });
     })
@@ -203,10 +200,6 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             const deleted = await deleteHabit(tx, userId, id);
             return { deleted, access };
         });
-        if (access.audience.length > 1) {
-            noteAudience(c, access);
-            noteChange(c, { type: "routine" });
-            for (const uid of access.audience) c.executionCtx.waitUntil(replanReminders(c.env, uid));
-        }
+        noteSharedRoutine(c, access);
         return c.json({ data: deleted });
     });

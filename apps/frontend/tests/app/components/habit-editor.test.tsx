@@ -35,6 +35,10 @@ const { routineToTask } = vi.hoisted(() => ({ routineToTask: vi.fn(() => Promise
 vi.mock("../../../app/hooks/habits/use-convert-repeat", () => ({
     useConvertRepeat: () => ({ routineToTask, taskToRoutine: vi.fn(), isPending: false }),
 }));
+const { leave } = vi.hoisted(() => ({ leave: vi.fn() }));
+vi.mock("../../../app/hooks/sharing/use-share-routine", () => ({
+    useLeaveRoutine: () => ({ mutate: leave, isPending: false }),
+}));
 vi.mock("../../../app/hooks/habits/use-resolve-habit", () => ({ useResolveHabit: () => ({ mutate: resolve }) }));
 vi.mock("sonner", () => ({ toast: vi.fn() }));
 const typical = vi.hoisted(() => ({ guess: null as null | { state: "supported" | "tentative"; minutes: number } }));
@@ -199,6 +203,23 @@ describe("HabitEditor", () => {
         fireEvent.click(screen.getByRole("button", { name: "Delete routine" }));
         expect(screen.queryByRole("alertdialog")).toBeNull();
         expect(remove).toHaveBeenCalledWith({ id: habit.id, name: habit.title });
+        expect(close).toHaveBeenCalledOnce();
+    });
+    it("hides owner-only Organize, Kind and Archive controls for a shared participant and offers Remove from my routines", () => {
+        setup({
+            ...habit,
+            access: "edit",
+            members: [{ userId: "sam", role: "edit", invitedBy: "owner" }],
+        });
+        fireEvent.click(screen.getByRole("button", { name: /^Details/ }));
+        expect(screen.queryByRole("combobox", { name: "List" })).toBeNull();
+        expect(screen.queryByRole("button", { name: "Remove tag Daily" })).toBeNull();
+        expect(screen.queryByRole("radio", { name: /Still owed/ })).toBeNull();
+        expect(screen.queryByRole("button", { name: /^Archive/ })).toBeNull();
+        expect(screen.queryByRole("button", { name: "Delete routine" })).toBeNull();
+
+        fireEvent.click(screen.getByRole("button", { name: "Remove from my routines" }));
+        expect(leave).toHaveBeenCalledWith({ habitId: habit.id, title: habit.title });
         expect(close).toHaveBeenCalledOnce();
     });
 });

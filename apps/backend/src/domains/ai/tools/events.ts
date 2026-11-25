@@ -20,7 +20,8 @@ import {
     setEventNotify,
     updateEvent,
 } from "../../personal-events/personal-events.service";
-import { eventPeople } from "../../sharing/sharing.service";
+import { broadcastLive } from "../../push/reminder-clock";
+import { eventOwnerNames } from "../../sharing/sharing.service";
 
 const eventFields = personalEventSchema.omit({ id: true });
 const eventInput = z.object({
@@ -87,8 +88,9 @@ export const eventTools = (env: Env, userId: string, ctx: AgentContext) => ({
                 "A new event needs a label and monthDay",
             ),
         execute: async ({ eventId, patch }, { toolCallId }) =>
-            safeExecute("save_event", userId, async () =>
-                withRls(getDbClient(env), userId, (tx) =>
+            safeExecute("save_event", userId, async () => {
+                let audience: string[] | undefined;
+                const result = await withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
                         if (eventId === undefined) {
                             const row = await createEvent(tx, userId, {
@@ -102,6 +104,7 @@ export const eventTools = (env: Env, userId: string, ctx: AgentContext) => ({
                             return { result: toMinimalEvent(row, ctx.today), id: row.id };
                         }
                         const access = await eventAccess(tx, userId, eventId);
+                        audience = access.audience;
                         if (access.role === "owner") {
                             const row =
                                 Object.keys(patch).length > 0
@@ -115,8 +118,12 @@ export const eventTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         const row = await getEventForCaller(tx, userId, eventId);
                         return { result: toMinimalEvent(row, ctx.today), id: row.id };
                     }),
-                ),
-            ),
+                );
+                if (audience && audience.length > 1 && !(result as { deduped?: boolean }).deduped) {
+                    ctx.waitUntil?.(broadcastLive(env, userId, audience, [{ type: "event" }]));
+                }
+                return result;
+            }),
     }),
 
     // ── R ──────────────────────────────────────────────────────────────────
@@ -134,14 +141,8 @@ export const eventTools = (env: Env, userId: string, ctx: AgentContext) => ({
                         .where(eq(users.id, userId));
                     const enabled = user?.settings?.calendar?.personalEvents?.enabled ?? true;
                     const items = await listEvents(tx, userId);
-                    const ownerNames = new Map<string, string>();
-                    for (const item of items) {
-                        if (item.access !== "owner") {
-                            const people = await eventPeople(tx, item.id);
-                            const owner = people.find((p) => p.role === "owner");
-                            if (owner?.name) ownerNames.set(item.id, owner.name);
-                        }
-                    }
+                    const joinedIds = items.filter((item) => item.access !== "owner").map((item) => item.id);
+                    const ownerNames = await eventOwnerNames(tx, joinedIds);
                     return projectEvents(enabled, items, ctx.today, ownerNames);
                 }),
             ),

@@ -16,6 +16,7 @@ import {
     Clock,
     FolderOpen,
     ListChecks,
+    LogOut,
     Repeat2,
     Palette,
     Pause,
@@ -30,7 +31,9 @@ import type { Habit } from "@cadence/contracts/habit";
 import { useUpdateHabit } from "../../hooks/habits/use-update-habit";
 import { useRoutineActions } from "../../hooks/habits/use-routine-actions";
 import { useHabitsRange } from "../../hooks/habits/use-habits";
+import { useLeaveRoutine } from "../../hooks/sharing/use-share-routine";
 import { useOwnProjects } from "../../hooks/projects/use-own-projects";
+import { ConfirmDanger } from "../shared/ConfirmDanger";
 import { useSettings } from "../../hooks/core/use-settings";
 import { DetailPanelLayout } from "../shared/DetailPanelLayout";
 import { DetailTitle } from "../shared/DetailTitle";
@@ -166,6 +169,73 @@ function useRoutineInRange(habit: Habit, range: { start: string; end: string }, 
     return data?.find((entry) => entry.id === habit.id);
 }
 
+function PanelActionRow({
+    icon,
+    title,
+    hint,
+    onClick,
+}: {
+    icon: React.ElementType;
+    title: string;
+    hint: string;
+    onClick: () => void;
+}) {
+    return (
+        <Button variant="ghost" size="none" type="button" onClick={onClick} className={`${PANEL_TRIGGER} font-normal`}>
+            <RowFace icon={icon} title={title} hint={hint} />
+        </Button>
+    );
+}
+
+function DangerActionRow({
+    icon: Icon,
+    title,
+    hint,
+    ariaLabel,
+    onClick,
+}: {
+    icon: React.ElementType;
+    title: string;
+    hint: string;
+    ariaLabel: string;
+    onClick: () => void;
+}) {
+    return (
+        <Button
+            variant="ghost"
+            size="none"
+            type="button"
+            aria-label={ariaLabel}
+            onClick={onClick}
+            className={`${PANEL_TRIGGER} shrink-0 font-normal text-feedback-error`}
+        >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-feedback-error/10">
+                <Icon size={16} aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium">{title}</span>
+                <span className="block text-xs text-twilight-text-muted">{hint}</span>
+            </span>
+        </Button>
+    );
+}
+
+function LeaveRoutineButton({ habit, onClose }: { habit: Habit; onClose: () => void }) {
+    const leave = useLeaveRoutine();
+    return (
+        <DangerActionRow
+            icon={LogOut}
+            title="Remove from my routines"
+            hint="Leave this shared routine."
+            ariaLabel="Remove from my routines"
+            onClick={() => {
+                leave.mutate({ habitId: habit.id, title: habit.title });
+                onClose();
+            }}
+        />
+    );
+}
+
 export function HabitEditor({
     habit,
     day,
@@ -192,6 +262,8 @@ export function HabitEditor({
         isoMonthStart(Number(todayDay().slice(0, 4)), Number(todayDay().slice(5, 7)) - 1),
     );
     const [dayTimesOpen, setDayTimesOpen] = useState(Boolean(habit.targetTimes));
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const isOwner = (habit.access ?? "owner") === "owner";
     const convertRepeat = useConvertRepeat();
     const { data: settings } = useSettings();
     const showStreaks = settings?.tasks?.showStreaks !== false;
@@ -558,38 +630,46 @@ export function HabitEditor({
                             </FieldBlock>
                         </DetailGroup>
 
-                        <DetailGroup title="Organize">
-                            <FieldRow icon={FolderOpen} label="List">
-                                <ValueSelect
-                                    label="List"
-                                    value={habit.projectId ?? ""}
-                                    onChange={(id) => update({ projectId: id || null })}
-                                    options={[
-                                        { value: "", label: "None" },
-                                        ...projects.map((p) => ({ value: p.id, label: p.name })),
-                                    ]}
-                                />
-                            </FieldRow>
-                            <FieldBlock icon={Tag} label="Tags">
-                                <TagField
-                                    tagIds={tagIds}
-                                    onAdd={(id) => update({ tagIds: [...tagIds, id] })}
-                                    onRemove={(id) => update({ tagIds: tagIds.filter((tagId) => tagId !== id) })}
-                                />
-                            </FieldBlock>
-                        </DetailGroup>
+                        {isOwner ? (
+                            <>
+                                <DetailGroup title="Organize">
+                                    <FieldRow icon={FolderOpen} label="List">
+                                        <ValueSelect
+                                            label="List"
+                                            value={habit.projectId ?? ""}
+                                            onChange={(id) => update({ projectId: id || null })}
+                                            options={[
+                                                { value: "", label: "None" },
+                                                ...projects.map((p) => ({ value: p.id, label: p.name })),
+                                            ]}
+                                        />
+                                    </FieldRow>
+                                    <FieldBlock icon={Tag} label="Tags">
+                                        <TagField
+                                            tagIds={tagIds}
+                                            onAdd={(id) => update({ tagIds: [...tagIds, id] })}
+                                            onRemove={(id) =>
+                                                update({ tagIds: tagIds.filter((tagId) => tagId !== id) })
+                                            }
+                                        />
+                                    </FieldBlock>
+                                </DetailGroup>
 
-                        <DetailGroup title="Kind">
-                            <RepeatKindPicker
-                                value="routine"
-                                disabled={convertRepeat.isPending || Boolean(times)}
-                                fixedUnavailableReason={habit.targetTime ? null : "Set a usual time to make it fixed."}
-                                onChange={(kind) => {
-                                    if (kind === "routine") return;
-                                    void convertRepeat.routineToTask(habit, kind).then(onClose);
-                                }}
-                            />
-                        </DetailGroup>
+                                <DetailGroup title="Kind">
+                                    <RepeatKindPicker
+                                        value="routine"
+                                        disabled={convertRepeat.isPending || Boolean(times)}
+                                        fixedUnavailableReason={
+                                            habit.targetTime ? null : "Set a usual time to make it fixed."
+                                        }
+                                        onChange={(kind) => {
+                                            if (kind === "routine") return;
+                                            void convertRepeat.routineToTask(habit, kind).then(onClose);
+                                        }}
+                                    />
+                                </DetailGroup>
+                            </>
+                        ) : null}
                     </section>
                 </Reveal>
 
@@ -661,60 +741,62 @@ export function HabitEditor({
                     </section>
                 </Reveal>
 
-                {habit.archived ? (
-                    <Button
-                        variant="ghost"
-                        size="none"
-                        type="button"
+                {habit.archived && isOwner ? (
+                    <PanelActionRow
+                        icon={ArchiveRestore}
+                        title="Restore routine"
+                        hint="Bring it back to your routines."
                         onClick={actions.toggleArchive}
-                        className={`${PANEL_TRIGGER} font-normal`}
-                    >
-                        <RowFace icon={ArchiveRestore} title="Restore routine" hint="Bring it back to your routines." />
-                    </Button>
-                ) : (
+                    />
+                ) : !habit.archived ? (
                     <>
                         {actions.isPaused ? (
-                            <Button
-                                variant="ghost"
-                                size="none"
-                                type="button"
+                            <PanelActionRow
+                                icon={Play}
+                                title="Resume today"
+                                hint="Pick this routine back up."
                                 onClick={actions.resume}
-                                className={`${PANEL_TRIGGER} font-normal`}
-                            >
-                                <RowFace icon={Play} title="Resume today" hint="Pick this routine back up." />
-                            </Button>
+                            />
                         ) : (
                             <PauseMenu onPause={actions.pause} />
                         )}
-                        <Button
-                            variant="ghost"
-                            size="none"
-                            type="button"
-                            onClick={actions.toggleArchive}
-                            className={`${PANEL_TRIGGER} font-normal`}
-                        >
-                            <RowFace icon={Archive} title="Archive" hint="Hide it. Your history stays." />
-                        </Button>
+                        {isOwner ? (
+                            <PanelActionRow
+                                icon={Archive}
+                                title="Archive"
+                                hint="Hide it. Your history stays."
+                                onClick={actions.toggleArchive}
+                            />
+                        ) : null}
                     </>
+                ) : null}
+                {isOwner ? (
+                    <>
+                        <DangerActionRow
+                            icon={Trash2}
+                            title="Delete routine"
+                            hint="Permanently remove this routine and its history."
+                            ariaLabel="Delete routine"
+                            onClick={() =>
+                                (habit.members?.length ?? 0) > 0 ? setConfirmDelete(true) : actions.requestDelete()
+                            }
+                        />
+                        <ConfirmDanger
+                            trigger={null}
+                            open={confirmDelete}
+                            onOpenChange={setConfirmDelete}
+                            title="Delete for everyone?"
+                            description="Everyone it's shared with won't see it anymore either."
+                            confirmLabel="Delete"
+                            onConfirm={() => {
+                                actions.requestDelete();
+                                setConfirmDelete(false);
+                            }}
+                        />
+                    </>
+                ) : (
+                    <LeaveRoutineButton habit={habit} onClose={onClose} />
                 )}
-                <Button
-                    variant="ghost"
-                    size="none"
-                    type="button"
-                    aria-label="Delete routine"
-                    onClick={actions.requestDelete}
-                    className={`${PANEL_TRIGGER} shrink-0 font-normal text-feedback-error`}
-                >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-feedback-error/10">
-                        <Trash2 size={16} aria-hidden="true" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-medium">Delete routine</span>
-                        <span className="block text-xs text-twilight-text-muted">
-                            Permanently remove this routine and its history.
-                        </span>
-                    </span>
-                </Button>
             </DetailPanelLayout>
         </div>
     );

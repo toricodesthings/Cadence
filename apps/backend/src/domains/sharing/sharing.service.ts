@@ -329,7 +329,6 @@ export {
     assertCanRemoveMember,
     inviteCreated,
     peopleResponse,
-    replanAudience,
     resetInvitesResponse,
     stopSharingResponse,
 } from "./sharing-route-helpers";
@@ -347,4 +346,31 @@ export async function eventPeople(tx: Tx, eventId: string): Promise<ListPerson[]
 /** The owner and every member of a shared routine. Never email or birthday. */
 export async function routinePeople(tx: Tx, habitId: string): Promise<ListPerson[]> {
     return tx.select(peopleColumns).from(sql`cadence_routine_people(${habitId}::uuid) AS r`);
+}
+
+const uuidArray = (ids: string[]) =>
+    sql.join(
+        ids.map((id) => sql`${id}::uuid`),
+        sql`, `,
+    );
+
+const nameMap = (rows: Array<{ id: string; name: string | null }>) =>
+    new Map(rows.filter((r): r is { id: string; name: string } => Boolean(r.name)).map((r) => [r.id, r.name]));
+
+/** Batch owner display names for events the caller belongs to (`eventId -> ownerName`). */
+export async function eventOwnerNames(tx: Tx, eventIds: string[]): Promise<Map<string, string>> {
+    if (eventIds.length === 0) return new Map();
+    const rows = await tx
+        .select({ id: sql<string>`r.event_id`, name: sql<string | null>`r.owner_name` })
+        .from(sql`cadence_event_owner_names(ARRAY[${uuidArray(eventIds)}]) AS r`);
+    return nameMap(rows);
+}
+
+/** Batch display names for people who share a routine with the caller (`userId -> name`). */
+export async function routinePersonNames(tx: Tx, userIds: string[]): Promise<Map<string, string>> {
+    if (userIds.length === 0) return new Map();
+    const rows = await tx
+        .select({ id: sql<string>`r.user_id`, name: sql<string | null>`r.name` })
+        .from(sql`cadence_routine_person_names(ARRAY[${uuidArray(userIds)}]) AS r`);
+    return nameMap(rows);
 }

@@ -74,7 +74,7 @@ export async function loadWeekAhead(
     return withRls(getDbClient(env), userId, async (tx) => {
         const [tasks, routines, startHour] = await Promise.all([
             readTasks(tx, userId, { from: ctx.today, to: last }, { shared: true }),
-            readSnapshotRoutines(tx, userId),
+            readSnapshotRoutines(tx, userId, zone),
             timelineStartHour(tx, userId),
         ]);
         const due = routinesDue(routines, ctx.today, last, ctx.today, zone);
@@ -114,7 +114,7 @@ export function loadAgentSnapshot(
 ) {
     let pending: ReturnType<SnapshotRoutineReader> | undefined;
     const readRoutines: SnapshotRoutineReader = (tx) =>
-        (pending ??= Promise.resolve(readSnapshotRoutines(tx, userId)).catch((error) => {
+        (pending ??= Promise.resolve(readSnapshotRoutines(tx, userId, ctx.timezone as Zone)).catch((error) => {
             pending = undefined; // safeExecute may retry a transient failure with a fresh transaction
             throw error;
         }));

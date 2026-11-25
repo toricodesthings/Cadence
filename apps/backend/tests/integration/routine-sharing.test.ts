@@ -94,7 +94,12 @@ describe("routine sharing", () => {
         const afterLeave = (await habitsAs(owner)("GET", `/${habit.id}`)).body.data;
         expect(afterLeave.turnOrder).toEqual([owner, kai]);
         const stored = await asOwner(
-            async (pg) => (await pg.query("SELECT turn_order FROM habits WHERE id = $1", [habit.id])).rows[0],
+            async (pg) =>
+                (
+                    await pg.query<{ turn_order: string[] | null }>("SELECT turn_order FROM habits WHERE id = $1", [
+                        habit.id,
+                    ])
+                ).rows[0],
         );
         expect(stored.turn_order).toEqual([owner, kai]);
 

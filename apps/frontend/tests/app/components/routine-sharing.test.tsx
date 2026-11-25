@@ -94,10 +94,20 @@ beforeEach(() => {
 
 describe("ShareRoutineSheet", () => {
     it("disables the clashing participant way, copies links, and reorders turns", () => {
-        render(<ShareRoutineSheet habit={baseHabit} open onOpenChange={vi.fn()} />);
+        const { rerender } = render(<ShareRoutineSheet habit={baseHabit} open onOpenChange={vi.fn()} />);
         expect(screen.getByText("Share this routine")).toBeTruthy();
         expect((screen.getByRole("radio", { name: /Do it together/i }) as HTMLButtonElement).disabled).toBe(true);
         expect(screen.getByText("Next: Sam")).toBeTruthy();
+
+        // When today is Sam's turn (index 1), Next rotates around to Tori (index 0).
+        rerender(
+            <ShareRoutineSheet
+                habit={{ ...baseHabit, today: { turn: SAM, others: [], cheers: [] } }}
+                open
+                onOpenChange={vi.fn()}
+            />,
+        );
+        expect(screen.getByText("Next: Tori")).toBeTruthy();
 
         fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
         expect(mocks.createLink).toHaveBeenCalledWith({ habitId: baseHabit.id, way: "turns" }, expect.any(Object));

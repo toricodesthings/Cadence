@@ -15,7 +15,8 @@ import { readSnapshotRoutines, routinesDue, type SnapshotRoutineReader } from ".
 import { habitDays } from "@cadence/domain/repeats";
 import { AppError } from "../../../platform/errors";
 import { requireOwner, routineAccess } from "../../../platform/list-access";
-import { routinePeople } from "../../sharing/sharing.service";
+import { broadcastLive } from "../../push/reminder-clock";
+import { routinePeople, routinePersonNames } from "../../sharing/sharing.service";
 import {
     createHabit,
     deleteHabit,
@@ -35,7 +36,7 @@ import {
     stepStatusSchema,
 } from "@cadence/contracts/habit";
 import { stepMarksOn, timeMarksOn } from "@cadence/domain/repeats";
-import { addDays, type Zone } from "@cadence/domain/time";
+import { addDays, type LocalDate, type Zone } from "@cadence/domain/time";
 import type { Tx } from "../../../types/db";
 
 const stepTitle = routineStepSchema.shape.title;
@@ -163,13 +164,6 @@ async function routineDays(
     );
 }
 
-async function turnLabel(tx: Tx, row: ResolvedHabitRow, userId: string): Promise<string | undefined> {
-    if (row.shareMode !== "turns" || !row.today.turn) return undefined;
-    if (row.today.turn === userId) return "you";
-    const people = await routinePeople(tx, row.id);
-    return people.find((p) => p.userId === row.today.turn)?.name ?? "someone";
-}
-
 function shareMeta(row: ResolvedHabitRow, turn?: string) {
     const isShared = row.access !== "owner" || row.members.length > 0;
     if (!isShared) return {};
@@ -197,6 +191,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
                     const { rows: all } = await loadHabitsForCaller(tx, userId, {
                         archived: includeArchived ? undefined : false,
                         zone: ctx.timezone as Zone,
+                        today: ctx.today as LocalDate,
                     });
                     const sliced = all.slice(offset, offset + cap + 1);
                     const live = sliced.slice(0, cap);
@@ -216,10 +211,25 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
                         ctx.timezone,
                         ctx.today,
                     );
+                    const otherHolderIds = [
+                        ...new Set(
+                            live
+                                .map((row) =>
+                                    row.shareMode === "turns" && row.today.turn && row.today.turn !== userId
+                                        ? row.today.turn
+                                        : null,
+                                )
+                                .filter((id): id is string => Boolean(id)),
+                        ),
+                    ];
+                    const holderNames = await routinePersonNames(tx, otherHolderIds);
                     const turns = new Map<string, string>();
                     for (const row of live) {
-                        const t = await turnLabel(tx, row, userId);
-                        if (t) turns.set(row.id, t);
+                        if (row.shareMode !== "turns" || !row.today.turn) continue;
+                        turns.set(
+                            row.id,
+                            row.today.turn === userId ? "you" : (holderNames.get(row.today.turn) ?? "someone"),
+                        );
                     }
                     return { rows: sliced, live, links, recent, turns };
                 });
@@ -258,19 +268,38 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
                 const today = ctx.today;
                 const db = getDbClient(env);
                 return withRls(db, userId, async (tx) => {
-                    const rows = await (readRoutines ? readRoutines(tx) : readSnapshotRoutines(tx, userId));
-
-                    const logs = await tx
-                        .select({
-                            habitId: habitLogs.habitId,
-                            status: habitLogs.status,
-                            stepStatus: habitLogs.stepStatus,
-                            timeMarks: habitLogs.timeMarks,
-                        })
-                        .from(habitLogs)
-                        .where(and(eq(habitLogs.userId, userId), eq(habitLogs.targetDate, today)));
+                    const rows = await (readRoutines
+                        ? readRoutines(tx)
+                        : readSnapshotRoutines(tx, userId, ctx.timezone as Zone));
                     const active = routinesDue(rows, today, today, today, ctx.timezone);
-                    const byHabit = new Map(logs.map((l) => [l.habitId, l]));
+                    const activeIds = active.map((h) => h.id);
+                    const logs = activeIds.length
+                        ? await tx
+                              .select({
+                                  habitId: habitLogs.habitId,
+                                  userId: habitLogs.userId,
+                                  status: habitLogs.status,
+                                  stepStatus: habitLogs.stepStatus,
+                                  timeMarks: habitLogs.timeMarks,
+                              })
+                              .from(habitLogs)
+                              .where(and(inArray(habitLogs.habitId, activeIds), eq(habitLogs.targetDate, today)))
+                        : [];
+                    const modeOf = new Map(rows.map((r) => [r.id, r.shareMode]));
+                    const byHabit = new Map<string, (typeof logs)[number]>();
+                    for (const log of logs) {
+                        const isTurns = modeOf.get(log.habitId) === "turns";
+                        if (!isTurns && log.userId !== userId) continue;
+                        const existing = byHabit.get(log.habitId);
+                        if (
+                            !existing ||
+                            log.userId === userId ||
+                            log.status === "COMPLETED" ||
+                            log.status === "SKIPPED"
+                        ) {
+                            byHabit.set(log.habitId, log);
+                        }
+                    }
                     const stepsOf = new Map(rows.map((r) => [r.id, r.steps ?? []]));
                     const timesOf = new Map(rows.map((r) => [r.id, r.times ?? []]));
 
@@ -385,8 +414,9 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
                 ),
         }),
         execute: async (input, { toolCallId }) =>
-            safeExecute("log_habit", userId, async () =>
-                withRls(getDbClient(env), userId, (tx) =>
+            safeExecute("log_habit", userId, async () => {
+                let audience: string[] | undefined;
+                const result = await withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
                         const access = await routineAccess(tx, userId, input.habitId);
                         if (access.role === "view") {
@@ -398,6 +428,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
                                 `You're cheering this one on; only ${ownerName} checks it off.`,
                             );
                         }
+                        audience = access.audience;
                         const { habit, log } = await resolveHabit(tx, userId, input.habitId, {
                             ...input,
                             at: ctx.currentDate,
@@ -415,8 +446,12 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
                             id: habit.id,
                         };
                     }),
-                ),
-            ),
+                );
+                if (audience && audience.length > 1 && !(result as { deduped?: boolean }).deduped) {
+                    ctx.waitUntil?.(broadcastLive(env, userId, audience, [{ type: "routine" }]));
+                }
+                return result;
+            }),
     }),
 
     // ── W ──────────────────────────────────────────────────────────────────
@@ -483,13 +518,15 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
             }),
         }),
         execute: async ({ habitId, patch: { steps, dayTimes, position, ...patch } }, { toolCallId }) =>
-            safeExecute("update_habit", userId, async () =>
-                withRls(getDbClient(env), userId, (tx) =>
+            safeExecute("update_habit", userId, async () => {
+                let audience: string[] | undefined;
+                const result = await withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
                         const access = await routineAccess(tx, userId, habitId);
                         if (access.role === "view") {
                             throw new AppError(403, "VIEW_ONLY", "You're cheering this one on; you can't edit it.");
                         }
+                        audience = access.audience;
                         if (access.role !== "owner") {
                             if (
                                 patch.archived !== undefined ||
@@ -515,7 +552,7 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
                                 }),
                             };
                             if (Object.keys(body).length > 0) {
-                                await updateHabit(tx, access.ownerId, habitId, body);
+                                await updateHabit(tx, access.ownerId, habitId, body, userId);
                             }
                             const { rows } = await loadHabitsForCaller(tx, userId, { habitId });
                             return { result: { habitId, title: rows[0]?.title ?? "" }, id: habitId };
@@ -532,8 +569,12 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
                         if (position !== undefined) await moveHabit(tx, userId, habitId, position);
                         return { result: { habitId: row.id, title: row.title }, id: row.id };
                     }),
-                ),
-            ),
+                );
+                if (audience && audience.length > 1 && !(result as { deduped?: boolean }).deduped) {
+                    ctx.waitUntil?.(broadcastLive(env, userId, audience, [{ type: "routine" }]));
+                }
+                return result;
+            }),
     }),
 
     // ── D ──────────────────────────────────────────────────────────────────

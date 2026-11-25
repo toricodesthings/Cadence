@@ -857,6 +857,36 @@ describe("what rebuilds a clock", () => {
         ).toBe(200);
         expect(replanned).toEqual([owner.userId]);
     });
+
+    it("replans both the writer and other shared event/routine members once each with origin and changes", async () => {
+        const replanned: string[] = [];
+        const live: unknown[] = [];
+        const pending: Promise<unknown>[] = [];
+        const app = new Hono()
+            .use("*", async (c, next) => {
+                c.set("userId" as never, "writer" as never);
+                await next();
+            })
+            .use("/api/v1/*", replanAfterWrites as never)
+            .patch("/api/v1/habits/:id", (c) => {
+                c.set("liveAudience" as never, ["writer", "partner"] as never);
+                c.set("liveChanges" as never, [{ type: "routine" }] as never);
+                return c.json({ data: {} });
+            });
+        const ctx = { waitUntil: (p: Promise<unknown>) => pending.push(p), passThroughOnException() {}, props: {} };
+        await app.request(
+            "/api/v1/habits/1",
+            { method: "PATCH", headers: { "X-Cadence-Origin": "tab-w" } },
+            { REMINDER_CLOCK: clockNamespace(replanned, live) },
+            ctx as never,
+        );
+        await Promise.all(pending);
+        expect(replanned).toEqual(["writer", "partner"]);
+        expect(live).toEqual([
+            { origin: "tab-w", quiet: false, changes: [{ type: "routine" }] },
+            { origin: "tab-w", changes: [{ type: "routine" }] },
+        ]);
+    });
 });
 
 describe("live reconnect tickets", () => {

@@ -36,9 +36,9 @@ import { userZone } from "../../platform/user-zone";
 import type { Tx } from "../../types/db";
 import { pruneRoutineReports } from "../ai/memory/memory.service";
 import { assertRowRoom } from "../../platform/storage-ceiling";
-import { reanchoredOrder, reorderTurns, turnFor, turnOrderOf } from "./routine-turns";
+import { reanchoredOrder, reorderTurns, turnFor, turnHabitFrom, turnOrderOf } from "./routine-turns";
 
-export { reanchoredOrder, reorderTurns, turnFor, turnOrderOf };
+export { reanchoredOrder, reorderTurns, turnFor, turnHabitFrom, turnOrderOf };
 
 function laterDate(a: string | null, b: string | null): string | null {
     if (!a) return b;
@@ -90,10 +90,15 @@ export type ResolvedHabitRow = HabitRow & {
 export async function loadHabitsForCaller(
     tx: Tx,
     userId: string,
-    { archived, habitId, zone: providedZone }: { archived?: boolean; habitId?: string; zone?: Zone } = {},
+    {
+        archived,
+        habitId,
+        zone: providedZone,
+        today: providedToday,
+    }: { archived?: boolean; habitId?: string; zone?: Zone; today?: LocalDate } = {},
 ): Promise<{ rows: ResolvedHabitRow[]; zone: Zone; today: LocalDate }> {
     const zone = providedZone ?? (await userZone(tx, userId));
-    const today = todayIn(zone);
+    const today = providedToday ?? todayIn(zone);
 
     const conditions = [or(eq(habits.userId, userId), eq(routineMembers.userId, userId))];
     if (archived !== undefined) conditions.push(eq(habits.archived, archived));
@@ -948,6 +953,7 @@ export async function updateHabit(
     userId: string,
     id: string,
     { expectedUpdatedAt, tagIds, ...body }: UpdateHabit,
+    callerId: string = userId,
 ) {
     if (body.recurrenceRule !== undefined) parseRecurrenceRule(body.recurrenceRule);
     normalizeTimes(body);
@@ -976,9 +982,35 @@ export async function updateHabit(
     if (tagIds !== undefined) await replaceHabitTags(tx, userId, id, tagIds);
 
     if (body.times !== undefined)
-        return (await followTimes(tx, userId, id, before?.times ?? [], row.times ?? [])) ?? row;
-    if (body.steps !== undefined) return (await followSteps(tx, userId, id, row)) ?? row;
+        return (await followTimes(tx, callerId, id, row, before?.times ?? [], row.times ?? [])) ?? row;
+    if (body.steps !== undefined) return (await followSteps(tx, callerId, id, row)) ?? row;
     return row;
+}
+
+/** Sync another member's today log status and, in turns mode, recompute the household streak/totals on `habits`. */
+async function syncOtherMemberTodayLog(
+    tx: Tx,
+    habit: HabitDbRow,
+    log: HabitLogDbRow,
+    derivedStatus: HabitLogDbRow["status"],
+    today: LocalDate,
+    zone: Zone,
+): Promise<HabitDbRow | undefined> {
+    await tx.execute(
+        sql`SELECT cadence_sync_routine_log_status(${log.id}::uuid, ${derivedStatus}::habit_status, ${derivedStatus === "COMPLETED" ? sql`now()` : sql`NULL`})`,
+    );
+    if (habit.shareMode !== "turns") return undefined;
+    const deltaComplete = Number(derivedStatus === "COMPLETED") - Number(log.status === "COMPLETED");
+    const deltaSkip = Number(derivedStatus === "SKIPPED") - Number(log.status === "SKIPPED");
+    const totalCompletions = Math.max(0, habit.totalCompletions + deltaComplete);
+    const totalSkips = Math.max(0, habit.totalSkips + deltaSkip);
+    const { currentStreak, longestStreak } = await recomputeStreak(tx, null, habit, habit.longestStreak, today, zone);
+    const [updated] = await tx
+        .update(habits)
+        .set({ totalCompletions, totalSkips, currentStreak, longestStreak, updatedAt: sql`NOW()` })
+        .where(eq(habits.id, habit.id))
+        .returning();
+    return updated;
 }
 
 /**
@@ -986,10 +1018,11 @@ export async function updateHabit(
  * step opens; a day whose remaining steps are all ticked closes). Returns the routine when it changed.
  * Past days keep their stored status.
  */
-async function followSteps(tx: Tx, userId: string, id: string, habit: HabitDbRow) {
+async function followSteps(tx: Tx, callerId: string, id: string, habit: HabitDbRow) {
     const stepIds = (habit.steps ?? []).map((step) => step.id);
     if (!stepIds.length || habit.times?.length) return undefined;
-    const today = todayIn(await userZone(tx, userId));
+    const zone = await userZone(tx, callerId);
+    const today = todayIn(zone);
     const logs = await tx
         .select()
         .from(habitLogs)
@@ -999,14 +1032,17 @@ async function followSteps(tx: Tx, userId: string, id: string, habit: HabitDbRow
         if (!log.stepStatus) continue;
         const derived = stepDayStatus(stepIds, log.stepStatus);
         if (derived.status === log.status) continue;
-        if (log.userId === userId) {
+        if (log.userId === callerId) {
             updated = (
-                await resolveHabit(tx, userId, id, { targetDate: today, status: "PENDING", stepStatus: log.stepStatus })
+                await resolveHabit(tx, callerId, id, {
+                    targetDate: today,
+                    status: "PENDING",
+                    stepStatus: log.stepStatus,
+                })
             ).habit;
         } else {
-            await tx.execute(
-                sql`SELECT cadence_sync_routine_log_status(${log.id}::uuid, ${derived.status}::habit_status, ${derived.status === "COMPLETED" ? sql`now()` : sql`NULL`})`,
-            );
+            updated =
+                (await syncOtherMemberTodayLog(tx, updated ?? habit, log, derived.status, today, zone)) ?? updated;
         }
     }
     return updated;
@@ -1017,27 +1053,26 @@ async function followSteps(tx: Tx, userId: string, id: string, habit: HabitDbRow
  * today's day follows its new times, re-applying one of its marks (or clearing an open time) so
  * status, totals and streak are re-derived. Returns the routine when today's day changed.
  */
-async function followTimes(tx: Tx, userId: string, id: string, oldTimes: string[], newTimes: string[]) {
+async function followTimes(
+    tx: Tx,
+    callerId: string,
+    id: string,
+    habit: HabitDbRow,
+    oldTimes: string[],
+    newTimes: string[],
+) {
     if (oldTimes.join() === newTimes.join()) return undefined;
     const removed = oldTimes.filter((time) => !newTimes.includes(time));
     const added = newTimes.filter((time) => !oldTimes.includes(time));
     if (removed.length === 1 && added.length === 1) {
-        await tx
-            .update(habitLogs)
-            .set({
-                timeMarks: sql`(${habitLogs.timeMarks} - ${removed[0]}::text) || jsonb_build_object(${added[0]}::text, ${habitLogs.timeMarks} -> ${removed[0]}::text)`,
-            })
-            .where(
-                and(
-                    eq(habitLogs.habitId, id),
-                    eq(habitLogs.userId, userId),
-                    sql`jsonb_exists(${habitLogs.timeMarks}, ${removed[0]}::text)`,
-                ),
-            );
+        await tx.execute(
+            sql`SELECT cadence_move_routine_time_marks(${id}::uuid, ${removed[0]}::text, ${added[0]}::text)`,
+        );
     }
 
     if (!newTimes.length) return undefined;
-    const today = todayIn(await userZone(tx, userId));
+    const zone = await userZone(tx, callerId);
+    const today = todayIn(zone);
     const logs = await tx
         .select()
         .from(habitLogs)
@@ -1047,10 +1082,10 @@ async function followTimes(tx: Tx, userId: string, id: string, oldTimes: string[
         const marks = timeMarksOn(newTimes, log);
         const derivedStatus = timeDayStatus(newTimes, marks);
         if (derivedStatus === log.status) continue;
-        if (log.userId === userId) {
+        if (log.userId === callerId) {
             const [time, mark] = Object.entries(marks)[0] ?? [newTimes[0], undefined];
             updated = (
-                await resolveHabit(tx, userId, id, {
+                await resolveHabit(tx, callerId, id, {
                     targetDate: today,
                     time,
                     status: mark?.status ?? "PENDING",
@@ -1058,9 +1093,7 @@ async function followTimes(tx: Tx, userId: string, id: string, oldTimes: string[
                 })
             ).habit;
         } else {
-            await tx.execute(
-                sql`SELECT cadence_sync_routine_log_status(${log.id}::uuid, ${derivedStatus}::habit_status, ${derivedStatus === "COMPLETED" ? sql`now()` : sql`NULL`})`,
-            );
+            updated = (await syncOtherMemberTodayLog(tx, updated ?? habit, log, derivedStatus, today, zone)) ?? updated;
         }
     }
     return updated;

@@ -1,14 +1,13 @@
-import { newRowId } from "../lib/api/optimistic-id";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { FocusViewDefinition, FocusViewPreset } from "@cadence/nlp/focus-views";
 import type { FocusViewSource, SavedFocusView as SavedFocusViewEntity } from "@cadence/contracts/settings";
 
-/** A saved view as the store holds it: from the API, or saved locally ("custom", written as "manual"). */
+/** A saved view as the store holds it, hydrated from `saved_focus_views`. */
 export type SavedFocusView = Pick<SavedFocusViewEntity, "id" | "name" | "isPinned" | "orderIndex"> &
     Partial<Pick<SavedFocusViewEntity, "presetKey" | "icon" | "color">> & {
         definition: FocusViewDefinition;
-        source: FocusViewSource | "custom";
+        source: FocusViewSource;
     };
 
 export type CaptureOrder = "newest" | "oldest" | "priority";
@@ -27,10 +26,6 @@ interface FocusViewState {
     setPreset: (preset: FocusViewPreset | null) => void;
     setCustomDefinition: (definition: FocusViewDefinition | null) => void;
     setComposerInput: (input: string) => void;
-    saveCurrentView: (name?: string) => SavedFocusView | null;
-    updateSavedViewName: (id: string, name: string) => void;
-    pinSavedView: (id: string, isPinned?: boolean) => void;
-    deleteSavedView: (id: string) => void;
     applySavedView: (id: string) => void;
     clearActiveDefinition: () => void;
     clear: () => void;
@@ -47,7 +42,7 @@ function cloneDefinition(definition: FocusViewDefinition): FocusViewDefinition {
 
 export const useFocusViewStore = create<FocusViewState>()(
     persist(
-        (set, get) => ({
+        (set) => ({
             captureOrder: "newest",
             setCaptureOrder: (captureOrder) => set({ captureOrder }),
             activePresetId: null,
@@ -66,17 +61,22 @@ export const useFocusViewStore = create<FocusViewState>()(
                     const activeSavedView = state.activeSavedViewId
                         ? (hydratedViews.find((view) => view.id === state.activeSavedViewId) ?? null)
                         : null;
+                    const activePresetView = state.activePresetId
+                        ? (hydratedViews.find((view) => view.presetKey === state.activePresetId) ?? null)
+                        : null;
 
                     return {
                         savedViews: hydratedViews,
                         activeSavedViewId: activeSavedView?.id ?? null,
                         activeDefinition: activeSavedView
                             ? cloneDefinition(activeSavedView.definition)
-                            : state.activePresetId
-                              ? state.activeDefinition
-                              : state.activeSavedViewId
-                                ? null
-                                : state.activeDefinition,
+                            : activePresetView
+                              ? cloneDefinition(activePresetView.definition)
+                              : state.activePresetId
+                                ? state.activeDefinition
+                                : state.activeSavedViewId
+                                  ? null
+                                  : state.activeDefinition,
                         customDefinition:
                             activeSavedView && activeSavedView.source !== "preset"
                                 ? cloneDefinition(activeSavedView.definition)
@@ -102,61 +102,6 @@ export const useFocusViewStore = create<FocusViewState>()(
                 }),
 
             setComposerInput: (input) => set({ composerInput: input }),
-
-            saveCurrentView: (name) => {
-                const state = get();
-                const definition = state.activeDefinition;
-                if (!definition) return null;
-
-                const savedView: SavedFocusView = {
-                    id: newRowId(),
-                    name: name?.trim() || state.composerInput.trim() || "Saved view",
-                    definition: cloneDefinition(definition),
-                    isPinned: true,
-                    source: state.activePresetId ? "preset" : "custom",
-                    orderIndex:
-                        state.savedViews.length > 0
-                            ? Math.max(...state.savedViews.map((view) => view.orderIndex)) + 1
-                            : 0,
-                };
-
-                set((current) => ({
-                    savedViews: [...current.savedViews, savedView],
-                    activeSavedViewId: savedView.id,
-                    activePresetId: null,
-                    customDefinition: cloneDefinition(savedView.definition),
-                    activeDefinition: cloneDefinition(savedView.definition),
-                    composerInput: "",
-                }));
-
-                return savedView;
-            },
-
-            updateSavedViewName: (id, name) =>
-                set((state) => ({
-                    savedViews: state.savedViews.map((view) =>
-                        view.id === id ? { ...view, name: name.trim() || view.name } : view,
-                    ),
-                })),
-
-            pinSavedView: (id, isPinned) =>
-                set((state) => ({
-                    savedViews: state.savedViews.map((view) =>
-                        view.id === id ? { ...view, isPinned: isPinned ?? !view.isPinned } : view,
-                    ),
-                })),
-
-            deleteSavedView: (id) =>
-                set((state) => {
-                    const next = state.savedViews.filter((view) => view.id !== id);
-                    return {
-                        savedViews: next,
-                        activeSavedViewId: state.activeSavedViewId === id ? null : state.activeSavedViewId,
-                        ...(state.activeSavedViewId === id
-                            ? { activePresetId: null, customDefinition: null, activeDefinition: null }
-                            : {}),
-                    };
-                }),
 
             applySavedView: (id) =>
                 set((state) => {

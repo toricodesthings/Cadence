@@ -282,7 +282,7 @@ describe("assistant tools on shared lists", () => {
     });
 
     it("lists, saves, and guards deletes on shared personal events", async () => {
-        const { ownerId, editorId, viewerId, ownerTools, editorTools, viewerTools } = await setup();
+        const { ownerId, editorId, viewerId, ownerTools, editorTools, viewerTools, pings, flush } = await setup();
         const ownerEvents = apiAs(ownerId, "/personal-events", personalEventRoutes);
         const ownerShare = apiAs(ownerId, "/personal-events", personalEventSharingRoutes);
         const editorLists = apiAs(editorId, "/lists", sharingRoutes);
@@ -306,12 +306,16 @@ describe("assistant tools on shared lists", () => {
         ]);
         expect(ownerEventsRead.events[0].sharedBy).toBeUndefined();
 
-        // Member can save_event on the shared event.
+        // Member can save_event on the shared event, which replans both clocks.
+        pings.length = 0;
         const saved = await call(editorTools.save_event, {
             eventId: event.id,
             patch: { label: "Our Anniversary", notify: false },
         });
         expect(saved).toMatchObject({ id: event.id, label: "Our Anniversary", notify: false });
+        await flush();
+        expect(pings).toContain(`replan:${editorId}`);
+        expect(pings).toContain(`replan:${ownerId}`);
 
         // Owner delete_event on a shared event is refused.
         const ownerDel = await call(ownerTools.delete_event, { eventId: event.id });
@@ -325,7 +329,7 @@ describe("assistant tools on shared lists", () => {
     });
 
     it("enforces R14 shapes and refusals on shared routines", async () => {
-        const { ownerId, editorId, viewerId, ownerTools, editorTools, viewerTools } = await setup();
+        const { ownerId, editorId, viewerId, ownerTools, editorTools, viewerTools, pings, flush } = await setup();
         const ownerHabits = apiAs(ownerId, "/habits", habitRoutes);
         const ownerShare = apiAs(ownerId, "/habits", routineSharingRoutes);
         const editorLists = apiAs(editorId, "/lists", sharingRoutes);
@@ -339,11 +343,58 @@ describe("assistant tools on shared lists", () => {
         await editorLists("POST", "/join", { token: tokenOf(turnsLink) });
         await viewerLists("POST", "/join", { token: tokenOf(cheerLink) });
 
-        // Owner skips today; supporter history never shows skipped/missed.
+        // Pin turnsFrom to 2030-03-04 so 03-04 is Ada's turn and 03-05 is Sam's turn.
+        await ownerShare("PUT", `/${habit.id}/turns`, { order: [ownerId, editorId] });
+        const db = (await import("../helpers/db")).getTestDb();
+        const { withRls } = await import("../../src/platform/rls");
+        const { habits: habitsTable } = await import("../../src/db/schema");
+        const { eq } = await import("drizzle-orm");
+        await withRls(db, ownerId, (tx) =>
+            tx
+                .update(habitsTable)
+                .set({ turnsFrom: "2030-03-04", createdAt: "2030-01-01T00:00:00.000Z" })
+                .where(eq(habitsTable.id, habit.id)),
+        );
+
+        // Today (2030-03-04) is Ada's turn: Sam's get_habits names "Ada", schedule window assigns 03-04 to Ada and 03-05 to Sam, supporter sees none.
+        const editorRead = await call(editorTools.get_habits, {});
+        expect(editorRead.habits).toEqual([
+            expect.objectContaining({ id: habit.id, shared: true, way: "turns", turn: "Ada" }),
+        ]);
+        const ownerSched = await call(ownerTools.get_schedule_window, { start: "2030-03-04", end: "2030-03-05" });
+        expect(ownerSched.routines).toEqual([expect.objectContaining({ id: habit.id, days: ["2030-03-04"] })]);
+        const editorSched = await call(editorTools.get_schedule_window, { start: "2030-03-04", end: "2030-03-05" });
+        expect(editorSched.routines).toEqual([expect.objectContaining({ id: habit.id, days: ["2030-03-05"] })]);
+        const viewerSched = await call(viewerTools.get_schedule_window, { start: "2030-03-04", end: "2030-03-05" });
+        expect(viewerSched.routines).toEqual([]);
+
+        // Sam covers Ada's turn via log_habit -> broadcasts replan to Ada, Sam, and Kai, and Ada's get_habit_status_today sees COMPLETED.
+        pings.length = 0;
+        const covered = await call(editorTools.log_habit, {
+            habitId: habit.id,
+            status: "COMPLETED",
+            targetDate: "2030-03-04",
+        });
+        expect(covered.status).toBe("COMPLETED");
+        await flush();
+        expect(pings).toContain(`replan:${ownerId}`);
+        expect(pings).toContain(`replan:${editorId}`);
+
+        const ownerTodayStatus = await call(ownerTools.get_habit_status_today, {});
+        expect(ownerTodayStatus.statuses).toEqual([
+            expect.objectContaining({ habitId: habit.id, status: "COMPLETED" }),
+        ]);
+        const editorTodayStatus = await call(editorTools.get_habit_status_today, {});
+        expect(editorTodayStatus.statuses).toEqual([]); // not Sam's turn today
+
+        // Owner clears and skips today; supporter history never shows skipped/missed.
+        await ownerHabits("POST", `/${habit.id}/resolve`, { targetDate: "2030-03-04", status: "PENDING" });
         await ownerHabits("POST", `/${habit.id}/resolve`, { targetDate: "2030-03-04", status: "SKIPPED" });
 
         const ownerRead = await call(ownerTools.get_habits, {});
-        expect(ownerRead.habits).toEqual([expect.objectContaining({ id: habit.id, shared: true, way: "turns" })]);
+        expect(ownerRead.habits).toEqual([
+            expect.objectContaining({ id: habit.id, shared: true, way: "turns", turn: "you" }),
+        ]);
 
         const supporterRead = await call(viewerTools.get_habits, {});
         expect(supporterRead.habits).toEqual([

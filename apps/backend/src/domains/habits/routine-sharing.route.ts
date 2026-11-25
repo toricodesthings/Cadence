@@ -7,7 +7,7 @@ import { todayIn } from "@cadence/domain/time";
 import { habits, routineCheers } from "../../db/schema";
 import { withCallerRls } from "../../platform/caller-rls";
 import { AppError } from "../../platform/errors";
-import { noteAudience, noteChange, requireOwner, routineAccess, type RoutineAccess } from "../../platform/list-access";
+import { noteAudience, noteChange, requireOwner, routineAccess } from "../../platform/list-access";
 import { ownerChange } from "../../platform/owner-change";
 import { userZone } from "../../platform/user-zone";
 import { apiValidator } from "../../platform/validation";
@@ -19,22 +19,12 @@ import {
     inviteCreated,
     peopleResponse,
     removeRoutineMember,
-    replanAudience,
     resetInvitesResponse,
     routinePeople,
     stopSharingResponse,
     stopSharingRoutine,
 } from "../sharing/sharing.service";
-import { reorderTurns } from "./routine-turns";
-
-const turnHabitFrom = (access: RoutineAccess) => ({
-    id: access.habitId,
-    userId: access.ownerId,
-    recurrenceRule: access.recurrenceRule,
-    createdAt: access.createdAt,
-    turnOrder: access.turnOrder,
-    turnsFrom: access.turnsFrom,
-});
+import { reorderTurns, turnHabitFrom } from "./routine-turns";
 
 export const routineSharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     // ── Create ──
@@ -91,7 +81,7 @@ export const routineSharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVar
     .patch("/:id/mode", apiValidator("param", uuidParamSchema), apiValidator("json", setShareModeSchema), async (c) => {
         const { id } = c.req.valid("param");
         const { mode } = c.req.valid("json");
-        const { access } = await ownerChange(
+        await ownerChange(
             c,
             (tx, userId) => routineAccess(tx, userId, id),
             async (tx, userId, access) => {
@@ -115,13 +105,12 @@ export const routineSharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVar
             { type: "routine" },
             "routine",
         );
-        replanAudience(c, access.audience);
         return c.json({ data: { mode } });
     })
     .put("/:id/turns", apiValidator("param", uuidParamSchema), apiValidator("json", setTurnOrderSchema), async (c) => {
         const { id } = c.req.valid("param");
         const { order } = c.req.valid("json");
-        const { access } = await ownerChange(
+        await ownerChange(
             c,
             (tx, userId) => routineAccess(tx, userId, id),
             async (tx, userId, access) => {
@@ -144,7 +133,6 @@ export const routineSharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVar
             { type: "routine" },
             "routine",
         );
-        replanAudience(c, access.audience);
         return c.json({ data: { order } });
     })
 
@@ -178,7 +166,6 @@ export const routineSharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVar
         });
         noteAudience(c, access);
         noteChange(c, { type: "routine" });
-        replanAudience(c, access.audience);
         return c.json({ data: { success: true } });
     })
     .delete("/:id/members", apiValidator("param", uuidParamSchema), async (c) => {

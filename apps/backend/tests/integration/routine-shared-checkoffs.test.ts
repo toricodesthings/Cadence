@@ -145,4 +145,82 @@ describe("shared routine check-offs", () => {
         const samWeekly = (await hSam("GET", `/weekly?start=${today}&end=${today}`)).body.data;
         expect(samWeekly[0].logs[0].status).toBe("COMPLETED");
     });
+
+    it("participant editing steps or shifting set times re-derives everyone's day and migrates marks without RLS errors", async () => {
+        const owner = await createUser({ name: "Tori" });
+        const sam = await createUser({ name: "Sam" });
+        const hOwner = apiAs(owner, "/habits", habitRoutes);
+        const hSam = apiAs(sam, "/habits", habitRoutes);
+        const sOwner = apiAs(owner, "/habits", routineSharingRoutes);
+        const listsSam = apiAs(sam, "/lists", sharingRoutes);
+
+        const stepHabit = (
+            await hOwner("POST", "", {
+                title: "Evening wind-down",
+                recurrenceRule: "FREQ=DAILY",
+                steps: [{ id: "s1", title: "Tea" }],
+            })
+        ).body.data;
+        const link1 = (await sOwner("POST", `/${stepHabit.id}/invites`, { way: "together" })).body.data.url as string;
+        await listsSam("POST", "/join", { token: tokenOf(link1) });
+
+        // Both owner and Sam complete s1 -> both days COMPLETED, streaks = 1.
+        await hOwner("POST", `/${stepHabit.id}/resolve`, {
+            targetDate: today,
+            status: "PENDING",
+            stepStatus: { s1: "COMPLETED" },
+        });
+        await hSam("POST", `/${stepHabit.id}/resolve`, {
+            targetDate: today,
+            status: "PENDING",
+            stepStatus: { s1: "COMPLETED" },
+        });
+        expect((await hSam("GET", `/${stepHabit.id}`)).body.data.currentStreak).toBe(1);
+
+        // Participant Sam adds a second step s2 -> neither crashes; both logs reopen to PENDING, Sam's streak updates to 0.
+        const stepPatch = await hSam("PATCH", `/${stepHabit.id}`, {
+            steps: [
+                { id: "s1", title: "Tea" },
+                { id: "s2", title: "Read" },
+            ],
+        });
+        expect(stepPatch.status).toBe(200);
+        expect((await hSam("GET", `/${stepHabit.id}`)).body.data.currentStreak).toBe(0);
+        expect((await hOwner("GET", `/weekly?start=${today}&end=${today}`)).body.data[0].logs[0].status).toBe(
+            "PENDING",
+        );
+
+        // Routine at set times: shifting 14:00 -> 14:30 by participant moves both owner's and Sam's marks.
+        const timedHabit = (
+            await hOwner("POST", "", {
+                title: "Meds",
+                recurrenceRule: "FREQ=DAILY",
+                times: ["08:00", "14:00"],
+            })
+        ).body.data;
+        const link2 = (await sOwner("POST", `/${timedHabit.id}/invites`, { way: "together" })).body.data.url as string;
+        await listsSam("POST", "/join", { token: tokenOf(link2) });
+
+        await hOwner("POST", `/${timedHabit.id}/resolve`, {
+            targetDate: today,
+            time: "14:00",
+            status: "COMPLETED",
+        });
+        await hSam("POST", `/${timedHabit.id}/resolve`, {
+            targetDate: today,
+            time: "14:00",
+            status: "COMPLETED",
+        });
+
+        const shifted = await hSam("PATCH", `/${timedHabit.id}`, { times: ["08:00", "14:30"] });
+        expect(shifted.status).toBe(200);
+        const ownerTimed = (await hOwner("GET", `/weekly?start=${today}&end=${today}`)).body.data.find(
+            (h: { id: string }) => h.id === timedHabit.id,
+        );
+        const samTimed = (await hSam("GET", `/weekly?start=${today}&end=${today}`)).body.data.find(
+            (h: { id: string }) => h.id === timedHabit.id,
+        );
+        expect(ownerTimed.logs[0].timeMarks).toHaveProperty("14:30");
+        expect(samTimed.logs[0].timeMarks).toHaveProperty("14:30");
+    });
 });

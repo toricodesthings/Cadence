@@ -2,7 +2,8 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Provider as TooltipProvider } from "../../../app/components/primitives/Tooltip";
 import { FocusPresetList, type PresetActions } from "../../../app/components/focus-views/FocusPresetList";
-import type { SavedFocusView } from "../../../app/stores/focus-view-store";
+import { useFocusViewStore, type SavedFocusView } from "../../../app/stores/focus-view-store";
+import { DEFAULT_DEFINITION, FOCUS_VIEW_PRESETS } from "@cadence/nlp/focus-views";
 
 const view = (over: Partial<SavedFocusView>): SavedFocusView =>
     ({
@@ -62,5 +63,18 @@ describe("FocusPresetList", () => {
         const a = renderList();
         fireEvent.click(screen.getByRole("button", { name: /^Quick Wins/ }));
         expect(a.onSelect).toHaveBeenCalledWith(expect.objectContaining({ presetKey: "quick-wins" }));
+    });
+
+    it("hydrates customized filters on an active built-in preset instead of reverting to factory defaults", () => {
+        const preset = FOCUS_VIEW_PRESETS.find((p) => p.id === "quick-wins")!;
+        useFocusViewStore.getState().setPreset(preset);
+        const editedDef = { ...DEFAULT_DEFINITION, projectIds: ["proj-work"], effortMax: 1 as const };
+        useFocusViewStore
+            .getState()
+            .hydrateSavedViews([
+                view({ id: "v1", name: "Quick Wins", presetKey: "quick-wins", definition: editedDef }),
+            ]);
+        expect(useFocusViewStore.getState().activeDefinition?.projectIds).toEqual(["proj-work"]);
+        useFocusViewStore.getState().clear();
     });
 });

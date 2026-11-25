@@ -26,7 +26,7 @@ import { ownerChange } from "../../platform/owner-change";
 import { assertRowRoom } from "../../platform/storage-ceiling";
 import { userZone } from "../../platform/user-zone";
 import { todayIn } from "@cadence/domain/time";
-import { reorderTurns } from "../habits/habits.service";
+import { reorderTurns, turnHabitFrom } from "../habits/habits.service";
 import { AppError } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
 import type { AuthVariables } from "../../platform/auth";
@@ -65,14 +65,7 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
                 const oldParticipants = access.participants.filter((id) => id !== userId);
                 await reorderTurns(
                     tx,
-                    {
-                        id: access.habitId,
-                        userId: access.ownerId,
-                        recurrenceRule: access.recurrenceRule,
-                        createdAt: access.createdAt,
-                        turnOrder: access.turnOrder,
-                        turnsFrom: access.turnsFrom,
-                    },
+                    turnHabitFrom(access),
                     oldParticipants.length > 0 ? oldParticipants : access.participants,
                     access.participants,
                     today,
@@ -86,10 +79,8 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
             noteChange(c, { type: "list", listId: joined.listId });
         } else if (joined.kind === "event") {
             noteChange(c, { type: "event" });
-            c.executionCtx.waitUntil(replanReminders(c.env, c.get("userId")));
         } else {
             noteChange(c, { type: "routine" });
-            for (const uid of access.audience) c.executionCtx.waitUntil(replanReminders(c.env, uid));
         }
         return c.json({ data: joined });
     })

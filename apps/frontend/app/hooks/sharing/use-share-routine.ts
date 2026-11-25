@@ -7,7 +7,8 @@ import { useAuthState } from "../auth/use-auth-state";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { toastError } from "../../lib/utils/error-toast";
-import { toastName, undoWindow } from "../../lib/utils/undo-toast";
+import { isUndone, toastName, undoWindow } from "../../lib/utils/undo-toast";
+import { habitCache } from "../habits/optimistic-helpers";
 import { copyInviteUrl, toastUncopiedLink, useResetLinksMutation, useSharedPeopleQuery } from "./use-share-list";
 
 export function isSharedRoutine(habit: Pick<Habit, "access" | "members">): boolean {
@@ -87,11 +88,6 @@ export function useRemoveFromRoutine() {
     });
 }
 
-const toastUnlessAborted = (fallback: string) => (err: unknown) => {
-    if (err instanceof Error && err.name === "AbortError") return;
-    toastError(err, fallback);
-};
-
 export function useLeaveRoutine() {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -107,10 +103,9 @@ export function useLeaveRoutine() {
                 }),
             );
         },
-        onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: queryKeys.habits.all });
-        },
-        onError: toastUnlessAborted("Couldn't leave routine"),
+        onMutate: ({ habitId }) => habitCache.edit(queryClient, (items) => items.filter((h) => h.id !== habitId)),
+        onError: (err, _vars, context) => habitCache.undo(queryClient, err, context, "Couldn't leave routine"),
+        onSettled: () => habitCache.invalidate(queryClient),
     });
 }
 
@@ -144,6 +139,8 @@ export function useCheer() {
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.habits.all });
         },
-        onError: toastUnlessAborted("Couldn't send cheer"),
+        onError: (err) => {
+            if (!isUndone(err)) toastError(err, "Couldn't send cheer");
+        },
     });
 }
