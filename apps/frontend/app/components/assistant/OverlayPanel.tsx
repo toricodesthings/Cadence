@@ -49,10 +49,10 @@ export function OverlayPanel({
                             ref={backRef}
                             onClick={onClose}
                             autoFocus={autoFocusBack}
-                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:bg-twilight-surface-hover hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                            className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-xl text-twilight-text-muted transition-colors hover:bg-twilight-surface-hover hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                             aria-label="Back to conversation"
                         >
-                            <ChevronLeft size={18} />
+                            <ChevronLeft size={20} aria-hidden />
                         </button>
                     </Tip>
                     <h2 className="font-display text-lg font-semibold tracking-tight text-twilight-text">{title}</h2>

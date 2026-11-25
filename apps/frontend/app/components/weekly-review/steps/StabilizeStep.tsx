@@ -148,17 +148,17 @@ function waitingActions(task: Task, review: ReviewActions, rows: RowsState): Rev
 export function StabilizeStep({
     review,
     rows,
-    onTitleVisible,
+    titleInHeader,
 }: {
     review: ReviewActions;
     rows: RowsState;
-    onTitleVisible?: (visible: boolean) => void;
+    titleInHeader?: boolean;
 }) {
     const { unscheduledTasks, visibleWaiting, handleUnscheduledAction } = review;
     const count = unscheduledTasks.length + visibleWaiting.length;
     const { slipping, hideSlipping } = rows.offers;
     return (
-        <StepShell step={2} count={count} onTitleVisible={onTitleVisible}>
+        <StepShell step={2} count={count} titleInHeader={titleInHeader}>
             {slipping.length > 0 ? (
                 <div className="surface-card mb-4 flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3" role="note">
                     <EyeOff size={18} aria-hidden="true" className="text-accent-primary" />

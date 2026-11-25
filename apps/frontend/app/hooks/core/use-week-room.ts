@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { addDays, dayOf, type LocalDate } from "@cadence/domain/time";
 import { dispositionDay, weekRoom } from "@cadence/domain/fit-day";
+import { dayHoursOf } from "@cadence/domain/find-time";
 import { useTasks } from "../tasks/use-tasks";
 import { useHabitsRange } from "../habits/use-habits";
 import { useSettings } from "./use-settings";
@@ -23,10 +24,17 @@ export function useWeekRoom() {
     const { data: tasks = [] } = useTasks({ state: "ACTIVE", range: { from: today, to: end } });
     const { data: habits = [] } = useHabitsRange({ start: today, end });
     const weekStart = settings?.dateTime?.weekStart ?? "Sunday";
-    const timelineStartHour = settings?.calendar?.timelineStartHour ?? 7;
+    const { timelineStartHour, dayEndHour } = dayHoursOf(settings);
 
     const room = useMemo(() => {
-        const days = weekRoom(tasks, { from: today, days: 7, zone, timelineStartHour, now: new Date().toISOString() });
+        const days = weekRoom(tasks, {
+            from: today,
+            days: 7,
+            zone,
+            timelineStartHour,
+            dayEndHour,
+            now: new Date().toISOString(),
+        });
         return days.map((d) => {
             const routines = habits.filter(
                 (h) =>
@@ -41,7 +49,7 @@ export function useWeekRoom() {
             const due = tasks.filter((t) => !t.scheduledStart && t.dueDate === d.day);
             return { ...d, routines, routinesDue: routines.length, blocks, due };
         });
-    }, [tasks, habits, today, zone, timelineStartHour]);
+    }, [tasks, habits, today, zone, timelineStartHour, dayEndHour]);
 
     const dayFor = useCallback(
         (bucket: "today" | "this_week" | "next_week", minutes: number | null | undefined): LocalDate =>

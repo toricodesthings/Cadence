@@ -15,7 +15,7 @@ import { inDayWindow, overlayPersonalReminders, readTasks } from "../../tasks/ta
 import { recordSeenSharedTasks, sharedListPeople, sharedTaskMeta } from "./shared-guard";
 import { expandScheduleScopedTasks, taskDay } from "@cadence/domain/task-recurrence";
 import { addDays, formatInZone, toZonedIso, type Zone } from "@cadence/domain/time";
-import { busyBlocks, feasibleBuckets, findTimes } from "@cadence/domain/find-time";
+import { busyBlocks, dayHoursOf, feasibleBuckets, findTimes } from "@cadence/domain/find-time";
 import { preferredBuckets } from "@cadence/domain/slot-preference";
 import { taskMinutes } from "@cadence/domain/task-length";
 import { fitDay, fitMinutes, isFitCandidate } from "@cadence/domain/fit-day";
@@ -47,10 +47,10 @@ const WINDOW_ROW_GUARD = 500;
 /** What `find_time` offers at most: a short list the person picks from, never every gap. */
 const FIND_TIME_PROPOSALS = 3;
 
-/** The calendar's first hour: where Find a time and Fit today start looking (never before 06:00). */
-export async function timelineStartHour(tx: Tx, userId: string): Promise<number> {
+/** The person's day (Settings → Your day): where Find a time and Fit today look. */
+export async function dayHours(tx: Tx, userId: string) {
     const [row] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId));
-    return (row?.settings as { calendar?: { timelineStartHour?: number } } | null)?.calendar?.timelineStartHour ?? 7;
+    return dayHoursOf(row?.settings);
 }
 
 export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readRoutines?: SnapshotRoutineReader) => ({
@@ -209,7 +209,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                         now: ctx.currentDate,
                         busy,
                         preferred: [] as TimeOfDay[],
-                        timelineStartHour: await timelineStartHour(tx, userId),
+                        ...(await dayHours(tx, userId)),
                     };
                     // What they like (stated, or learned in Full) only orders the gaps.
                     const preferred = preferredBuckets(
@@ -292,7 +292,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                         ).map((p) => [p.id, p.name]),
                     );
                     const evidence = await planningEvidence(tx, userId);
-                    const startHour = await timelineStartHour(tx, userId);
+                    const hours = await dayHours(tx, userId);
                     const sized = new Map(
                         everyone.map((t) => {
                             const takesAbout = hints.get(t.id)?.takesAbout;
@@ -331,7 +331,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                                 zone,
                                 now: ctx.currentDate,
                                 busy: busyBlocks(onDay, ""),
-                                timelineStartHour: startHour,
+                                ...hours,
                             },
                             (t, feasible) =>
                                 preferredBuckets(

@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import type { TimeOfDay } from "@cadence/contracts/planning";
 import type { Task } from "@cadence/contracts/task";
-import type { Proposal } from "@cadence/domain/find-time";
+import { dayHoursOf, type Proposal } from "@cadence/domain/find-time";
 import { taskDay } from "@cadence/domain/task-recurrence";
 import type { LocalDate } from "@cadence/domain/time";
 import { useApiClient } from "../auth/use-api-client";
@@ -58,7 +58,7 @@ export function useFindTime() {
     const { data: settings } = useSettings();
     const { data: projects } = useProjects();
     const openSheet = useFindTimeStore((s) => s.open);
-    const timelineStartHour = settings?.calendar?.timelineStartHour ?? 7;
+    const { timelineStartHour, dayEndHour } = dayHoursOf(settings);
 
     /** The day's tasks from the network when reachable, else whatever is cached (an offline plan is still a plan). */
     const dayTasks = useCallback(
@@ -82,12 +82,13 @@ export function useFindTime() {
                 zone: getUserZone(),
                 now,
                 timelineStartHour,
+                dayEndHour,
                 evidence,
                 guess: guessOf(task),
                 listName: projects?.find((p) => p.id === task.projectId)?.name ?? null,
                 dayTasks: tasksOnDay,
             }),
-        [evidence, guessOf, projects, timelineStartHour],
+        [evidence, guessOf, projects, timelineStartHour, dayEndHour],
     );
 
     const planFor = useCallback(

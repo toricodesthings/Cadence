@@ -113,7 +113,7 @@ export function HabitsStep({
     pauseHabit,
     onReviewed,
     onEdit,
-    onTitleVisible,
+    titleInHeader,
 }: {
     habits: HabitReviewItem[];
     anyHabits: boolean;
@@ -121,13 +121,13 @@ export function HabitsStep({
     onReviewed: (id: string) => void;
     /** Opens the routine's panel beside the list; the card stays until Keep or Pause. */
     onEdit: (id: string) => void;
-    onTitleVisible?: (visible: boolean) => void;
+    titleInHeader?: boolean;
 }) {
     const today = useToday();
     const { data: settings } = useSettings();
     const bloom = !settings?.tasks?.intelligence?.lowStimulationMode;
     return (
-        <StepShell step={3} count={habits.length} onTitleVisible={onTitleVisible}>
+        <StepShell step={3} count={habits.length} titleInHeader={titleInHeader}>
             {habits.length > 0 ? (
                 <div className="flex flex-col gap-2.5">
                     <AnimatePresence initial={false}>

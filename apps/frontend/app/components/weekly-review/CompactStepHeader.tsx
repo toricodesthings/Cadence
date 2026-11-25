@@ -3,27 +3,32 @@ import { Tip } from "../primitives";
 import { PhonePageHeader } from "../layout/PageHeader";
 import { STEPS, type StepNavProps } from "./WeeklyResetSidebar";
 
-/** Without the sidebar: Back, the step's name (once its large title has scrolled away), the way out, and tappable progress. */
+/** Without the sidebar: Back, the step's name and count (Welcome keeps its own hero), the way out, and tappable progress. */
 export function CompactStepHeader({
     currentStep,
     counts,
     onStep,
     onBack,
     onExit,
-    showTitle,
 }: StepNavProps & {
     onBack: () => void;
     onExit: () => void;
-    /** The large title is off screen, so the header carries the name. */
-    showTitle: boolean;
 }) {
+    const count = counts[currentStep];
     const icon = "btn-icon touch-target cursor-pointer rounded-full text-twilight-text-soft hover:text-twilight-text";
     return (
         <PhonePageHeader
             title={
-                <span className={`transition-opacity duration-200 ${showTitle ? "opacity-100" : "opacity-0"}`}>
-                    {STEPS[currentStep].title}
-                </span>
+                currentStep === 0 ? null : (
+                    <span className="flex items-center justify-center gap-2">
+                        <span className="min-w-0 truncate">{STEPS[currentStep].title}</span>
+                        {count ? (
+                            <span className="shrink-0 rounded-full bg-accent-primary/12 px-2 py-0.5 text-[13px] font-semibold tabular-nums text-accent-primary">
+                                {count}
+                            </span>
+                        ) : null}
+                    </span>
+                )
             }
             leading={
                 <Tip label={currentStep === 0 ? "Save & exit" : "Back"} side="bottom">

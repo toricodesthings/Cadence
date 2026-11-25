@@ -179,8 +179,14 @@ export function MainLayout({
     // Rail mode is a wide-screen layout; compact screens keep the phone header and dock.
     const railOnly = navigationMode === "rail" && !shell.isCompact;
     const isUtilityPage = location.pathname === "/browse";
-    const { assistantPanelOpen, assistantPanelWidth, setAssistantPanelWidth, toggleAssistantPanel } =
-        useAssistantStore();
+    const {
+        assistantPanelOpen,
+        assistantPanelWidth,
+        setAssistantPanelWidth,
+        toggleAssistantPanel,
+        assistantFullscreen,
+        setAssistantFullscreen,
+    } = useAssistantStore();
     useAssistantReplyWatcher();
     const { railView, setRailView } = useRightPanelStore();
     const handleAssistantToggle = useCallback(() => {
@@ -506,7 +512,12 @@ export function MainLayout({
     ) : null;
 
     const hasHeaderActions = Boolean(
-        desktopStatus || headerCenter || headerRight || scaleMenu || shell.isLaptop || closeRailControl,
+        desktopStatus ||
+        headerCenter ||
+        headerRight ||
+        scaleMenu ||
+        (shell.isLaptop && customSidebar !== undefined) ||
+        closeRailControl,
     );
     const headerActions = hasHeaderActions ? (
         <>
@@ -517,7 +528,7 @@ export function MainLayout({
             {headerCenter}
             {headerRight}
             {scaleMenu}
-            {shell.isLaptop && <NotificationPreview side="bottom" placement="header" />}
+            {shell.isLaptop && customSidebar !== undefined && <NotificationPreview side="bottom" placement="header" />}
             {closeRailControl}
         </>
     ) : null;
@@ -708,6 +719,8 @@ export function MainLayout({
                             open={assistantPanelOpen}
                             onClose={toggleAssistantPanel}
                             fill
+                            mode={assistantFullscreen ? "focus" : "peek"}
+                            onExpand={() => setAssistantFullscreen(true)}
                         >
                             <Suspense fallback={<AssistantShell />}>
                                 <AssistantSidePanel width={400} isMobile />

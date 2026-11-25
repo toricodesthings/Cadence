@@ -34,6 +34,9 @@ export const rubber = (d: number, h: number) => -(0.55 * Math.abs(d) * h) / (h +
 export const shouldDismiss = (offset: number, velocity: number, height: number) =>
     offset > 0 && (offset > Math.min(120, 0.25 * height) || velocity > 600);
 
+/** A raw pull up past 80px, or an upward flick: the sheet asks to go full screen. */
+export const shouldExpand = (pull: number, velocity: number) => pull < 0 && (pull < -80 || velocity < -600);
+
 /** The nearest ancestor, up to and including the sheet, that can scroll vertically. */
 function scrollerOf(target: Element, sheet: Element): Element | null {
     for (let el: Element | null = target; el; el = el.parentElement) {
@@ -56,19 +59,22 @@ export function useSheetGesture({
     element,
     enabled,
     onDismiss,
+    onExpand,
 }: {
     element: HTMLElement | null;
     enabled: boolean;
     onDismiss: (velocity: number) => void;
+    /** Set when pulling the sheet up opens it full screen (else it only gives a little). */
+    onExpand?: () => void;
 }) {
     const y = useMotionValue(0);
     const height = useRef(800);
     const backdropOpacity = useTransform(y, (v) => 1 - 0.65 * Math.min(1, Math.max(0, v / height.current)));
     // The app-wide MotionConfig (the Motion setting, else the OS); imperative animate() ignores it otherwise.
     const reduced = Boolean(useReducedMotionConfig());
-    const latest = useRef({ onDismiss, reduced });
+    const latest = useRef({ onDismiss, onExpand, reduced });
     useEffect(() => {
-        latest.current = { onDismiss, reduced };
+        latest.current = { onDismiss, onExpand, reduced };
     });
 
     useEffect(() => {
@@ -118,8 +124,12 @@ export function useSheetGesture({
                 const last = samples[samples.length - 1];
                 const velocity =
                     first && last && last.t > first.t ? ((last.y - first.y) / (last.t - first.t)) * 1000 : 0;
-                if (shouldDismiss(y.get(), velocity, height.current)) latest.current.onDismiss(velocity);
-                else settle();
+                const { onDismiss, onExpand } = latest.current;
+                if (shouldDismiss(y.get(), velocity, height.current)) onDismiss(velocity);
+                else {
+                    settle();
+                    if (onExpand && shouldExpand(last?.y ?? 0, velocity)) onExpand();
+                }
             }
             start = null;
             mode = null;

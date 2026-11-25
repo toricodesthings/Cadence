@@ -86,9 +86,10 @@ describe("DateTimeTab calendar", () => {
         expect(mutate).toHaveBeenCalledWith({ dateTime: { timeDisplay: "24h" } });
     });
 
-    it("shows the hour the day and week views open at, 7 AM by default", () => {
+    it("shows your day, 7 AM to 10 PM by default", () => {
         setup();
-        expect(screen.getByLabelText("Hour the day and week views open at").textContent).toContain("7:00 AM");
+        expect(screen.getByLabelText("Your day starts at").textContent).toContain("7:00 AM");
+        expect(screen.getByLabelText("Your day ends at").textContent).toContain("10:00 PM");
     });
 
     it("turns a calendar layer off with its own switch", () => {

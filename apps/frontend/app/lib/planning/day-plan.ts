@@ -30,6 +30,7 @@ export interface DayPlanInput {
     /** The day's tasks as the schedule reads them (series already expanded). */
     dayTasks: readonly (Pick<Task, "id" | "state" | "scheduledStart" | "scheduledEnd"> & { isHabit?: boolean })[];
     timelineStartHour: number;
+    dayEndHour?: number;
     evidence: PlanningEvidence | undefined;
     guess: Pick<DurationGuess, "state" | "minutes"> | null;
 }
@@ -51,6 +52,7 @@ export function planDay(input: DayPlanInput): DayPlan {
         zone,
         now: input.now.toISOString(),
         timelineStartHour: input.timelineStartHour,
+        dayEndHour: input.dayEndHour,
         // A routine takes no room: it is a point in the day, never a block to keep clear of.
         busy: busyBlocks(
             input.dayTasks.filter((t) => !t.isHabit),

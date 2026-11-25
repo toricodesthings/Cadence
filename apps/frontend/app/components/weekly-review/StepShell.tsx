@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Check, type LucideIcon } from "lucide-react";
 import { Button } from "../primitives/Button";
@@ -15,7 +15,7 @@ export function StepShell({
     title: titleOverride,
     count,
     center = false,
-    onTitleVisible,
+    titleInHeader = false,
     children,
 }: {
     step: number;
@@ -24,31 +24,23 @@ export function StepShell({
     /** When the page's title isn't the step's name (Welcome reads "Weekly Reset"). */
     title?: string;
     count?: number | null;
-    /** Phone: the large title scrolled out of view (or back), so the compact header carries the name meanwhile. */
-    onTitleVisible?: (visible: boolean) => void;
+    /** The compact header carries the name and count, so the large title is for screen readers only (Welcome keeps its hero). */
+    titleInHeader?: boolean;
     children: ReactNode;
 }) {
     const stepTitle = STEPS[step].title;
     const title = titleOverride ?? stepTitle;
-    const titleRef = useRef<HTMLHeadingElement>(null);
-    useEffect(() => {
-        const el = titleRef.current;
-        if (!el || !onTitleVisible) return;
-        const observer = new IntersectionObserver(([entry]) => onTitleVisible(entry.isIntersecting), { threshold: 0 });
-        observer.observe(el);
-        return () => {
-            observer.disconnect();
-            onTitleVisible(true);
-        };
-    }, [onTitleVisible]);
     return (
         <section
             aria-labelledby={`reset-step-${step}`}
             className="mx-auto flex w-full flex-1 flex-col gap-6 md:max-w-[44rem] lg:max-w-[60rem] 2xl:max-w-[76rem]"
         >
-            <header className={`flex items-center gap-3 ${center ? "justify-center" : ""}`}>
+            <header
+                className={
+                    titleInHeader && !center ? "sr-only" : `flex items-center gap-3 ${center ? "justify-center" : ""}`
+                }
+            >
                 <h1
-                    ref={titleRef}
                     id={`reset-step-${step}`}
                     className="font-display text-[clamp(1.625rem,1.3rem+0.8vw,2.125rem)] font-semibold leading-[1.08] tracking-[-0.02em] text-twilight-text"
                 >

@@ -16,7 +16,7 @@ import { hashIdentifier } from "../../platform/log";
 import { withRls } from "../../platform/rls";
 import { userZone } from "../../platform/user-zone";
 import { readTasks } from "../tasks/tasks.service";
-import { timelineStartHour } from "../ai/tools/calendar";
+import { dayHours } from "../ai/tools/calendar";
 import { planningSaid } from "../ai/memory/memory.service";
 import type { Env } from "../../types/env";
 import { decide, decisionModel, smartPlacementOn, type DecisionKind, type DecisionQuestion } from "./decision";
@@ -140,7 +140,7 @@ export async function resetSuggestions(
             from: today,
             days: 7,
             zone,
-            timelineStartHour: await timelineStartHour(tx, userId),
+            ...(await dayHours(tx, userId)),
         });
         const said = await planningSaid(tx, userId, MEMORY_CHARS);
         return {

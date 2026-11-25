@@ -32,7 +32,7 @@ const fit = (over: object = {}) => ({
     candidates: [essay, email, garage],
     byId: new Map([essay, email, garage].map((t) => [t.id, t])),
     busy: [],
-    timelineStartHour: 7,
+    hours: { timelineStartHour: 7, dayEndHour: 22 },
     minutesOf: () => null,
     refresh: vi.fn(async () => {}),
     plan: vi.fn(() => ({

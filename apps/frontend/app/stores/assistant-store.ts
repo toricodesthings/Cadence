@@ -32,6 +32,9 @@ interface AssistantState {
     /** A reply arrived while the panel was closed or the tab hidden, and hasn't been seen. */
     replyUnread: boolean;
     setReplyUnread: (unread: boolean) => void;
+    /** Phone sheet opened full screen (not persisted; closing the panel drops it). */
+    assistantFullscreen: boolean;
+    setAssistantFullscreen: (fullscreen: boolean) => void;
     toggleAssistantPanel: () => void;
     setAssistantPanelOpen: (open: boolean) => void;
     setAssistantPanelWidth: (width: number) => void;
@@ -59,8 +62,12 @@ export const useAssistantStore = create<AssistantState>()(
             setSurface: (surface) => set({ surface }),
             replyUnread: false,
             setReplyUnread: (replyUnread) => set({ replyUnread }),
-            toggleAssistantPanel: () => set((s) => ({ assistantPanelOpen: !s.assistantPanelOpen })),
-            setAssistantPanelOpen: (open) => set({ assistantPanelOpen: open }),
+            assistantFullscreen: false,
+            setAssistantFullscreen: (assistantFullscreen) => set({ assistantFullscreen }),
+            toggleAssistantPanel: () =>
+                set((s) => ({ assistantPanelOpen: !s.assistantPanelOpen, assistantFullscreen: false })),
+            setAssistantPanelOpen: (open) =>
+                set(open ? { assistantPanelOpen: true } : { assistantPanelOpen: false, assistantFullscreen: false }),
             setAssistantPanelWidth: (width) => set({ assistantPanelWidth: width }),
             startNewConversation: () => set({ activeConversationId: newRowId(), historyOpen: false }),
             setActiveConversation: (id) => set({ activeConversationId: id, historyOpen: false }),

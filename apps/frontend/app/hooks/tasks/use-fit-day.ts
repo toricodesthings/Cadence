@@ -2,11 +2,11 @@ import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import type { PlaceTaskItem, Task } from "@cadence/contracts/task";
-import { busyBlocks, DAY_END, type Busy } from "@cadence/domain/find-time";
+import { busyBlocks, dayHoursOf, dayWindow, type Busy } from "@cadence/domain/find-time";
 import { fitDay, fitMinutes, isFitCandidate, type FitDayResult } from "@cadence/domain/fit-day";
 import { preferredBuckets } from "@cadence/domain/slot-preference";
 import { taskDay } from "@cadence/domain/task-recurrence";
-import { atLocal, type LocalDate } from "@cadence/domain/time";
+import type { LocalDate } from "@cadence/domain/time";
 import { useApiClient } from "../auth/use-api-client";
 import { useSettings } from "../core/use-settings";
 import { useDurationGuesser } from "../ai/use-duration-guess";
@@ -40,7 +40,7 @@ export function useFitDay(day: LocalDate, enabled = true) {
     const evidence = usePlanningEvidence();
     const { data: projects } = useProjects();
     const { data: settings } = useSettings();
-    const timelineStartHour = settings?.calendar?.timelineStartHour ?? 7;
+    const hours = useMemo(() => dayHoursOf(settings), [settings]);
 
     const candidates = useMemo(() => {
         const zone = getUserZone();
@@ -71,7 +71,7 @@ export function useFitDay(day: LocalDate, enabled = true) {
                 tasks
                     .filter(isFitCandidate)
                     .map((t) => ({ ...t, minutes: minutesOf(t), notBefore: t.notBefore ?? null })),
-                { day, zone, now: new Date().toISOString(), timelineStartHour, busy: [...busy, ...alsoBusy] },
+                { day, zone, now: new Date().toISOString(), ...hours, busy: [...busy, ...alsoBusy] },
                 (t, feasible) =>
                     preferredBuckets(
                         evidence ?? { records: [], stated: [] },
@@ -85,14 +85,14 @@ export function useFitDay(day: LocalDate, enabled = true) {
                     ),
             );
         },
-        [busy, candidates, day, evidence, minutesOf, projects, timelineStartHour, todayDay],
+        [busy, candidates, day, evidence, minutesOf, projects, hours, todayDay],
     );
 
     const ready = !!own.data && !!onDay.data;
     const refresh = useCallback(async () => {
         await Promise.all([own.refetch(), onDay.refetch()]);
     }, [own, onDay]);
-    return { ready, candidates, byId, busy, plan, minutesOf, refresh, timelineStartHour };
+    return { ready, candidates, byId, busy, plan, minutesOf, refresh, hours };
 }
 
 export type FitDay = ReturnType<typeof useFitDay>;
@@ -100,7 +100,7 @@ export type FitDay = ReturnType<typeof useFitDay>;
 /** Why the menu item can't help right now, or null when it can. Kept in place, disabled, rather than hidden. */
 export function fitTodayReason(fit: FitDay, tasks: readonly Task[], now = new Date()): string | null {
     const zone = getUserZone();
-    if (Date.parse(atLocal(today(), DAY_END, zone)) <= now.getTime()) return "Today's gaps have passed";
+    if (dayWindow(today(), fit.hours, zone).to <= now.getTime()) return "Today's gaps have passed";
     if (!fit.ready) return null;
     const candidates = tasks.filter(isFitCandidate);
     if (!candidates.length) return "No untimed tasks on today";

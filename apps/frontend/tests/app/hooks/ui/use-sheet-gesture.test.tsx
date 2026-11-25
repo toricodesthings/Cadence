@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { decide, rubber, shouldDismiss } from "../../../../app/hooks/ui/use-sheet-gesture";
+import { decide, rubber, shouldDismiss, shouldExpand } from "../../../../app/hooks/ui/use-sheet-gesture";
 import { ResponsiveOverlayPanel } from "../../../../app/components/shared/ResponsiveOverlayPanel";
 
 vi.mock("../../../../app/hooks/core/use-settings", () => ({
@@ -29,6 +29,17 @@ describe("rubber", () => {
         expect(Math.abs(rubber(-100, 600))).toBeLessThan(100);
         expect(Math.abs(rubber(-10_000, 600))).toBeLessThan(600);
     });
+});
+
+describe("shouldExpand", () => {
+    it.each([
+        [-100, 0, true],
+        [-40, 0, false],
+        [-20, -700, true],
+        [30, -700, false],
+    ] as const)("pull %d at %d px/s → %s", (pull, velocity, expected) =>
+        expect(shouldExpand(pull, velocity)).toBe(expected),
+    );
 });
 
 describe("shouldDismiss", () => {

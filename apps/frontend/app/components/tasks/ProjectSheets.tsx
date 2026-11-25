@@ -100,10 +100,14 @@ function SectionRow({
                 />
             ) : (
                 <>
-                    <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-twilight-text">
-                        {section.name}
+                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                        <span className="min-w-0 truncate text-[15px] font-medium text-twilight-text">
+                            {section.name}
+                        </span>
+                        <span className="shrink-0 rounded-full bg-panel-raised px-2 py-0.5 text-[12px] font-semibold tabular-nums text-twilight-text-soft">
+                            {count}
+                        </span>
                     </span>
-                    <span className="text-[12px] tabular-nums text-twilight-text-soft/90">{count}</span>
                     <Tip label="Move up">
                         <button
                             type="button"

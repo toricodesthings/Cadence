@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
-import { Tip } from "../primitives/Tooltip";
+import { HeaderAddButton } from "../shared/HeaderAddButton";
 import { SegmentedControl } from "../primitives/SegmentedControl";
-import { ChevronLeft, ChevronRight, Plus, EllipsisVertical } from "lucide-react";
+import { ChevronLeft, ChevronRight, EllipsisVertical } from "lucide-react";
 import {
     Snowflake,
     CloudSnow,
@@ -80,7 +80,7 @@ export interface ScheduleHeaderProps {
     /** Overflow content (holiday + clutter controls) */
     overflowContent?: ReactNode;
     compact?: boolean;
-    /** Phone: the title names what you're looking at, and the label above it zooms out. */
+    /** Phone: the title names what you're looking at, and a back arrow left of it zooms out. */
     phone?: {
         title: string;
         /** Quiet line under the title, e.g. "Today · light". */
@@ -131,7 +131,7 @@ export function ScheduleHeader({
 
     if (phone) {
         // Phone: one row. Period changes are swipes and taps on the calendar
-        // itself; the label above the title zooms out (Day → Month → Year).
+        // itself; the back arrow left of the title zooms out (Day → Month → Year).
         return (
             <PhonePageHeader
                 pageName="Schedule"
@@ -254,19 +254,7 @@ export function ScheduleHeader({
                     </Select>
 
                     {/* One Add: the composer opens on Task, Event is its second tab */}
-                    {onAddTask ? (
-                        <Tip label="Add to schedule" side="bottom">
-                            <button
-                                type="button"
-                                onClick={onAddTask}
-                                aria-label="Add to schedule"
-                                className="surface-control-accent inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl border border-accent-primary/20 px-3.5 text-sm font-medium text-accent-primary transition-colors hover:border-accent-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                            >
-                                <Plus size={14} aria-hidden="true" />
-                                <span className="hidden lg:inline">Add</span>
-                            </button>
-                        </Tip>
-                    ) : null}
+                    {onAddTask ? <HeaderAddButton label="Add" onClick={onAddTask} /> : null}
 
                     {/* Overflow menu for holiday/clutter controls */}
                     {overflowContent && (

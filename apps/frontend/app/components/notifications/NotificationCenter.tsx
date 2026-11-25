@@ -1,13 +1,14 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CheckCheck, Settings, ChevronDown, Bell } from "lucide-react";
 import { useOpenNotification } from "../../hooks/notifications/use-open-notification";
-import { NotificationRow, NOTIFICATION_STYLES, actionClass } from "./NotificationRow";
+import { NotificationRow, NOTIFICATION_STYLES } from "./NotificationRow";
 import type { GroupedNotifications } from "../../hooks/notifications/use-notification-center";
 import { DEFER_LABELS, type DeferChoice } from "../../lib/notifications/reminder-engine";
 import { Tip } from "../primitives/Tooltip";
 import * as AlertDialog from "../primitives/AlertDialog";
 import { Button } from "../primitives/Button";
 import { SearchField } from "../primitives/SearchField";
+import { SegmentedControl } from "../primitives/SegmentedControl";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 
 const PAGE_SIZE = 30;
@@ -105,44 +106,6 @@ export function NotificationCenter({
                 <h2 className="px-5 pt-5 font-display text-xl font-semibold text-twilight-text">Notifications</h2>
             )}
             <div className="shrink-0 space-y-3 border-b border-twilight-border px-1 pb-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div
-                        role="group"
-                        aria-label="Filter notifications"
-                        className="inline-flex rounded-2xl bg-twilight-surface-muted p-1"
-                    >
-                        {([false, true] as const).map((unread) => (
-                            <button
-                                key={String(unread)}
-                                type="button"
-                                aria-pressed={unreadOnly === unread}
-                                onClick={() => {
-                                    setUnreadOnly(unread);
-                                    resetList();
-                                }}
-                                className={`${actionClass} !px-2 gap-2 ${unreadOnly === unread ? "bg-twilight-surface text-twilight-text shadow-sm" : ""}`}
-                            >
-                                {unread ? "Unread" : "All"}
-                                <span className="text-xs tabular-nums text-twilight-text-muted">
-                                    {unread ? unreadCount : all.length}
-                                </span>
-                            </button>
-                        ))}
-                    </div>
-                    <button
-                        type="button"
-                        disabled={!hasUnread}
-                        onClick={() => {
-                            markAllRead();
-                            setAnnouncement("All notifications marked as read.");
-                        }}
-                        className={actionClass}
-                        aria-label="Mark all as read"
-                    >
-                        <CheckCheck size={16} aria-hidden="true" />
-                        Read all
-                    </button>
-                </div>
                 <div className="flex flex-wrap items-center gap-2">
                     <SearchField
                         ref={searchRef}
@@ -157,14 +120,10 @@ export function NotificationCenter({
                     />
                     <DropdownMenu.Root>
                         <DropdownMenu.Trigger asChild>
-                            <button
-                                type="button"
-                                aria-label={`Sort notifications: ${SORT_LABELS[sort]}`}
-                                className={`${actionClass} border border-twilight-border bg-twilight-surface`}
-                            >
+                            <Button variant="secondary" aria-label={`Sort notifications: ${SORT_LABELS[sort]}`}>
                                 {SORT_LABELS[sort]}
                                 <ChevronDown size={16} aria-hidden="true" />
-                            </button>
+                            </Button>
                         </DropdownMenu.Trigger>
                         <DropdownMenu.Content align="end" aria-label="Sort notifications">
                             <DropdownMenu.RadioGroup
@@ -214,9 +173,8 @@ export function NotificationCenter({
                             </p>
                         </div>
                         {(query || (unreadOnly && all.length > 0)) && (
-                            <button
-                                type="button"
-                                className={actionClass}
+                            <Button
+                                variant="secondary"
                                 onClick={() => {
                                     setSearch("");
                                     setUnreadOnly(false);
@@ -225,7 +183,7 @@ export function NotificationCenter({
                                 }}
                             >
                                 Show all notifications
-                            </button>
+                            </Button>
                         )}
                     </div>
                 ) : (
@@ -270,46 +228,68 @@ export function NotificationCenter({
                             ))}
                         </ul>
                         {visible.length > limit && (
-                            <button
-                                type="button"
-                                className={`${actionClass} mt-3 w-full`}
+                            <Button
+                                variant="secondary"
+                                className="mt-3 w-full"
                                 onClick={() => {
                                     nextPageFocus.current = limit;
                                     setLimit((value) => value + PAGE_SIZE);
                                 }}
                             >
                                 Show more · {visible.length - limit} remaining
-                            </button>
+                            </Button>
                         )}
                     </>
                 )}
             </div>
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-twilight-border px-1 pt-2">
-                <p className="mr-auto px-3 text-xs text-twilight-text-muted">
-                    {unreadCount ? `${unreadCount} unread` : "All caught up"}
-                </p>
-                {dismissMany && (
-                    <button
-                        type="button"
-                        className={actionClass}
-                        disabled={all.length === 0}
-                        onClick={() => setClearIds(all.map((n) => n.id))}
+                <SegmentedControl
+                    ariaLabel="Filter notifications"
+                    value={unreadOnly ? "unread" : "all"}
+                    onChange={(value) => {
+                        setUnreadOnly(value === "unread");
+                        resetList();
+                    }}
+                    options={[
+                        { value: "all", label: `All ${all.length}` },
+                        { value: "unread", label: `Unread ${unreadCount}` },
+                    ]}
+                />
+                <div className="ml-auto flex items-center gap-1">
+                    <Button
+                        variant="ghost"
+                        disabled={!hasUnread}
+                        onClick={() => {
+                            markAllRead();
+                            setAnnouncement("All notifications marked as read.");
+                        }}
+                        aria-label="Mark all as read"
                     >
-                        Clear all…
-                    </button>
-                )}
-                {onOpenSettings && (
-                    <Tip label="Notification settings">
-                        <button
-                            type="button"
-                            onClick={onOpenSettings}
-                            className="mobile-icon-button"
-                            aria-label="Notification settings"
+                        <CheckCheck size={16} aria-hidden="true" />
+                        Read all
+                    </Button>
+                    {dismissMany && (
+                        <Button
+                            variant="ghost"
+                            disabled={all.length === 0}
+                            onClick={() => setClearIds(all.map((n) => n.id))}
                         >
-                            <Settings size={18} aria-hidden="true" />
-                        </button>
-                    </Tip>
-                )}
+                            Clear all…
+                        </Button>
+                    )}
+                    {onOpenSettings && (
+                        <Tip label="Notification settings">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={onOpenSettings}
+                                aria-label="Notification settings"
+                            >
+                                <Settings size={18} aria-hidden="true" />
+                            </Button>
+                        </Tip>
+                    )}
+                </div>
             </div>
             <span className="sr-only" role="status">
                 {announcement}

@@ -14,7 +14,7 @@ import type {
     PlanningOffers,
     TimeOfDay,
 } from "@cadence/contracts/planning";
-import { bucketOf, feasibleBuckets, busyBlocks } from "@cadence/domain/find-time";
+import { bucketOf, dayHoursOf, feasibleBuckets, busyBlocks } from "@cadence/domain/find-time";
 import { eligibleOffers, type OfferDecline, type OfferTask } from "@cadence/domain/planning-offers";
 import { learnedPreference, type SlotRecord } from "@cadence/domain/slot-preference";
 import { addDays, dayOf, formatInZone, todayIn, type LocalDate } from "@cadence/domain/time";
@@ -39,11 +39,6 @@ const MAX_EVIDENCE_RECORDS = 500;
 
 /** The group a slot pattern fact stands for: a list, or "all" lists. Forget on the fact hides these records. */
 export const slotGroup = (projectId: string | null) => `slot:${projectId ?? "all"}`;
-
-const timelineStartHourOf = (settings: unknown): number => {
-    const hour = (settings as { calendar?: { timelineStartHour?: unknown } } | null)?.calendar?.timelineStartHour;
-    return typeof hour === "number" ? hour : 7;
-};
 
 /** What a Not now was about: if the title, steps or what it waits on change, the offer may return. */
 async function fingerprintOf(tx: Tx, userId: string, taskId: string): Promise<string | null> {
@@ -131,7 +126,7 @@ export async function recordSlot(env: Env, userId: string, change: SlotChange, n
                             day,
                             zone,
                             now: now.toISOString(),
-                            timelineStartHour: timelineStartHourOf(settings?.settings),
+                            ...dayHoursOf(settings?.settings),
                             busy,
                             preferred: [],
                         }),

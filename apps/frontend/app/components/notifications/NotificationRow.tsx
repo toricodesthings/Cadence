@@ -3,6 +3,7 @@ import { Bell, BellRing, CalendarClock, Flame, X, Check, Circle, Timer, Calendar
 import type { AppNotification } from "../../lib/notifications/notification-model";
 import { DEFER_LABELS, type DeferChoice } from "../../lib/notifications/reminder-engine";
 import { Tip } from "../primitives/Tooltip";
+import { Button } from "../primitives/Button";
 import * as DropdownMenu from "../primitives/DropdownMenu";
 
 export const NOTIFICATION_STYLES: Record<AppNotification["kind"], { icon: typeof Bell; label: string }> = {
@@ -14,9 +15,6 @@ export const NOTIFICATION_STYLES: Record<AppNotification["kind"], { icon: typeof
     "personal-event": { icon: CalendarHeart, label: "Event" },
     system: { icon: BellRing, label: "Update" },
 };
-export const actionClass =
-    "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-sm text-twilight-text-soft transition-colors hover:bg-twilight-surface-muted hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary disabled:cursor-default disabled:opacity-50 cursor-pointer";
-
 /** "5m", "3h", "2d": the distance in its largest whole unit (at least a minute). */
 function amountOf(mins: number) {
     if (mins < 60) return `${Math.max(1, mins)}m`;
@@ -67,15 +65,15 @@ export function NotificationRow({
                 aria-label={`${n.title}. ${n.body}${n.read ? "" : ". Unread"}`}
                 className={`flex min-h-11 min-w-0 items-start rounded-lg text-left transition-colors hover:bg-twilight-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary cursor-pointer ${compact ? "gap-2 p-1" : "gap-3"}`}
             >
-                <Icon size={compact ? 16 : 20} className="mt-0.5 shrink-0 text-accent-primary" aria-hidden="true" />
+                <Icon size={16} className="mt-0.5 shrink-0 text-accent-primary" aria-hidden="true" />
                 <span className="min-w-0 flex-1">
                     <span
-                        className={`${compact ? "line-clamp-2" : "block"} break-words text-sm leading-relaxed ${n.read ? "font-medium text-twilight-text-soft" : "font-semibold text-twilight-text"}`}
+                        className={`${compact ? "line-clamp-2" : "block"} break-words text-sm leading-5 ${n.read ? "font-medium text-twilight-text-soft" : "font-semibold text-twilight-text"}`}
                     >
                         {n.title}
                     </span>
                     <span
-                        className={`mt-1 ${compact ? "line-clamp-1" : "block"} break-words text-sm leading-relaxed text-twilight-text-muted`}
+                        className={`mt-0.5 ${compact ? "line-clamp-1" : "block"} break-words text-sm leading-5 text-twilight-text-muted`}
                     >
                         {n.body}
                     </span>
@@ -92,14 +90,15 @@ export function NotificationRow({
                 </span>
             </button>
             <Tip label="Dismiss notification">
-                <button
-                    type="button"
+                <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={onDismiss}
-                    className="mobile-icon-button glass-inset self-start"
+                    className="self-start"
                     aria-label={`Dismiss notification: ${n.title}`}
                 >
                     <X size={17} aria-hidden="true" />
-                </button>
+                </Button>
             </Tip>
             {!compact && (
                 <div className="col-span-full mt-2 flex flex-wrap items-center justify-between gap-x-2">
@@ -110,9 +109,10 @@ export function NotificationRow({
                     <div className="ml-auto flex items-center gap-1">
                         {onToggleRead && (
                             <Tip label={`${n.read ? "Read · " : ""}${readAction}`}>
-                                <button
-                                    type="button"
-                                    className={`mobile-icon-button glass-inset ${n.read ? "text-twilight-text-soft" : "text-accent-primary"}`}
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={n.read ? "text-twilight-text-soft" : "text-accent-primary"}
                                     aria-label={`${readAction}: ${n.title}`}
                                     aria-pressed={n.read}
                                     onClick={onToggleRead}
@@ -122,20 +122,20 @@ export function NotificationRow({
                                     ) : (
                                         <Circle size={16} aria-hidden="true" />
                                     )}
-                                </button>
+                                </Button>
                             </Tip>
                         )}
                         {onDefer && (
                             <DropdownMenu.Root>
                                 <Tip label="Remind me later">
                                     <DropdownMenu.Trigger asChild>
-                                        <button
-                                            type="button"
-                                            className="mobile-icon-button glass-inset"
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
                                             aria-label={`Defer notification: ${n.title}`}
                                         >
                                             <Timer size={18} aria-hidden="true" />
-                                        </button>
+                                        </Button>
                                     </DropdownMenu.Trigger>
                                 </Tip>
                                 <DropdownMenu.Content

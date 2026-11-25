@@ -4,6 +4,8 @@ import {
     BUFFER_MINUTES,
     bucketOf,
     busyBlocks,
+    dayHoursOf,
+    dayWindow,
     findTimes,
     timeOfDay,
     type FindTimeInput,
@@ -31,6 +33,24 @@ describe("findTimes window and grid", () => {
         expect(all[0].start).toBe(at("06:00"));
         expect(all.every((p) => Date.parse(p.end) <= Date.parse(at("22:00")))).toBe(true);
         expect(all.every((p) => new Date(p.start).getUTCMinutes() % 15 === 0)).toBe(true);
+    });
+
+    it("ends at the person's own day end, midnight included", () => {
+        const evening = findTimes(base({ dayEndHour: 18 }));
+        expect(evening.every((p) => Date.parse(p.end) <= Date.parse(at("18:00")))).toBe(true);
+        expect(dayWindow(day, { timelineStartHour: 7, dayEndHour: 24 }, zone).to).toBe(
+            Date.parse(at("00:00", "2026-10-21")),
+        );
+    });
+
+    it("never ends before it starts, and fills the defaults from settings", () => {
+        const w = dayWindow(day, { timelineStartHour: 9, dayEndHour: 8 }, zone);
+        expect(w.to).toBe(w.from);
+        expect(dayHoursOf(null)).toEqual({ timelineStartHour: 7, dayEndHour: 22 });
+        expect(dayHoursOf({ calendar: { timelineStartHour: 8, dayEndHour: 23 } })).toEqual({
+            timelineStartHour: 8,
+            dayEndHour: 23,
+        });
     });
 
     it("clamps today to the next 15 minutes from now", () => {

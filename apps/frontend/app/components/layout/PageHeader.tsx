@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ChevronLeft, EllipsisVertical } from "lucide-react";
 import * as Popover from "../primitives/Popover";
+import { Tip } from "../primitives";
 
 /** Surface shared by every page header (desktop bar and compact variants). */
 export const PAGE_HEADER_SURFACE =
@@ -124,7 +125,7 @@ export function PhoneHeaderIdentity({
     );
 }
 
-/** Phone page header: one row. The label above the title zooms out when `backLabel` is set; `options` open under a sliders icon. */
+/** Phone page header: one row. With `backLabel` + `onZoomOut`, a back arrow left of the title zooms out; `options` open under ⋮. */
 export function PhonePageHeader({
     pageName,
     title,
@@ -148,25 +149,29 @@ export function PhonePageHeader({
     /** A row under the title (e.g. page controls). */
     children?: ReactNode;
 }) {
-    const identity = <PhoneHeaderIdentity pageName={pageName} title={title} meta={meta} backLabel={backLabel} />;
+    const back = backLabel && onZoomOut ? `Back to ${backLabel}` : null;
 
     return (
         <header className={`${PAGE_HEADER_SURFACE} safe-header-top px-4 pb-2`}>
             <div className="flex min-h-[52px] items-center gap-2">
                 {leading ? <div className="header-glass -ml-1 flex shrink-0 items-center">{leading}</div> : null}
+                {back ? (
+                    <div className="header-glass -ml-1 flex shrink-0 items-center">
+                        <Tip label={back}>
+                            <button
+                                type="button"
+                                onClick={onZoomOut}
+                                aria-label={back}
+                                className="btn-icon touch-target rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text"
+                            >
+                                <ChevronLeft size={20} aria-hidden="true" />
+                            </button>
+                        </Tip>
+                    </div>
+                ) : null}
                 <h1 className="min-w-0 flex-1">
-                    {backLabel && onZoomOut ? (
-                        <button
-                            type="button"
-                            onClick={onZoomOut}
-                            aria-label={typeof title === "string" ? `${title}. Back to ${backLabel}` : undefined}
-                            className="-mx-1 flex min-h-11 max-w-full cursor-pointer rounded-xl px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                        >
-                            {identity}
-                        </button>
-                    ) : (
-                        identity
-                    )}
+                    {/* The back arrow says where it goes; the page name would be a third line. */}
+                    <PhoneHeaderIdentity pageName={back ? null : pageName} title={title} meta={meta} />
                 </h1>
                 <div className="header-glass flex shrink-0 items-center gap-2">
                     {actions}

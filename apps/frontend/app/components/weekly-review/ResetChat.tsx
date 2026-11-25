@@ -153,7 +153,6 @@ export function ResetChat() {
                 contentRef={stick.contentRef}
                 showJump={!stick.isAtBottom}
                 scrollToBottom={scrollToBottom}
-                submitText={submitText}
                 empty={greeting}
             />
             <AssistantComposer

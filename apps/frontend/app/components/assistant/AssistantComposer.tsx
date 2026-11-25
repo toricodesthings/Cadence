@@ -38,6 +38,21 @@ const APPROVAL_MODES: Record<ApprovalMode, { label: string; icon: React.ReactNod
         hint: (name) => `${name} applies every change, deletes included`,
     },
 };
+/** What the empty message box suggests, a few seconds each: what the assistant can do, in Cadence's words. */
+const PROMPT_IDEAS = [
+    "Capture: call the dentist tomorrow",
+    "What’s on Today?",
+    "Find a time for an hour of writing",
+    "Move my overdue tasks to Friday",
+    "Add a routine: stretch every morning",
+    "Sort my captures into lists",
+    "What’s due this week?",
+    "Fit today around my classes",
+    "Remember I work late on Tuesdays",
+    "Break “clean the garage” into steps",
+];
+const IDEA_MS = 4000;
+
 export function AssistantComposer({
     assistantName,
     isTouch,
@@ -143,6 +158,14 @@ export function AssistantComposer({
         else onSend(input);
     };
 
+    // Cycle the suggestions only while they show (an empty box).
+    const [idea, setIdea] = useState(0);
+    useEffect(() => {
+        if (input) return;
+        const t = window.setInterval(() => setIdea((i) => (i + 1) % PROMPT_IDEAS.length), IDEA_MS);
+        return () => clearInterval(t);
+    }, [input]);
+
     // Auto-grow the textarea up to a comfortable cap.
     useEffect(() => {
         const el = textareaRef.current;
@@ -155,7 +178,7 @@ export function AssistantComposer({
         <form
             onSubmit={handleSubmit}
             // The mobile sheet shell already pads for the home indicator.
-            className="shrink-0 px-3 pb-3 pt-2"
+            className={`shrink-0 px-3 pt-2 ${isMobile && isTouch ? "pb-1" : "pb-3"}`}
         >
             {/* Offline / input-cap notice (design §8.4 / §9.4) */}
             <AnimatePresence>
@@ -223,7 +246,7 @@ export function AssistantComposer({
                         addImages(e.clipboardData.files);
                     }}
                     rows={1}
-                    placeholder={`Message ${assistantName}…`}
+                    placeholder={PROMPT_IDEAS[idea]}
                     aria-label={`Message ${assistantName}`}
                     // ≥16px on touch prevents iOS Safari from zooming on focus.
                     className={`block max-h-[140px] w-full resize-none bg-transparent px-4 pb-1 pt-3 leading-relaxed text-twilight-text placeholder:text-twilight-text-muted focus:outline-none ${isTouch || isMobile ? "mb-2.5 text-base" : "text-[14px]"}`}
@@ -274,9 +297,9 @@ export function AssistantComposer({
                         </button>
                     </Tip>
 
-                    <ApprovalModeMenu assistantName={assistantName} />
-
                     <div className="flex-1" />
+
+                    <ApprovalModeMenu assistantName={assistantName} />
 
                     <SendButton
                         isStreaming={isStreaming}
@@ -288,7 +311,7 @@ export function AssistantComposer({
             </div>
             {/* Footer: the low-budget hint takes the line over the AI disclaimer
                 only while a usage window is actually running low (§9.4). */}
-            <p className="mt-2 truncate text-center text-[10px] text-twilight-text-muted">
+            <p className="mt-1.5 truncate text-center text-[10px] text-twilight-text-muted">
                 {usageNotice ?? `${assistantName} is AI and can make mistakes.`}
             </p>
         </form>
@@ -371,7 +394,7 @@ function ApprovalModeMenu({ assistantName }: { assistantName: string }) {
                     <ChevronDown size={12} className="opacity-60" aria-hidden />
                 </button>
             </DropdownMenu.Trigger>
-            <DropdownMenu.Content side="top" align="start" className="w-[260px]">
+            <DropdownMenu.Content side="top" align="end" className="w-[260px]">
                 <DropdownMenu.RadioGroup value={approvalMode} onValueChange={(v) => setApprovalMode(v as ApprovalMode)}>
                     {(Object.keys(APPROVAL_MODES) as ApprovalMode[]).map((mode) => (
                         <DropdownMenu.RadioItem key={mode} value={mode}>

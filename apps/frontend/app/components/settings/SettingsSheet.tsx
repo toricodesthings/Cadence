@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Info, UserRound, type LucideIcon } from "lucide-react";
+import { Info, type LucideIcon } from "lucide-react";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useUtilityNavigation } from "../../hooks/ui/use-utility-navigation";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
@@ -8,6 +8,7 @@ import { UtilitySheet } from "../shared/UtilitySheet";
 import { NAV_GROUP, NAV_GROUP_LABEL, NavigationRow } from "../layout/NavigationRow";
 import { SettingsContent, SETTINGS_CATEGORIES, settingsTab } from "./SettingsContent";
 import { SignOutButton } from "./SignOutButton";
+import { AvatarFace } from "../sharing/PersonAvatar";
 
 interface MenuGroup {
     label: string;
@@ -37,7 +38,7 @@ export function SettingsSheet() {
     const settings = settingsTab(rawTab);
     const { session } = useAuthState();
     const shell = useShellMode();
-    const profileLine = session?.user.name ?? session?.user.email;
+    const user = session?.user;
     const lastTab = useRef(settings ?? "menu");
     useEffect(() => {
         if (settings) lastTab.current = settings;
@@ -67,11 +68,24 @@ export function SettingsSheet() {
             ) : (
                 <>
                     <div className={NAV_GROUP}>
-                        <NavigationRow icon={UserRound} onClick={() => navigateTo("account")}>
-                            <span className="block">Profile & Security</span>
-                            {profileLine ? (
-                                <span className="block truncate text-xs text-twilight-text-soft">{profileLine}</span>
+                        <NavigationRow
+                            leading={
+                                <AvatarFace
+                                    person={user && { name: user.name ?? null, image: user.image ?? null }}
+                                    size={32}
+                                />
+                            }
+                            onClick={() => navigateTo("account")}
+                        >
+                            {user ? (
+                                <span className="flex min-w-0 items-baseline gap-1.5">
+                                    <span className="truncate font-medium">{user.name || user.email}</span>
+                                    <span className="shrink-0 text-xs tabular-nums text-twilight-text-soft">
+                                        #{user.id.slice(0, 4)}
+                                    </span>
+                                </span>
                             ) : null}
+                            <span className="block truncate text-xs text-twilight-text-soft">Profile & Security</span>
                         </NavigationRow>
                     </div>
                     {menuGroups(shell.isPhone).map((group) => (

@@ -69,9 +69,9 @@ export function ConversationList({
                     variant="cardPrimary"
                     size="none"
                     onClick={onNewChat}
-                    className="h-8 min-h-8 gap-1.5 rounded-full px-3 text-xs font-semibold"
+                    className="h-11 min-h-11 gap-1.5 rounded-full px-4 text-sm font-semibold"
                 >
-                    <Plus size={14} />
+                    <Plus size={16} aria-hidden />
                     New chat
                 </Button>
             }

@@ -13,6 +13,7 @@ import { usePersonalEvents } from "../../../hooks/calendar/use-personal-events";
 import { useMinuteClock } from "../../../hooks/ui/use-realtime-clock";
 import { deviceZone, resolveZone, useToday } from "../../../lib/utils/user-zone";
 import { formatInZone } from "@cadence/domain/time";
+import { dayHoursOf } from "@cadence/domain/find-time";
 import { formatWallTime } from "../../../lib/utils/date-format";
 
 /** Every IANA zone the runtime knows, "UTC" first (some runtimes leave it out of the list). */
@@ -84,6 +85,24 @@ const VIEW: ReadonlyArray<SegmentedOption<NonNullable<Calendar["defaultView"]>>>
     { value: "day", label: "Day" },
 ];
 const HOURS = Array.from({ length: 24 }, (_, hour) => String(hour));
+/** 1 AM through midnight (24). */
+const END_HOURS = Array.from({ length: 24 }, (_, hour) => String(hour + 1));
+const hourLabel = (hour: string) => (hour === "24" ? "Midnight" : formatWallTime(`${hour.padStart(2, "0")}:00`));
+
+const hourSelect = (label: string, value: number, hours: string[], onChange: (hour: number) => void) => (
+    <Select value={String(value)} onValueChange={(hour) => onChange(Number(hour))}>
+        <SelectTrigger aria-label={label} className="flex-1">
+            <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+            {hours.map((hour) => (
+                <SelectItem key={hour} value={hour}>
+                    {hourLabel(hour)}
+                </SelectItem>
+            ))}
+        </SelectContent>
+    </Select>
+);
 
 const segment = <T extends string>(
     label: string,
@@ -123,6 +142,7 @@ export function DateTimeTab() {
 
     const dt: DateTime = { ...SETTINGS_DEFAULTS.dateTime, ...settings?.dateTime };
     const cal = { ...SETTINGS_DEFAULTS.calendar, ...settings?.calendar };
+    const { timelineStartHour: start, dayEndHour: end } = dayHoursOf(settings);
     const shown = clutterShown({ ...SETTINGS_DEFAULTS.calendar.clutter, ...cal.clutter });
     const setDate = (patch: DeepPartial<DateTime>) => updateSettings.mutate({ dateTime: patch });
     const setCalendar = (patch: DeepPartial<Calendar>) => updateSettings.mutate({ calendar: patch });
@@ -179,23 +199,26 @@ export function DateTimeTab() {
                             setCalendar({ defaultView }),
                         )}
                     </SettingsRow>
-                    <SettingsRow title="Day and week open at">
-                        <div className="w-full sm:max-w-[10rem]">
-                            <Select
-                                value={String(cal.timelineStartHour ?? 7)}
-                                onValueChange={(hour) => setCalendar({ timelineStartHour: Number(hour) })}
-                            >
-                                <SelectTrigger aria-label="Hour the day and week views open at">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {HOURS.map((hour) => (
-                                        <SelectItem key={hour} value={hour}>
-                                            {formatWallTime(`${hour.padStart(2, "0")}:00`)}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                    <SettingsRow
+                        title="Your day"
+                        description="Day and Week open at its start. Planning looks for time between the two."
+                    >
+                        <div className="flex w-full items-center gap-2 sm:max-w-[18rem]">
+                            {hourSelect(
+                                "Your day starts at",
+                                start,
+                                HOURS.filter((hour) => Number(hour) < end),
+                                (timelineStartHour) => setCalendar({ timelineStartHour }),
+                            )}
+                            <span aria-hidden="true" className="text-twilight-text-soft">
+                                –
+                            </span>
+                            {hourSelect(
+                                "Your day ends at",
+                                end,
+                                END_HOURS.filter((hour) => Number(hour) > start),
+                                (dayEndHour) => setCalendar({ dayEndHour }),
+                            )}
                         </div>
                     </SettingsRow>
                 </SettingsList>

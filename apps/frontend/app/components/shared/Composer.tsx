@@ -17,8 +17,8 @@ import { UtilitySheet } from "./UtilitySheet";
  * A dirty draft asks before it's thrown away.
  */
 
-const BAND = "shrink-0 overflow-y-auto [scrollbar-gutter:stable]";
-const TILE = "rounded-2xl border border-white/[0.06] bg-white/[0.03]";
+const BAND = "shrink-0 overflow-y-auto [scrollbar-gutter:stable_both-edges]";
+export const TILE = "rounded-2xl border border-white/[0.06] bg-white/[0.03]";
 
 type ComposerIcon = ComponentType<{ size?: number; className?: string; "aria-hidden"?: boolean }>;
 /** The nav wayfinding shade a creator belongs to: events the schedule's, routines the routines'. */
@@ -119,7 +119,7 @@ export function Composer({
     );
     const sheetBand = bandOf(band);
     const body = (
-        <div className="min-h-0 flex-auto overflow-y-auto [scrollbar-gutter:stable] px-5 py-4 sm:px-6 sm:py-5">
+        <div className="min-h-0 flex-auto overflow-y-auto [scrollbar-gutter:stable_both-edges] px-5 py-4 sm:px-6 sm:py-5">
             <div className="space-y-5">{children}</div>
         </div>
     );

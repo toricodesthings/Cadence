@@ -7,15 +7,15 @@ export function ReadyStep({
     room,
     onOpenTask,
     onOpenRoutine,
-    onTitleVisible,
+    titleInHeader,
 }: {
     room: ReturnType<typeof useWeekRoom>["room"];
     onOpenTask: (id: string) => void;
     onOpenRoutine: (id: string) => void;
-    onTitleVisible?: (visible: boolean) => void;
+    titleInHeader?: boolean;
 }) {
     return (
-        <StepShell step={5} onTitleVisible={onTitleVisible}>
+        <StepShell step={5} titleInHeader={titleInHeader}>
             <WeekView room={room} onOpenTask={onOpenTask} onOpenRoutine={onOpenRoutine} />
         </StepShell>
     );

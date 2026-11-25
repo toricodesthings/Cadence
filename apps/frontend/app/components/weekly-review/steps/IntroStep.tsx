@@ -39,15 +39,15 @@ function WaitingPath({ items }: { items: { icon: LucideIcon; count: number; labe
 export function IntroStep({
     counts,
     onNext,
-    onTitleVisible,
+    titleInHeader,
 }: {
     counts: { captures: number; looseEnds: number; routines: number };
     onNext: () => void;
-    onTitleVisible?: (visible: boolean) => void;
+    titleInHeader?: boolean;
 }) {
     const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
     return (
-        <StepShell step={0} title="Weekly Reset" center onTitleVisible={onTitleVisible}>
+        <StepShell step={0} title="Weekly Reset" center titleInHeader={titleInHeader}>
             <div className="flex flex-col items-center gap-6">
                 <WeeklyResetHero className="-my-4 aspect-[2/1] w-full max-w-[440px] 2xl:max-w-[560px]" />
                 <WaitingPath

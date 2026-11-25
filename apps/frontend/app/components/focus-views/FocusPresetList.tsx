@@ -99,7 +99,7 @@ function PresetRow({ view, active, actions }: { view: SavedFocusView; active: bo
                         <Tip label="View options">
                             <DropdownMenu.Trigger
                                 aria-label={`Options for ${view.name}`}
-                                className={`flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 data-[state=open]:text-twilight-text ${HOVER}`}
+                                className={`glass-inset flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-twilight-text-muted transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 data-[state=open]:text-twilight-text ${HOVER}`}
                             >
                                 <EllipsisVertical size={16} aria-hidden="true" />
                             </DropdownMenu.Trigger>

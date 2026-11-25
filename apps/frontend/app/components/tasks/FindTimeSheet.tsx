@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { toast } from "sonner";
 import type { TimeOfDay } from "@cadence/contracts/planning";
-import { DAY_END, type Proposal } from "@cadence/domain/find-time";
+import { dayHoursOf, type DayHours, type Proposal } from "@cadence/domain/find-time";
 import { addDays, atLocal, formatInZone, wallTimeOf, type LocalDate } from "@cadence/domain/time";
 import type { Task } from "@cadence/contracts/task";
 import { Button } from "../primitives/Button";
@@ -26,18 +26,18 @@ const DAYS_SHOWN = 14;
 /** The day as a bar from the calendar's first hour to the day's end: other blocks muted, the proposal as a ghost of the block that would be made. */
 function MiniDay({
     day,
-    startHour,
+    hours,
     busy,
     proposal,
 }: {
     day: LocalDate;
-    startHour: number;
+    hours: Required<DayHours>;
     busy: readonly { start: string; end: string }[];
     proposal: Proposal | null;
 }) {
     const zone = useUserZone();
-    const from = Math.max(startHour, 6) * 60;
-    const to = Number(DAY_END.slice(0, 2)) * 60;
+    const from = Math.max(hours.timelineStartHour, 6) * 60;
+    const to = Math.max(from, hours.dayEndHour * 60);
     const span = to - from;
     const at = (instant: string) => {
         const [h, m] = wallTimeOf(instant, zone).split(":").map(Number);
@@ -126,7 +126,7 @@ function SheetBody({
     const find = useFindTime();
     const updateTask = useUpdateTask();
     const { data: settings } = useSettings();
-    const startHour = settings?.calendar?.timelineStartHour ?? 7;
+    const hours = dayHoursOf(settings);
     const [day, setDay] = useState<LocalDate>(start);
     const [plan, setPlan] = useState<DayPlan | null>(null);
     const [index, setIndex] = useState(0);
@@ -255,7 +255,7 @@ function SheetBody({
                         {anchorDay && day > anchorDay ? (
                             <p className="text-xs text-twilight-text-muted">After its day</p>
                         ) : null}
-                        <MiniDay day={day} startHour={startHour} busy={plan?.busy ?? []} proposal={proposal} />
+                        <MiniDay day={day} hours={hours} busy={plan?.busy ?? []} proposal={proposal} />
                         {exhausted && plan!.proposals.length > 1 ? (
                             <p className="text-xs text-twilight-text-muted">That’s every gap on {dayName}</p>
                         ) : null}

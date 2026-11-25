@@ -73,7 +73,8 @@ export function CaptureWindow({ variant }: { variant: "band" | "empty" | "clear"
     const { text, period, weather, weatherStatus, skyStyle } = useGreeting();
     const { isPhone } = useShellMode();
     if (variant === "clear" || variant === "board-clear") {
-        const boardClear = variant === "board-clear";
+        // Phone: no canvas frame in either view, just the open all-clear filling the page.
+        const boardClear = variant === "board-clear" && !isPhone;
         const showSkyWeather = Boolean(weather) || weatherStatus === "loading";
         const clearSky = (
             <div
@@ -117,13 +118,9 @@ export function CaptureWindow({ variant }: { variant: "band" | "empty" | "clear"
             return (
                 <div
                     data-capture-clear="board"
-                    className={`surface-card flex min-h-72 flex-1 items-center justify-center rounded-[28px] px-8 py-12 animate-in fade-in duration-300 motion-reduce:animate-none ${
-                        isPhone ? "flex-col gap-3 text-center" : "flex-row gap-5 text-left"
-                    }`}
+                    className="surface-card flex min-h-72 flex-1 flex-row items-center justify-center gap-5 rounded-[28px] px-8 py-12 text-left animate-in fade-in duration-300 motion-reduce:animate-none"
                 >
-                    <div
-                        className={`flex min-w-0 flex-col gap-1.5 ${isPhone ? "order-last items-center" : "items-start"}`}
-                    >
+                    <div className="flex min-w-0 flex-col items-start gap-1.5">
                         {heading}
                         {subtitle}
                     </div>
@@ -134,7 +131,7 @@ export function CaptureWindow({ variant }: { variant: "band" | "empty" | "clear"
         return (
             <div
                 data-capture-clear="list"
-                className={`flex flex-col items-center justify-center gap-3 px-6 text-center animate-in fade-in duration-300 motion-reduce:animate-none ${isPhone ? "py-12" : "py-16"}`}
+                className={`flex flex-col items-center justify-center gap-3 px-6 text-center animate-in fade-in duration-300 motion-reduce:animate-none ${isPhone ? "py-12" : "py-16"} ${variant === "board-clear" ? "flex-1" : ""}`}
             >
                 {clearSky}
                 {heading}

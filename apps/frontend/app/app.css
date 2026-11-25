@@ -154,7 +154,7 @@
     .offline-banner__action,
     .cadence-toast,
     .capture-surface,
-    .mobile-icon-button,
+    .mobile-icon-button:not([class*="rounded-full"]),
     .note-content code,
     .note-content pre,
     .note-content img,
@@ -3636,6 +3636,8 @@ button.surface-control:not(:disabled):hover {
         ) {
         border: 1px solid color-mix(in srgb, var(--color-twilight-text) 14%, transparent);
         border-radius: 9999px;
+        /* A circle, never a squircle: a superellipse pinches a 9999px radius. */
+        corner-shape: round;
         background-image: linear-gradient(
             180deg,
             color-mix(in srgb, var(--color-twilight-text) 9%, transparent),
@@ -3665,6 +3667,7 @@ button.surface-control:not(:disabled):hover {
     button.glass-inset {
         border: 6px solid transparent;
         border-radius: 9999px;
+        corner-shape: round;
         background-image: linear-gradient(
             180deg,
             color-mix(in srgb, var(--color-twilight-text) 9%, transparent),

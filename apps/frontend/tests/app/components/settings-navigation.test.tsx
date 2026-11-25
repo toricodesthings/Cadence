@@ -23,7 +23,7 @@ vi.mock("../../../app/components/shared/ResponsiveOverlayPanel", () => ({
         ) : null,
 }));
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({
-    useAuthState: () => ({ session: { user: { name: "Sam" } } }),
+    useAuthState: () => ({ session: { user: { id: "a1b2c3d4", name: "Sam" } } }),
 }));
 vi.mock("../../../app/components/settings/SignOutButton", () => ({ SignOutButton: () => <button>Sign out</button> }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({ flushAllPendingSettingsMutations: vi.fn() }));
@@ -64,7 +64,7 @@ describe("Settings sheet hierarchy", () => {
     it("contains profile, every category, and sign-out in a single settings sheet", () => {
         setup();
         expect(screen.getByRole("dialog", { name: "Settings" })).toBeTruthy();
-        expect(screen.getByRole("button", { name: /Profile & Security/ })).toBeTruthy();
+        expect(screen.getByRole("button", { name: /Sam\s*#a1b2\s*Profile & Security/ })).toBeTruthy();
         expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
         expect(screen.getByRole("button", { name: "Appearance" })).toBeTruthy();
         expect(screen.getByRole("status").textContent).toBe("/today?tag=work&settings=menu");

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useDndContext, useDroppable } from "@dnd-kit/core";
-import { CalendarDays, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronRight, X } from "lucide-react";
 import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
 import { DatePicker } from "../shared/DatePicker";
 import { Button } from "../primitives/Button";
@@ -30,7 +30,14 @@ const loadDots = (load: number) => (load === 0 ? 0 : load <= 2 ? 1 : load <= 5 ?
  * day tiles that captures and Ready tasks drop onto. Busy-ness is dots, words
  * only for the chosen day, so the panel reads as a calendar, not a report.
  */
-export function HoldingPlannerPanel({ onSelectTask }: { onSelectTask?: (taskId: string) => void }) {
+export function HoldingPlannerPanel({
+    onSelectTask,
+    onClose,
+}: {
+    onSelectTask?: (taskId: string) => void;
+    /** Set where the panel is a sheet (no rail toggle): its one header carries the close button. */
+    onClose?: () => void;
+}) {
     const navigate = useNavigate();
     const todayIso = useToday();
     const { tasks, loads } = useWeekLoad(getWeekStart(todayIso), true, 14);
@@ -78,6 +85,16 @@ export function HoldingPlannerPanel({ onSelectTask }: { onSelectTask?: (taskId: 
                         {dragging ? "Drop on a day" : "Drag a capture or task onto a day"}
                     </span>
                 </div>
+                {onClose ? (
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Close Place"
+                        className="btn-icon ml-auto text-twilight-text-muted hover:bg-white/[0.05] hover:text-twilight-text"
+                    >
+                        <X size={18} aria-hidden="true" />
+                    </button>
+                ) : null}
             </header>
 
             <ScrollAreaWrapper>

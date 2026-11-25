@@ -5,7 +5,7 @@ import { taskDay } from "@cadence/domain/task-recurrence";
 import { getDbClient } from "../../platform/db";
 import { withRls } from "../../platform/rls";
 import { readTasks } from "../tasks/tasks.service";
-import { calendarTools, routinesDue, timelineStartHour } from "./tools/calendar";
+import { calendarTools, dayHours, routinesDue } from "./tools/calendar";
 import { habitTools } from "./tools/habits";
 import { readSnapshotRoutines, type SnapshotRoutineReader } from "./tools/routine-reads";
 import type { Env } from "../../types/env";
@@ -72,17 +72,17 @@ export async function loadWeekAhead(
     const zone = ctx.timezone as Zone;
     const last = addDays(ctx.today, 6);
     return withRls(getDbClient(env), userId, async (tx) => {
-        const [tasks, routines, startHour] = await Promise.all([
+        const [tasks, routines, hours] = await Promise.all([
             readTasks(tx, userId, { from: ctx.today, to: last }, { shared: true }),
             readSnapshotRoutines(tx, userId, zone),
-            timelineStartHour(tx, userId),
+            dayHours(tx, userId),
         ]);
         const due = routinesDue(routines, ctx.today, last, ctx.today, zone);
         const room = weekRoom(tasks, {
             from: ctx.today,
             days: 7,
             zone,
-            timelineStartHour: startHour,
+            ...hours,
             now: ctx.currentDate,
         });
         return JSON.stringify(

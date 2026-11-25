@@ -43,33 +43,45 @@ function imageErrorFix(code: string | null | undefined): "drop" | "share" | null
     return IMAGE_BLOCKED_CODES.has(code) ? "drop" : "share";
 }
 
-function EmptyThread({ assistantName, submitText }: { assistantName: string; submitText: (text: string) => void }) {
+function EmptyThread({ assistantName }: { assistantName: string }) {
     return (
-        <div className="flex flex-col items-center justify-center px-2 py-12 text-center">
-            <div className="mb-5 flex h-16 w-16 min-w-16 items-center justify-center rounded-full bg-accent-primary/12 text-accent-primary ring-1 ring-accent-primary/20 glow-accent">
-                <AssistantSigil size={44} />
+        <div className="flex flex-col items-center px-6 text-center">
+            <div className="relative mb-5">
+                {/* A soft pool of accent light behind the sigil. */}
+                <span
+                    aria-hidden
+                    className="pointer-events-none absolute -inset-10 rounded-full opacity-35 blur-2xl"
+                    style={{ background: "radial-gradient(circle, var(--accent-primary) 0%, transparent 65%)" }}
+                />
+                <div className="relative flex h-16 w-16 min-w-16 items-center justify-center rounded-full bg-accent-primary/12 text-accent-primary ring-1 ring-accent-primary/20 glow-accent">
+                    <AssistantSigil size={44} />
+                </div>
             </div>
             <p className="font-display text-xl font-semibold tracking-tight text-twilight-text">
                 Say hey to {assistantName}
             </p>
-            <p className="mt-2 max-w-[260px] text-[13px] leading-relaxed text-twilight-text-muted">
-                Drop a messy thought, ask to clear overdue items, or plan your morning into tiny frictionless steps.
+            <p className="mt-2 max-w-[260px] text-balance text-[13px] leading-relaxed text-twilight-text-muted">
+                Drop a messy thought or ask about your day.
             </p>
-            {/* Starter prompts — the empty screen invites the first act
-                (manifesto §0.2 law 1). Each maps to a real capability. */}
-            <div className="mt-6 grid w-full max-w-[300px] gap-2">
-                {STARTERS.map(({ prompt, icon: Icon }) => (
-                    <button
-                        key={prompt}
-                        type="button"
-                        onClick={() => submitText(prompt)}
-                        className="flex min-h-11 items-center gap-3 rounded-2xl border border-white/[0.06] bg-panel-raised/60 px-4 py-2.5 text-left text-[13px] text-twilight-text-soft press hover:border-accent-primary/30 hover:bg-accent-primary/8 hover:text-twilight-text cursor-pointer"
-                    >
-                        <Icon size={16} className="shrink-0 text-accent-primary" aria-hidden />
-                        {prompt}
-                    </button>
-                ))}
-            </div>
+        </div>
+    );
+}
+
+/** Starter prompts above the message box on an empty thread: the first act, one tap away. Each maps to a real capability. */
+export function StarterPrompts({ submitText }: { submitText: (text: string) => void }) {
+    return (
+        <div className="flex shrink-0 flex-col items-start px-3">
+            {STARTERS.map(({ prompt, icon: Icon }) => (
+                <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => submitText(prompt)}
+                    className="flex min-h-11 items-center gap-3 rounded-full px-3 text-left text-[14px] text-twilight-text-soft press transition-colors hover:text-twilight-text cursor-pointer"
+                >
+                    <Icon size={16} className="shrink-0 text-accent-primary" aria-hidden />
+                    {prompt}
+                </button>
+            ))}
         </div>
     );
 }
@@ -221,7 +233,6 @@ export function AssistantThread({
     contentRef,
     showJump,
     scrollToBottom,
-    submitText,
     empty,
 }: {
     conversation: AssistantConversation;
@@ -233,7 +244,6 @@ export function AssistantThread({
     contentRef: Ref<HTMLDivElement>;
     showJump: boolean;
     scrollToBottom: () => void;
-    submitText: (text: string) => void;
     /** What an empty thread shows instead of the panel's welcome (the Weekly Reset's greeting). */
     empty?: ReactNode;
 }) {
@@ -252,7 +262,7 @@ export function AssistantThread({
                         {conversation.restoring ? (
                             <RestoringThread reduceMotion={reduceMotion} />
                         ) : messages.length === 0 ? (
-                            (empty ?? <EmptyThread assistantName={assistantName} submitText={submitText} />)
+                            empty
                         ) : null}
 
                         <AnimatePresence initial={false}>
@@ -304,6 +314,13 @@ export function AssistantThread({
                     <ScrollArea.Thumb />
                 </ScrollArea.Scrollbar>
             </ScrollArea.Root>
+
+            {/* The welcome sits centred in the space, outside the scroll (it has nothing to scroll). */}
+            {!conversation.restoring && messages.length === 0 && !empty ? (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
+                    <EmptyThread assistantName={assistantName} />
+                </div>
+            ) : null}
 
             <AnimatePresence>
                 {showJump ? (

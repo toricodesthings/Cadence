@@ -49,7 +49,7 @@ export function NavigationRow({
 }) {
     const body = (
         <>
-            <span className="flex w-5 shrink-0 items-center justify-center" aria-hidden="true">
+            <span className="flex min-w-5 shrink-0 items-center justify-center" aria-hidden="true">
                 {leading ?? (Icon ? <Icon size={18} className="text-[var(--row-tone)]" /> : null)}
             </span>
             <span className="min-w-0 flex-1 truncate">{children}</span>

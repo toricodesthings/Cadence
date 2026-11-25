@@ -109,16 +109,16 @@ export function InboxStep({
     review,
     guesses,
     dayFor,
-    onTitleVisible,
+    titleInHeader,
 }: {
     review: ReviewActions;
     guesses: Record<string, ResetDisposition>;
     dayFor: ReturnType<typeof useWeekRoom>["dayFor"];
-    onTitleVisible?: (visible: boolean) => void;
+    titleInHeader?: boolean;
 }) {
     const { inboxItems } = review;
     return (
-        <StepShell step={1} count={inboxItems.length} onTitleVisible={onTitleVisible}>
+        <StepShell step={1} count={inboxItems.length} titleInHeader={titleInHeader}>
             {inboxItems.length > 0 ? (
                 <div className="grid gap-2 @5xl:grid-cols-2">
                     <AnimatePresence initial={false}>

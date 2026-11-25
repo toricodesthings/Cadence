@@ -1,3 +1,4 @@
+import { HeaderAddButton } from "../components/shared/HeaderAddButton";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams } from "react-router";
 import { AnimatePresence, motion } from "framer-motion";
@@ -36,7 +37,6 @@ import { ResponsiveOverlayPanel } from "../components/shared/ResponsiveOverlayPa
 import {
     ChevronLeft,
     ChevronRight,
-    Plus,
     Flame,
     EllipsisVertical,
     CalendarPlus,
@@ -497,16 +497,7 @@ function RoutinesDesktopHeader({
                             <SelectItem value="month">Month</SelectItem>
                         </SelectContent>
                     </Select>
-                    {onAdd ? (
-                        <button
-                            type="button"
-                            onClick={onAdd}
-                            className="surface-control-accent inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl border border-accent-primary/20 px-4 text-sm font-medium text-accent-primary transition-colors hover:border-accent-primary/30"
-                        >
-                            <Plus size={14} aria-hidden="true" />
-                            Add routine
-                        </button>
-                    ) : null}
+                    {onAdd ? <HeaderAddButton label="Add routine" onClick={onAdd} /> : null}
                     {menu}
                 </>
             }

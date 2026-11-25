@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { MainLayout } from "../components/layout/MainLayout";
@@ -116,8 +116,7 @@ export default function WeeklyReview() {
 
     const counts = [null, inboxItems.length, workRows.length, unreviewedHabits.length, null, null] as const;
 
-    const [titleVisible, setTitleVisible] = useState(true);
-    const onTitleVisible = useCallback((visible: boolean) => setTitleVisible(visible), []);
+    const titleInHeader = !showSidebar;
     // With the keyboard up on touch the footer steps aside; the composer rides the keys.
     const keyboardOpen = useKeyboardInset(shell.isTouch).aboveKeyboard !== null;
 
@@ -150,24 +149,19 @@ export default function WeeklyReview() {
                             routines: habitReviewItems.length,
                         }}
                         onNext={() => goTo(1)}
-                        onTitleVisible={onTitleVisible}
+                        titleInHeader={titleInHeader}
                     />
                 );
             case 1:
                 return (
-                    <InboxStep
-                        review={review}
-                        guesses={captureGuesses}
-                        dayFor={dayFor}
-                        onTitleVisible={onTitleVisible}
-                    />
+                    <InboxStep review={review} guesses={captureGuesses} dayFor={dayFor} titleInHeader={titleInHeader} />
                 );
             case 2:
                 return (
                     <StabilizeStep
                         review={review}
                         rows={{ offers, selectedIds, toggleSelected, applyToOne, guesses: looseGuesses, dayFor }}
-                        onTitleVisible={onTitleVisible}
+                        titleInHeader={titleInHeader}
                     />
                 );
             case 3:
@@ -178,18 +172,18 @@ export default function WeeklyReview() {
                         pauseHabit={review.pauseHabit}
                         onReviewed={markHabitReviewed}
                         onEdit={(id) => setPanel({ kind: "habit", id })}
-                        onTitleVisible={onTitleVisible}
+                        titleInHeader={titleInHeader}
                     />
                 );
             case 4:
-                return <HuddleStep onTitleVisible={onTitleVisible} />;
+                return <HuddleStep titleInHeader={titleInHeader} />;
             default:
                 return (
                     <ReadyStep
                         room={room}
                         onOpenTask={(id) => setPanel({ kind: "task", id })}
                         onOpenRoutine={(id) => setPanel({ kind: "habit", id })}
-                        onTitleVisible={onTitleVisible}
+                        titleInHeader={titleInHeader}
                     />
                 );
         }
@@ -225,7 +219,6 @@ export default function WeeklyReview() {
                 {!showSidebar && (
                     <CompactStepHeader
                         {...nav}
-                        showTitle={!titleVisible}
                         onBack={currentStep === 0 ? handleExit : () => goTo(currentStep - 1)}
                         onExit={handleExit}
                     />

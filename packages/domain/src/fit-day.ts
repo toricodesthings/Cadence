@@ -5,6 +5,7 @@ import {
     BUFFER_MINUTES,
     busyBlocks,
     dayWindow,
+    type DayHours,
     feasibleBuckets,
     findTimes,
     nextGridMark,
@@ -117,13 +118,13 @@ const MIN_MS = 60_000;
  */
 export function weekRoom(
     tasks: readonly RoomTask[],
-    opts: { from: LocalDate; days: number; zone: Zone; timelineStartHour: number; now?: Instant },
+    opts: DayHours & { from: LocalDate; days: number; zone: Zone; now?: Instant },
 ): DayRoom[] {
     const open = tasks.filter((t) => t.state !== "COMPLETE" && t.state !== "ARCHIVED");
     const blocks = busyBlocks(open, "").map((b) => [Date.parse(b.start), Date.parse(b.end)] as const);
     return Array.from({ length: opts.days }, (_, i) => {
         const day = addDays(opts.from, i);
-        const window = dayWindow(day, opts.timelineStartHour, opts.zone);
+        const window = dayWindow(day, opts, opts.zone);
         const from = i === 0 && opts.now ? Math.max(window.from, nextGridMark(Date.parse(opts.now))) : window.from;
         const span = Math.max(0, window.to - from);
         // Clip each block to the window and merge overlaps, so two blocks at once count once.

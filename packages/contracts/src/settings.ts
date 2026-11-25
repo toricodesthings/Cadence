@@ -274,8 +274,10 @@ export const userSettingsSchema = z.object({
     calendar: z
         .object({
             defaultView: z.enum(["month", "week", "day"]).optional(),
-            /** The hour (0-23) Day and Week open scrolled to. */
+            /** The person's day starts here (0-23): Day and Week open scrolled to it, and planning looks from it. */
             timelineStartHour: z.number().int().min(0).max(23).optional(),
+            /** The person's day ends here (1-24, 24 = midnight): planning looks no later. */
+            dayEndHour: z.number().int().min(1).max(24).optional(),
             clutter: z
                 .object({
                     showAllDay: z.boolean().optional(),
@@ -609,6 +611,7 @@ export const SETTINGS_DEFAULTS = {
     calendar: {
         defaultView: "month" as const,
         timelineStartHour: 7,
+        dayEndHour: 22,
         clutter: {
             showAllDay: true,
             showTimedTasks: true,

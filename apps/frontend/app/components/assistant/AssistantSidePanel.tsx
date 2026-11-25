@@ -10,10 +10,10 @@ import { ConversationList } from "./ConversationList";
 import { UsageOverlay } from "./UsageOverlay";
 import { MemoryOverlay } from "./MemoryOverlay";
 import { MemoryCard } from "./MemoryCard";
+import { StarterPrompts } from "./AssistantThread";
 import { useAssistantStore } from "../../stores/assistant-store";
 import { useAssistantConversation } from "../../hooks/ai/use-assistant-conversation";
 import { useChatAttachments } from "../../hooks/ai/use-chat-attachments";
-import { useMemoryPage } from "../../hooks/ai/use-memory";
 import { useAiUsage } from "../../hooks/ai/use-ai-usage";
 import { useAuthState } from "../../hooks/auth/use-auth-state";
 import { useSettings } from "../../hooks/core/use-settings";
@@ -23,7 +23,7 @@ import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
 import { useStepOutOfAssistant } from "../../hooks/ai/use-step-out-of-assistant";
 import { useUtilityNavigation } from "../../hooks/ui/use-utility-navigation";
 import { SETTINGS_DEFAULTS } from "../../types/settings";
-import { describeImageAllowance, describeUsage } from "../../lib/ai/usage";
+import { describeAssistantLink, describeImageAllowance, describeUsage } from "../../lib/ai/usage";
 import type { SlashCommand } from "../../lib/ai/slash-commands";
 
 export function AssistantSidePanel({
@@ -43,22 +43,27 @@ export function AssistantSidePanel({
         setHistoryOpen,
         memoryOpen,
         setMemoryOpen,
+        assistantFullscreen,
+        setAssistantFullscreen,
     } = useAssistantStore();
-    const { isTouch } = useShellMode();
+    const { isTouch, isCompact } = useShellMode();
+    // Only the phone/tablet bottom sheet can go full screen; a mouse gets the side panel.
+    const canFullscreen = isMobile && isCompact && isTouch;
     const { session } = useAuthState();
     const userImage = session?.user?.image;
     const userInitial = (session?.user?.name || session?.user?.email || "U")[0]!.toUpperCase();
     const { data: settings } = useSettings();
     const assistantName = settings?.assistant?.assistantName?.trim() || SETTINGS_DEFAULTS.assistant.assistantName;
     const online = useOnlineStatus();
-    const { data: usage } = useAiUsage(assistantPanelOpen);
+    const usageQuery = useAiUsage(assistantPanelOpen);
+    const { data: usage } = usageQuery;
+    const link = describeAssistantLink(online, usageQuery);
     const usageNotice = useMemo(() => describeUsage(usage, Date.now()), [usage]);
     const imageAllowance = useMemo(() => describeImageAllowance(usage, Date.now()), [usage]);
     const perMessage = usage?.images?.perMessage ?? CHAT_IMAGE_LIMITS.perMessage;
     const [input, setInput] = useState("");
     const [inputNotice, setInputNotice] = useState<string | null>(null);
     const [usageOpen, setUsageOpen] = useState(false);
-    const { data: memoryPage } = useMemoryPage();
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const reducedMotion = useReducedMotionSetting();
     const stick = useStickToBottom({ initial: "instant", resize: reducedMotion ? "instant" : "smooth" });
@@ -168,6 +173,7 @@ export function AssistantSidePanel({
 
     const panelContent = (
         <div
+            data-assistant-panel
             className={`surface-shell flex h-full flex-col ${isMobile ? "" : "photo-shell-surface"}`}
             role="dialog"
             aria-label={`${assistantName} assistant conversation`}
@@ -175,17 +181,15 @@ export function AssistantSidePanel({
             <AssistantHeader
                 assistantName={assistantName}
                 threadTitle={threadTitle}
-                hasMemory={!!memoryPage}
+                link={link}
+                fullscreen={assistantFullscreen}
                 onNewChat={handleNewChat}
                 onClose={toggleAssistantPanel}
                 onHistory={() => {
                     setUsageOpen(false);
                     setHistoryOpen(true);
                 }}
-                onMemory={() => {
-                    setUsageOpen(false);
-                    setMemoryOpen(true);
-                }}
+                onToggleFullscreen={canFullscreen ? () => setAssistantFullscreen(!assistantFullscreen) : undefined}
             />
             <div className="sr-only" role="status" aria-live="polite">
                 {isStreaming ? `${assistantName} is responding` : ""}
@@ -201,8 +205,10 @@ export function AssistantSidePanel({
                 contentRef={stick.contentRef}
                 showJump={!stick.isAtBottom}
                 scrollToBottom={scrollToBottom}
-                submitText={submitText}
             />
+            {!conversation.restoring && conversation.messages.length === 0 ? (
+                <StarterPrompts submitText={submitText} />
+            ) : null}
             <AssistantComposer
                 assistantName={assistantName}
                 isTouch={isTouch}

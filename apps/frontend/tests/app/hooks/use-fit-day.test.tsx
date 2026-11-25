@@ -129,6 +129,7 @@ describe("fitTodayReason", () => {
     const fit = (placedCount: number, notSized: number) =>
         ({
             ready: true,
+            hours: { timelineStartHour: 7, dayEndHour: 22 },
             plan: () => ({
                 placed: Array(placedCount).fill(placed[0]),
                 didntFit: [],

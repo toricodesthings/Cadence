@@ -6,6 +6,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+- Settings → Date & Time → Your day sets when your day starts and ends; planning looks for time only inside it.
+- Phone buttons are true circles again, instead of pinched squircles.
+- Weekly Reset on phone shows each step's name and count in the header.
+- Weekly Reset's Your week is calmer: a free-time ring, count pills, grouped lists and routines with their icons.
+- Sections show each count as a pill beside its name.
+- Capture's all-clear on phone sits open on the page, with no card around it.
+- Focus on phone groups Presets, Describe and Order into tiles like the other sheets.
+- Settings on phone opens with your photo, name and #ID.
+- The assistant on phone opens full screen with a button or a swipe up; past chats sit behind ⋮ at the top left.
+- The assistant's header says Active now only when it can really reach Cadence, else Offline or Connection error.
+- The assistant's message box suggests what to ask, and starter prompts sit just above it.
+- Schedule on phone: a back arrow beside the title zooms out, replacing the label above it.
+- With a mouse, the assistant's buttons are squircles and its panel sits flush at the top.
+
 ## [2.5.0] - 2026-11-25
 
 ### Added

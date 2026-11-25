@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+    describeAssistantLink,
     describeImageAllowance,
     describeUsage,
     describeUsageMeters,
@@ -192,4 +193,17 @@ describe("describeUsageMeters", () => {
         expect(photos.reset).toMatch(/^Resets in 1 hour \(on /);
         expect(describeUsageMeters(usage(), NOW)![2].reset).toBeNull();
     });
+});
+
+describe("describeAssistantLink", () => {
+    const ok = { isSuccess: true, isError: false, error: null };
+    it.each([
+        [true, ok, "active"],
+        [false, ok, "offline"],
+        [true, { isSuccess: false, isError: false, error: null }, "checking"],
+        [true, { isSuccess: false, isError: true, error: new TypeError("Failed to fetch") }, "offline"],
+        [true, { isSuccess: false, isError: true, error: { code: "UNAUTHORIZED" } }, "error"],
+    ] as const)("online %s, %o → %s", (online, usage, expected) =>
+        expect(describeAssistantLink(online, usage)).toBe(expected),
+    );
 });

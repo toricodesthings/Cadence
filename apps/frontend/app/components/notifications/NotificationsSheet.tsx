@@ -1,11 +1,10 @@
 import { useRef } from "react";
-import { Bell, X } from "lucide-react";
+import { Bell } from "lucide-react";
 import { useUtilityNavigation } from "../../hooks/ui/use-utility-navigation";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { useNotificationCenter } from "../../hooks/notifications/use-notification-center";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { Dialog, DialogContent, DialogTitle } from "../primitives/Dialog";
-import { Tip } from "../primitives/Tooltip";
 import { NotificationCenter } from "./NotificationCenter";
 import { DeviceOffer } from "./DeviceDelivery";
 
@@ -47,9 +46,8 @@ export function NotificationsSheet() {
             }}
         >
             <DialogContent
-                hideCloseButton
                 aria-label="Notifications"
-                className="dialog-glow flex flex-col gap-0 overflow-hidden p-5"
+                className="dialog-glow flex flex-col gap-0 overflow-hidden p-6"
                 style={{
                     width: "min(44rem, calc(100vw - 3rem))",
                     maxWidth: "none",
@@ -76,25 +74,15 @@ export function NotificationsSheet() {
                     target?.focus({ preventScroll: true });
                 }}
             >
-                <div className="mb-4 flex shrink-0 items-center justify-between gap-3 px-1">
+                <div className="mb-3 flex min-h-11 shrink-0 items-center justify-between gap-3 px-1">
                     <DialogTitle
                         ref={heading}
                         tabIndex={-1}
-                        className="flex items-center gap-3 font-display text-2xl focus-visible:ring-2 focus-visible:ring-accent-primary"
+                        className="flex items-center gap-3 focus-visible:ring-2 focus-visible:ring-accent-primary"
                     >
-                        <Bell size={24} className="dialog-glow-icon shrink-0" aria-hidden="true" />
+                        <Bell size={20} className="dialog-glow-icon shrink-0" aria-hidden="true" />
                         Notifications
                     </DialogTitle>
-                    <Tip label="Close notifications">
-                        <button
-                            type="button"
-                            onClick={close}
-                            className="mobile-icon-button rounded-full bg-twilight-surface"
-                            aria-label="Close notifications"
-                        >
-                            <X size={20} aria-hidden="true" />
-                        </button>
-                    </Tip>
                 </div>
                 {content}
             </DialogContent>

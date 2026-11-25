@@ -6,6 +6,8 @@ import { useAssistantStore } from "../../../../app/stores/assistant-store";
 
 const mocks = vi.hoisted(() => ({
     memory: { mode: "basic" as string | null },
+    usage: { isSuccess: true, isError: false, error: null as unknown },
+    shell: { isTouch: false, isCompact: false },
     conversation: {
         messages: [],
         status: "ready",
@@ -40,7 +42,7 @@ vi.mock("../../../../app/hooks/ai/use-chat-attachments", () => ({
         removeAttachment: vi.fn(),
     }),
 }));
-vi.mock("../../../../app/hooks/ai/use-ai-usage", () => ({ useAiUsage: () => ({ data: undefined }) }));
+vi.mock("../../../../app/hooks/ai/use-ai-usage", () => ({ useAiUsage: () => ({ data: undefined, ...mocks.usage }) }));
 vi.mock("../../../../app/hooks/ai/use-memory", () => ({
     useMemoryPage: () => ({ data: mocks.memory }),
     useSetMemoryMode: () => ({ mutate: vi.fn(), isPending: false }),
@@ -48,22 +50,26 @@ vi.mock("../../../../app/hooks/ai/use-memory", () => ({
 vi.mock("../../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({ session: null }) }));
 vi.mock("../../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: undefined }) }));
 vi.mock("../../../../app/hooks/core/use-online-status", () => ({ useOnlineStatus: () => true }));
-vi.mock("../../../../app/hooks/ui/use-shell-mode", () => ({ useShellMode: () => ({ isTouch: false }) }));
+vi.mock("../../../../app/hooks/ui/use-shell-mode", () => ({ useShellMode: () => mocks.shell }));
 vi.mock("../../../../app/hooks/ai/use-step-out-of-assistant", () => ({ useStepOutOfAssistant: () => vi.fn() }));
 vi.mock("../../../../app/hooks/ui/use-utility-navigation", () => ({
     useUtilityNavigation: () => ({ openSettings: vi.fn() }),
 }));
 vi.mock("../../../../app/components/assistant/MemoryPicker", () => ({ MemoryPicker: () => null }));
+vi.mock("../../../../app/components/assistant/ConversationList", () => ({ ConversationList: () => null }));
 
 beforeEach(() => {
     vi.clearAllMocks();
     mocks.memory.mode = "basic";
+    mocks.usage = { isSuccess: true, isError: false, error: null };
+    mocks.shell = { isTouch: false, isCompact: false };
     mocks.conversation.submitText.mockReturnValue(true);
     useAssistantStore.setState({
         assistantPanelOpen: true,
         activeConversationId: "conv-1",
         historyOpen: false,
         memoryOpen: false,
+        assistantFullscreen: false,
         pendingMessage: null,
     });
     Object.defineProperty(HTMLDivElement.prototype, "scrollTo", { configurable: true, value: vi.fn() });
@@ -101,5 +107,32 @@ describe("assistant panel composition", () => {
         const box = screen.getByRole("textbox") as HTMLTextAreaElement;
         fireEvent.change(box, { target: { value: "Plan my morning" } });
         expect(box.value).toBe("Plan my morning");
+    });
+
+    it("says Active now only when the signed-in usage read answers, and Offline or an error otherwise", () => {
+        const { unmount } = render(panel());
+        expect(screen.getByText("Active now")).toBeTruthy();
+        unmount();
+        mocks.usage = { isSuccess: false, isError: true, error: new TypeError("Failed to fetch") };
+        const second = render(panel());
+        expect(screen.getByText("Offline")).toBeTruthy();
+        second.unmount();
+        mocks.usage = { isSuccess: false, isError: true, error: { code: "UNAUTHORIZED" } };
+        render(panel());
+        expect(screen.getByText("Connection error")).toBeTruthy();
+    });
+
+    it("opens Conversations from the header, has no memory button, and offers full screen only on the touch sheet", () => {
+        const { unmount } = render(panel());
+        expect(screen.queryByRole("button", { name: "What Cadence knows" })).toBeNull();
+        expect(screen.queryByRole("button", { name: "Full screen" })).toBeNull();
+        fireEvent.click(screen.getByRole("button", { name: "Conversations" }));
+        expect(useAssistantStore.getState().historyOpen).toBe(true);
+        unmount();
+        mocks.shell = { isTouch: true, isCompact: true };
+        render(panel());
+        fireEvent.click(screen.getByRole("button", { name: "Full screen" }));
+        expect(useAssistantStore.getState().assistantFullscreen).toBe(true);
+        expect(screen.getByRole("button", { name: "Exit full screen" })).toBeTruthy();
     });
 });

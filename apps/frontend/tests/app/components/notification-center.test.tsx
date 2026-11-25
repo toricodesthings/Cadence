@@ -105,7 +105,7 @@ describe("Expanded notification center", () => {
         openMenu(/^Sort notifications/);
         fireEvent.click(screen.getByRole("menuitemradio", { name: "Priority first" }));
         expect(rowTitles()).toEqual(["Old priority task", "New reminder", "Missed routines"]);
-        fireEvent.click(screen.getByRole("button", { name: /^Unread/ }));
+        fireEvent.click(screen.getByRole("radio", { name: /^Unread/ }));
         expect(rowTitles()).toEqual(["Old priority task", "New reminder"]);
         fireEvent.change(screen.getByRole("searchbox"), { target: { value: "  LAUNCH  " } });
         expect(rowTitles()).toEqual(["New reminder"]);
@@ -117,7 +117,7 @@ describe("Expanded notification center", () => {
 
     it("marks individual and all notifications read without navigation and preserves focus", () => {
         setup();
-        fireEvent.click(screen.getByRole("button", { name: /^Unread/ }));
+        fireEvent.click(screen.getByRole("radio", { name: /^Unread/ }));
         const read = screen.getByRole("button", { name: "Mark as read: New reminder" });
         read.focus();
         fireEvent.click(read);
@@ -137,7 +137,7 @@ describe("Expanded notification center", () => {
         expect(screen.getByRole("button", { name: "Mark as read: Missed routines" }).getAttribute("aria-pressed")).toBe(
             "false",
         );
-        fireEvent.click(screen.getByRole("button", { name: /^Unread/ }));
+        fireEvent.click(screen.getByRole("radio", { name: /^Unread/ }));
         expect(rowTitles()).toContain("Missed routines");
         expect(screen.getByRole("status", { name: "Current location" }).textContent).toContain("notifications=true");
     });

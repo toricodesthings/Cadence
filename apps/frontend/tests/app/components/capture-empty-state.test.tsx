@@ -323,6 +323,19 @@ describe("Capture merged empty state", () => {
         expect(screen.getByText("1°")).toBeTruthy();
     });
 
+    it("drops the board frame on phone and shows the open all-clear instead", () => {
+        state.shell = { isWide: false, isCompact: true, isPhone: true, isTouch: true };
+        const { container } = render(
+            <MemoryRouter>
+                <HoldingFeed onSelectTask={vi.fn()} onClarifyInboxItem={vi.fn()} view="kanban" />
+            </MemoryRouter>,
+        );
+
+        expect(container.querySelector('[data-capture-clear="board"]')).toBeNull();
+        const clear = container.querySelector('[data-capture-clear="list"]');
+        expect(clear?.className).not.toContain("surface-card");
+    });
+
     it("moves the desktop top greeting into the merged empty state and restores it when an item appears", () => {
         const { container, rerender } = render(
             <MemoryRouter>

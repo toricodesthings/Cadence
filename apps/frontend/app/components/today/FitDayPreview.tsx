@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { X } from "lucide-react";
 import type { Task } from "@cadence/contracts/task";
-import { dayWindow, nextGridMark } from "@cadence/domain/find-time";
+import { dayWindow, nextGridMark, type DayHours } from "@cadence/domain/find-time";
 import type { FitDayResult } from "@cadence/domain/fit-day";
 import { atLocal, formatInZone, wallTimeOf, type Instant, type LocalDate } from "@cadence/domain/time";
 import { Button } from "../primitives/Button";
@@ -37,14 +37,14 @@ function shifted(p: FitPlacement, minutes: number, window: { from: number; to: n
  */
 function FitTimeline({
     day,
-    startHour,
+    dayHours,
     busy,
     placed,
     titleOf,
     onMove,
 }: {
     day: LocalDate;
-    startHour: number;
+    dayHours: DayHours;
     busy: readonly { start: Instant; end: Instant }[];
     placed: readonly FitPlacement[];
     titleOf: (id: string) => string;
@@ -53,7 +53,7 @@ function FitTimeline({
     const zone = useUserZone();
     const bar = useRef<HTMLDivElement>(null);
     const drag = useRef<{ placement: FitPlacement; x: number } | null>(null);
-    const bounds = dayWindow(day, startHour, zone);
+    const bounds = dayWindow(day, dayHours, zone);
     const span = bounds.to - bounds.from;
     const left = (instant: Instant) => Math.min(Math.max(((Date.parse(instant) - bounds.from) / span) * 100, 0), 100);
     const box = (start: Instant, end: Instant) => ({
@@ -261,7 +261,7 @@ export function FitDayPreview({
                 <>
                     <FitTimeline
                         day={day}
-                        startHour={fit.timelineStartHour}
+                        dayHours={fit.hours}
                         busy={fit.busy}
                         placed={placed}
                         titleOf={titleOf}

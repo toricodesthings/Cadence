@@ -11,10 +11,24 @@ import {
 import { useSettings } from "../../hooks/core/use-settings";
 import { useProjects } from "../../hooks/projects/use-projects";
 import { useDeviceFlag } from "../../hooks/ui/use-device-flag";
-import { Zap, Sparkles, ArrowRight, ArrowDown, ArrowUp, ChevronRight, Flag, X, BookmarkPlus } from "lucide-react";
+import {
+    Zap,
+    Sparkles,
+    ArrowRight,
+    ArrowDown,
+    ArrowUp,
+    ArrowUpDown,
+    ChevronDown,
+    ChevronRight,
+    Flag,
+    X,
+    BookmarkPlus,
+    type LucideIcon,
+} from "lucide-react";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { Reveal } from "../shared/Reveal";
+import { TILE } from "../shared/Composer";
 import { Tip } from "../primitives";
 import { HEADER_LABEL_BUTTON } from "../layout/PageHeader";
 import * as Dialog from "../primitives/Dialog";
@@ -56,6 +70,8 @@ function activeLabelFor(
 type FoldSectionProps = {
     id: string;
     title: string;
+    /** Shown on the phone sheet's grouped tile. */
+    icon: LucideIcon;
     /** What's inside, said while folded (the current order). */
     summary?: string;
     open: boolean;
@@ -64,7 +80,35 @@ type FoldSectionProps = {
 };
 
 /** One accordion step: the whole header folds it, with the chevron turning to show which way. */
-function FoldSection({ id, title, summary, open, onToggle, children }: FoldSectionProps) {
+function FoldSection({ id, title, icon: Icon, summary, open, onToggle, children }: FoldSectionProps) {
+    const shell = useShellMode();
+    // Phone sheet: the composers' grouped tile (header row, hairline, content), like `ComposerMore`.
+    if (shell.isPhone && shell.isTouch)
+        return (
+            <section className={TILE}>
+                <h3>
+                    <button
+                        type="button"
+                        aria-expanded={open}
+                        aria-controls={id}
+                        onClick={onToggle}
+                        className={`flex min-h-12 w-full cursor-pointer items-center gap-2.5 rounded-2xl px-4 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${open ? "text-twilight-text" : "text-twilight-text-soft"}`}
+                    >
+                        <Icon size={15} className="shrink-0 text-accent-primary" aria-hidden="true" />
+                        <span className="flex-1 font-medium">{title}</span>
+                        {summary ? <span className="truncate text-xs text-twilight-text-muted">{summary}</span> : null}
+                        <ChevronDown
+                            size={15}
+                            className={`shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+                            aria-hidden="true"
+                        />
+                    </button>
+                </h3>
+                <Reveal open={open} id={id}>
+                    <div className="border-t border-twilight-border/40 p-2">{children}</div>
+                </Reveal>
+            </section>
+        );
     return (
         <section>
             <h3>
@@ -443,6 +487,7 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
             <FoldSection
                 id="focus-presets"
                 title="Presets"
+                icon={Zap}
                 summary={presetsFolded ? String(savedViews.length) : undefined}
                 open={!presetsFolded}
                 onToggle={() => setPresetsFolded(!presetsFolded)}
@@ -453,6 +498,7 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
             <FoldSection
                 id="focus-describe"
                 title="Describe a new view"
+                icon={Sparkles}
                 open={describeOpen}
                 onToggle={() => setDescribeOpen(!describeOpen)}
             >
@@ -468,6 +514,7 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
                 <FoldSection
                     id="focus-order"
                     title="Order"
+                    icon={ArrowUpDown}
                     summary={orderOpen ? undefined : ORDER_LABELS[captureOrder]}
                     open={orderOpen}
                     onToggle={() => setOrderOpen(!orderOpen)}

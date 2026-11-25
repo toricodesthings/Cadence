@@ -210,8 +210,10 @@ export default function HomeRoute() {
                         <StartupSuspense fallback={null}>
                             <LazyFocusViewBar capture />
                         </StartupSuspense>
+                        {/* The right-panel toggle ends the row on wide; elsewhere the menu does. */}
+                        {shell.isWide ? null : headerRight}
                         <SortMenu view={view} onViewChange={setView} />
-                        {headerRight}
+                        {shell.isWide ? headerRight : null}
                     </div>
                 }
                 compactHeaderRightInline
@@ -276,9 +278,7 @@ export default function HomeRoute() {
                             clearSelection();
                         }}
                         mode={selectedTaskId || selectedInboxItem ? mobileDetailMode : "peek"}
-                        fill={Boolean(selectedTaskId || selectedInboxItem)}
-                        title={selectedInboxItem ? "Clarify" : selectedTaskId ? "Task details" : "Place"}
-                        showHeader={!selectedInboxItem && !selectedTaskId}
+                        fill
                     >
                         <>
                             {selectedInboxItem ? (
@@ -314,6 +314,7 @@ export default function HomeRoute() {
                                 <HoldingPlannerPanel
                                     key="holding-mobile-planner"
                                     onSelectTask={(id) => handleSelectTask(id)}
+                                    onClose={() => setMobilePanelOpen(false)}
                                 />
                             )}
                         </>

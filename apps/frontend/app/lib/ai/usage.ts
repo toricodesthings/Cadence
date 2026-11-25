@@ -183,3 +183,19 @@ export function describeUsage(usage: AiUsage | undefined, nowMs: number): string
           : `≈ ${tightest.remainingRequests} message${tightest.remainingRequests === 1 ? "" : "s"} left`;
     return reset ? `${left} · resets ${reset}` : left;
 }
+
+export type AssistantLink = "checking" | "active" | "offline" | "error";
+
+/**
+ * The header's status, from the device's connection and the signed-in GET /ai/usage read.
+ * That read answering proves both halves: the server is up and this user gets through to it.
+ * A failed fetch (no response at all) means the server is unreachable; any other failure is an error.
+ */
+export function describeAssistantLink(
+    online: boolean,
+    usage: { isSuccess: boolean; isError: boolean; error: unknown },
+): AssistantLink {
+    if (!online) return "offline";
+    if (usage.isError) return usage.error instanceof TypeError ? "offline" : "error";
+    return usage.isSuccess ? "active" : "checking";
+}

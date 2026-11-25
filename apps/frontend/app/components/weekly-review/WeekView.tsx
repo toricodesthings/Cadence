@@ -1,18 +1,21 @@
-import { useState, type CSSProperties } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { CalendarClock, ChevronRight, Clock, Flag, Flame, Sun } from "lucide-react";
+import { CalendarClock, ChevronRight, Flag, Flame, Sun } from "lucide-react";
 import type { useWeekRoom } from "../../hooks/core/use-week-room";
 import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
 import { parseYMD } from "../../lib/utils/calendar/calendar-math";
+import { dayHoursOf, type DayHours } from "@cadence/domain/find-time";
+import { useSettings } from "../../hooks/core/use-settings";
 import {
-    formatChipTime,
     formatShortDate,
     formatTime,
+    formatWallTime,
     formatWeekdayLong,
     formatWeekdayShort,
 } from "../../lib/utils/date-format";
 import { routineTone } from "../../lib/utils/habits";
 import { getTaskSeriesId } from "../../lib/utils/task/task-scheduling";
+import { RoutineMark } from "../habits/RoutineMark";
 
 type Day = ReturnType<typeof useWeekRoom>["room"][number];
 const EASE_OUT = [0.23, 1, 0.32, 1] as const;
@@ -24,28 +27,21 @@ function hm(minutes: number) {
     return h ? (m ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
 }
 
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** An hour of the person's day: "7 AM", "Midnight". */
+const hourLabel = (hour: number) =>
+    hour >= 24 ? "Midnight" : formatWallTime(`${String(hour).padStart(2, "0")}:00`).replace(":00 ", " ");
+
 /** A tile's free time, rounded to the hour so seven fit side by side: "10h", "45m". */
 function hShort(minutes: number) {
     return minutes >= 60 ? `${Math.round(minutes / 60)}h` : `${Math.round(minutes)}m`;
 }
 
-/** One summary line on a tile: an icon and a number, only when there's something to say. */
-function Stat({
-    icon: Icon,
-    value,
-    tone = "text-twilight-text-soft",
-}: {
-    icon: typeof Clock;
-    value: string | number;
-    tone?: string;
-}) {
-    return (
-        <span className={`inline-flex items-center gap-1 text-xs font-medium tabular-nums ${tone}`}>
-            <Icon size={12} aria-hidden="true" className="shrink-0 opacity-80" /> {value}
-        </span>
-    );
-}
-
+/**
+ * One tile in the week strip: weekday, date, and the day's free time. Only a deadline adds a mark (the exception);
+ * planned blocks and routines are told in the day's own view, so seven tiles stay quiet enough to scan.
+ */
 function DayTile({
     day,
     today,
@@ -57,14 +53,12 @@ function DayTile({
     selected: boolean;
     onSelect: () => void;
 }) {
-    const total = day.bookedMinutes + day.openMinutes;
-    const load = total > 0 ? day.bookedMinutes / total : 0;
     const due = day.deadlines.length;
     const label = [
         `${formatWeekdayLong(day.day)}, ${hm(day.openMinutes)} free`,
         day.blocks.length && `${day.blocks.length} planned`,
         due && `${due} due`,
-        day.routinesDue && `${day.routinesDue} routine${day.routinesDue === 1 ? "" : "s"}`,
+        day.routinesDue && plural(day.routinesDue, "routine"),
     ]
         .filter(Boolean)
         .join(", ");
@@ -74,74 +68,119 @@ function DayTile({
             onClick={onSelect}
             aria-pressed={selected}
             aria-label={label}
-            className={`group flex h-full min-h-24 w-full cursor-pointer flex-col items-center gap-2 rounded-2xl border px-1 py-3 text-center transition-[background-color,border-color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 @3xl:items-start @3xl:px-3.5 @3xl:text-left ${
+            className={`press flex w-full cursor-pointer flex-col items-center gap-1.5 rounded-2xl px-0.5 py-2.5 transition-[background-color,color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 ${
                 selected
-                    ? "border-accent-primary/45 bg-accent-primary/10"
-                    : "surface-card border-transparent hover:border-twilight-border"
+                    ? "bg-accent-primary text-[var(--primary-foreground)]"
+                    : "text-twilight-text hover:bg-panel-raised/40"
             }`}
         >
-            <span className="flex flex-col items-center leading-none @3xl:flex-row @3xl:items-baseline @3xl:gap-1.5">
-                <span
-                    className={`text-xs font-medium uppercase tracking-[0.04em] ${today ? "text-accent-primary" : "text-twilight-text-muted"}`}
-                >
-                    {formatWeekdayShort(day.day)}
-                </span>
-                <span className="mt-1 font-display text-xl font-semibold tabular-nums text-twilight-text @3xl:mt-0">
-                    {parseYMD(day.day).d}
-                </span>
+            <span
+                className={`text-[11px] font-semibold uppercase tracking-[0.06em] ${
+                    selected ? "" : today ? "text-accent-primary" : "text-twilight-text-muted"
+                }`}
+            >
+                {formatWeekdayShort(day.day)}
             </span>
-            {/* How full the day is: a capsule, booked over the day's window. */}
-            <span aria-hidden="true" className="h-1 w-full overflow-hidden rounded-full bg-twilight-border/40">
-                <span
-                    className="block h-full rounded-full bg-accent-primary/80"
-                    style={{ width: `${Math.round(load * 100)}%` }}
-                />
-            </span>
-            <span aria-hidden="true" className="flex flex-col items-center gap-1 @3xl:items-start">
-                <Stat icon={Clock} value={hShort(day.openMinutes)} />
-                <span className="hidden flex-col gap-1 @3xl:flex">
-                    {day.blocks.length ? <Stat icon={CalendarClock} value={day.blocks.length} /> : null}
-                    {due ? <Stat icon={Flag} value={due} tone="text-accent-secondary" /> : null}
-                    {day.routinesDue ? <Stat icon={Flame} value={day.routinesDue} /> : null}
-                </span>
-                {/* Narrow tiles: one dot per kind of thing on the day. */}
-                <span className="flex h-1.5 gap-1 @3xl:hidden">
-                    {day.blocks.length ? <span className="size-1.5 rounded-full bg-twilight-text-soft" /> : null}
-                    {due ? <span className="size-1.5 rounded-full bg-accent-secondary" /> : null}
-                    {day.routinesDue ? <span className="size-1.5 rounded-full bg-accent-primary" /> : null}
-                </span>
+            <span className="font-display text-xl font-semibold leading-none tabular-nums">{parseYMD(day.day).d}</span>
+            <span
+                aria-hidden="true"
+                className={`flex h-4 items-center gap-0.5 text-xs font-medium tabular-nums ${selected ? "" : "text-twilight-text-soft"}`}
+            >
+                {hShort(day.openMinutes)}
+                {due ? (
+                    <Flag
+                        size={10}
+                        fill="currentColor"
+                        className={`shrink-0 ${selected ? "" : "text-accent-secondary"}`}
+                    />
+                ) : null}
             </span>
         </button>
     );
 }
 
-function Section({ icon: Icon, title, children }: { icon: typeof Clock; title: string; children: React.ReactNode }) {
+/**
+ * The day's centre piece: free time as a ring, scaled to the person's day (Settings → Your day), so today's shorter
+ * evening reads as less room than an open Saturday. The time is written inside.
+ */
+function FreeRing({ day, fullDay }: { day: Day; fullDay: number }) {
+    const r = 42;
+    const c = 2 * Math.PI * r;
+    const free = fullDay > 0 ? Math.min(1, day.openMinutes / fullDay) : 0;
     return (
-        <section className="flex min-w-0 flex-col gap-1.5">
+        <div className="relative grid size-32 shrink-0 place-items-center">
+            <svg viewBox="0 0 100 100" aria-hidden="true" className="absolute inset-0 -rotate-90">
+                <circle cx="50" cy="50" r={r} fill="none" strokeWidth="8" className="stroke-twilight-border/50" />
+                {free > 0 ? (
+                    <circle
+                        cx="50"
+                        cy="50"
+                        r={r}
+                        fill="none"
+                        strokeWidth="8"
+                        strokeLinecap="round"
+                        strokeDasharray={`${free * c} ${c}`}
+                        className="stroke-accent-primary transition-[stroke-dasharray] duration-500"
+                    />
+                ) : null}
+            </svg>
+            <span className="flex flex-col items-center leading-none">
+                <span className="font-display text-xl font-semibold tabular-nums text-twilight-text">
+                    {hm(day.openMinutes)}
+                </span>
+                <span className="mt-1 text-xs text-twilight-text-soft">free</span>
+            </span>
+        </div>
+    );
+}
+
+/** A count pill under the day's name, tinted by what it counts. */
+function Pill({ icon: Icon, tone, children }: { icon: typeof Flag; tone: string; children: ReactNode }) {
+    return (
+        <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-semibold tabular-nums ${tone}`}
+        >
+            <Icon size={13} aria-hidden="true" /> {children}
+        </span>
+    );
+}
+
+/** An inset grouped list: a header outside, rows inside one card split by hairlines. */
+function Group({
+    icon: Icon,
+    title,
+    tone = "text-accent-primary",
+    children,
+}: {
+    icon: typeof Flag;
+    title: string;
+    tone?: string;
+    children: ReactNode;
+}) {
+    return (
+        <section className="flex min-w-0 flex-col gap-2">
             <h3 className="flex items-center gap-2 px-1 text-sm font-semibold text-twilight-text-soft">
-                <Icon size={15} aria-hidden="true" className="text-accent-primary" /> {title}
+                <Icon size={15} aria-hidden="true" className={tone} /> {title}
             </h3>
-            <ul className="flex flex-col gap-1">{children}</ul>
+            <ul className="surface-card overflow-hidden rounded-2xl [&>li+li]:border-t [&>li+li]:border-twilight-border/40">
+                {children}
+            </ul>
         </section>
     );
 }
 
 /** A row in the day's view: opens its own panel beside the reset (never leaves it). */
-function Row({ lead, title, onOpen }: { lead: React.ReactNode; title: string; onOpen: () => void }) {
+function Row({ lead, title, onOpen }: { lead: ReactNode; title: string; onOpen: () => void }) {
     return (
         <li>
             <button
                 type="button"
                 onClick={onOpen}
-                className="surface-row group flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                className="group flex min-h-12 w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-panel-raised/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-primary/50"
             >
                 {lead}
                 <span className="min-w-0 flex-1 truncate text-[0.9375rem] text-twilight-text">{title}</span>
-                <ChevronRight
-                    size={15}
-                    aria-hidden="true"
-                    className="shrink-0 text-twilight-text-muted opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:none)]:opacity-60"
-                />
+                <ChevronRight size={16} aria-hidden="true" className="shrink-0 text-twilight-text-muted" />
             </button>
         </li>
     );
@@ -149,76 +188,100 @@ function Row({ lead, title, onOpen }: { lead: React.ReactNode; title: string; on
 
 function DayView({
     day,
+    hours,
     today,
     onOpenTask,
     onOpenRoutine,
 }: {
     day: Day;
+    hours: Required<DayHours>;
     today: boolean;
     onOpenTask: (id: string) => void;
     onOpenRoutine: (id: string) => void;
 }) {
     const empty = !day.blocks.length && !day.due.length && !day.routines.length;
     return (
-        <div className="surface-card flex flex-col gap-5 rounded-3xl p-5 @3xl:p-6">
-            <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <h2 className="font-display text-xl font-semibold tracking-[-0.01em] text-twilight-text">
-                    {today ? "Today" : formatWeekdayLong(day.day)}{" "}
-                    <span className="font-sans text-base font-normal text-twilight-text-soft">
-                        {formatShortDate(day.day)}
-                    </span>
-                </h2>
-                <p className="flex items-center gap-3 text-sm text-twilight-text-soft">
-                    <Stat icon={Clock} value={`${hm(day.openMinutes)} free`} />
-                    {day.bookedMinutes ? (
-                        <Stat icon={CalendarClock} value={`${hm(day.bookedMinutes)} planned`} />
-                    ) : null}
-                </p>
+        <div className="flex flex-col gap-6">
+            <header className="surface-card flex items-center gap-5 rounded-3xl p-5 @3xl:gap-7 @3xl:p-6">
+                <FreeRing day={day} fullDay={(hours.dayEndHour - Math.max(hours.timelineStartHour, 6)) * 60} />
+                <div className="flex min-w-0 flex-col gap-3">
+                    <div>
+                        <h2 className="font-display text-2xl font-semibold leading-tight tracking-[-0.01em] text-twilight-text">
+                            {today ? "Today" : formatWeekdayLong(day.day)}
+                        </h2>
+                        <p className="text-[0.9375rem] text-twilight-text-soft">
+                            {today ? `${formatWeekdayLong(day.day)}, ` : ""}
+                            {formatShortDate(day.day)} · {hourLabel(hours.timelineStartHour)}–
+                            {hourLabel(hours.dayEndHour)}
+                        </p>
+                    </div>
+                    {empty ? (
+                        <p className="flex items-center gap-2 text-[0.9375rem] text-twilight-text-soft">
+                            <Sun size={16} aria-hidden="true" className="shrink-0 text-accent-primary" /> Nothing
+                            planned. The day is yours.
+                        </p>
+                    ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                            {day.blocks.length ? (
+                                <Pill icon={CalendarClock} tone="bg-accent-primary/12 text-accent-primary">
+                                    {day.blocks.length} planned · {hm(day.bookedMinutes)}
+                                </Pill>
+                            ) : null}
+                            {day.due.length ? (
+                                <Pill icon={Flag} tone="bg-accent-secondary/15 text-accent-secondary">
+                                    {day.due.length} due
+                                </Pill>
+                            ) : null}
+                            {day.routines.length ? (
+                                <Pill icon={Flame} tone="bg-accent-primary/12 text-accent-primary">
+                                    {plural(day.routines.length, "routine")}
+                                </Pill>
+                            ) : null}
+                        </div>
+                    )}
+                </div>
             </header>
-            {empty ? (
-                <p className="flex items-center gap-2 px-1 text-[0.9375rem] text-twilight-text-soft">
-                    <Sun size={16} aria-hidden="true" className="text-accent-primary" /> Nothing planned. The day is
-                    yours.
-                </p>
-            ) : (
-                <div className="grid gap-5 @3xl:grid-cols-2">
-                    <div className="flex min-w-0 flex-col gap-5">
+            {empty ? null : (
+                <div className="grid gap-6 @3xl:grid-cols-2">
+                    <div className="flex min-w-0 flex-col gap-6">
                         {day.blocks.length ? (
-                            <Section icon={CalendarClock} title="Planned">
+                            <Group icon={CalendarClock} title="Planned">
                                 {day.blocks.map((t) => (
                                     <Row
                                         key={t.id}
                                         title={t.title}
                                         onOpen={() => onOpenTask(getTaskSeriesId(t))}
                                         lead={
-                                            <span className="w-16 shrink-0 whitespace-nowrap text-sm tabular-nums text-twilight-text-soft @xl:w-[9.75rem]">
-                                                <span className="@xl:hidden">{formatTime(t.scheduledStart!)}</span>
-                                                <span className="hidden @xl:inline">
-                                                    {formatChipTime(t.scheduledStart!, t.scheduledEnd)}
+                                            <span className="flex min-w-[4.75rem] shrink-0 flex-col whitespace-nowrap border-l-2 border-accent-primary pl-2.5 leading-tight tabular-nums">
+                                                <span className="text-sm font-semibold text-twilight-text">
+                                                    {formatTime(t.scheduledStart!)}
                                                 </span>
+                                                {t.scheduledEnd ? (
+                                                    <span className="text-xs text-twilight-text-soft">
+                                                        {formatTime(t.scheduledEnd)}
+                                                    </span>
+                                                ) : null}
                                             </span>
                                         }
                                     />
                                 ))}
-                            </Section>
+                            </Group>
                         ) : null}
                         {day.due.length ? (
-                            <Section icon={Flag} title="Due">
+                            <Group icon={Flag} title="Due" tone="text-accent-secondary">
                                 {day.due.map((t) => (
                                     <Row
                                         key={t.id}
                                         title={t.title}
                                         onOpen={() => onOpenTask(getTaskSeriesId(t))}
                                         lead={
-                                            <Flag
-                                                size={14}
-                                                aria-hidden="true"
-                                                className="shrink-0 text-accent-secondary"
-                                            />
+                                            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-panel-raised">
+                                                <Flag size={13} aria-hidden="true" className="text-accent-secondary" />
+                                            </span>
                                         }
                                     />
                                 ))}
-                            </Section>
+                            </Group>
                         ) : null}
                     </div>
                     {day.routines.length ? (
@@ -226,21 +289,22 @@ function DayView({
                             <h3 className="flex items-center gap-2 px-1 text-sm font-semibold text-twilight-text-soft">
                                 <Flame size={15} aria-hidden="true" className="text-accent-primary" /> Routines
                             </h3>
-                            {/* Routines read as a set, not a to-do list: wrapped chips in each routine's tone. */}
-                            <ul className="flex flex-wrap gap-1.5">
+                            {/* Routines read as a set, not a to-do list: a two-up grid, each with its own mark in its tone. */}
+                            <ul className="surface-card grid grid-cols-2 gap-1.5 rounded-2xl p-1.5">
                                 {day.routines.map((h) => (
-                                    <li key={h.id}>
+                                    <li key={h.id} className="min-w-0">
                                         <button
                                             type="button"
                                             onClick={() => onOpenRoutine(h.id)}
                                             style={{ "--routine-tone": routineTone(h.colorAccent) } as CSSProperties}
-                                            className="surface-control inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-full px-3 text-sm text-twilight-text-soft hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                                            className="press flex min-h-12 w-full cursor-pointer items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-panel-raised/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
                                         >
-                                            <span
-                                                aria-hidden="true"
-                                                className="size-2 shrink-0 rounded-full bg-[var(--routine-tone)]"
-                                            />{" "}
-                                            {h.title}
+                                            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,var(--routine-tone)_18%,transparent)] text-[var(--routine-tone)]">
+                                                <RoutineMark emoji={h.emoji} size={15} />
+                                            </span>
+                                            <span className="min-w-0 flex-1 truncate text-sm text-twilight-text">
+                                                {h.title}
+                                            </span>
                                         </button>
                                     </li>
                                 ))}
@@ -254,8 +318,9 @@ function DayView({
 }
 
 /**
- * The next 7 days: a tile each (free time, what's planned, what's due, routines), and the picked day's full view
- * below. Tasks and routines open their panel beside the reset, so looking never leaves it.
+ * The next 7 days: a strip to pick a day (date and free time, a flag when something's due), then that day's
+ * view: free time as a ring, counts as pills, and grouped lists. Tasks and routines open their panel beside the
+ * reset, so looking never leaves it.
  */
 export function WeekView({
     room,
@@ -268,13 +333,14 @@ export function WeekView({
 }) {
     const [picked, setPicked] = useState(room[0]?.day);
     const reduced = useReducedMotionSetting();
+    const hours = dayHoursOf(useSettings().data);
     const day = room.find((d) => d.day === picked) ?? room[0];
     if (!day) return null;
     return (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
             <ol className="grid grid-cols-7 gap-1.5 @2xl:gap-2" aria-label="Your next 7 days">
                 {room.map((d, i) => (
-                    <li key={d.day} className="h-full">
+                    <li key={d.day}>
                         <DayTile
                             day={d}
                             today={i === 0}
@@ -294,6 +360,7 @@ export function WeekView({
                 >
                     <DayView
                         day={day}
+                        hours={hours}
                         today={day.day === room[0]!.day}
                         onOpenTask={onOpenTask}
                         onOpenRoutine={onOpenRoutine}

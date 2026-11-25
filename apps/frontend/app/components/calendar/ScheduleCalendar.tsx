@@ -45,7 +45,7 @@ function relativeDay(days: number) {
     return days > 0 ? `In ${days} days` : `${-days} days ago`;
 }
 
-/** Phone header: name what's on screen; the label above zooms out. */
+/** Phone header: name what’s on screen; the back arrow zooms out. */
 function usePhoneHeader(navigation: ScheduleNavigation, phoneGroups: ScheduleData["phoneGroups"]) {
     const { year, month, currentDate, todayIso, viewMode, handleViewMode } = navigation;
     const { y: todayYear } = parseYMD(todayIso);

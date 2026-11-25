@@ -25,6 +25,8 @@ interface ResponsiveOverlayPanelProps {
     fit?: boolean;
     /** `room`: opened from a full-screen room (e.g. the note room), so it stacks above it. */
     layer?: "route" | "room";
+    /** Peek sheets: pulling up past the rest calls this (the caller switches to `mode="focus"`). */
+    onExpand?: () => void;
 }
 
 type SheetShape = {
@@ -58,17 +60,26 @@ function sheetStyle(
 }
 
 /** Bottom peek sheet, full-screen focus sheet, or the side panel on a mouse. */
-function sheetClass({ isPeekMobile, isMobile, isFocus, fit, layer }: Omit<SheetShape, "keyboard" | "aboveKeyboard">) {
+function sheetClass({
+    isPeekMobile,
+    isMobile,
+    isFocus,
+    fit,
+    fill,
+    layer,
+}: Omit<SheetShape, "keyboard" | "aboveKeyboard"> & { fill: boolean }) {
     const motionClass = isPeekMobile ? "sheet-up" : isMobile ? "sheet-rise" : "sheet-side";
     const layerClass = layer === "room" ? "layer-room-sheet" : "layer-route-overlay";
     return [
         `mobile-sheet-shell ${motionClass} ${layerClass} surface-route-overlay fixed flex w-full flex-col shadow-2xl shadow-black/40`,
-        shapeClass(isMobile, isFocus, fit),
+        shapeClass(isMobile, isFocus, fit, fill),
     ].join(" ");
 }
 
-function shapeClass(isMobile: boolean, isFocus: boolean | undefined, fit: boolean) {
-    if (!isMobile) return "safe-bottom safe-top inset-y-0 right-0 border-l border-twilight-border";
+function shapeClass(isMobile: boolean, isFocus: boolean | undefined, fit: boolean, fill: boolean) {
+    // A `fill` panel brings its own header and footer: on the side panel they sit flush, padded only by a real inset.
+    const pad = fill ? "pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]" : "safe-bottom safe-top";
+    if (!isMobile) return `${pad} inset-y-0 right-0 border-l border-twilight-border`;
     if (isFocus) return "safe-bottom safe-top inset-0 border-none";
     return `glass-edge safe-bottom fixed inset-x-0 bottom-0 top-auto ${fit ? "" : "h-[min(92dvh,48rem)]"} rounded-t-[2rem] border-t border-twilight-border`;
 }
@@ -130,6 +141,7 @@ export function ResponsiveOverlayPanel({
     fill = false,
     fit = false,
     layer = "route",
+    onExpand,
 }: ResponsiveOverlayPanelProps) {
     const shell = useShellMode();
     // A bottom sheet (with its drag handle) is a touch gesture: a mouse gets the side panel at any width.
@@ -155,6 +167,7 @@ export function ResponsiveOverlayPanel({
         element: panel,
         enabled: open && isPeekMobile,
         onDismiss: onClose,
+        onExpand,
     });
 
     return (
@@ -177,7 +190,7 @@ export function ResponsiveOverlayPanel({
                             { isPeekMobile, isMobile, keyboard, aboveKeyboard, fit, isTablet: shell.isTablet },
                             y,
                         )}
-                        className={sheetClass({ isPeekMobile, isMobile, isFocus, fit, layer })}
+                        className={sheetClass({ isPeekMobile, isMobile, isFocus, fit, fill, layer })}
                     >
                         {isPeekMobile && (
                             <div

@@ -1,14 +1,30 @@
 // Find a time: the gaps in a day a task of a given length fits into. Pure: it reads the day's busy blocks and
 // proposes; it never moves, shortens or splits anything, and nothing is written until the person's own tap.
 import type { TimeOfDay } from "@cadence/contracts/planning";
-import { atLocal, dayOf, todayIn, wallTimeOf, type Instant, type LocalDate, type WallTime, type Zone } from "./time";
+import { addDays, atLocal, dayOf, todayIn, wallTimeOf, type Instant, type LocalDate, type Zone } from "./time";
 
 export type { TimeOfDay };
 
-/** ponytail: no day-end setting exists; add one only if people ask. */
-export const DAY_END: WallTime = "22:00";
+/** The person's day when Settings says nothing: 07:00 to 22:00. */
+export const DEFAULT_DAY_START_HOUR = 7;
+export const DEFAULT_DAY_END_HOUR = 22;
 /** Never earlier than this, whatever the calendar's first hour says. */
 const EARLIEST_HOUR = 6;
+
+/** The person's day (Settings → Date & Time → Your day): its first hour, and its last (24 = midnight). */
+export interface DayHours {
+    timelineStartHour: number;
+    dayEndHour?: number;
+}
+
+/** The day's hours from a settings blob, with the defaults filled in. */
+export function dayHoursOf(settings: unknown): Required<DayHours> {
+    const cal = (settings as { calendar?: { timelineStartHour?: unknown; dayEndHour?: unknown } } | null)?.calendar;
+    return {
+        timelineStartHour: typeof cal?.timelineStartHour === "number" ? cal.timelineStartHour : DEFAULT_DAY_START_HOUR,
+        dayEndHour: typeof cal?.dayEndHour === "number" ? cal.dayEndHour : DEFAULT_DAY_END_HOUR,
+    };
+}
 /** A found time never sits flush against another block: room to get there and switch. */
 export const BUFFER_MINUTES = 15;
 const GRID_MINUTES = 15;
@@ -33,12 +49,11 @@ export interface Busy {
     end: Instant;
 }
 
-export interface FindTimeInput {
+export interface FindTimeInput extends DayHours {
     task: { minutes: number; notBefore: LocalDate | null; currentStart: Instant | null };
     day: LocalDate;
     zone: Zone;
     now: Instant;
-    timelineStartHour: number;
     /** Timed tasks that aren't done (series expanded) and Fixed blocks. Never routines or all-day items, and never the task itself. */
     busy: Busy[];
     /** Stated, then learned: earlier first. `[]` = none. */
@@ -74,10 +89,15 @@ export function busyBlocks(
     );
 }
 
-/** The window the rule looks in, as epoch ms on `day`: the calendar's first hour (never before 06:00) to `DAY_END`. */
-export function dayWindow(day: LocalDate, timelineStartHour: number, zone: Zone): { from: number; to: number } {
-    const hour = String(Math.max(timelineStartHour, EARLIEST_HOUR)).padStart(2, "0");
-    return { from: ms(atLocal(day, `${hour}:00`, zone)), to: ms(atLocal(day, DAY_END, zone)) };
+const atHour = (day: LocalDate, hour: number, zone: Zone) =>
+    hour >= 24
+        ? ms(atLocal(addDays(day, 1), "00:00", zone))
+        : ms(atLocal(day, `${String(hour).padStart(2, "0")}:00`, zone));
+
+/** The window the rule looks in, as epoch ms on `day`: the day's first hour (never before 06:00) to its last. */
+export function dayWindow(day: LocalDate, hours: DayHours, zone: Zone): { from: number; to: number } {
+    const from = atHour(day, Math.max(hours.timelineStartHour, EARLIEST_HOUR), zone);
+    return { from, to: Math.max(from, atHour(day, hours.dayEndHour ?? DEFAULT_DAY_END_HOUR, zone)) };
 }
 
 /** The first 15-minute mark at or after `at` (epoch ms): where today's gaps start. */
@@ -88,7 +108,7 @@ function fitting(input: FindTimeInput): { start: number; length: number }[] {
     const { task, day, zone, now, busy } = input;
     if (task.minutes < 1 || (task.notBefore && day < task.notBefore)) return [];
 
-    const window = dayWindow(day, input.timelineStartHour, zone);
+    const window = dayWindow(day, input, zone);
     let from = window.from;
     const windowEnd = window.to;
     if (day === todayIn(zone, new Date(now))) from = Math.max(from, nextGridMark(ms(now)));
