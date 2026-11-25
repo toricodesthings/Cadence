@@ -1,4 +1,4 @@
-import { Hono, type Context } from "hono";
+import { Hono } from "hono";
 import { count, eq } from "drizzle-orm";
 import { uuidParamSchema } from "@cadence/contracts/common";
 import {
@@ -15,14 +15,18 @@ import { withRls } from "../../platform/rls";
 import { withCallerRls } from "../../platform/caller-rls";
 import {
     assertListRoom,
+    eventAccess,
     listAccess,
     noteAudience,
     noteChange,
     requireOwner,
-    type ListAccess,
+    routineAccess,
 } from "../../platform/list-access";
+import { ownerChange } from "../../platform/owner-change";
 import { assertRowRoom } from "../../platform/storage-ceiling";
-import type { Tx } from "../../types/db";
+import { userZone } from "../../platform/user-zone";
+import { todayIn } from "@cadence/domain/time";
+import { reorderTurns } from "../habits/habits.service";
 import { AppError } from "../../platform/errors";
 import { apiValidator } from "../../platform/validation";
 import type { AuthVariables } from "../../platform/auth";
@@ -30,50 +34,64 @@ import { appOrigin, type Env } from "../../types/env";
 import { replanReminders } from "../push/reminder-clock";
 import { evictFromPresence } from "./list-presence";
 import { evictFromNoteCollab } from "../notes/note-collab";
+import { assertCanRemoveMember, peopleResponse, resetInvitesResponse } from "./sharing-route-helpers";
 import {
     createInvite,
-    joinList,
+    joinInvite,
     listPeople,
     previewInvite,
     removeMember,
-    resetInvites,
     setMemberRole,
     stopSharing,
     transferList,
 } from "./sharing.service";
 
-type RouteContext = Context<{ Bindings: Env; Variables: AuthVariables }>;
-
-/**
- * An owner-only change to who is in a list: checked and run in one transaction, then everyone who was in the list
- * (read first, so the person removed hears too) is told to refresh it.
- */
-async function ownerChange<T>(
-    c: RouteContext,
-    listId: string,
-    change: (tx: Tx, userId: string, access: ListAccess) => Promise<T>,
-) {
-    const { result, access } = await withCallerRls(c, async (tx, userId) => {
-        const access = await listAccess(tx, userId, listId);
-        requireOwner(access);
-        return { result: await change(tx, userId, access), access };
-    });
-    noteAudience(c, access);
-    noteChange(c, { type: "list", listId });
-    return result;
-}
-
 export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/join", apiValidator("json", joinListSchema), async (c) => {
         const { token } = c.req.valid("json");
-        const { listId, access } = await withCallerRls(c, async (tx, userId) => {
-            const listId = await joinList(tx, userId, token);
+        const { joined, access } = await withCallerRls(c, async (tx, userId) => {
+            const joined = await joinInvite(tx, userId, token);
             // Read after joining, so the audience includes the new person.
-            return { listId, access: await listAccess(tx, userId, listId) };
+            if (joined.kind === "list") {
+                return { joined, access: await listAccess(tx, userId, joined.listId) };
+            }
+            if (joined.kind === "event") {
+                return { joined, access: await eventAccess(tx, userId, joined.eventId) };
+            }
+            const access = await routineAccess(tx, userId, joined.routineId);
+            if (access.shareMode === "turns" && access.role === "edit") {
+                const zone = await userZone(tx, access.ownerId);
+                const today = todayIn(zone);
+                const oldParticipants = access.participants.filter((id) => id !== userId);
+                await reorderTurns(
+                    tx,
+                    {
+                        id: access.habitId,
+                        userId: access.ownerId,
+                        recurrenceRule: access.recurrenceRule,
+                        createdAt: access.createdAt,
+                        turnOrder: access.turnOrder,
+                        turnsFrom: access.turnsFrom,
+                    },
+                    oldParticipants.length > 0 ? oldParticipants : access.participants,
+                    access.participants,
+                    today,
+                    zone,
+                );
+            }
+            return { joined, access };
         });
         noteAudience(c, access);
-        noteChange(c, { type: "list", listId });
-        return c.json({ data: { listId } });
+        if (joined.kind === "list") {
+            noteChange(c, { type: "list", listId: joined.listId });
+        } else if (joined.kind === "event") {
+            noteChange(c, { type: "event" });
+            c.executionCtx.waitUntil(replanReminders(c.env, c.get("userId")));
+        } else {
+            noteChange(c, { type: "routine" });
+            for (const uid of access.audience) c.executionCtx.waitUntil(replanReminders(c.env, uid));
+        }
+        return c.json({ data: joined });
     })
     .post(
         "/:id/invites",
@@ -85,7 +103,7 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
             // No Idempotency-Key: a retry mints another link, which is harmless and capped.
             const { token, expiresAt } = await withCallerRls(c, async (tx, userId) => {
                 requireOwner(await listAccess(tx, userId, id));
-                return createInvite(tx, userId, id, role);
+                return createInvite(tx, userId, { listId: id }, role);
             });
             return c.json({ data: { url: `${appOrigin(c.env)}/join/${token}`, expiresAt } }, 201);
         },
@@ -118,7 +136,12 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
                 if (taskCount > 0) await assertRowRoom(tx, toUserId, "tasks", taskCount);
             });
 
-            await ownerChange(c, id, (tx) => transferList(tx, id, toUserId));
+            await ownerChange(
+                c,
+                (tx, userId) => listAccess(tx, userId, id),
+                (tx) => transferList(tx, id, toUserId),
+                { type: "list", listId: id },
+            );
             const transferTaskIds = await withCallerRls(c, (tx) =>
                 tx
                     .select({ id: tasks.id })
@@ -138,11 +161,18 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         async (c) => {
             const { id, userId: memberId } = c.req.valid("param");
             const { role } = c.req.valid("json");
-            const { member, taskIds } = await ownerChange(c, id, async (tx, userId) => {
-                const updated = await setMemberRole(tx, userId, id, memberId, role);
-                const rows = await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, id));
-                return { member: updated, taskIds: rows.map((r) => r.id) };
-            });
+            const {
+                result: { member, taskIds },
+            } = await ownerChange(
+                c,
+                (tx, userId) => listAccess(tx, userId, id),
+                async (tx, userId) => {
+                    const updated = await setMemberRole(tx, userId, id, memberId, role);
+                    const rows = await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, id));
+                    return { member: updated, taskIds: rows.map((r) => r.id) };
+                },
+                { type: "list", listId: id },
+            );
             c.executionCtx.waitUntil(evictFromNoteCollab(c.env, taskIds, memberId));
             return c.json({ data: member });
         },
@@ -155,29 +185,21 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
     })
     .get("/:id/people", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
-        const people = await withCallerRls(c, async (tx, userId) => {
+        return peopleResponse(c, async (tx, userId) => {
             await listAccess(tx, userId, id); // 404 unless the caller is in the list
             return listPeople(tx, id);
         });
-        c.header("Cache-Control", "private, no-store");
-        return c.json({ data: people });
     })
     .delete("/:id/invites", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
-        await withCallerRls(c, async (tx, userId) => {
-            requireOwner(await listAccess(tx, userId, id));
-            await resetInvites(tx, userId, id);
-        });
-        return c.json({ data: { success: true } });
+        return resetInvitesResponse(c, (tx, userId) => listAccess(tx, userId, id), { listId: id }, "list");
     })
     .delete("/:id/members/:userId", apiValidator("param", listMemberParamSchema), async (c) => {
         const { id, userId: memberId } = c.req.valid("param");
         const { access, taskIds } = await withCallerRls(c, async (tx, userId) => {
             // Read first: the person removed hears of it too.
             const access = await listAccess(tx, userId, id);
-            if (memberId !== userId) requireOwner(access);
-            else if (access.role === "owner")
-                throw new AppError(403, "OWNER_ONLY", "The owner can stop sharing, not leave.");
+            assertCanRemoveMember(access, userId, memberId, "list");
             const rows = await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, id));
             await removeMember(tx, access, memberId);
             return { access, taskIds: rows.map((r) => r.id) };
@@ -190,11 +212,16 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
     })
     .delete("/:id/members", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
-        const taskIds = await ownerChange(c, id, async (tx, userId, access) => {
-            const rows = await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, id));
-            await stopSharing(tx, userId, access);
-            return rows.map((r) => r.id);
-        });
+        const { result: taskIds } = await ownerChange(
+            c,
+            (tx, userId) => listAccess(tx, userId, id),
+            async (tx, userId, access) => {
+                const rows = await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, id));
+                await stopSharing(tx, userId, access);
+                return rows.map((r) => r.id);
+            },
+            { type: "list", listId: id },
+        );
         c.executionCtx.waitUntil(evictFromPresence(c.env, id));
         c.executionCtx.waitUntil(evictFromNoteCollab(c.env, taskIds));
         return c.json({ data: { success: true } });

@@ -36,3 +36,13 @@ export const createdAt = () =>
 export const memberView = sql`(select cadence_member_lists('view'::share_role))`;
 /** List ids the caller can edit. */
 export const memberEdit = sql`(select cadence_member_lists('edit'::share_role))`;
+
+/** Event ids the caller belongs to at `view` or above (SECURITY DEFINER, so policies on `personal_events` don't recurse). */
+export const memberEventView = sql`(select cadence_member_events('view'::share_role))`;
+/** Event ids the caller can edit. */
+export const memberEventEdit = sql`(select cadence_member_events('edit'::share_role))`;
+
+/** Routine ids the caller belongs to at `view` or above (SECURITY DEFINER, so policies on `habits` don't recurse). */
+export const memberRoutineView = sql`(select cadence_member_routines('view'::share_role))`;
+/** Routine ids the caller participates in (`edit`). */
+export const memberRoutineEdit = sql`(select cadence_member_routines('edit'::share_role))`;

@@ -17,7 +17,19 @@ import {
 } from "drizzle-orm/pg-core";
 import { userSettingsSchema, type UserSettings } from "@cadence/contracts/settings";
 import { relations, sql } from "drizzle-orm";
-import { id, createdAt, timestamptz, rlsUserId, rlsUsing, memberView, memberEdit } from "./columns";
+import {
+    id,
+    createdAt,
+    timestamptz,
+    rlsUserId,
+    rlsUsing,
+    memberView,
+    memberEdit,
+    memberEventView,
+    memberEventEdit,
+    memberRoutineView,
+    memberRoutineEdit,
+} from "./columns";
 
 // Settings schema is defined once in the settings domain and imported here.
 export { userSettingsSchema as UserSettingsSchema, type UserSettings };
@@ -59,6 +71,7 @@ export const sourceSurfaceEnum = pgEnum("source_surface", [
 // Ordered: each check compares `role >= min_role`, so a new role goes in ascending order
 // (`ALTER TYPE share_role ADD VALUE 'comment' BEFORE 'edit'`).
 export const shareRoleEnum = pgEnum("share_role", ["view", "edit"]);
+export const routineShareModeEnum = pgEnum("routine_share_mode", ["together", "turns"]);
 export const focusViewSourceEnum = pgEnum("focus_view_source", ["preset", "composed", "manual"]);
 
 // AI assistant enums (see docs/ai_upgrade 08 — persistence)
@@ -298,7 +311,92 @@ export const listMembers = pgTable(
     }),
 ).enableRLS();
 
-// 5b. Invite links. Each target is a nullable foreign key; sharing a new kind of thing adds a column and widens the check.
+// 5b. Yearly personal events (birthdays, anniversaries). `calendar.personalEvents.enabled` stays in settings.
+export const personalEvents = pgTable(
+    "personal_events",
+    {
+        id: id(),
+        userId: ownerId(),
+        label: text("label").notNull(),
+        monthDay: text("month_day").notNull(), // "MM-DD"
+        emoji: text("emoji"),
+        notify: boolean("notify").notNull().default(true),
+        startedOn: date("started_on", { mode: "string" }),
+        color: text("color"),
+        createdAt: createdAt(),
+        updatedAt: timestamptz("updated_at")
+            .default(sql`now()`)
+            .notNull(),
+    },
+    (table) => ({
+        userIdIdx: index("personal_events_user_id_idx").on(table.userId),
+        labelLen: check("personal_events_label_len", sql`char_length(${table.label}) BETWEEN 1 AND 80`),
+        monthDayFormat: check(
+            "personal_events_month_day",
+            sql`${table.monthDay} ~ '^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$'`,
+        ),
+        emojiLen: check("personal_events_emoji_len", sql`${table.emoji} IS NULL OR char_length(${table.emoji}) <= 4`),
+        rlsPolicy: pgPolicy("personal_events_owner_access", {
+            as: "permissive",
+            for: "all",
+            using: rlsUsing,
+            withCheck: rlsUsing,
+        }),
+        memberRead: pgPolicy("personal_events_member_read", {
+            as: "permissive",
+            for: "select",
+            using: sql`id IN ${memberEventView}`,
+        }),
+        memberUpdate: pgPolicy("personal_events_member_update", {
+            as: "permissive",
+            for: "update",
+            using: sql`id IN ${memberEventEdit}`,
+            withCheck: sql`id IN ${memberEventEdit}`,
+        }),
+    }),
+).enableRLS();
+
+// 5c. Event members (who a yearly event is shared with). The owner is `personal_events.user_id`, never a row here.
+export const eventMembers = pgTable(
+    "event_members",
+    {
+        eventId: uuid("event_id")
+            .references(() => personalEvents.id, { onDelete: "cascade" })
+            .notNull(),
+        userId: uuid("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        role: shareRoleEnum("role").default("edit").notNull(),
+        invitedBy: uuid("invited_by").references(() => users.id, { onDelete: "set null" }),
+        notify: boolean("notify").default(true).notNull(),
+        joinedAt: timestamptz("joined_at")
+            .default(sql`now()`)
+            .notNull(),
+    },
+    (table) => ({
+        pk: primaryKey({ columns: [table.eventId, table.userId] }),
+        userIdIdx: index("event_members_user_id_idx").on(table.userId),
+        readPolicy: pgPolicy("event_members_read", {
+            as: "permissive",
+            for: "select",
+            using: sql`(user_id = ${rlsUserId} OR event_id IN (SELECT id FROM personal_events WHERE user_id = ${rlsUserId}) OR event_id IN ${memberEventView})`,
+        }),
+        ownerUpdate: pgPolicy("event_members_owner_update", {
+            as: "permissive",
+            for: "update",
+            using: sql`event_id IN (SELECT id FROM personal_events WHERE user_id = ${rlsUserId})`,
+            withCheck: sql`event_id IN (SELECT id FROM personal_events WHERE user_id = ${rlsUserId})`,
+        }),
+        deletePolicy: pgPolicy("event_members_delete", {
+            as: "permissive",
+            for: "delete",
+            using: sql`(user_id = ${rlsUserId} OR event_id IN (SELECT id FROM personal_events WHERE user_id = ${rlsUserId}))`,
+        }),
+        // No INSERT policy: only `cadence_join_event` inserts.
+    }),
+).enableRLS();
+
+// 5d. Invite links. Each target is a nullable foreign key; sharing a new kind of thing adds a column and widens the check.
 export const shareInvites = pgTable(
     "share_invites",
     {
@@ -306,6 +404,8 @@ export const shareInvites = pgTable(
         tokenHash: text("token_hash").notNull().unique(),
         role: shareRoleEnum("role").default("view").notNull(),
         listId: uuid("list_id").references(() => projects.id, { onDelete: "cascade" }),
+        eventId: uuid("event_id").references(() => personalEvents.id, { onDelete: "cascade" }),
+        routineId: uuid("routine_id").references(() => habits.id, { onDelete: "cascade" }),
         createdBy: uuid("created_by")
             .references(() => users.id, { onDelete: "cascade" })
             .notNull(),
@@ -314,12 +414,14 @@ export const shareInvites = pgTable(
     },
     (table) => ({
         listIdIdx: index("share_invites_list_id_idx").on(table.listId),
-        oneTarget: check("share_invites_one_target", sql`num_nonnulls(list_id) = 1`),
+        eventIdIdx: index("share_invites_event_id_idx").on(table.eventId),
+        routineIdIdx: index("share_invites_routine_id_idx").on(table.routineId),
+        oneTarget: check("share_invites_one_target", sql`num_nonnulls(list_id, event_id, routine_id) = 1`),
         ownerAccess: pgPolicy("share_invites_owner_access", {
             as: "permissive",
             for: "all",
-            using: sql`list_id IN (SELECT id FROM projects WHERE user_id = ${rlsUserId})`,
-            withCheck: sql`list_id IN (SELECT id FROM projects WHERE user_id = ${rlsUserId})`,
+            using: sql`(list_id IN (SELECT id FROM projects WHERE user_id = ${rlsUserId}) OR event_id IN (SELECT id FROM personal_events WHERE user_id = ${rlsUserId}) OR routine_id IN (SELECT id FROM habits WHERE user_id = ${rlsUserId}))`,
+            withCheck: sql`(list_id IN (SELECT id FROM projects WHERE user_id = ${rlsUserId}) OR event_id IN (SELECT id FROM personal_events WHERE user_id = ${rlsUserId}) OR routine_id IN (SELECT id FROM habits WHERE user_id = ${rlsUserId}))`,
         }),
     }),
 ).enableRLS();
@@ -523,40 +625,6 @@ export const tags = pgTable(
     }),
 ).enableRLS();
 
-// Yearly personal events (birthdays, anniversaries). `calendar.personalEvents.enabled` stays in settings.
-export const personalEvents = pgTable(
-    "personal_events",
-    {
-        id: id(),
-        userId: ownerId(),
-        label: text("label").notNull(),
-        monthDay: text("month_day").notNull(), // "MM-DD"
-        emoji: text("emoji"),
-        notify: boolean("notify").notNull().default(true),
-        startedOn: date("started_on", { mode: "string" }),
-        color: text("color"),
-        createdAt: createdAt(),
-        updatedAt: timestamptz("updated_at")
-            .default(sql`now()`)
-            .notNull(),
-    },
-    (table) => ({
-        userIdIdx: index("personal_events_user_id_idx").on(table.userId),
-        labelLen: check("personal_events_label_len", sql`char_length(${table.label}) BETWEEN 1 AND 80`),
-        monthDayFormat: check(
-            "personal_events_month_day",
-            sql`${table.monthDay} ~ '^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$'`,
-        ),
-        emojiLen: check("personal_events_emoji_len", sql`${table.emoji} IS NULL OR char_length(${table.emoji}) <= 4`),
-        rlsPolicy: pgPolicy("personal_events_owner_access", {
-            as: "permissive",
-            for: "all",
-            using: rlsUsing,
-            withCheck: rlsUsing,
-        }),
-    }),
-).enableRLS();
-
 // 7. Task–Tag associations (many-to-many)
 export const taskTags = pgTable(
     "task_tags",
@@ -725,6 +793,11 @@ export const habits = pgTable(
         // Or the one website it opens: a normalised https URL (contracts `parseWebsite`)
         linkedUrl: text("linked_url"),
 
+        // Shared routine state (R1, R6)
+        shareMode: routineShareModeEnum("share_mode"),
+        turnOrder: uuid("turn_order").array(),
+        turnsFrom: date("turns_from", { mode: "string" }),
+
         createdAt: createdAt(),
         updatedAt: timestamptz("updated_at")
             .default(sql`now()`)
@@ -744,8 +817,98 @@ export const habits = pgTable(
                 using: rlsUsing,
                 withCheck: rlsUsing,
             }),
+            memberRead: pgPolicy("habits_member_read", {
+                as: "permissive",
+                for: "select",
+                using: sql`id IN ${memberRoutineView}`,
+            }),
+            memberUpdate: pgPolicy("habits_member_update", {
+                as: "permissive",
+                for: "update",
+                using: sql`id IN ${memberRoutineEdit}`,
+                withCheck: sql`id IN ${memberRoutineEdit}`,
+            }),
         };
     },
+).enableRLS();
+
+// 9a. Routine members (participants and supporters). The owner is `habits.user_id`, never a row here.
+export const routineMembers = pgTable(
+    "routine_members",
+    {
+        habitId: uuid("habit_id")
+            .references(() => habits.id, { onDelete: "cascade" })
+            .notNull(),
+        userId: uuid("user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        role: shareRoleEnum("role").notNull(),
+        invitedBy: uuid("invited_by").references(() => users.id, { onDelete: "set null" }),
+        reminderEnabled: boolean("reminder_enabled").default(false).notNull(),
+        sortOrder: doublePrecision("sort_order").default(0).notNull(),
+        pausedUntil: date("paused_until", { mode: "string" }),
+        currentStreak: integer("current_streak").default(0).notNull(),
+        longestStreak: integer("longest_streak").default(0).notNull(),
+        totalCompletions: integer("total_completions").default(0).notNull(),
+        totalSkips: integer("total_skips").default(0).notNull(),
+        joinedAt: timestamptz("joined_at")
+            .default(sql`now()`)
+            .notNull(),
+    },
+    (table) => ({
+        pk: primaryKey({ columns: [table.habitId, table.userId] }),
+        userIdIdx: index("routine_members_user_id_idx").on(table.userId),
+        readPolicy: pgPolicy("routine_members_read", {
+            as: "permissive",
+            for: "select",
+            using: sql`(user_id = ${rlsUserId} OR habit_id IN (SELECT id FROM habits WHERE user_id = ${rlsUserId}) OR habit_id IN ${memberRoutineView})`,
+        }),
+        ownerUpdate: pgPolicy("routine_members_owner_update", {
+            as: "permissive",
+            for: "update",
+            using: sql`habit_id IN (SELECT id FROM habits WHERE user_id = ${rlsUserId})`,
+            withCheck: sql`habit_id IN (SELECT id FROM habits WHERE user_id = ${rlsUserId})`,
+        }),
+        deletePolicy: pgPolicy("routine_members_delete", {
+            as: "permissive",
+            for: "delete",
+            using: sql`(user_id = ${rlsUserId} OR habit_id IN (SELECT id FROM habits WHERE user_id = ${rlsUserId}))`,
+        }),
+        // No INSERT policy: only `cadence_join_routine` inserts.
+    }),
+).enableRLS();
+
+// 9c. Routine cheers (one quiet in-app gesture per sender, recipient, routine, and day).
+export const routineCheers = pgTable(
+    "routine_cheers",
+    {
+        id: id(),
+        habitId: uuid("habit_id")
+            .references(() => habits.id, { onDelete: "cascade" })
+            .notNull(),
+        fromUserId: uuid("from_user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        toUserId: uuid("to_user_id")
+            .references(() => users.id, { onDelete: "cascade" })
+            .notNull(),
+        targetDate: date("target_date", { mode: "string" }).notNull(),
+        createdAt: createdAt(),
+    },
+    (table) => ({
+        once: uniqueIndex("routine_cheers_once").on(table.habitId, table.fromUserId, table.toUserId, table.targetDate),
+        toUserIdx: index("routine_cheers_to_user_id_idx").on(table.toUserId),
+        readPolicy: pgPolicy("routine_cheers_read", {
+            as: "permissive",
+            for: "select",
+            using: sql`(from_user_id = ${rlsUserId} OR to_user_id = ${rlsUserId})`,
+        }),
+        insertPolicy: pgPolicy("routine_cheers_insert", {
+            as: "permissive",
+            for: "insert",
+            withCheck: sql`(from_user_id = ${rlsUserId} AND habit_id IN (SELECT id FROM habits))`,
+        }),
+    }),
 ).enableRLS();
 
 // 9b. Habit–Tag associations (many-to-many)
@@ -805,13 +968,38 @@ export const habitLogs = pgTable(
     },
     (table) => {
         return {
-            habitDateUnique: uniqueIndex("habit_logs_habit_date_unique").on(table.habitId, table.targetDate),
+            habitUserDateUnique: uniqueIndex("habit_logs_habit_user_date_unique").on(
+                table.habitId,
+                table.userId,
+                table.targetDate,
+            ),
             userIdIdx: index("habit_logs_user_id_idx").on(table.userId),
             rlsPolicy: pgPolicy("habit_logs_owner_access", {
                 as: "permissive",
                 for: "all",
                 using: rlsUsing,
                 withCheck: rlsUsing,
+            }),
+            memberRead: pgPolicy("habit_logs_member_read", {
+                as: "permissive",
+                for: "select",
+                using: sql`(habit_id IN (SELECT id FROM habits WHERE user_id = ${rlsUserId}) OR habit_id IN ${memberRoutineView})`,
+            }),
+            ownerDelete: pgPolicy("habit_logs_owner_delete", {
+                as: "permissive",
+                for: "delete",
+                using: sql`habit_id IN (SELECT id FROM habits WHERE user_id = ${rlsUserId})`,
+            }),
+            routineWriteInsert: pgPolicy("habit_logs_routine_write_insert", {
+                as: "restrictive",
+                for: "insert",
+                withCheck: sql`(habit_id IN (SELECT id FROM habits WHERE user_id = ${rlsUserId}) OR habit_id IN ${memberRoutineEdit})`,
+            }),
+            routineWriteUpdate: pgPolicy("habit_logs_routine_write_update", {
+                as: "restrictive",
+                for: "update",
+                using: sql`true`,
+                withCheck: sql`(habit_id IN (SELECT id FROM habits WHERE user_id = ${rlsUserId}) OR habit_id IN ${memberRoutineEdit})`,
             }),
         };
     },

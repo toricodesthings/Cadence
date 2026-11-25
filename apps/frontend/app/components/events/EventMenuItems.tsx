@@ -1,6 +1,8 @@
-import { ArrowUpRight, Bell, BellOff, Pencil, Trash2 } from "lucide-react";
+import { ArrowUpRight, Bell, BellOff, LogOut, Pencil, Trash2, Users } from "lucide-react";
 import type { GenericMenu } from "../primitives/menu-styles";
-import type { PersonalEvent } from "@cadence/contracts/personal-event";
+import type { MaybeSharedEvent } from "../../lib/utils/personal-events";
+import { isSharedEvent, useEventPeople } from "../../hooks/sharing/use-share-event";
+import { eventShareLabel } from "../sharing/SharedEventMark";
 import type { EventActions } from "./EventCard";
 
 /** An event's actions, in its right-click menu (card) and its ⋯ menu (row): one set of words for both. */
@@ -10,11 +12,17 @@ export function EventMenuItems({
     onEdit,
     onOpenInSchedule,
     onToggleReminder,
+    onShare,
     onDelete,
+    onRemoveFromMyEvents,
 }: Omit<EventActions, "onOpen"> & {
     Menu: GenericMenu;
-    event: PersonalEvent;
+    event: MaybeSharedEvent;
 }) {
+    const isOwner = (event.access ?? "owner") === "owner";
+    const shared = isSharedEvent(event);
+    const { data: people } = useEventPeople(shared ? event : undefined);
+
     return (
         <>
             <Menu.Item onSelect={() => onEdit(event)}>
@@ -30,10 +38,25 @@ export function EventMenuItems({
                 {event.notify ? "Turn off reminder" : "Remind me"}
             </Menu.Item>
             <Menu.Separator />
-            <Menu.Item variant="danger" onSelect={() => onDelete(event)}>
-                <Trash2 size={14} aria-hidden="true" />
-                Delete event
-            </Menu.Item>
+            {isOwner ? (
+                <>
+                    {onShare ? (
+                        <Menu.Item onSelect={() => onShare(event)}>
+                            <Users size={14} aria-hidden="true" />
+                            {eventShareLabel(event, people)}
+                        </Menu.Item>
+                    ) : null}
+                    <Menu.Item variant="danger" onSelect={() => onDelete(event)}>
+                        <Trash2 size={14} aria-hidden="true" />
+                        Delete event
+                    </Menu.Item>
+                </>
+            ) : (
+                <Menu.Item variant="danger" onSelect={() => (onRemoveFromMyEvents ?? onDelete)(event)}>
+                    <LogOut size={14} aria-hidden="true" />
+                    Remove from my events
+                </Menu.Item>
+            )}
         </>
     );
 }

@@ -54,11 +54,14 @@ export function useInlineSubtasks(taskId: string) {
 export const SUBTASK_RAIL =
     "pointer-events-none w-px bg-gradient-to-b from-white/[0.14] via-white/[0.08] to-transparent";
 
+/** The 20px column the chevron, subtask rings and + share, so they stack centred under the title's first letter. */
+const ICON_COLUMN = "flex w-5 shrink-0 items-center justify-center";
+
 const byOrder = (subtasks: Subtask[]) => [...subtasks].sort((a, b) => a.orderIndex - b.orderIndex);
 
 /**
- * Chevron, progress bar, "done/total subtasks" and the next open one — plain text, not a pill, so it
- * never reads as metadata. Turns green with a tick once every subtask is done.
+ * Closed: chevron, progress bar, "done/total subtasks" and the next open one — plain text, not a pill, so it
+ * never reads as metadata; green with a tick once every subtask is done. Open: just "Subtasks", as the rows say the rest.
  */
 export function SubtaskChip({
     subtasks,
@@ -90,12 +93,12 @@ export function SubtaskChip({
             aria-label={`${open ? "Hide" : "Show"} subtasks, ${done} of ${subtasks.length} done`}
             className="-mx-1.5 flex min-h-9 w-[calc(100%+0.75rem)] min-w-0 cursor-pointer items-center gap-2 rounded-lg px-1.5 text-left text-[12px] font-medium tabular-nums text-twilight-text-soft transition-colors hover:bg-white/[0.03] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
         >
-            <ChevronRight
-                size={13}
-                aria-hidden="true"
-                className={`shrink-0 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
-            />
-            {allDone ? (
+            <span className={ICON_COLUMN} aria-hidden="true">
+                <ChevronRight size={13} className={`transition-transform duration-200 ${open ? "rotate-90" : ""}`} />
+            </span>
+            {open ? (
+                <span aria-hidden="true">Subtasks</span>
+            ) : allDone ? (
                 <Check size={13} aria-hidden="true" className="shrink-0 text-feedback-success" />
             ) : (
                 <span
@@ -108,9 +111,11 @@ export function SubtaskChip({
                     />
                 </span>
             )}
-            <span aria-hidden="true" className={`shrink-0 ${allDone ? "text-feedback-success" : ""}`}>
-                {done}/{subtasks.length} subtasks
-            </span>
+            {open ? null : (
+                <span aria-hidden="true" className={`shrink-0 ${allDone ? "text-feedback-success" : ""}`}>
+                    {done}/{subtasks.length} subtasks
+                </span>
+            )}
             {next ? (
                 <span aria-hidden="true" className="min-w-0 truncate font-normal text-twilight-text-muted">
                     · Next: {next.title}
@@ -136,15 +141,15 @@ function InlineSubtaskItem({
     const { isTouch } = useShellMode();
     const [editing, setEditing] = useState(false);
     const draft = useTitleDraft(subtask.title, (next) => onRename(subtask.id, next));
-    const titleClass = `min-w-0 flex-1 text-[13px] leading-5 transition-colors ${
-        subtask.isComplete ? "text-twilight-text-muted/40 line-through" : "text-twilight-text-soft"
+    const titleClass = `ml-0.5 min-w-0 flex-1 text-sm leading-5 transition-colors ${
+        subtask.isComplete ? "text-twilight-text-muted/90 line-through" : "text-twilight-text/90"
     }`;
     const reveal = isTouch ? "opacity-100" : "opacity-0 group-hover/sub:opacity-100 group-focus-within/sub:opacity-100";
     return (
         <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
-            className={`group/sub flex items-center gap-1.5 rounded-xl px-1 py-0.5 transition-colors hover:bg-white/[0.03] ${
+            className={`group/sub flex items-center rounded-xl px-1 py-0.5 transition-colors hover:bg-white/[0.03] ${
                 isDragging ? "opacity-50" : "opacity-100"
             }`}
         >
@@ -270,10 +275,10 @@ export function InlineSubtaskPanel({
                     />
                 )}
                 {adding ? (
-                    <div className="flex items-center gap-1.5 rounded-xl px-1 py-0.5">
+                    <div className="flex items-center rounded-xl px-1 py-0.5">
                         <span className="w-[18px] shrink-0" aria-hidden="true" />
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
-                            <span className="h-6 w-6 rounded-full border-[1.5px] border-twilight-text-muted/70" />
+                            <span className="h-5 w-5 rounded-full border-[1.5px] border-twilight-text-muted/70" />
                         </span>
                         <input
                             ref={inputRef}
@@ -286,12 +291,16 @@ export function InlineSubtaskPanel({
                                 if (e.key === "Enter") submit();
                                 if (e.key === "Escape") stopAdding();
                             }}
-                            onBlur={() => (title.trim() ? submit() : stopAdding())}
+                            // Leaving the field saves what was typed and closes it; Enter alone keeps it open for the next one.
+                            onBlur={() => {
+                                if (title.trim()) submit();
+                                stopAdding();
+                            }}
                             placeholder="Add subtask..."
                             aria-label="New subtask"
-                            className="min-w-0 flex-1 bg-transparent text-[13px] leading-5 text-twilight-text-soft outline-none placeholder:text-twilight-text-muted"
+                            className="ml-0.5 min-w-0 flex-1 bg-transparent text-sm leading-5 text-twilight-text/90 outline-none placeholder:text-twilight-text-muted"
                         />
-                        <SuggestStepsButton s={suggest} />
+                        <SuggestStepsButton s={suggest} iconOnly={title.trim().length > 0} />
                     </div>
                 ) : (
                     <div className="flex items-center gap-1">
@@ -300,13 +309,13 @@ export function InlineSubtaskPanel({
                             onClick={() => onAddingChange(true)}
                             data-no-dnd="true"
                             data-no-open="true"
-                            className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-xl px-1 py-0.5 text-left text-[13px] leading-5 text-twilight-text-muted transition-colors hover:bg-white/[0.03] hover:text-twilight-text-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
+                            className="flex min-w-0 flex-1 cursor-pointer items-center rounded-xl px-1 py-0.5 text-left text-sm leading-5 text-twilight-text-muted transition-colors hover:bg-white/[0.03] hover:text-twilight-text-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary"
                         >
                             <span className="w-[18px] shrink-0" aria-hidden="true" />
                             <span className="flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden="true">
                                 <Plus size={14} />
                             </span>
-                            Add subtask
+                            <span className="ml-0.5">Add subtask</span>
                         </button>
                         <SuggestStepsButton s={suggest} />
                     </div>

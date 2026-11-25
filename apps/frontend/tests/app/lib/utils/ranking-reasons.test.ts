@@ -12,15 +12,22 @@ describe("getMaterialRankingLabel", () => {
         expect(getMaterialRankingLabel(["not_yet"])).toBeNull();
     });
 
+    it("says nothing the card already shows", () => {
+        expect(getMaterialRankingLabel(["overdue"])).toBeNull();
+        expect(getMaterialRankingLabel(["high_priority"])).toBeNull();
+        expect(getMaterialRankingLabel(["pinned"])).toBeNull();
+        expect(getMaterialRankingLabel(["waiting"])).toBeNull();
+    });
+
     it("returns a sentence for material reasons", () => {
-        for (const reason of ["overdue", "quick_win", "high_priority", "pinned", "scheduled_now", "waiting"] as const) {
+        for (const reason of ["quick_win", "looks_quick", "scheduled_now"] as const) {
             expect(getMaterialRankingLabel([reason])).toMatch(/.{10}/);
         }
     });
 
     it("picks the first material reason when multiple present", () => {
-        const label = getMaterialRankingLabel(["due_today", "overdue", "pinned"]);
-        expect(label).toBe("This task is past its due date");
+        const label = getMaterialRankingLabel(["due_today", "high_priority", "scheduled_now", "quick_win"]);
+        expect(label).toBe("This task is scheduled around the current time");
     });
 
     it("returns null when no reasons are provided", () => {

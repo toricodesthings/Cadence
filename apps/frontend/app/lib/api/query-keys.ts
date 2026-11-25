@@ -21,6 +21,8 @@ export const queryKeys = {
      * refetches when membership changes and never on a live ping. Not under a live root: pictures are base64.
      */
     listPeople: (listId: string, memberIds: readonly string[]) => ["list-people", listId, memberIds] as const,
+    eventPeople: (eventId: string, memberIds: readonly string[]) => ["event-people", eventId, memberIds] as const,
+    routinePeople: (habitId: string, memberIds: readonly string[]) => ["routine-people", habitId, memberIds] as const,
     invitePreview: (token: string) => ["invite-preview", token] as const,
     inbox: {
         all: ["inbox"] as const,

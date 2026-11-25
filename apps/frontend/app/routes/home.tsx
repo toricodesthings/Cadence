@@ -59,8 +59,8 @@ export default function HomeRoute() {
         [captureFeed.inboxItems, captureFeed.notes],
     );
     const tasksLoading = captureFeed.isLoading;
-    // When both New and No day yet are empty, the greeting and weather move into the merged empty state below.
-    const allClear = !tasksLoading && captureFeed.count === 0;
+    // When Capture is completely empty (New, No day yet, Older, and Notes), the greeting and weather move below.
+    const allClear = !tasksLoading && captureFeed.isEmpty;
     const { holdingPanelOpen, holdingPanelWidth, setHoldingPanelWidth, toggleHoldingPanel, railView } =
         useRightPanelStore();
     const { assistantPanelOpen, toggleAssistantPanel } = useAssistantStore();

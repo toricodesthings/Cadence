@@ -1,13 +1,14 @@
 /**
- * Who may do what in a shared list. Shared rows stay the owner's (`user_id`), so a route that targets a list or its
- * tasks resolves the caller's role here, enforces it, then calls the unchanged service with `ownerId`. RLS decides
- * what the caller can reach; passing an owner id never widens it. No domain imports.
+ * Who may do what in a shared list or event. Shared rows stay the owner's (`user_id`), so a route that targets a
+ * shared resource resolves the caller's role here, enforces it, then calls the unchanged service with `ownerId`. RLS
+ * decides what the caller can reach; passing an owner id never widens it. No domain imports.
  */
-import { and, count, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray } from "drizzle-orm";
 import type { Context } from "hono";
 import type { LiveChange } from "@cadence/contracts/live";
+import type { RoutineShareMode } from "@cadence/contracts/habit";
 import type { ListRole, ShareRole } from "@cadence/contracts/sharing";
-import { listMembers, projects, tasks } from "../db/schema";
+import { eventMembers, habits, listMembers, personalEvents, projects, routineMembers, tasks } from "../db/schema";
 import { AppError } from "./errors";
 import type { AuthVariables } from "./auth";
 import type { Tx } from "../types/db";
@@ -15,9 +16,30 @@ import type { Env } from "../types/env";
 
 export type { ListRole };
 export type ListAccess = { listId: string; ownerId: string; role: ListRole; audience: string[] };
+export type EventAccess = { eventId: string; ownerId: string; role: ListRole; audience: string[] };
+export type RoutineAccess = {
+    habitId: string;
+    ownerId: string;
+    role: ListRole;
+    audience: string[];
+    participants: string[];
+    shareMode: RoutineShareMode | null;
+    turnOrder: string[] | null;
+    turnsFrom: string | null;
+    recurrenceRule: string;
+    createdAt: string;
+};
+export type ShareWhat = "list" | "event" | "routine";
 
 /** Abuse ceilings (Manifesto §8): far above real use, never a tier. */
-export const SHARE_CEILINGS = { people: 20, listsJoined: 100, links: 20, tasksPerList: 10_000 } as const;
+export const SHARE_CEILINGS = {
+    people: 20,
+    listsJoined: 100,
+    eventsJoined: 100,
+    routinesJoined: 100,
+    links: 20,
+    tasksPerList: 10_000,
+} as const;
 
 type Member = { userId: string; role: ShareRole };
 
@@ -57,6 +79,62 @@ export async function listAccesses(tx: Tx, callerId: string, listIds: string[]):
 
 export async function listAccess(tx: Tx, callerId: string, listId: string): Promise<ListAccess> {
     return (await listAccesses(tx, callerId, [listId])).get(listId)!;
+}
+
+/** Resolve the caller's access to a personal event. 404 when RLS hides it. */
+export async function eventAccess(tx: Tx, callerId: string, eventId: string): Promise<EventAccess> {
+    const [event] = await tx
+        .select({ id: personalEvents.id, ownerId: personalEvents.userId })
+        .from(personalEvents)
+        .where(eq(personalEvents.id, eventId));
+    if (!event) throw new AppError(404, "NOT_FOUND", "Event not found");
+    const members = await tx
+        .select({ userId: eventMembers.userId, role: eventMembers.role })
+        .from(eventMembers)
+        .where(eq(eventMembers.eventId, eventId));
+    const role = roleIn(callerId, event.ownerId, members);
+    if (!role) throw new AppError(404, "NOT_FOUND", "Event not found");
+    return { eventId: event.id, ownerId: event.ownerId, role, audience: audienceOf(event.ownerId, members) };
+}
+
+/** Resolve the caller's access to a routine. 404 when RLS hides it. */
+export async function routineAccess(tx: Tx, callerId: string, habitId: string): Promise<RoutineAccess> {
+    const [habit] = await tx
+        .select({
+            id: habits.id,
+            ownerId: habits.userId,
+            shareMode: habits.shareMode,
+            turnOrder: habits.turnOrder,
+            turnsFrom: habits.turnsFrom,
+            recurrenceRule: habits.recurrenceRule,
+            createdAt: habits.createdAt,
+        })
+        .from(habits)
+        .where(eq(habits.id, habitId));
+    if (!habit) throw new AppError(404, "NOT_FOUND", "Routine not found");
+    const members = await tx
+        .select({ userId: routineMembers.userId, role: routineMembers.role })
+        .from(routineMembers)
+        .where(eq(routineMembers.habitId, habitId))
+        .orderBy(asc(routineMembers.joinedAt));
+    const role = roleIn(callerId, habit.ownerId, members);
+    if (!role) throw new AppError(404, "NOT_FOUND", "Routine not found");
+    const participants = [
+        habit.ownerId,
+        ...members.filter((m) => m.role === "edit" && m.userId !== habit.ownerId).map((m) => m.userId),
+    ];
+    return {
+        habitId: habit.id,
+        ownerId: habit.ownerId,
+        role,
+        audience: audienceOf(habit.ownerId, members),
+        participants,
+        shareMode: habit.shareMode,
+        turnOrder: habit.turnOrder,
+        turnsFrom: habit.turnsFrom,
+        recurrenceRule: habit.recurrenceRule,
+        createdAt: habit.createdAt,
+    };
 }
 
 /**
@@ -105,15 +183,20 @@ export function requireEdit(access: ListAccess | null): void {
     if (access?.role === "view") throw new AppError(403, "VIEW_ONLY", "You can view this list, not change it.");
 }
 
-export function requireOwner(access: ListAccess | null): void {
-    if (access && access.role !== "owner")
-        throw new AppError(403, "OWNER_ONLY", "Only the owner of this list can do that.");
+export function requireOwner(access: { role: ListRole } | null, what: ShareWhat = "list"): void {
+    if (access && access.role !== "owner") {
+        const message =
+            what === "list"
+                ? "Only the owner of this list can do that."
+                : `Only the person who shared this ${what} can do that.`;
+        throw new AppError(403, "OWNER_ONLY", message);
+    }
 }
 
 type RouteContext = Context<{ Bindings: Env; Variables: AuthVariables }>;
 
 /** Everyone who should hear of this write (merged into `liveAudience`; `replanAfterWrites` pings them). */
-export function noteAudience(c: RouteContext, ...accesses: (ListAccess | null)[]): void {
+export function noteAudience(c: RouteContext, ...accesses: ({ audience: string[] } | null)[]): void {
     const ids = new Set(c.get("liveAudience") ?? []);
     for (const access of accesses) for (const id of access?.audience ?? []) ids.add(id);
     c.set("liveAudience", [...ids]);

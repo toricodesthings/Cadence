@@ -1,5 +1,5 @@
 import { EmptyState } from "../components/tasks/EmptyState";
-import { TaskRouteControls } from "../components/shared/TaskRouteControls";
+import { TaskRouteControls, useTaskRouteControls } from "../components/shared/TaskRouteControls";
 import { useTaskIntelligence } from "../hooks/core/use-task-intelligence";
 import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
 import { useMemo } from "react";
@@ -10,7 +10,7 @@ import { MainLayout } from "../components/layout/MainLayout";
 import { AgendaHabitDivider } from "../components/shared/AgendaRow";
 import { RoutineAgendaRow } from "../components/shared/RoutineAgendaRow";
 import { BucketedRouteBody } from "../components/shared/BucketedCollectionView";
-import { PhoneTaskDetails, TaskDetailsRail } from "../components/shared/TaskDetailsPanels";
+import { PhoneTaskDetails, taskDetailsRailProps } from "../components/shared/TaskDetailsPanels";
 import { TaskList } from "../components/tasks/TaskList";
 import {
     FURTHER_OUT_OPEN_PARAM,
@@ -26,8 +26,6 @@ import { nextOpenTime, routineTimeOn, timeMarksOn } from "@cadence/domain/repeat
 import { useTagFilterStore } from "../stores/tag-filter-store";
 import { ActiveFilterBar } from "../components/shared/ActiveFilterBar";
 import { useFocusViewStore } from "../stores/focus-view-store";
-import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
-import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import { useKeyboardShortcuts } from "../hooks/core/use-keyboard-shortcuts";
@@ -245,10 +243,9 @@ export default function Upcoming() {
     const { activeTagId } = useTagFilterStore();
     const { activeDefinition } = useFocusViewStore();
     const navigate = useNavigate();
-    const { view, setView } = useRouteViewMode("upcoming");
-    const { sortMode, setSortMode } = useSortMode("upcoming");
     const selection = useTaskDetailSelection();
-    const { selectedTaskId, setSelectedTaskId, setMobilePanelOpen, handleSelectTask } = selection;
+    const { selectedTaskId, handleSelectTask } = selection;
+    const { view, sortMode, controlProps } = useTaskRouteControls("upcoming", "Upcoming controls", selection);
 
     const { mutate: resolveHabit } = useResolveHabit();
     const shell = useShellMode();
@@ -348,8 +345,6 @@ export default function Upcoming() {
         if (item.kind !== "habit" || !item.habitId || !item.habitTargetDate) return;
         resolveHabit({ habitId: item.habitId, targetDate: item.habitTargetDate, status: "COMPLETED" });
     };
-
-    const sidePanel = <TaskDetailsRail selection={selection} ariaLabel="Resize upcoming sidebar" />;
 
     const openHabits = () => navigate("/routines");
 
@@ -463,22 +458,9 @@ export default function Upcoming() {
     return (
         <MainLayout
             requireAuth
-            sidePanel={sidePanel}
-            sidePanelActive={Boolean(selectedTaskId)}
-            onCloseSidePanel={() => setSelectedTaskId(null)}
-            sidePanelLabel="Task"
+            {...taskDetailsRailProps(selection, "Resize upcoming sidebar")}
             compactHeaderRightInline
-            headerRight={
-                <TaskRouteControls
-                    routeKey="upcoming"
-                    title="Upcoming controls"
-                    view={view}
-                    onViewChange={setView}
-                    sortMode={sortMode}
-                    onSortModeChange={setSortMode}
-                    onOpenDetails={selectedTaskId ? () => setMobilePanelOpen(true) : undefined}
-                />
-            }
+            headerRight={<TaskRouteControls {...controlProps} />}
             shellHeader={{
                 title: "Upcoming",
                 icon: <CalendarRange size={18} aria-hidden="true" />,

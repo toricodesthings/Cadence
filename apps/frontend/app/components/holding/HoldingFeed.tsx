@@ -1,6 +1,6 @@
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { CaptureWindow } from "./CaptureGreeting";
-import { Inbox, CalendarClock, ChevronRight, StickyNote, Trash2, X } from "lucide-react";
+import { Inbox, CalendarClock, ChevronRight, History, StickyNote, Trash2, X, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { BucketedCollectionView, BucketedSectionHeader, useSectionFold } from "../shared/BucketedCollectionView";
 import { useId, useMemo, useState, useTransition } from "react";
@@ -31,7 +31,6 @@ import { useEditableProjects } from "../../hooks/projects/use-own-projects";
 import { Reveal } from "../shared/Reveal";
 import { EmptyState } from "../tasks/EmptyState";
 import { PageContent } from "../layout/PageLayout";
-import { ScrollAreaWrapper } from "../shared/ScrollAreaWrapper";
 import { computeNlp, loadParse, TASK_FIELDS, useParseModule, type ParseFn } from "../../hooks/use-nlp-parse";
 
 /** Explicit nulls: the server must not infer a day from a thought's words. */
@@ -354,38 +353,30 @@ export function HoldingFeed({
             ))}
         </p>
     );
+    const olderFold = ordered.older.length > 0 && (
+        <Fold title="Older" icon={History} count={ordered.older.length}>
+            {rows(ordered.older)}
+        </Fold>
+    );
     const extraFolds = (
         <>
-            {ordered.older.length > 0 && (
-                <Fold title="Older" count={ordered.older.length}>
-                    {rows(ordered.older)}
-                </Fold>
-            )}
+            {olderFold}
             {feed.notes.length > 0 && (
-                <Fold title="Notes" count={feed.notes.length}>
+                <Fold title="Notes" icon={StickyNote} count={feed.notes.length}>
                     {rows(feed.notes)}
                 </Fold>
             )}
         </>
     );
-    const allClear = feed.count === 0;
-    if (allClear) {
-        const clearBody = (
-            <div className="flex min-w-0 flex-col gap-6 pb-24">
-                {toolbar}
-                <EmptyState variant="capture" />
-                {extraFolds}
-                {shortcuts}
-            </div>
-        );
+    if (feed.isEmpty) {
         return board ? (
-            <ScrollAreaWrapper>
-                <PageContent width="default" verticalPadding="none">
-                    {clearBody}
-                </PageContent>
-            </ScrollAreaWrapper>
+            <PageContent width="full" verticalPadding="none" className="flex min-h-0 flex-1 flex-col pb-6 pt-2">
+                <EmptyState variant="capture-board" />
+            </PageContent>
         ) : (
-            clearBody
+            <div className="flex min-w-0 flex-col gap-6 pb-24">
+                <EmptyState variant="capture" />
+            </div>
         );
     }
     if (board)
@@ -410,11 +401,7 @@ export function HoldingFeed({
                                         {rows(ordered.thoughts)}
                                         {!ordered.thoughts.length &&
                                             empty(Inbox, "Nothing new. Add a thought whenever you need.")}
-                                        {ordered.older.length > 0 && (
-                                            <Fold title="Older" count={ordered.older.length}>
-                                                {rows(ordered.older)}
-                                            </Fold>
-                                        )}
+                                        {olderFold}
                                     </CaptureColumnDrop>
                                 ),
                             },
@@ -508,7 +495,17 @@ const SHORTCUTS = [
 ] as const;
 
 /** A folded group styled like the section headers above it. */
-function Fold({ title, count, children }: { title: string; count: number; children: ReactNode }) {
+function Fold({
+    title,
+    icon: Icon,
+    count,
+    children,
+}: {
+    title: string;
+    icon: LucideIcon;
+    count: number;
+    children: ReactNode;
+}) {
     const [open, setOpen] = useState(false);
     const id = useId();
     return (
@@ -526,6 +523,7 @@ function Fold({ title, count, children }: { title: string; count: number; childr
                         aria-hidden
                         className={`text-twilight-text-soft transition-transform duration-200 ${open ? "rotate-90" : ""}`}
                     />
+                    <Icon size={14} aria-hidden="true" className="shrink-0 text-twilight-text-soft" />
                     <span className="text-[12px] font-semibold uppercase tracking-[0.18em] text-twilight-text">
                         {title}
                     </span>

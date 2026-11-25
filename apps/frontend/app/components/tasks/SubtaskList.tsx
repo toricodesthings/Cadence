@@ -175,7 +175,7 @@ export function SubtaskList({
                         placeholder="Add a subtask…"
                         className="w-full bg-transparent text-[14px] leading-6 text-twilight-text-muted/90 outline-none placeholder:text-twilight-text-muted/80"
                     />
-                    <SuggestStepsButton s={suggest} />
+                    <SuggestStepsButton s={suggest} iconOnly={newTitle.trim().length > 0} />
                 </div>
                 <div className="pl-10">
                     <SuggestedSteps s={suggest} />

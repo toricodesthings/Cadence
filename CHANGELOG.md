@@ -6,11 +6,29 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Share a yearly date, like an anniversary, with the people it belongs to
+- Each person chooses whether a shared date reminds them
+- Share a routine to do it together, take turns, or let someone cheer you on
+
+### Changed
+
+- Today's Fixed blocks now share the section rhythm and calm hierarchy across list and board views
+- Focus opens as a calm dialog with one searchable list of presets; describing a view and Order fold away until needed
+- Saved views and presets are one list: rename, recolour, pick an icon, pin to top or delete any of them, built-ins too
+- Task cards are calmer: a smaller tick aligned to the title, the pin beside ⋮, no chip repeating what the card shows
+
+### Fixed
+
+- Undo after deleting or leaving something now keeps it, instead of quietly going ahead a few seconds later
+
 ## [2.4.1] - 2026-11-24
 
 ### Changed
 
 - Capture merges into one empty state with a larger greeting and theme-adaptive weather sky when clear
+- Board columns across Capture, Today, Upcoming, and Lists now keep a comfortable minimum width and scroll when crowded
 - Tap anywhere on a section's header in Today, Upcoming or Capture to fold it; board columns show their icons
 - Further out folds like every other section, with a calmer peek at what's next; the list's add field is now a pill
 

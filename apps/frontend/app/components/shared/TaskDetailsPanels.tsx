@@ -6,6 +6,16 @@ import { ResponsiveOverlayPanel } from "./ResponsiveOverlayPanel";
 
 type Selection = ReturnType<typeof useTaskDetailSelection>;
 
+/** MainLayout props for a task route's side rail (sidePanel, active flag, close handler, label). */
+export function taskDetailsRailProps(selection: Selection, ariaLabel: string) {
+    return {
+        sidePanel: <TaskDetailsRail selection={selection} ariaLabel={ariaLabel} />,
+        sidePanelActive: Boolean(selection.selectedTaskId),
+        onCloseSidePanel: () => selection.setSelectedTaskId(null),
+        sidePanelLabel: "Task",
+    };
+}
+
 /** At wide widths, a task list route's selected task opens in the resizable side rail. */
 export function TaskDetailsRail({
     selection,

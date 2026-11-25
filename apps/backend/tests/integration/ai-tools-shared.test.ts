@@ -7,6 +7,10 @@ vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../h
 
 import { buildToolRegistry, type AgentContext } from "../../src/domains/ai/tools/index";
 import { noteRoutes } from "../../src/domains/notes/notes.route";
+import { personalEventRoutes } from "../../src/domains/personal-events/personal-events.route";
+import { personalEventSharingRoutes } from "../../src/domains/personal-events/personal-event-sharing.route";
+import { habitRoutes } from "../../src/domains/habits/habits.route";
+import { routineSharingRoutes } from "../../src/domains/habits/routine-sharing.route";
 import { projectRoutes } from "../../src/domains/projects/projects.route";
 import { sectionRoutes } from "../../src/domains/sections/sections.route";
 import { sharingRoutes } from "../../src/domains/sharing/sharing.route";
@@ -275,5 +279,105 @@ describe("assistant tools on shared lists", () => {
         const s2Batch = batches.find((b) => b.changes.some((c) => c.type === "task" && c.task.id === "t-s2"));
         expect(s2Batch?.audience).toEqual(["u-owner", "u-b"]);
         expect(s2Batch?.changes).toHaveLength(1);
+    });
+
+    it("lists, saves, and guards deletes on shared personal events", async () => {
+        const { ownerId, editorId, viewerId, ownerTools, editorTools, viewerTools } = await setup();
+        const ownerEvents = apiAs(ownerId, "/personal-events", personalEventRoutes);
+        const ownerShare = apiAs(ownerId, "/personal-events", personalEventSharingRoutes);
+        const editorLists = apiAs(editorId, "/lists", sharingRoutes);
+
+        const event = (
+            await ownerEvents("POST", "", { label: "Anniversary", monthDay: "06-14", emoji: "💍", notify: true })
+        ).body.data;
+        const link = (await ownerShare("POST", `/${event.id}/invites`)).body.data.url as string;
+        await editorLists("POST", "/join", { token: tokenOf(link) });
+
+        // Member sees shared: true and sharedBy: "Ada".
+        const memberEvents = await call(editorTools.get_events, {});
+        expect(memberEvents.events).toEqual([
+            expect.objectContaining({ id: event.id, label: "Anniversary", shared: true, sharedBy: "Ada" }),
+        ]);
+
+        // Owner sees shared: true and no sharedBy.
+        const ownerEventsRead = await call(ownerTools.get_events, {});
+        expect(ownerEventsRead.events).toEqual([
+            expect.objectContaining({ id: event.id, label: "Anniversary", shared: true }),
+        ]);
+        expect(ownerEventsRead.events[0].sharedBy).toBeUndefined();
+
+        // Member can save_event on the shared event.
+        const saved = await call(editorTools.save_event, {
+            eventId: event.id,
+            patch: { label: "Our Anniversary", notify: false },
+        });
+        expect(saved).toMatchObject({ id: event.id, label: "Our Anniversary", notify: false });
+
+        // Owner delete_event on a shared event is refused.
+        const ownerDel = await call(ownerTools.delete_event, { eventId: event.id });
+        expect(ownerDel).toMatchObject({ ok: false, status: 403 });
+        expect(ownerDel.error).toContain("This event is shared. Delete it from the Events page.");
+
+        // Member delete_event is not-found; stranger delete_event is not-found.
+        expect(await call(editorTools.delete_event, { eventId: event.id })).toMatchObject({ ok: false, status: 404 });
+        expect(await call(viewerTools.delete_event, { eventId: event.id })).toMatchObject({ ok: false, status: 404 });
+        expect(viewerId).toBeTruthy();
+    });
+
+    it("enforces R14 shapes and refusals on shared routines", async () => {
+        const { ownerId, editorId, viewerId, ownerTools, editorTools, viewerTools } = await setup();
+        const ownerHabits = apiAs(ownerId, "/habits", habitRoutes);
+        const ownerShare = apiAs(ownerId, "/habits", routineSharingRoutes);
+        const editorLists = apiAs(editorId, "/lists", sharingRoutes);
+        const viewerLists = apiAs(viewerId, "/lists", sharingRoutes);
+
+        const habit = (await ownerHabits("POST", "", { title: "Clean kitchen", recurrenceRule: "FREQ=DAILY" })).body
+            .data;
+        const turnsLink = (await ownerShare("POST", `/${habit.id}/invites`, { way: "turns" })).body.data.url as string;
+        const cheerLink = (await ownerShare("POST", `/${habit.id}/invites`, { way: "cheering" })).body.data
+            .url as string;
+        await editorLists("POST", "/join", { token: tokenOf(turnsLink) });
+        await viewerLists("POST", "/join", { token: tokenOf(cheerLink) });
+
+        // Owner skips today; supporter history never shows skipped/missed.
+        await ownerHabits("POST", `/${habit.id}/resolve`, { targetDate: "2030-03-04", status: "SKIPPED" });
+
+        const ownerRead = await call(ownerTools.get_habits, {});
+        expect(ownerRead.habits).toEqual([expect.objectContaining({ id: habit.id, shared: true, way: "turns" })]);
+
+        const supporterRead = await call(viewerTools.get_habits, {});
+        expect(supporterRead.habits).toEqual([
+            expect.objectContaining({ id: habit.id, shared: true, way: "cheering" }),
+        ]);
+        expect(supporterRead.habits[0].missedLast30).toBeUndefined();
+
+        const supporterHist = await call(viewerTools.get_habit_history, {
+            start: "2030-03-04",
+            end: "2030-03-04",
+            habitId: habit.id,
+        });
+        expect(supporterHist.routines[0].skipped).toBeUndefined();
+        expect(supporterHist.routines[0].missed).toBeUndefined();
+
+        // Supporter cannot log_habit -> exact R14 refusal naming owner.
+        const supporterLog = await call(viewerTools.log_habit, {
+            habitId: habit.id,
+            status: "COMPLETED",
+            targetDate: "2030-03-04",
+        });
+        expect(supporterLog).toMatchObject({ ok: false, status: 403 });
+        expect(supporterLog.error).toContain("You're cheering this one on; only Ada checks it off.");
+
+        // Owner cannot delete_habit on a shared routine -> exact R14 refusal.
+        const ownerDel = await call(ownerTools.delete_habit, { habitId: habit.id, title: "Clean kitchen" });
+        expect(ownerDel).toMatchObject({ ok: false, status: 403 });
+        expect(ownerDel.error).toContain("This routine is shared. Delete it from the Routines page.");
+
+        // Participant cannot archive -> 403 OWNER_ONLY.
+        const editorArchive = await call(editorTools.update_habit, {
+            habitId: habit.id,
+            patch: { archived: true },
+        });
+        expect(editorArchive).toMatchObject({ ok: false, status: 403 });
     });
 });

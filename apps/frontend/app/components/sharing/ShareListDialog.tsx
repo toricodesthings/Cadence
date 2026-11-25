@@ -12,7 +12,6 @@ import {
     Pencil,
     RotateCcw,
     UserMinus,
-    Users,
 } from "lucide-react";
 import type { Project } from "@cadence/contracts/project";
 import type { ListPerson, ShareRole } from "@cadence/contracts/sharing";
@@ -34,6 +33,7 @@ import {
     useStopSharing,
     useTransferList,
 } from "../../hooks/sharing/use-share-list";
+import { ShareSheetShell } from "./ShareSheetParts";
 import { toastName } from "../../lib/utils/undo-toast";
 import { SPRINGS } from "../../lib/constants/motion";
 import { AvatarFace } from "./PersonAvatar";
@@ -91,7 +91,7 @@ function RolePicker({
 }
 
 /** Copy link, which turns into ✓ Copied for a moment once the link is on the clipboard. */
-function CopyLinkButton({ onCopy, pending }: { onCopy: (done: () => void) => void; pending: boolean }) {
+export function CopyLinkButton({ onCopy, pending }: { onCopy: (done: () => void) => void; pending: boolean }) {
     const [copied, setCopied] = useState(false);
     useEffect(() => {
         if (!copied) return;
@@ -433,30 +433,15 @@ export function ShareListDialog({
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }) {
-    const { isPhone, isTouch } = useShellMode();
     const title = project.access === "owner" ? `Share “${project.name}”` : project.name;
-    const close = () => onOpenChange(false);
-
-    if (isPhone && isTouch)
-        return (
-            <UtilitySheet title={title} open={open} onClose={close} fit>
-                <ShareListPanel project={project} onClose={close} withDone={false} />
-            </UtilitySheet>
-        );
     return (
-        <Dialog.Dialog open={open} onOpenChange={onOpenChange}>
-            <Dialog.DialogContent className="sm:max-w-md">
-                <Dialog.DialogHeader>
-                    <Dialog.DialogTitle className="flex items-center gap-2">
-                        <Users size={18} aria-hidden="true" className="shrink-0" />
-                        <span className="truncate">{title}</span>
-                    </Dialog.DialogTitle>
-                    <Dialog.DialogDescription className="sr-only">
-                        The people in this list, and what they can do.
-                    </Dialog.DialogDescription>
-                </Dialog.DialogHeader>
-                <ShareListPanel project={project} onClose={close} />
-            </Dialog.DialogContent>
-        </Dialog.Dialog>
+        <ShareSheetShell
+            title={title}
+            description="The people in this list, and what they can do."
+            open={open}
+            onOpenChange={onOpenChange}
+        >
+            {({ onClose, withDone }) => <ShareListPanel project={project} onClose={onClose} withDone={withDone} />}
+        </ShareSheetShell>
     );
 }

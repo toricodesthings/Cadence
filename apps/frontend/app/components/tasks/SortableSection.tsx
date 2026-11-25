@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
+import { BOARD_COLUMN_MIN_WIDTH } from "../shared/BoardCanvas";
 
 /** Marks a sortable section so a board's card drags can tell it from a card. */
 export const SECTION_SORT = "SectionSort";
@@ -14,7 +15,7 @@ export function FoldColumn({ hidden, children }: { hidden: boolean; children: Re
     return (
         <div
             inert={hidden}
-            className={`grid min-h-0 shrink-0 grid-rows-[minmax(0,1fr)] transition-[grid-template-columns,opacity,margin] duration-200 ease-out motion-reduce:transition-none [html[data-motion=reduced]_&]:transition-none ${hidden ? "grid-cols-[0fr] -mr-4 opacity-0" : "grid-cols-[1fr]"}`}
+            className={`grid min-h-0 grid-rows-[minmax(0,1fr)] transition-[grid-template-columns,opacity,margin] duration-200 ease-out motion-reduce:transition-none [html[data-motion=reduced]_&]:transition-none ${hidden ? "min-w-0 shrink-0 grid-cols-[0fr] -mr-4 opacity-0" : `${BOARD_COLUMN_MIN_WIDTH} flex-1 grid-cols-[1fr]`}`}
         >
             <div className="h-full min-h-0 min-w-0 overflow-x-clip">{children}</div>
         </div>

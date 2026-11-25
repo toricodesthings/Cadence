@@ -33,12 +33,49 @@ export const focusViewDefinitionSchema = z.object({
 }) satisfies z.ZodType<FocusViewDefinition>; // nlp owns the type; this fails tsc if they drift
 export type FocusViewDefinitionInput = z.infer<typeof focusViewDefinitionSchema>;
 
+/** A view's look: a Lucide icon name and a colour, from these sets only. */
+export const FOCUS_VIEW_ICONS = [
+    "Zap",
+    "Clock",
+    "CalendarX",
+    "UserCheck",
+    "Brain",
+    "CloudFog",
+    "Sparkles",
+    "Star",
+    "Flag",
+    "Target",
+    "Coffee",
+    "BookOpen",
+    "Briefcase",
+    "House",
+    "Heart",
+    "Leaf",
+] as const;
+export const FOCUS_VIEW_COLORS = ["lantern", "ember", "rose", "violet", "sapphire", "moonlit", "jade"] as const;
+export const focusViewIconSchema = z.enum(FOCUS_VIEW_ICONS);
+export const focusViewColorSchema = z.enum(FOCUS_VIEW_COLORS);
+export type FocusViewIcon = z.infer<typeof focusViewIconSchema>;
+export type FocusViewColor = z.infer<typeof focusViewColorSchema>;
+
+/** The colour each built-in preset starts with (keyed by its nlp preset id). */
+export const FOCUS_PRESET_COLORS: Record<string, FocusViewColor> = {
+    "quick-wins": "lantern",
+    "due-soon": "sapphire",
+    "needs-dates": "moonlit",
+    waiting: "jade",
+    "deep-focus": "violet",
+    "clear-the-fog": "moonlit",
+};
+
 export const savedFocusViewInputSchema = z.object({
     name: z.string().trim().min(1).max(120),
     definition: focusViewDefinitionSchema,
     isPinned: z.boolean().optional(),
     source: focusViewSourceSchema.optional(),
     orderIndex: z.number().optional(),
+    icon: focusViewIconSchema.nullable().optional(),
+    color: focusViewColorSchema.nullable().optional(),
 });
 
 export const savedFocusViewPatchSchema = savedFocusViewInputSchema.partial().extend({
@@ -53,6 +90,11 @@ export const savedFocusViewRowSchema = z.object({
     isPinned: z.boolean(),
     source: focusViewSourceSchema,
     orderIndex: z.number(),
+    // Set on the built-in presets each account starts with; deleting one of those hides it instead.
+    presetKey: z.string().nullable(),
+    icon: focusViewIconSchema.nullable(),
+    color: focusViewColorSchema.nullable(),
+    isHidden: z.boolean(),
     createdAt: instantSchema,
     updatedAt: instantSchema,
 });

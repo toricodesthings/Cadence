@@ -67,7 +67,8 @@ it("counts each occurrence of a repeating timed block in density (regression 2.3
     );
     // Past 7 days: 2 Mon/Wed starts at 15:00 UTC, unless today's hasn't started yet.
     let expected = 0;
-    for (let i = 0; i < 7; i++) {
+    // i = 7 too: late in the UTC day, last week's same weekday is still inside the window.
+    for (let i = 0; i <= 7; i++) {
         const d = new Date(Date.now() - i * day);
         d.setUTCHours(15, 0, 0, 0);
         if ([1, 3].includes(d.getUTCDay()) && d.getTime() <= Date.now() && d.getTime() >= Date.now() - 7 * day)

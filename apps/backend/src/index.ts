@@ -17,7 +17,9 @@ import { healthRoutes } from "./domains/health/health.route";
 import { debugRoutes } from "./domains/debug/debug.route";
 import { tagRoutes } from "./domains/tags/tags.route";
 import { personalEventRoutes } from "./domains/personal-events/personal-events.route";
+import { personalEventSharingRoutes } from "./domains/personal-events/personal-event-sharing.route";
 import { habitRoutes } from "./domains/habits/habits.route";
+import { routineSharingRoutes } from "./domains/habits/routine-sharing.route";
 import { subtaskRoutes } from "./domains/subtasks/subtasks.route";
 import { sectionRoutes } from "./domains/sections/sections.route";
 import { settingsRoutes } from "./domains/settings/settings.route";
@@ -191,7 +193,9 @@ const apiApp = app
     .route("/api/v1/search", searchRoutes)
     .route("/api/v1/tags", tagRoutes)
     .route("/api/v1/personal-events", personalEventRoutes)
+    .route("/api/v1/personal-events", personalEventSharingRoutes)
     .route("/api/v1/habits", habitRoutes)
+    .route("/api/v1/habits", routineSharingRoutes)
     .route("/api/v1", subtaskRoutes)
     .route("/api/v1", noteRoutes)
     .route("/api/v1/sections", sectionRoutes)

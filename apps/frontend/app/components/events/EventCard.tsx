@@ -1,32 +1,42 @@
 import { useState } from "react";
-import { Bell, BellOff, Trash2, ArrowUpRight, Pencil } from "lucide-react";
+import { Bell, BellOff, LogOut, Trash2, ArrowUpRight, Pencil } from "lucide-react";
 import { Tip } from "../primitives/Tooltip";
 import * as ContextMenu from "../primitives/ContextMenu";
 import { EventMenuItems } from "./EventMenuItems";
+import { EventPeopleLine } from "../sharing/SharedEventMark";
 import { Button } from "../primitives/Button";
 import { useTitleDraft } from "../tasks/SubtaskList";
 import { trackUsageEvent } from "../../lib/api/track-event";
-import type { PersonalEvent } from "@cadence/contracts/personal-event";
-import { eventToneColor, eventToneStyle, type PersonalEventViewModel } from "../../lib/utils/personal-events";
+import {
+    eventToneColor,
+    eventToneStyle,
+    type MaybeSharedEvent,
+    type PersonalEventViewModel,
+} from "../../lib/utils/personal-events";
 
 /** What can be done to an event from a list row or card. `onOpen` opens it, or closes it when already open. */
 export interface EventActions {
-    onOpen: (event: PersonalEvent) => void;
-    onEdit: (event: PersonalEvent) => void;
-    onDelete: (event: PersonalEvent) => void;
-    onToggleReminder: (event: PersonalEvent) => void;
-    onOpenInSchedule: (event: PersonalEvent) => void;
+    onOpen: (event: MaybeSharedEvent) => void;
+    onEdit: (event: MaybeSharedEvent) => void;
+    onShare?: (event: MaybeSharedEvent) => void;
+    onDelete: (event: MaybeSharedEvent) => void;
+    onRemoveFromMyEvents?: (event: MaybeSharedEvent) => void;
+    onToggleReminder: (event: MaybeSharedEvent) => void;
+    onOpenInSchedule: (event: MaybeSharedEvent) => void;
 }
 
 export function EventCard({
     item,
     onOpen,
     onEdit,
+    onShare,
     onDelete,
+    onRemoveFromMyEvents,
     onToggleReminder,
     onOpenInSchedule,
     onRename,
-}: EventActions & { item: PersonalEventViewModel; onRename: (event: PersonalEvent, label: string) => void }) {
+}: EventActions & { item: PersonalEventViewModel; onRename: (event: MaybeSharedEvent, label: string) => void }) {
+    const isOwner = (item.event.access ?? "owner") === "owner";
     // A picked colour washes the whole card softly; no colour keeps the plain glass card.
     const tinted = Boolean(eventToneColor(item.event.color));
     return (
@@ -65,7 +75,13 @@ export function EventCard({
                             >
                                 {item.event.emoji ?? "🎉"}
                             </span>
-                            <EventTitle label={item.event.label} onRename={(label) => onRename(item.event, label)} />
+                            <div className="flex min-w-0 flex-col items-start gap-0.5">
+                                <EventTitle
+                                    label={item.event.label}
+                                    onRename={(label) => onRename(item.event, label)}
+                                />
+                                <EventPeopleLine event={item.event} />
+                            </div>
                         </div>
 
                         <div className="flex items-center gap-1 shrink-0">
@@ -83,14 +99,24 @@ export function EventCard({
                                     )}
                                 </button>
                             </Tip>
-                            <Tip label="Delete" side="top">
+                            <Tip label={isOwner ? "Delete" : "Remove from my events"} side="top">
                                 <button
                                     type="button"
-                                    onClick={() => onDelete(item.event)}
-                                    aria-label={`Delete ${item.event.label}`}
+                                    onClick={() =>
+                                        (isOwner ? onDelete : (onRemoveFromMyEvents ?? onDelete))(item.event)
+                                    }
+                                    aria-label={
+                                        isOwner
+                                            ? `Delete ${item.event.label}`
+                                            : `Remove ${item.event.label} from my events`
+                                    }
                                     className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-transparent bg-transparent text-twilight-text-muted transition-colors hover:border-red-400/20 hover:bg-red-500/10 hover:text-red-400"
                                 >
-                                    <Trash2 size={16} aria-hidden="true" />
+                                    {isOwner ? (
+                                        <Trash2 size={16} aria-hidden="true" />
+                                    ) : (
+                                        <LogOut size={16} aria-hidden="true" />
+                                    )}
                                 </button>
                             </Tip>
                         </div>
@@ -137,9 +163,11 @@ export function EventCard({
                     Menu={ContextMenu}
                     event={item.event}
                     onEdit={onEdit}
+                    onShare={onShare}
                     onOpenInSchedule={onOpenInSchedule}
                     onToggleReminder={onToggleReminder}
                     onDelete={onDelete}
+                    onRemoveFromMyEvents={onRemoveFromMyEvents}
                 />
             </ContextMenu.Content>
         </ContextMenu.Root>

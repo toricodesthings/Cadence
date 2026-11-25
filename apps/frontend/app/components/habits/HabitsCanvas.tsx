@@ -4,6 +4,7 @@ import { sortRoutines, type RoutineSort } from "../../lib/utils/habits";
 import { SortableRoutines } from "./SortableRoutines";
 import { useRovingGrid } from "../../hooks/ui/use-roving-grid";
 import { isLoggable, logsByDay, RoutineWeekRow, weekGridColumns, type RoutineDay } from "./RoutineWeekRow";
+import { CheeringOnSection } from "./RoutineShareMeta";
 
 /**
  * The week: one `RoutineWeekRow` per routine under a sticky day header (phone:
@@ -40,7 +41,9 @@ export function HabitsCanvas({
     lead?: ReactNode;
     empty: ReactNode;
 }) {
-    const sorted = useMemo(() => sortRoutines(habits, sort), [habits, sort]);
+    const ownHabits = useMemo(() => habits.filter((h) => h.access !== "view"), [habits]);
+    const cheeringHabits = useMemo(() => habits.filter((h) => h.access === "view"), [habits]);
+    const sorted = useMemo(() => sortRoutines(ownHabits, sort), [ownHabits, sort]);
     const firstCell = useMemo(() => {
         for (const [row, habit] of sorted.entries()) {
             const logs = logsByDay(habit);
@@ -72,9 +75,9 @@ export function HabitsCanvas({
     return (
         <div className="min-h-0 flex-1 overflow-auto px-4 pb-28 scrollbar-thin sm:px-6">
             {lead}
-            {sorted.length === 0 ? (
+            {sorted.length === 0 && cheeringHabits.length === 0 ? (
                 empty
-            ) : stacked ? (
+            ) : sorted.length === 0 ? null : stacked ? (
                 <SortableRoutines habits={sorted} sort={sort} onSortChange={onSortChange} layout="list">
                     {(ordered) => (
                         <div
@@ -135,6 +138,13 @@ export function HabitsCanvas({
                     </SortableRoutines>
                 </div>
             )}
+            <CheeringOnSection
+                habits={cheeringHabits}
+                days={days}
+                today={today}
+                selectedHabitId={selectedHabitId}
+                onSelectHabit={onSelectHabit}
+            />
         </div>
     );
 }

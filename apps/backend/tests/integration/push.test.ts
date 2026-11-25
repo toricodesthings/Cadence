@@ -370,6 +370,69 @@ describe("reminder clock", () => {
         expect(await ids()).not.toContain("personal-event::");
     });
 
+    it("plans a shared yearly event per member's own notify and calendar setting", async () => {
+        const env = await vapidEnv();
+        const { userId: owner } = await subscriber(env);
+        const { userId: member } = await subscriber(env);
+        const [{ id }] = await sql(
+            "INSERT INTO personal_events (user_id, label, month_day, notify) VALUES ($1, 'Anniversary', '10-08', false) RETURNING id",
+            [owner],
+        );
+        await sql("INSERT INTO event_members (event_id, user_id, role, notify) VALUES ($1, $2, 'edit', true)", [
+            id,
+            member,
+        ]);
+        const db = (await import("../helpers/db")).getTestDb();
+        const idsFor = async (u: string) => JSON.stringify((await loadReminderPlan(db, u, NOW))?.entries ?? []);
+
+        // Owner has notify=false, member has notify=true -> member gets it, owner doesn't.
+        expect(await idsFor(member)).toContain(`personal-event::${id}::2026-10-08`);
+        expect(await idsFor(owner)).not.toContain(`personal-event::${id}`);
+
+        // Member turns off their own notify -> none.
+        await sql("UPDATE event_members SET notify = false WHERE event_id = $1 AND user_id = $2", [id, member]);
+        expect(await idsFor(member)).not.toContain(`personal-event::${id}`);
+
+        // Member turns notify back on, then hides personal events from calendar -> none.
+        await sql("UPDATE event_members SET notify = true WHERE event_id = $1 AND user_id = $2", [id, member]);
+        await sql(
+            "UPDATE users SET settings = jsonb_set(settings, '{calendar}', '{\"personalEvents\":{\"enabled\":false}}') WHERE id = $1",
+            [member],
+        );
+        expect(await idsFor(member)).not.toContain(`personal-event::${id}`);
+    });
+
+    it("plans turns routine reminders only for the turn holder, skips covered turns, and never reminds supporters", async () => {
+        const env = await vapidEnv();
+        const { userId: owner } = await subscriber(env);
+        const { userId: sam } = await subscriber(env);
+        const { userId: kai } = await subscriber(env);
+        const [{ id }] = await sql(
+            "INSERT INTO habits (user_id, title, recurrence_rule, target_time, reminder_enabled, share_mode, turn_order, turns_from, created_at) VALUES ($1, 'Clean kitchen', 'FREQ=DAILY', '11:10', true, 'turns', ARRAY[$1::uuid, $2::uuid], '2026-10-07', '2026-10-01T12:00:00Z') RETURNING id",
+            [owner, sam],
+        );
+        await sql(
+            "INSERT INTO routine_members (habit_id, user_id, role, reminder_enabled) VALUES ($1, $2, 'edit', true), ($1, $3, 'view', true)",
+            [id, sam, kai],
+        );
+        const db = (await import("../helpers/db")).getTestDb();
+        const keysFor = async (u: string) =>
+            ((await loadReminderPlan(db, u, NOW))?.entries ?? []).map((e) => e.key).join(",");
+
+        // On 2026-10-07 (NOW), it's owner's turn -> owner gets 10-07, Sam gets 10-08 (not 10-07), Kai (supporter) gets none.
+        expect(await keysFor(owner)).toContain(`habit-reminder::${id}::2026-10-07`);
+        expect(await keysFor(sam)).not.toContain(`habit-reminder::${id}::2026-10-07`);
+        expect(await keysFor(sam)).toContain(`habit-reminder::${id}::2026-10-08`);
+        expect(await keysFor(kai)).not.toContain(`habit-reminder::${id}`);
+
+        // Sam covers owner's 2026-10-07 turn -> owner's 2026-10-07 reminder disappears.
+        await sql(
+            "INSERT INTO habit_logs (habit_id, user_id, status, target_date) VALUES ($1, $2, 'COMPLETED', '2026-10-07')",
+            [id, sam],
+        );
+        expect(await keysFor(owner)).not.toContain(`habit-reminder::${id}::2026-10-07`);
+    });
+
     it("skips a device the person turned off, and keeps sending to their others", async () => {
         const env = await vapidEnv();
         const { userId, installId, endpoint } = await subscriber(env);

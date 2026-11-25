@@ -4,7 +4,14 @@ import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { useFocusViewStore, type SavedFocusView } from "../../stores/focus-view-store";
-import type { FocusViewDefinitionInput } from "@cadence/contracts/settings";
+import type {
+    FocusViewColor,
+    FocusViewDefinitionInput,
+    FocusViewIcon,
+    SavedFocusView as SavedFocusViewRow,
+} from "@cadence/contracts/settings";
+import { toastError } from "../../lib/utils/error-toast";
+import { isUndone, undoWindow } from "../../lib/utils/undo-toast";
 import { queryKeys } from "../../lib/api/query-keys";
 
 interface FocusViewInput {
@@ -13,6 +20,8 @@ interface FocusViewInput {
     isPinned?: boolean;
     source?: SavedFocusView["source"];
     orderIndex?: number;
+    icon?: FocusViewIcon | null;
+    color?: FocusViewColor | null;
 }
 
 interface FocusViewPatch extends Partial<FocusViewInput> {
@@ -71,17 +80,53 @@ export const useCreateFocusView = () =>
         unwrapResponse(await client.api.settings["focus-views"].$post({ json: toWire(input) })),
     );
 
+/** Patches the cached list at once (the panel reads it), then refetches once the write lands. */
+function useOptimisticFocusViewWrite<TInput>(
+    write: (client: ReturnType<typeof useApiClient>, input: TInput) => Promise<unknown>,
+    patch: (views: SavedFocusViewRow[], input: TInput) => SavedFocusViewRow[],
+    failure: string,
+) {
+    const client = useApiClient();
+    const queryClient = useQueryClient();
+    const { session } = useAuthState();
+    const key = queryKeys.settings.focusViews(session?.user.id);
+    return useMutation({
+        mutationFn: (input: TInput) => write(client, input),
+        onMutate: async (input) => {
+            await queryClient.cancelQueries({ queryKey: key });
+            const before = queryClient.getQueryData<SavedFocusViewRow[]>(key);
+            if (before) queryClient.setQueryData(key, patch(before, input));
+            return { before };
+        },
+        onError: (err, _input, context) => {
+            if (context?.before) queryClient.setQueryData(key, context.before);
+            if (!isUndone(err)) toastError(err, failure);
+        },
+        onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+    });
+}
+
 export const useUpdateFocusView = () =>
-    useFocusViewWrite(async (client, { id, ...patch }: FocusViewPatch) =>
-        unwrapResponse(
-            await client.api.settings["focus-views"][":id"].$patch({
-                param: { id },
-                json: { ...toWire(patch), definition: patch.definition as FocusViewDefinitionInput | undefined },
-            }),
-        ),
+    useOptimisticFocusViewWrite(
+        async (client, { id, ...patch }: FocusViewPatch) =>
+            unwrapResponse(
+                await client.api.settings["focus-views"][":id"].$patch({
+                    param: { id },
+                    json: { ...toWire(patch), definition: patch.definition as FocusViewDefinitionInput | undefined },
+                }),
+            ),
+        (views, { id, definition: _definition, source: _source, ...patch }) =>
+            views.map((view) => (view.id === id ? { ...view, ...patch } : view)),
+        "Couldn't change the view",
     );
 
+/** Gone at once; the delete is sent once Undo's window closes. A built-in preset is hidden by the server. */
 export const useDeleteFocusView = () =>
-    useFocusViewWrite(async (client, id: string) =>
-        unwrapResponse(await client.api.settings["focus-views"][":id"].$delete({ param: { id } })),
+    useOptimisticFocusViewWrite(
+        async (client, view: { id: string; name: string }) => {
+            await undoWindow(`Deleted ${view.name}`);
+            return unwrapResponse(await client.api.settings["focus-views"][":id"].$delete({ param: { id: view.id } }));
+        },
+        (views, { id }) => views.filter((view) => view.id !== id),
+        "Couldn't delete the view",
     );

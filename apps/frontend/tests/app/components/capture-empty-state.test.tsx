@@ -6,6 +6,8 @@ import type { InboxItem } from "@cadence/contracts/inbox";
 import type { Task } from "@cadence/contracts/task";
 import { HoldingFeed } from "../../../app/components/holding/HoldingFeed";
 import { CaptureGreeting, CaptureWindow } from "../../../app/components/holding/CaptureGreeting";
+import { BOARD_COLUMN_MIN_WIDTH, BoardCanvas } from "../../../app/components/shared/BoardCanvas";
+import { FoldColumn } from "../../../app/components/tasks/SortableSection";
 import { skyWarmth } from "../../../app/hooks/environment/use-weather";
 import HomeRoute from "../../../app/routes/home";
 
@@ -16,6 +18,7 @@ type MockFeed = {
     notes: InboxItem[];
     inboxItems: InboxItem[];
     count: number;
+    isEmpty: boolean;
     isLoading: boolean;
 };
 
@@ -39,6 +42,7 @@ const state = vi.hoisted(() => ({
         notes: [] as InboxItem[],
         inboxItems: [] as InboxItem[],
         count: 0,
+        isEmpty: true,
         isLoading: false,
     } as MockFeed,
     weather: {
@@ -183,6 +187,7 @@ beforeEach(() => {
         notes: [],
         inboxItems: [],
         count: 0,
+        isEmpty: true,
         isLoading: false,
     };
     state.weather = {
@@ -200,7 +205,7 @@ describe("Capture merged empty state", () => {
             </MemoryRouter>,
         );
 
-        expect(container.querySelector("[data-capture-clear]")).not.toBeNull();
+        expect(container.querySelector('[data-capture-clear="list"]')).not.toBeNull();
         expect(screen.getByText(/Good afternoon,/)).toBeTruthy();
         expect(screen.getByText("Tori")).toBeTruthy();
         expect(screen.getByText("1°")).toBeTruthy();
@@ -222,7 +227,7 @@ describe("Capture merged empty state", () => {
             </MemoryRouter>,
         );
 
-        expect(container.querySelector("[data-capture-clear]")).not.toBeNull();
+        expect(container.querySelector('[data-capture-clear="list"]')).not.toBeNull();
         expect(screen.getByText(/Good afternoon,/)).toBeTruthy();
         expect(screen.queryByText("cloudy")).toBeNull();
         expect(container.querySelector(".capture-sky")?.getAttribute("aria-hidden")).toBe("true");
@@ -234,6 +239,7 @@ describe("Capture merged empty state", () => {
             thoughts: [sampleThought],
             inboxItems: [sampleThought],
             count: 1,
+            isEmpty: false,
         };
         const { container } = render(
             <MemoryRouter>
@@ -253,6 +259,7 @@ describe("Capture merged empty state", () => {
             ...state.feed,
             tasks: [sampleTask],
             count: 1,
+            isEmpty: false,
         };
         const { container } = render(
             <MemoryRouter>
@@ -267,19 +274,53 @@ describe("Capture merged empty state", () => {
         expect(screen.getByText("Nothing new. Add a thought whenever you need.")).toBeTruthy();
     });
 
-    it("merges board view when both fields are empty and keeps Older/Notes folds accessible", () => {
+    it("blocks the merged empty state when Older or Notes have items, and renders icons on both folds", () => {
+        const olderThought = {
+            ...sampleThought,
+            id: "40000000-0000-4000-8000-000000000004",
+            createdAt: "2026-10-01T13:00:00.000Z",
+        };
+        const keptNote = {
+            ...sampleThought,
+            id: "30000000-0000-4000-8000-000000000003",
+            captureStatus: "kept",
+        } as InboxItem;
         state.feed = {
             ...state.feed,
-            notes: [{ ...sampleThought, id: "30000000-0000-4000-8000-000000000003", captureStatus: "kept" }],
+            older: [olderThought],
+            notes: [keptNote],
+            count: 0,
+            isEmpty: false,
         };
+        const { container } = render(
+            <MemoryRouter>
+                <HoldingFeed onSelectTask={vi.fn()} onClarifyInboxItem={vi.fn()} />
+            </MemoryRouter>,
+        );
+
+        expect(container.querySelector("[data-capture-clear]")).toBeNull();
+        expect(screen.getByRole("heading", { name: /^New\b/ })).toBeTruthy();
+        expect(screen.getByRole("heading", { name: /^No day yet\b/ })).toBeTruthy();
+
+        const olderButton = screen.getByRole("button", { name: /Older/ });
+        const notesButton = screen.getByRole("button", { name: /Notes/ });
+        expect(olderButton.querySelectorAll("svg")).toHaveLength(2);
+        expect(notesButton.querySelectorAll("svg")).toHaveLength(2);
+    });
+
+    it("renders a distinct horizontal framed empty state in board view when completely empty", () => {
         const { container } = render(
             <MemoryRouter>
                 <HoldingFeed onSelectTask={vi.fn()} onClarifyInboxItem={vi.fn()} view="kanban" />
             </MemoryRouter>,
         );
 
-        expect(container.querySelector("[data-capture-clear]")).not.toBeNull();
-        expect(screen.getByRole("button", { name: /Notes/ })).toBeTruthy();
+        const boardEmpty = container.querySelector('[data-capture-clear="board"]');
+        expect(boardEmpty).not.toBeNull();
+        expect(boardEmpty?.className).toContain("surface-card");
+        expect(container.querySelector('[data-capture-clear="list"]')).toBeNull();
+        expect(screen.getByText(/Good afternoon,/)).toBeTruthy();
+        expect(screen.getByText("1°")).toBeTruthy();
     });
 
     it("moves the desktop top greeting into the merged empty state and restores it when an item appears", () => {
@@ -291,7 +332,7 @@ describe("Capture merged empty state", () => {
 
         // Only one greeting on screen — inside the special empty state, not above CaptureInput.
         expect(screen.getAllByText(/Good afternoon,/)).toHaveLength(1);
-        expect(container.querySelector("[data-capture-clear]")).not.toBeNull();
+        expect(container.querySelector('[data-capture-clear="list"]')).not.toBeNull();
         expect(screen.getByTestId("capture-input")).toBeTruthy();
 
         state.feed = {
@@ -299,6 +340,7 @@ describe("Capture merged empty state", () => {
             thoughts: [sampleThought],
             inboxItems: [sampleThought],
             count: 1,
+            isEmpty: false,
         };
         rerender(
             <MemoryRouter>
@@ -366,5 +408,37 @@ describe("Capture merged empty state", () => {
         };
         const { container: coldClear } = render(<CaptureWindow variant="clear" />);
         expect(coldClear.querySelector<HTMLElement>(".capture-sky")?.style.getPropertyValue("--sky-warmth")).toBe("2%");
+    });
+
+    it("enforces the shared minimum viable board column width on both BoardCanvas and FoldColumn", () => {
+        const { container: canvas } = render(
+            <BoardCanvas
+                fill
+                columns={[
+                    { id: "new", title: "New", count: 1, content: <div>A</div> },
+                    { id: "no-day", title: "No day yet", count: 1, content: <div>B</div> },
+                    { id: "notes", title: "Notes", count: 1, content: <div>C</div> },
+                ]}
+            />,
+        );
+        const wrappers = canvas.querySelectorAll(`[class*="${BOARD_COLUMN_MIN_WIDTH}"]`);
+        expect(wrappers).toHaveLength(3);
+        wrappers.forEach((el) => expect(el.className).toContain("flex-1"));
+
+        const { container: foldOpen } = render(
+            <FoldColumn hidden={false}>
+                <div>Column</div>
+            </FoldColumn>,
+        );
+        expect(foldOpen.firstElementChild?.className).toContain(BOARD_COLUMN_MIN_WIDTH);
+        expect(foldOpen.firstElementChild?.className).toContain("flex-1");
+
+        const { container: foldHidden } = render(
+            <FoldColumn hidden>
+                <div>Hidden</div>
+            </FoldColumn>,
+        );
+        expect(foldHidden.firstElementChild?.className).not.toContain(BOARD_COLUMN_MIN_WIDTH);
+        expect(foldHidden.firstElementChild?.className).toContain("min-w-0");
     });
 });

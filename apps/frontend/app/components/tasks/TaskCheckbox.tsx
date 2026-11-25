@@ -62,11 +62,11 @@ function checkboxLabel({ fixed, title, isComplete, isPendingComplete, isWaiting 
     return isWaiting ? "Finish waiting" : "Mark complete";
 }
 
-function FixedMark({ compact }: { compact: boolean }) {
+function FixedMark() {
     return (
         <span
             className={`relative z-10 flex items-center justify-center rounded-full border border-moonlit/35 bg-moonlit/10 text-moonlit ${
-                compact ? "h-6 w-6" : "h-8 w-8 lg:h-6 lg:w-6"
+                RING
             }`}
             aria-hidden="true"
         >
@@ -75,9 +75,11 @@ function FixedMark({ compact }: { compact: boolean }) {
     );
 }
 
-function markSize(small: boolean, compact: boolean) {
-    if (small) return "h-5 w-5";
-    return compact ? "h-6 w-6" : "h-8 w-8 lg:h-6 lg:w-6";
+/** The visible ring is one 22px title line tall on every device; only the button around it grows for touch. */
+const RING = "size-[22px]";
+
+function markSize(small: boolean) {
+    return small ? "h-5 w-5" : RING;
 }
 
 function markTone(confirmed: boolean, isWaiting: boolean) {
@@ -118,7 +120,7 @@ function CheckMark({
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.92 }}
                         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                        className={`absolute rounded-full border border-accent-primary/20 bg-accent-primary/[0.035] ${compact ? "inset-[3px]" : "inset-[5px] lg:inset-[3px]"}`}
+                        className={`absolute rounded-full border border-accent-primary/20 bg-accent-primary/[0.035] inset-0 m-auto size-[26px]`}
                         style={{
                             boxShadow: `0 0 ${4 + countdownProgress * 6}px color-mix(in srgb, var(--accent-primary) ${Math.round((0.08 + countdownProgress * 0.08) * 100)}%, transparent)`,
                         }}
@@ -141,7 +143,7 @@ function CheckMark({
                         : { scale: 1, boxShadow: "0 0 0 color-mix(in srgb, var(--accent-primary) 0%, transparent)" }
                 }
                 transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
-                className={`relative z-10 flex items-center justify-center rounded-full border-[1.5px] transition-[background-color,border-color,color] duration-200 ${markSize(small, compact)} ${markTone(confirmed, isWaiting)}`}
+                className={`relative z-10 flex items-center justify-center rounded-full border-[1.5px] transition-[background-color,border-color,color] duration-200 ${markSize(small)} ${markTone(confirmed, isWaiting)}`}
             >
                 <AnimatePresence mode="wait" initial={false}>
                     {confirmed ? (
@@ -293,7 +295,7 @@ export function TaskCheckbox({ task, subtask, compact = false, readOnly }: TaskC
             disabled={fixed || locked}
             className={`group relative flex shrink-0 items-center justify-center rounded-full transition-colors duration-200 ${
                 fixed || locked ? "cursor-default" : "cursor-pointer"
-            } ${compact ? "h-8 w-8" : "mt-0.5 h-11 w-11 lg:h-8 lg:w-8"}`}
+            } ${compact ? "h-8 w-8" : "h-11 w-11 lg:h-8 lg:w-8"}`}
             aria-label={
                 locked
                     ? `${title}: view only`
@@ -301,7 +303,7 @@ export function TaskCheckbox({ task, subtask, compact = false, readOnly }: TaskC
             }
         >
             {fixed ? (
-                <FixedMark compact={compact} />
+                <FixedMark />
             ) : (
                 <CheckMark
                     compact={compact}

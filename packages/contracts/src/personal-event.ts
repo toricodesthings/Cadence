@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { localDateSchema } from "./common";
+import { listMemberSchema, listRoleSchema } from "./sharing";
 
 export const personalEventSchema = z.object({
     id: z.uuid(),
@@ -13,14 +14,23 @@ export const personalEventSchema = z.object({
 });
 export type PersonalEvent = z.infer<typeof personalEventSchema>;
 
-// No .default()s on create schemas: an omitted field takes its DB column default.
-export const insertPersonalEventSchema = personalEventSchema.omit({ id: true }).extend({
-    /** Client-chosen id, so it can be used before it syncs. */
-    id: z.uuid().optional(),
-    emoji: personalEventSchema.shape.emoji.optional(),
-    notify: z.boolean().optional(),
-    startedOn: personalEventSchema.shape.startedOn.optional(),
+export const sharedEventSchema = personalEventSchema.extend({
+    access: listRoleSchema,
+    members: z.array(listMemberSchema),
 });
+export type SharedEvent = z.infer<typeof sharedEventSchema>;
+
+// No .default()s on create schemas: an omitted field takes its DB column default.
+export const insertPersonalEventSchema = personalEventSchema
+    .omit({ id: true })
+    .extend({
+        /** Client-chosen id, so it can be used before it syncs. */
+        id: z.uuid().optional(),
+        emoji: personalEventSchema.shape.emoji.optional(),
+        notify: z.boolean().optional(),
+        startedOn: personalEventSchema.shape.startedOn.optional(),
+    })
+    .strict();
 export type InsertPersonalEvent = z.infer<typeof insertPersonalEventSchema>;
 
 export const updatePersonalEventSchema = personalEventSchema.omit({ id: true }).partial().strict();

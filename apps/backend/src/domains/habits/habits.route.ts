@@ -1,11 +1,10 @@
 import { tracing } from "cloudflare:workers";
 import { Hono } from "hono";
-import { eq, and, inArray, gte, lte, desc } from "drizzle-orm";
+import { eq, and, inArray, gte, lte } from "drizzle-orm";
 import { getIdempotencyKey } from "../../platform/idempotency";
 import { withCallerRls } from "../../platform/caller-rls";
 import { daysBetween, todayIn } from "@cadence/domain/time";
-import { userZone } from "../../platform/user-zone";
-import { habits, habitLogs, habitTags } from "../../db/schema";
+import { habitLogs, habitTags } from "../../db/schema";
 import {
     insertHabitSchema,
     updateHabitSchema,
@@ -16,16 +15,19 @@ import {
 import { uuidParamSchema } from "@cadence/contracts/common";
 import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
-import { throwIfNotFound } from "../../platform/errors";
+import { AppError, throwIfNotFound } from "../../platform/errors";
+import { noteAudience, noteChange, requireOwner, routineAccess } from "../../platform/list-access";
 import { apiValidator } from "../../platform/validation";
 import { recordPersonActivity } from "../ai/memory/memory.service";
+import { replanReminders } from "../push/reminder-clock";
 import {
     createHabit,
     deleteHabit,
+    loadHabitsForCaller,
     projectHabitRange,
     resolveHabit,
+    setRoutineMemberPrefs,
     updateHabit,
-    withLiveStreaks,
 } from "./habits.service";
 
 export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
@@ -38,7 +40,18 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             const { id } = c.req.valid("param");
             const body = c.req.valid("json");
 
-            const result = await withCallerRls(c, (tx) => resolveHabit(tx, userId, id, body));
+            const { result, access } = await withCallerRls(c, async (tx) => {
+                const result = await resolveHabit(tx, userId, id, body);
+                const access = await routineAccess(tx, userId, id);
+                return { result, access };
+            });
+            if (access.audience.length > 1) {
+                noteAudience(c, access);
+                noteChange(c, { type: "routine" });
+                if (access.shareMode === "turns") {
+                    for (const uid of access.audience) c.executionCtx.waitUntil(replanReminders(c.env, uid));
+                }
+            }
             // A check-in the person made in the app: a signal for memory (Full), never one from the assistant.
             if (body.status === "COMPLETED") {
                 c.executionCtx.waitUntil(
@@ -65,29 +78,54 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
     })
     .patch("/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateHabitSchema), async (c) => {
         const { id } = c.req.valid("param");
+        const patch = c.req.valid("json");
 
-        const updated = await withCallerRls(c, (tx, userId) => updateHabit(tx, userId, id, c.req.valid("json")));
+        const { updated, access, tagIds } = await withCallerRls(c, async (tx, userId) => {
+            const access = await routineAccess(tx, userId, id);
+            if (access.role === "view") {
+                throw new AppError(403, "VIEW_ONLY", "You're cheering this one on; you can't edit it.");
+            }
+            if (access.role === "owner") {
+                const updated = await updateHabit(tx, userId, id, patch);
+                const tags = await tx
+                    .select({ tagId: habitTags.tagId })
+                    .from(habitTags)
+                    .where(eq(habitTags.habitId, id));
+                return { updated, access, tagIds: tags.map((t) => t.tagId) };
+            }
 
-        throwIfNotFound(updated, "Habit");
-
-        // Fetch current tag IDs
-        const tags = await withCallerRls(c, async (tx) => {
-            return tx.select({ tagId: habitTags.tagId }).from(habitTags).where(eq(habitTags.habitId, id));
+            // Participant (`edit`): owner-only fields are refused; personal fields go to routine_members.
+            if (patch.archived !== undefined || patch.projectId !== undefined || patch.tagIds !== undefined) {
+                requireOwner(access, "routine");
+            }
+            const { reminderEnabled, sortOrder, pausedUntil, ...defPatch } = patch;
+            if (reminderEnabled !== undefined || sortOrder !== undefined || pausedUntil !== undefined) {
+                await setRoutineMemberPrefs(tx, id, { reminderEnabled, sortOrder, pausedUntil });
+            }
+            if (Object.keys(defPatch).length > 0) {
+                await updateHabit(tx, access.ownerId, id, defPatch);
+            }
+            const { rows } = await loadHabitsForCaller(tx, userId, { habitId: id });
+            const row = rows[0];
+            throwIfNotFound(row, "Habit");
+            const { participants: _p, ...rest } = row;
+            return { updated: rest, access, tagIds: [] as string[] };
         });
 
-        return c.json({ data: { ...updated, tagIds: tags.map((t) => t.tagId) } });
+        if (access.audience.length > 1) {
+            noteAudience(c, access);
+            noteChange(c, { type: "routine" });
+        }
+
+        return c.json({ data: { ...updated, tagIds } });
     })
     // Base list parity: `/` and `/weekly` both use the same `archived` semantics.
     .get("/", apiValidator("query", habitListQuerySchema), async (c) => {
         const { archived } = c.req.valid("query");
 
         const allHabits = await withCallerRls(c, async (tx, userId) => {
-            const rows = await tx
-                .select()
-                .from(habits)
-                .where(and(eq(habits.userId, userId), eq(habits.archived, archived)))
-                .orderBy(desc(habits.createdAt));
-            return withLiveStreaks(tx, userId, rows, await userZone(tx, userId));
+            const { rows } = await loadHabitsForCaller(tx, userId, { archived });
+            return rows.map(({ participants: _p, ...rest }) => rest);
         });
 
         c.header("Cache-Control", "private, no-store");
@@ -95,32 +133,20 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
     })
     .get("/weekly", apiValidator("query", weeklyHabitsQuerySchema), async (c) => {
         const { start, end, archived } = c.req.valid("query");
+        const callerId = c.get("userId");
 
         const snapshot = await withCallerRls(c, async (tx, userId) => {
-            const zone = await userZone(tx, userId);
-            const userHabits = await withLiveStreaks(
-                tx,
-                userId,
-                await tx
-                    .select()
-                    .from(habits)
-                    .where(and(eq(habits.userId, userId), eq(habits.archived, archived || false))),
-                zone,
-            );
+            const { rows: userHabits, zone } = await loadHabitsForCaller(tx, userId, { archived: archived || false });
 
-            if (userHabits.length === 0) return { userHabits, logs: [], allTags: [], zone };
+            if (userHabits.length === 0) return { userHabits, logs: [], allTags: [], zone, callerId };
 
             const habitIds = userHabits.map((h) => h.id);
-
-            // Both reads depend on the habit ids, but not on each other.
-            // Postgres.js pipelines them on this transaction's connection.
             const [logs, allTags] = await Promise.all([
                 tx
                     .select()
                     .from(habitLogs)
                     .where(
                         and(
-                            eq(habitLogs.userId, userId),
                             inArray(habitLogs.habitId, habitIds),
                             gte(habitLogs.targetDate, start),
                             lte(habitLogs.targetDate, end),
@@ -129,10 +155,10 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 tx
                     .select({ habitId: habitTags.habitId, tagId: habitTags.tagId })
                     .from(habitTags)
-                    .where(inArray(habitTags.habitId, habitIds)),
+                    .where(and(eq(habitTags.userId, userId), inArray(habitTags.habitId, habitIds))),
             ]);
 
-            return { userHabits, logs, allTags, zone };
+            return { userHabits, logs, allTags, zone, callerId };
         });
 
         c.header("Cache-Control", "private, no-store");
@@ -158,11 +184,10 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         const { id } = c.req.valid("param");
 
         const habit = await withCallerRls(c, async (tx, userId) => {
-            const [row] = await tx
-                .select()
-                .from(habits)
-                .where(and(eq(habits.id, id), eq(habits.userId, userId)));
-            return row && (await withLiveStreaks(tx, userId, [row], await userZone(tx, userId)))[0];
+            const { rows } = await loadHabitsForCaller(tx, userId, { habitId: id });
+            if (!rows[0]) return undefined;
+            const { participants: _p, ...rest } = rows[0];
+            return rest;
         });
 
         throwIfNotFound(habit, "Habit");
@@ -172,6 +197,16 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
     .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
 
-        const deleted = await withCallerRls(c, (tx, userId) => deleteHabit(tx, userId, id));
+        const { deleted, access } = await withCallerRls(c, async (tx, userId) => {
+            const access = await routineAccess(tx, userId, id);
+            requireOwner(access, "routine");
+            const deleted = await deleteHabit(tx, userId, id);
+            return { deleted, access };
+        });
+        if (access.audience.length > 1) {
+            noteAudience(c, access);
+            noteChange(c, { type: "routine" });
+            for (const uid of access.audience) c.executionCtx.waitUntil(replanReminders(c.env, uid));
+        }
         return c.json({ data: deleted });
     });

@@ -1,5 +1,7 @@
 import type { CSSProperties } from "react";
-import type { PersonalEvent } from "@cadence/contracts/personal-event";
+import type { PersonalEvent, SharedEvent } from "@cadence/contracts/personal-event";
+
+export type MaybeSharedEvent = PersonalEvent & Partial<Pick<SharedEvent, "access" | "members">>;
 import { PROJECT_ACCENT_OPTIONS } from "../constants/colors";
 import { daysBetween, type LocalDate } from "@cadence/domain/time";
 import { nextPersonalEventDay, personalEventDay } from "@cadence/domain/reminders";
@@ -48,7 +50,7 @@ export function eventToneStyle(color: string | null | undefined): CSSProperties 
 export type PersonalEventSortMode = "next" | "alphabetical" | "month-day" | "reminders";
 
 export interface PersonalEventViewModel {
-    event: PersonalEvent;
+    event: MaybeSharedEvent;
     nextDate: string;
     nextDateLabel: string;
     countdownLabel: string;
@@ -90,7 +92,10 @@ export function getPersonalEventMilestoneLabel(startedOn: string | null | undefi
     return `Marks ${yearsElapsed} years`;
 }
 
-export function toPersonalEventViewModel(event: PersonalEvent, today: LocalDate = todayDay()): PersonalEventViewModel {
+export function toPersonalEventViewModel(
+    event: MaybeSharedEvent,
+    today: LocalDate = todayDay(),
+): PersonalEventViewModel {
     const nextDate = getNextPersonalEventDate(event, today);
     const daysUntil = daysBetween(today, nextDate);
 

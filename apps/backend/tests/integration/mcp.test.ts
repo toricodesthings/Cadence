@@ -1016,4 +1016,27 @@ describe("2.2.2 Code Mode", () => {
         expect(host.describe).toHaveBeenCalledWith(expect.anything(), "cadence");
         expect((await call(mcp, "search", {})).isError).toBe(true);
     });
+
+    it("get_events as a member returns a shared personal event", async () => {
+        const owner = await createUser({ name: "Tori" });
+        const member = await createUser({ name: "Sam" });
+        const { rows } = await asOwner((pg) =>
+            pg.query<{ id: string }>(
+                "INSERT INTO personal_events (user_id, label, month_day, emoji) VALUES ($1, 'Anniversary', '06-14', '💍') RETURNING id",
+                [owner],
+            ),
+        );
+        await asOwner((pg) =>
+            pg.query("INSERT INTO event_members (event_id, user_id, role) VALUES ($1, $2, 'edit')", [
+                rows[0].id,
+                member,
+            ]),
+        );
+        const mcp = mcpAs(member, await connect(member, ["cadence:read"]), ["cadence:read"]);
+        const res = await call(mcp, "get_events", {});
+        expect(res.isError).toBeFalsy();
+        expect(res.data.events).toEqual([
+            expect.objectContaining({ id: rows[0].id, label: "Anniversary", shared: true, sharedBy: "Tori" }),
+        ]);
+    });
 });

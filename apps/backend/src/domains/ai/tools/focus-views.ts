@@ -10,6 +10,7 @@ import type { Tx } from "../../../types/db";
 import type { AgentContext } from "./index";
 import { safeExecute, once } from "./index";
 import { DEFAULT_DEFINITION } from "@cadence/nlp/focus-views";
+import { ensureFocusPresets, hideOrDeleteFocusView } from "../../settings/focus-presets";
 import {
     focusViewDefinitionSchema,
     savedFocusViewInputSchema,
@@ -81,8 +82,9 @@ export const focusViewTools = (env: Env, userId: string, _ctx: AgentContext) => 
             inputSchema: z.object({}),
             execute: async () =>
                 safeExecute("get_focus_views", userId, async () => {
-                    const rows = await withRls(getDbClient(env), userId, (tx) =>
-                        tx
+                    const rows = await withRls(getDbClient(env), userId, async (tx) => {
+                        await ensureFocusPresets(tx, userId);
+                        return tx
                             .select({
                                 id: savedFocusViews.id,
                                 name: savedFocusViews.name,
@@ -90,14 +92,14 @@ export const focusViewTools = (env: Env, userId: string, _ctx: AgentContext) => 
                                 definition: savedFocusViews.definition,
                             })
                             .from(savedFocusViews)
-                            .where(eq(savedFocusViews.userId, userId))
+                            .where(and(eq(savedFocusViews.userId, userId), eq(savedFocusViews.isHidden, false)))
                             .orderBy(
                                 desc(savedFocusViews.isPinned),
                                 asc(savedFocusViews.orderIndex),
                                 asc(savedFocusViews.createdAt),
                             )
-                            .limit(50),
-                    );
+                            .limit(50);
+                    });
                     return { views: rows.map(toMinimalFocusView) };
                 }),
         }),
@@ -163,16 +165,14 @@ export const focusViewTools = (env: Env, userId: string, _ctx: AgentContext) => 
 
         // ── D ──────────────────────────────────────────────────────────────────
         delete_focus_view: tool({
-            description: "Deletes a saved focus view for good; no task changes. Echo the name.",
+            description: "Deletes a focus view (a built-in preset is hidden instead); no task changes. Echo the name.",
             inputSchema: z.object({ focusViewId: z.uuid(), name: z.string().max(120) }),
             execute: async ({ focusViewId }, { toolCallId }) =>
                 safeExecute("delete_focus_view", userId, async () =>
                     withRls(getDbClient(env), userId, (tx) =>
                         once(tx, userId, toolCallId, async () => {
                             const row = await find(tx, focusViewId);
-                            await tx
-                                .delete(savedFocusViews)
-                                .where(and(eq(savedFocusViews.id, focusViewId), eq(savedFocusViews.userId, userId)));
+                            await hideOrDeleteFocusView(tx, userId, focusViewId);
                             return { result: { deleted: row.name }, id: userId };
                         }),
                     ),

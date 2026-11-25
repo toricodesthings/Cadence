@@ -5,10 +5,11 @@ import type { FocusViewDefinition, FocusViewPreset } from "@cadence/nlp/focus-vi
 import type { FocusViewSource, SavedFocusView as SavedFocusViewEntity } from "@cadence/contracts/settings";
 
 /** A saved view as the store holds it: from the API, or saved locally ("custom", written as "manual"). */
-export type SavedFocusView = Pick<SavedFocusViewEntity, "id" | "name" | "isPinned" | "orderIndex"> & {
-    definition: FocusViewDefinition;
-    source: FocusViewSource | "custom";
-};
+export type SavedFocusView = Pick<SavedFocusViewEntity, "id" | "name" | "isPinned" | "orderIndex"> &
+    Partial<Pick<SavedFocusViewEntity, "presetKey" | "icon" | "color">> & {
+        definition: FocusViewDefinition;
+        source: FocusViewSource | "custom";
+    };
 
 export type CaptureOrder = "newest" | "oldest" | "priority";
 

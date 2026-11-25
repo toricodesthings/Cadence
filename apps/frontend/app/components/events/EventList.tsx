@@ -7,6 +7,7 @@ import {
     type PersonalEventSortMode,
     type PersonalEventViewModel,
 } from "../../lib/utils/personal-events";
+import { SharedEventMark } from "../sharing/SharedEventMark";
 import type { EventActions } from "./EventCard";
 import { EventMenuItems } from "./EventMenuItems";
 
@@ -69,7 +70,9 @@ function EventRow({
     selected,
     onOpen,
     onEdit,
+    onShare,
     onDelete,
+    onRemoveFromMyEvents,
     onToggleReminder,
     onOpenInSchedule,
 }: Omit<EventListProps, "events" | "sort" | "today" | "selectedEventId"> & {
@@ -107,9 +110,11 @@ function EventRow({
                     Menu={DropdownMenu}
                     event={event}
                     onEdit={onEdit}
+                    onShare={onShare}
                     onOpenInSchedule={onOpenInSchedule}
                     onToggleReminder={onToggleReminder}
                     onDelete={onDelete}
+                    onRemoveFromMyEvents={onRemoveFromMyEvents}
                 />
             </DropdownMenu.Content>
         </DropdownMenu.Root>
@@ -128,8 +133,11 @@ function EventRow({
                 {event.emoji ?? "🎉"}
             </span>
             <span className="min-w-0 flex-1">
-                <span className="block truncate text-[15px] font-medium leading-snug text-twilight-text">
-                    {event.label}
+                <span className="flex items-center gap-1.5">
+                    <span className="truncate text-[15px] font-medium leading-snug text-twilight-text">
+                        {event.label}
+                    </span>
+                    <SharedEventMark event={event} />
                 </span>
                 {stacked || item.milestoneLabel ? (
                     <span className="block truncate text-xs text-twilight-text-muted">

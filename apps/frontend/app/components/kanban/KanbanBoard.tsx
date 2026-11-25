@@ -487,7 +487,7 @@ export function KanbanBoard({
                         .filter((column) => column.id === "ungrouped")
                         .map((column) => (
                             <FoldColumn key={column.id} hidden={hideEmptySections && column.tasks.length === 0}>
-                                <div className="h-full w-[min(24rem,80vw)]">
+                                <div className="h-full w-full">
                                     <KanbanColumn {...columnProps(column)} />
                                 </div>
                             </FoldColumn>
@@ -500,11 +500,7 @@ export function KanbanBoard({
                             .filter((column) => column.id !== "ungrouped")
                             .map((column, index, columns) => (
                                 <FoldColumn key={column.id} hidden={hideEmptySections && column.tasks.length === 0}>
-                                    <SortableSection
-                                        id={column.id}
-                                        name={column.name}
-                                        className="h-full w-[min(24rem,80vw)]"
-                                    >
+                                    <SortableSection id={column.id} name={column.name} className="h-full w-full">
                                         {(grip) => (
                                             <KanbanColumn
                                                 {...columnProps(column)}

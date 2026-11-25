@@ -26,6 +26,7 @@ import { SharedMoveConfirmHost } from "./components/sharing/MoveToSharedConfirm"
 import { SPRINGS } from "./lib/constants/motion";
 import { getWalSnapshot, initWal } from "./lib/api/offline-wal";
 import { startWalSync } from "./lib/api/mutation-executor";
+import { shouldRetry } from "./lib/api/retry";
 import { log, reportError } from "./lib/log";
 import { CADENCE_BUILD_ID, CADENCE_VERSION } from "./lib/constants/app-info";
 import {
@@ -149,13 +150,6 @@ function AccountProviders({ children }: { children: ReactNode }) {
     // Auth errors and validation errors are never retried. A rate-limited read
     // isn't either: retrying inside the window only extends it, and the next
     // focus or visit refetches anyway.
-    const shouldRetry = (failureCount: number, error: Error, maxRetries: number, retryRateLimited: boolean) => {
-        if (!(error instanceof ApiErrorResponse)) return failureCount < maxRetries;
-        if (error.isAuthError) return false;
-        if (error.isRateLimited && !retryRateLimited) return false;
-        return error.isRetryable && failureCount < maxRetries;
-    };
-
     // Exponential backoff; a rate-limited write waits as long as the server asked.
     const retryDelay = (attempt: number, error: Error) => {
         if (error instanceof ApiErrorResponse && error.isRateLimited) {

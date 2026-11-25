@@ -33,15 +33,19 @@ import { ContextualAddOrb } from "../components/shared/ContextualAddOrb";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useRightPanelStore } from "../stores/right-panel-store";
 import { PersonalEventEditorDialog } from "../components/events/PersonalEventEditorDialog";
+import { ShareEventSheet } from "../components/sharing/ShareEventSheet";
+import { ConfirmDanger } from "../components/shared/ConfirmDanger";
 import { useToday } from "../lib/utils/user-zone";
 import { cn } from "../lib/utils";
 import { usePersonalEvents } from "../hooks/calendar/use-personal-events";
+import { useEventPeople, useRemoveFromMyEvents } from "../hooks/sharing/use-share-event";
 import { useRouteFocus } from "../hooks/search/use-route-focus";
 import type { PersonalEvent } from "@cadence/contracts/personal-event";
 import {
     getNextPersonalEventDate,
     sortPersonalEventViewModels,
     toPersonalEventViewModel,
+    type MaybeSharedEvent,
     type PersonalEventSortMode,
     type PersonalEventView,
 } from "../lib/utils/personal-events";
@@ -168,7 +172,7 @@ type EventsBodyProps = EventActions & {
     stacked: boolean;
     selectedEventId: string | null;
     onAdd: () => void;
-    onRename: (event: PersonalEvent, label: string) => void;
+    onRename: (event: MaybeSharedEvent, label: string) => void;
 };
 
 /** The events as a list or as cards; the first-event invitation when there are none. */
@@ -182,7 +186,9 @@ function EventsBody({
     onAdd,
     onOpen,
     onEdit,
+    onShare,
     onDelete,
+    onRemoveFromMyEvents,
     onToggleReminder,
     onOpenInSchedule,
     onRename,
@@ -199,7 +205,9 @@ function EventsBody({
                     selectedEventId={selectedEventId}
                     onOpen={onOpen}
                     onEdit={onEdit}
+                    onShare={onShare}
                     onDelete={onDelete}
+                    onRemoveFromMyEvents={onRemoveFromMyEvents}
                     onToggleReminder={onToggleReminder}
                     onOpenInSchedule={onOpenInSchedule}
                 />
@@ -214,7 +222,9 @@ function EventsBody({
                     item={item}
                     onOpen={onOpen}
                     onEdit={onEdit}
+                    onShare={onShare}
                     onDelete={onDelete}
+                    onRemoveFromMyEvents={onRemoveFromMyEvents}
                     onToggleReminder={onToggleReminder}
                     onOpenInSchedule={onOpenInSchedule}
                     onRename={onRename}
@@ -240,11 +250,18 @@ export default function EventsRoute() {
     const personalEvents = usePersonalEvents(currentYear);
 
     const [editorOpen, setEditorOpen] = useState(false);
+    const [sharingEventId, setSharingEventId] = useState<string | null>(null);
+    const [confirmDeleteEvent, setConfirmDeleteEvent] = useState<MaybeSharedEvent | null>(null);
+    // Leaving a shared date: confirmed first, since coming back needs a new link from its owner.
+    const [confirmLeaveEvent, setConfirmLeaveEvent] = useState<MaybeSharedEvent | null>(null);
     const [searchParams] = useSearchParams();
     // ?event=<id> (from Today/Upcoming) opens that event's details.
     const [selectedEventId, setSelectedEventId] = useState<string | null>(() => searchParams.get("event"));
     const [detailMode, setDetailMode] = useState<"peek" | "focus">("peek");
     const editingEvent = personalEvents.items.find((event) => event.id === selectedEventId);
+    const sharingEvent = personalEvents.items.find((event) => event.id === sharingEventId);
+    const removeFromMyEvents = useRemoveFromMyEvents();
+    const { data: confirmPeople } = useEventPeople(confirmDeleteEvent ?? confirmLeaveEvent ?? undefined);
     // View and order are this device's (a phone may want the list, a desk the cards); unknown values fall back.
     const [savedSort, setSavedSort] = useDeviceValue("cadence:events:sort");
     const [savedView, setSavedView] = useDeviceValue("cadence:events:view");
@@ -298,11 +315,23 @@ export default function EventsRoute() {
     };
 
     const closeDetails = () => setSelectedEventId(null);
-    const toggleReminder = (event: PersonalEvent) =>
+    const toggleReminder = (event: MaybeSharedEvent) =>
         personalEvents.updateEvent(event.id, { ...event, notify: !event.notify });
 
-    const deleteEvent = (event: PersonalEvent) => {
+    const commitDeleteEvent = (event: MaybeSharedEvent) => {
         personalEvents.removeEvent(event.id);
+        if (selectedEventId === event.id) closeDetails();
+    };
+    const deleteEvent = (event: MaybeSharedEvent) => {
+        if ((event.access ?? "owner") === "owner" && (event.members?.length ?? 0) > 0) {
+            setConfirmDeleteEvent(event);
+            return;
+        }
+        commitDeleteEvent(event);
+    };
+    const handleRemoveFromMyEvents = (event: MaybeSharedEvent) => setConfirmLeaveEvent(event);
+    const commitRemoveFromMyEvents = (event: MaybeSharedEvent) => {
+        removeFromMyEvents.mutate({ eventId: event.id, label: event.label });
         if (selectedEventId === event.id) closeDetails();
     };
     const detailPanel = editingEvent ? (
@@ -312,7 +341,9 @@ export default function EventsRoute() {
             event={editingEvent}
             onChange={(patch) => personalEvents.updateEvent(editingEvent.id, patch)}
             onClose={closeDetails}
+            onShare={() => setSharingEventId(editingEvent.id)}
             onDelete={() => deleteEvent(editingEvent)}
+            onRemoveFromMyEvents={() => handleRemoveFromMyEvents(editingEvent)}
             detailMode={detailMode}
             onDetailModeChange={shell.isWide ? undefined : setDetailMode}
         />
@@ -364,7 +395,9 @@ export default function EventsRoute() {
                         onAdd={openCreate}
                         onOpen={toggleEdit}
                         onEdit={openEdit}
+                        onShare={(event) => setSharingEventId(event.id)}
                         onDelete={deleteEvent}
+                        onRemoveFromMyEvents={handleRemoveFromMyEvents}
                         onToggleReminder={toggleReminder}
                         onOpenInSchedule={(event) => handleOpenSchedule(getNextPersonalEventDate(event))}
                         onRename={(event, label) => personalEvents.updateEvent(event.id, { ...event, label })}
@@ -386,6 +419,43 @@ export default function EventsRoute() {
                 submitLabel="Add event"
                 onClose={() => setEditorOpen(false)}
                 onSubmit={handleSubmit}
+            />
+
+            {sharingEvent ? (
+                <ShareEventSheet
+                    event={sharingEvent}
+                    open={Boolean(sharingEvent)}
+                    onOpenChange={(open) => !open && setSharingEventId(null)}
+                />
+            ) : null}
+
+            <ConfirmDanger
+                trigger={null}
+                open={Boolean(confirmDeleteEvent || confirmLeaveEvent)}
+                onOpenChange={(open) => {
+                    if (open) return;
+                    setConfirmDeleteEvent(null);
+                    setConfirmLeaveEvent(null);
+                }}
+                title={confirmLeaveEvent ? "Remove from your events?" : "Delete for everyone?"}
+                description={(() => {
+                    if (confirmLeaveEvent) {
+                        const owner = confirmPeople?.find((p) => p.role === "owner")?.name ?? "its owner";
+                        return `It leaves your calendar. To add it back, you'll need a new link from ${owner}.`;
+                    }
+                    const member = confirmPeople?.find((p) => p.role !== "owner");
+                    if (confirmDeleteEvent && (confirmDeleteEvent.members?.length ?? 0) === 1 && member?.name) {
+                        return `${member.name} won't see it anymore either.`;
+                    }
+                    return "Everyone it's shared with won't see it anymore either.";
+                })()}
+                confirmLabel={confirmLeaveEvent ? "Remove" : "Delete"}
+                onConfirm={() => {
+                    if (confirmLeaveEvent) commitRemoveFromMyEvents(confirmLeaveEvent);
+                    else if (confirmDeleteEvent) commitDeleteEvent(confirmDeleteEvent);
+                    setConfirmDeleteEvent(null);
+                    setConfirmLeaveEvent(null);
+                }}
             />
         </MainLayout>
     );

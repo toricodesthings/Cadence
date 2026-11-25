@@ -14,6 +14,7 @@ export function PickerSurface({
     open,
     onOpenChange,
     tip,
+    tipCard = false,
     flush = false,
     contentProps,
     children,
@@ -25,7 +26,9 @@ export function PickerSurface({
     open: boolean;
     onOpenChange: (open: boolean) => void;
     /** Tooltip for an icon-only trigger (pointer only). */
-    tip?: string;
+    tip?: React.ReactNode;
+    /** `tip` is a card (a profile) shown on hover while the picker is closed. */
+    tipCard?: boolean;
     /** The children own their padding in the sheet. */
     flush?: boolean;
     contentProps?: React.ComponentPropsWithoutRef<typeof Popover.Content>;
@@ -53,7 +56,7 @@ export function PickerSurface({
     return (
         <Popover.Root open={open} onOpenChange={onOpenChange}>
             {tip ? (
-                <Tip label={tip} side="bottom">
+                <Tip label={tip} side="bottom" card={tipCard} disabled={tipCard && open}>
                     {anchor}
                 </Tip>
             ) : (

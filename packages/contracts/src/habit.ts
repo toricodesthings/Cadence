@@ -1,6 +1,29 @@
 import { z } from "zod";
 import { instantSchema, localDateSchema, wallTimeSchema } from "./common";
 import { linkedAppIdSchema, linkedUrlSchema } from "./app-link";
+import { listMemberSchema, listRoleSchema } from "./sharing";
+
+export const routineShareModeSchema = z.enum(["together", "turns"]);
+export type RoutineShareMode = z.infer<typeof routineShareModeSchema>;
+
+export const routineOtherCompletionSchema = z.object({
+    userId: z.uuid(),
+    status: z.literal("COMPLETED"),
+});
+export const routineDayShareSchema = z.object({
+    turn: z.uuid().nullable(),
+    others: z.array(routineOtherCompletionSchema),
+});
+export type RoutineDayShare = z.infer<typeof routineDayShareSchema>;
+
+export const routineTodaySchema = routineDayShareSchema.extend({
+    cheers: z.array(z.uuid()),
+});
+export type RoutineToday = z.infer<typeof routineTodaySchema>;
+
+export const setTurnOrderSchema = z.object({ order: z.array(z.uuid()).min(2).max(20) });
+export const setShareModeSchema = z.object({ mode: routineShareModeSchema });
+export const cheerSchema = z.object({ targetDate: localDateSchema });
 
 export const habitStatusSchema = z.enum(["COMPLETED", "SKIPPED", "PENDING"]);
 export type HabitStatus = z.infer<typeof habitStatusSchema>;
@@ -130,6 +153,9 @@ export const habitRowSchema = z.object({
     times: z.array(z.string()).nullable(),
     linkedAppId: z.string().nullable(),
     linkedUrl: z.string().nullable(),
+    shareMode: routineShareModeSchema.nullable(),
+    turnOrder: z.array(z.uuid()).nullable(),
+    turnsFrom: z.string().nullable(),
     createdAt: instantSchema,
     updatedAt: instantSchema,
 });
@@ -168,6 +194,13 @@ export const habitSchema = habitRowSchema.extend({
     linkedAppId: z.string().nullable().optional(),
     /** Re-checked with `parseWebsite` before any link renders. */
     linkedUrl: z.string().nullable().optional(),
+    shareMode: routineShareModeSchema.nullable().optional(),
+    turnOrder: z.array(z.uuid()).nullable().optional(),
+    turnsFrom: z.string().nullable().optional(),
+    access: listRoleSchema.optional(),
+    members: z.array(listMemberSchema).optional(),
+    today: routineTodaySchema.optional(),
+    days: z.record(z.string(), routineDayShareSchema).optional(),
     tagIds: z.array(z.uuid()).optional(),
     logs: z.array(habitLogSchema).optional(),
     isDueToday: z.boolean().optional(),

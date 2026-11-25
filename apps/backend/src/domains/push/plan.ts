@@ -20,18 +20,10 @@ import type { SettingsView } from "@cadence/contracts/settings";
 import type { PersonalEvent } from "@cadence/contracts/personal-event";
 import { withRls } from "../../platform/rls";
 import { userZone } from "../../platform/user-zone";
-import {
-    devices,
-    habitLogs,
-    habits,
-    notificationState,
-    pushDeliveries,
-    taskPersonal,
-    tasks,
-    users,
-} from "../../db/schema";
+import { devices, habitLogs, notificationState, pushDeliveries, taskPersonal, tasks, users } from "../../db/schema";
 import { normalizeSettings } from "../settings/settings.route";
 import { listEvents } from "../personal-events/personal-events.service";
+import { loadHabitsForCaller, turnFor, turnOrderOf } from "../habits/habits.service";
 import type { PushMessage, PushOutcome } from "./web-push";
 import type { DbClient } from "../../platform/db";
 
@@ -71,7 +63,17 @@ function openUrl(reminder: Reminder): string | null {
     return `${reminder.route}?${focus}`;
 }
 
-type HabitRow = Omit<ReminderHabit, "logs"> & { recurrenceRule: string; createdAt: string; pausedUntil: string | null };
+type HabitRow = Omit<ReminderHabit, "logs"> & {
+    recurrenceRule: string;
+    createdAt: string;
+    pausedUntil: string | null;
+    shareMode?: "together" | "turns" | null;
+    turnOrder?: string[] | null;
+    turnsFrom?: string | null;
+    participants?: string[];
+    callerId?: string;
+    ownerId?: string;
+};
 type Log = NonNullable<ReminderHabit["logs"]>[number];
 type AlertState = { dismissedAt: string | null; deferredUntil: string | null };
 
@@ -93,17 +95,44 @@ function reminderDeriver(input: PlanInput) {
     const routinesOn = (day: string) => {
         let routines = routinesByDay.get(day);
         if (!routines) {
-            routines = input.habits.flatMap(({ recurrenceRule, createdAt, pausedUntil, ...habit }) => {
-                if (habitDays({ recurrenceRule, createdAt, pausedUntil }, new Map(), day, day, zone, day).length === 0)
-                    return [];
-                // An untouched day has no log yet: every time is still open.
-                const log = input.logs.get(habit.id)?.get(day) ?? {
-                    targetDate: day,
-                    status: "PENDING",
-                    timeMarks: null,
-                };
-                return [{ ...habit, logs: [log] }];
-            });
+            routines = input.habits.flatMap(
+                ({
+                    recurrenceRule,
+                    createdAt,
+                    pausedUntil,
+                    shareMode,
+                    turnOrder,
+                    turnsFrom,
+                    participants,
+                    callerId,
+                    ownerId,
+                    ...habit
+                }) => {
+                    if (
+                        habitDays({ recurrenceRule, createdAt, pausedUntil }, new Map(), day, day, zone, day).length ===
+                        0
+                    )
+                        return [];
+                    if (shareMode === "turns" && callerId && participants && participants.length > 0) {
+                        const order = turnOrderOf(
+                            { userId: ownerId ?? callerId, turnOrder: turnOrder ?? null },
+                            participants,
+                        );
+                        if (
+                            turnFor({ recurrenceRule, createdAt, turnsFrom: turnsFrom ?? null }, order, day, zone) !==
+                            callerId
+                        )
+                            return [];
+                    }
+                    // An untouched day has no log yet: every time is still open.
+                    const log = input.logs.get(habit.id)?.get(day) ?? {
+                        targetDate: day,
+                        status: "PENDING",
+                        timeMarks: null,
+                    };
+                    return [{ ...habit, logs: [log] }];
+                },
+            );
             routinesByDay.set(day, routines);
         }
         return routines;
@@ -283,45 +312,57 @@ export async function loadReminderPlan(db: DbClient, userId: string, now: Date):
             });
         }
 
-        // Every reminding routine, and the logs already made for the plan's days.
-        const habitRows: HabitRow[] = await tx
-            .select({
-                id: habits.id,
-                title: habits.title,
-                archived: habits.archived,
-                reminderEnabled: habits.reminderEnabled,
-                targetTime: habits.targetTime,
-                targetTimes: habits.targetTimes,
-                times: habits.times,
-                recurrenceRule: habits.recurrenceRule,
-                createdAt: habits.createdAt,
-                pausedUntil: habits.pausedUntil,
-            })
-            .from(habits)
-            .where(and(eq(habits.userId, userId), eq(habits.archived, false), eq(habits.reminderEnabled, true)));
+        // Every reminding routine (own + shared `edit`, never supporters), and the logs already made for the plan's days.
+        const { rows: allActiveHabits } = await loadHabitsForCaller(tx, userId, { archived: false, zone });
+        const habitRows: HabitRow[] = allActiveHabits
+            .filter((h) => h.access !== "view" && h.reminderEnabled)
+            .map((h) => ({
+                id: h.id,
+                title: h.title,
+                archived: h.archived,
+                reminderEnabled: h.reminderEnabled,
+                targetTime: h.targetTime,
+                targetTimes: h.targetTimes,
+                times: h.times,
+                recurrenceRule: h.recurrenceRule,
+                createdAt: h.createdAt,
+                pausedUntil: h.pausedUntil,
+                shareMode: h.shareMode,
+                turnOrder: h.turnOrder,
+                turnsFrom: h.turnsFrom,
+                participants: h.participants,
+                callerId: userId,
+                ownerId: h.userId,
+            }));
         const logs = new Map<string, Map<string, Log>>();
         if (habitRows.length > 0) {
-            const logRows = await tx
-                .select({
-                    habitId: habitLogs.habitId,
-                    targetDate: habitLogs.targetDate,
-                    status: habitLogs.status,
-                    timeMarks: habitLogs.timeMarks,
-                })
-                .from(habitLogs)
-                .where(
-                    and(
-                        eq(habitLogs.userId, userId),
-                        inArray(
-                            habitLogs.habitId,
-                            habitRows.map((h) => h.id),
-                        ),
-                        between(habitLogs.targetDate, today, lastDay),
-                    ),
-                );
-            for (const { habitId, ...log } of logRows) {
+            const turnsIds = habitRows.filter((h) => h.shareMode === "turns").map((h) => h.id);
+            const soloIds = habitRows.filter((h) => h.shareMode !== "turns").map((h) => h.id);
+            const fetchLogs = (ids: string[], onlyMine: boolean) =>
+                ids.length === 0
+                    ? Promise.resolve([])
+                    : tx
+                          .select({
+                              habitId: habitLogs.habitId,
+                              targetDate: habitLogs.targetDate,
+                              status: habitLogs.status,
+                              timeMarks: habitLogs.timeMarks,
+                          })
+                          .from(habitLogs)
+                          .where(
+                              and(
+                                  ...(onlyMine ? [eq(habitLogs.userId, userId)] : []),
+                                  inArray(habitLogs.habitId, ids),
+                                  between(habitLogs.targetDate, today, lastDay),
+                              ),
+                          );
+            const [soloLogs, turnsLogs] = await Promise.all([fetchLogs(soloIds, true), fetchLogs(turnsIds, false)]);
+            for (const { habitId, ...log } of [...soloLogs, ...turnsLogs]) {
                 if (!logs.has(habitId)) logs.set(habitId, new Map());
-                logs.get(habitId)!.set(log.targetDate, log);
+                const existing = logs.get(habitId)!.get(log.targetDate);
+                if (!existing || log.status === "COMPLETED" || log.status === "SKIPPED") {
+                    logs.get(habitId)!.set(log.targetDate, log);
+                }
             }
         }
 

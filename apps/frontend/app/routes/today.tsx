@@ -1,4 +1,4 @@
-import { TaskRouteControls } from "../components/shared/TaskRouteControls";
+import { TaskRouteControls, useTaskRouteControls } from "../components/shared/TaskRouteControls";
 import { EmptyState } from "../components/tasks/EmptyState";
 import { useTaskIntelligence } from "../hooks/core/use-task-intelligence";
 import { useTaskDetailSelection } from "../hooks/ui/use-task-detail-selection";
@@ -11,8 +11,8 @@ import { MainLayout } from "../components/layout/MainLayout";
 import { EyeToggle } from "../components/shared/EyeToggle";
 import { RoutineAgendaList, routineAgendaItems } from "../components/shared/RoutineAgendaRow";
 import { BucketedRouteBody } from "../components/shared/BucketedCollectionView";
-import { PhoneTaskDetails, TaskDetailsRail } from "../components/shared/TaskDetailsPanels";
-import { DaySpine, SpineSummary, SpineTimeline, type SpineItem } from "../components/today/DaySpine";
+import { PhoneTaskDetails, taskDetailsRailProps } from "../components/shared/TaskDetailsPanels";
+import { DaySpine, SpinePeek, SpineTimeline, type SpineItem } from "../components/today/DaySpine";
 import { FitDayPreview } from "../components/today/FitDayPreview";
 import { UtilitySheet } from "../components/shared/UtilitySheet";
 import { fitTodayReason, useFitDay } from "../hooks/tasks/use-fit-day";
@@ -24,8 +24,6 @@ import { useHabitsRange } from "../hooks/habits/use-habits";
 import { useResolveHabit } from "../hooks/habits/use-resolve-habit";
 import { useShellMode } from "../hooks/ui/use-shell-mode";
 import { useDeviceFlag } from "../hooks/ui/use-device-flag";
-import { useRouteViewMode } from "../hooks/ui/use-route-view-mode";
-import { useSortMode } from "../hooks/ui/use-sort-mode";
 import { useRouteFocus, buildFocusSearchParams } from "../hooks/search/use-route-focus";
 import { useKeyboardShortcuts } from "../hooks/core/use-keyboard-shortcuts";
 import { useSectionNav } from "../hooks/ui/use-section-nav";
@@ -54,10 +52,9 @@ export default function TodayRoute() {
     const shell = useShellMode();
     const guessOf = useEffortGuess();
     const navigate = useNavigate();
-    const { view, setView } = useRouteViewMode("today");
-    const { sortMode, setSortMode } = useSortMode("today");
     const selection = useTaskDetailSelection();
-    const { selectedTaskId, setSelectedTaskId, setMobilePanelOpen, handleSelectTask } = selection;
+    const { selectedTaskId, handleSelectTask } = selection;
+    const { view, sortMode, controlProps } = useTaskRouteControls("today", "Today controls", selection);
 
     const [hideRoutines, setHideRoutines] = useDeviceFlag(ROUTINES_STORAGE_KEY);
     const [hideFixed, setHideFixed] = useDeviceFlag(FIXED_STORAGE_KEY);
@@ -179,17 +176,9 @@ export default function TodayRoute() {
 
     const routinesCount = grouped.routinesOpen.length + grouped.routinesDone.length;
 
-    const sidePanel = <TaskDetailsRail selection={selection} ariaLabel="Resize today sidebar" />;
-
     const headerRight = (
         <TaskRouteControls
-            routeKey="today"
-            title="Today controls"
-            view={view}
-            onViewChange={setView}
-            sortMode={sortMode}
-            onSortModeChange={setSortMode}
-            onOpenDetails={selectedTaskId ? () => setMobilePanelOpen(true) : undefined}
+            {...controlProps}
             actions={[
                 {
                     label: "Fit into today's gaps",
@@ -244,9 +233,10 @@ export default function TodayRoute() {
         <EyeToggle hidden={hideRoutines} label={routinesToggleLabel} onToggle={toggleRoutines} />
     );
 
+    const fixedToggleLabel = hideFixed ? `Show ${spineItems.length} fixed` : "Hide Fixed";
+
     const sections = [
-        // Board view: Fixed blocks are the first column, a vertical timeline (list view keeps the strip above).
-        ...(view === "kanban" && spineItems.length > 0
+        ...(spineItems.length > 0
             ? [
                   {
                       key: "fixed",
@@ -254,13 +244,15 @@ export default function TodayRoute() {
                       icon: CalendarClock,
                       accentClass: "text-moonlit",
                       count: spineItems.length,
-                      boardDescription: <SpineSummary items={spineItems} />,
+                      lineTint: "var(--color-moonlit)",
+                      listFold: { open: !hideFixed, toggle: toggleFixed },
+                      foldedPeek: <SpinePeek items={spineItems} onOpen={toggleFixed} />,
                       boardHeaderAction: shell.isCompact ? undefined : (
-                          <EyeToggle hidden={false} label="Hide Fixed" onToggle={toggleFixed} />
+                          <EyeToggle hidden={hideFixed} label={fixedToggleLabel} onToggle={toggleFixed} />
                       ),
                       boardCollapsed: !shell.isCompact && hideFixed,
                       onBoardExpand: toggleFixed,
-                      listContent: null,
+                      listContent: <DaySpine items={spineItems} onOpen={openSpineItem} />,
                       boardContent: <SpineTimeline items={spineItems} onOpen={openSpineItem} />,
                   },
               ]
@@ -314,15 +306,10 @@ export default function TodayRoute() {
             : []),
     ];
 
-    const spine = spineItems.length > 0 ? <DaySpine items={spineItems} onOpen={openSpineItem} /> : null;
-
     return (
         <MainLayout
             requireAuth
-            sidePanel={sidePanel}
-            sidePanelActive={Boolean(selectedTaskId)}
-            onCloseSidePanel={() => setSelectedTaskId(null)}
-            sidePanelLabel="Task"
+            {...taskDetailsRailProps(selection, "Resize today sidebar")}
             headerRight={headerRight}
             compactHeaderRightInline
             shellHeader={{
@@ -352,7 +339,6 @@ export default function TodayRoute() {
                 isLoading={isLoading}
                 isEmpty={totalVisible === 0}
                 empty="today"
-                lead={spine}
             />
 
             {shell.isCompact ? (

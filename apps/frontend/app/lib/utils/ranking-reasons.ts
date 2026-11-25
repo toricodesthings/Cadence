@@ -18,16 +18,11 @@ const REASON_SENTENCES: Record<TaskRankReason, string> = {
     scheduled_now: "This task is scheduled around the current time",
 };
 
-/** §9.2: Reasons that indicate ranking materially changed order */
-const MATERIAL_REASONS: Set<TaskRankReason> = new Set([
-    "overdue",
-    "quick_win",
-    "looks_quick",
-    "high_priority",
-    "pinned",
-    "scheduled_now",
-    "waiting",
-]);
+/**
+ * §9.2: Reasons that indicate ranking materially changed order. Overdue, high priority, pinned and
+ * waiting are left out: the card already shows them (Past due, the priority bars, the pin, "Waiting on").
+ */
+const MATERIAL_REASONS: Set<TaskRankReason> = new Set(["quick_win", "looks_quick", "scheduled_now"]);
 
 /**
  * §11.6: Return a one-sentence rationale ONLY when ranking
@@ -60,7 +55,11 @@ export function rankTasksForRoute(tasks: Task[], routeContext: RankRoute, guessO
     }));
     const ranked = rankTasks(rankable, { routeContext, clock: nlpClock(), dayOf: dayOfInstant });
     const rationaleByTaskId: Record<string, string | null> = {};
-    for (const item of ranked) rationaleByTaskId[item.task.id] = getMaterialRankingLabel(item.reasons);
+    for (const item of ranked) {
+        // A quick win from Light effort is already on the card as "Light effort".
+        const shown = item.task.effort === 1 ? item.reasons.filter((r) => r !== "quick_win") : item.reasons;
+        rationaleByTaskId[item.task.id] = getMaterialRankingLabel(shown);
+    }
     const idOrder = new Map(ranked.map((r, i) => [r.task.id, i]));
     return { tasks: [...tasks].sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0)), rationaleByTaskId };
 }

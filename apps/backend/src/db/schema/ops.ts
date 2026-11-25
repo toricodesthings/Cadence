@@ -15,6 +15,7 @@ import {
 import { sql } from "drizzle-orm";
 import { id, createdAt, timestamptz, rlsUsing } from "./columns";
 import { confidenceTierEnum, sourceSurfaceEnum, focusViewSourceEnum, ownerId, tasks } from "./core";
+import type { FocusViewColor, FocusViewIcon } from "@cadence/contracts/settings";
 
 // 13. Usage Events (opt-in diagnostics; the daily cron deletes events older than USAGE_EVENT_RETENTION_DAYS)
 export const usageEvents = pgTable(
@@ -218,6 +219,10 @@ export const savedFocusViews = pgTable(
         isPinned: boolean("is_pinned").default(false).notNull(),
         source: focusViewSourceEnum("source").default("preset").notNull(),
         orderIndex: doublePrecision("order_index").default(0).notNull(),
+        presetKey: text("preset_key"),
+        icon: text("icon").$type<FocusViewIcon>(),
+        color: text("color").$type<FocusViewColor>(),
+        isHidden: boolean("is_hidden").default(false).notNull(),
         createdAt: createdAt(),
         updatedAt: timestamptz("updated_at")
             .default(sql`now()`)
@@ -225,6 +230,7 @@ export const savedFocusViews = pgTable(
     },
     (table) => ({
         userIdIdx: index("saved_focus_views_user_id_idx").on(table.userId),
+        presetKeyIdx: uniqueIndex("saved_focus_views_user_preset_key_idx").on(table.userId, table.presetKey),
         rlsPolicy: pgPolicy("saved_focus_views_owner_access", {
             as: "permissive",
             for: "all",

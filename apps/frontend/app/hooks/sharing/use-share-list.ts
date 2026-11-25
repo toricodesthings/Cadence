@@ -1,18 +1,50 @@
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
-import type { ShareRole } from "@cadence/contracts/sharing";
+import type { ListPerson, ShareRole } from "@cadence/contracts/sharing";
 import type { Project } from "@cadence/contracts/project";
 import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
 import { unwrapResponse } from "../../lib/api/helpers";
-import { queryKeys } from "../../lib/api/query-keys";
+import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 import { toastError } from "../../lib/utils/error-toast";
 import { toastName } from "../../lib/utils/undo-toast";
 import { projectCache } from "../projects/optimistic-helpers";
 
+/** Shared people query for shared events and routines; only fetches when shared. */
+export function useSharedPeopleQuery(
+    key: (id: string, memberIds: string[]) => readonly unknown[],
+    item: { id: string; members?: { userId: string }[] } | undefined,
+    shared: boolean,
+    fetchPeople: (id: string) => Promise<ListPerson[]>,
+) {
+    const { authReady, isAuthenticated } = useAuthState();
+    const memberIds = useMemo(() => (item?.members ? item.members.map((m) => m.userId).sort() : []), [item]);
+    return useQuery({
+        queryKey: key(item?.id ?? "", memberIds),
+        enabled: Boolean(item) && shared && authReady && isAuthenticated,
+        staleTime: STALE_TIMES.PEOPLE,
+        meta: { persist: false },
+        queryFn: () => fetchPeople(item!.id),
+    });
+}
+
 const withMembers = (items: Project[], id: string, change: (members: Project["members"]) => Project["members"]) =>
     items.map((project) => (project.id === id ? { ...project, members: change(project.members) } : project));
+
+/** Copy an invite URL to clipboard, falling back to a toast with the link when clipboard access is denied. */
+export async function copyInviteUrl(url: string) {
+    const copied = await navigator.clipboard.writeText(url).then(
+        () => true,
+        () => false,
+    );
+    return { url, copied };
+}
+
+export function toastUncopiedLink({ url, copied }: { url: string; copied: boolean }) {
+    if (!copied) toast.message("Here's your link. It works for 7 days.", { description: url, duration: 20_000 });
+}
 
 /**
  * Copy a new link that lets people view or edit: it works for 7 days, and earlier links keep working until they expire.
@@ -25,29 +57,31 @@ export function useCreateInvite() {
             const { url } = await unwrapResponse(
                 await client.api.lists[":id"].invites.$post({ param: { id: listId }, json: { role } }),
             );
-            const copied = await navigator.clipboard.writeText(url).then(
-                () => true,
-                () => false,
-            );
-            return { url, copied };
+            return copyInviteUrl(url);
         },
         // Copied: the button says so in place. Refused (no permission, or not a secure page): show the link instead.
-        onSuccess: ({ url, copied }) => {
-            if (!copied)
-                toast.message("Here's your link. It works for 7 days.", { description: url, duration: 20_000 });
-        },
+        onSuccess: toastUncopiedLink,
         onError: (err) => toastError(err, "Couldn't make a link"),
+    });
+}
+
+export function useResetLinksMutation(
+    reset: (id: string) => Promise<unknown>,
+    success = "Links reset. The old ones no longer work.",
+    error = "Couldn't reset links",
+) {
+    return useMutation({
+        mutationFn: reset,
+        onSuccess: () => toast.success(success),
+        onError: (err) => toastError(err, error),
     });
 }
 
 export function useResetInvites() {
     const client = useApiClient();
-    return useMutation({
-        mutationFn: async (listId: string) =>
-            unwrapResponse(await client.api.lists[":id"].invites.$delete({ param: { id: listId } })),
-        onSuccess: () => toast.success("Links reset. The old ones no longer work."),
-        onError: (err) => toastError(err, "Couldn't reset links"),
-    });
+    return useResetLinksMutation(async (listId) =>
+        unwrapResponse(await client.api.lists[":id"].invites.$delete({ param: { id: listId } })),
+    );
 }
 
 /**
@@ -174,15 +208,20 @@ export function useInvitePreview(token: string | undefined) {
     });
 }
 
-export function useJoinList() {
+export function useJoinInvite() {
     const client = useApiClient();
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async (token: string) =>
-            (await unwrapResponse(await client.api.lists.join.$post({ json: { token } }))).listId,
-        onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
-            void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
+        mutationFn: async (token: string) => unwrapResponse(await client.api.lists.join.$post({ json: { token } })),
+        onSuccess: (joined) => {
+            if (joined.kind === "list") {
+                void queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+                void queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all });
+            } else if (joined.kind === "event") {
+                void queryClient.invalidateQueries({ queryKey: queryKeys.personalEvents.all });
+            } else {
+                void queryClient.invalidateQueries({ queryKey: queryKeys.habits.all });
+            }
         },
     });
 }

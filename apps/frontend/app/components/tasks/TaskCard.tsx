@@ -80,6 +80,9 @@ const PRIORITY_BG_CLASS: Record<number, string> = {
     4: "[--row-wash:color-mix(in_srgb,var(--color-priority-urgent)_3%,transparent)]",
 };
 
+/** Board titles keep clear of the corner cluster: the ⋮, plus room for each of shared and pinned. */
+const BOARD_TITLE_CLEAR = ["pr-5 pointer-coarse:pr-6", "pr-12 pointer-coarse:pr-14", "pr-18 pointer-coarse:pr-20"];
+
 const PASSIVE_TIMETABLE_CARD_CLASS =
     "border-moonlit/22 [--row-wash:rgba(126,184,212,0.055)] shadow-[inset_0_1px_0_rgba(126,184,212,0.08)]";
 
@@ -88,8 +91,6 @@ const EFFORT_LABELS: Record<1 | 2 | 3, string> = {
     2: "Medium effort",
     3: "Deep effort",
 };
-
-const OVERDUE_RATIONALE_LABEL = "This task is past its due date";
 
 interface CollapsedSignal {
     key: string;
@@ -265,7 +266,8 @@ export function TaskCard({
     const isCompactCard = !hasCollapsedSupport && !subtaskUi.open && !subtaskUi.adding;
     const subtasksShown = (subtaskUi.open && orderedSubtasks.length > 0) || subtaskUi.adding;
     const isBoardCard = variant === "board";
-    const effectiveRationaleLabel = rationaleLabel === OVERDUE_RATIONALE_LABEL ? null : rationaleLabel;
+    // A box one title line tall (the title text sits 2px into its row); side controls centre on its first line.
+    const titleLine = `${COLLECTION_ROW_TITLE} flex h-lh shrink-0 items-center ${isCompactCard ? "" : "mt-0.5 self-start"}`;
 
     const [isRenaming, setIsRenaming] = useState(false);
 
@@ -332,30 +334,37 @@ export function TaskCard({
                 />
             )}
 
-            {/* Drag handle — scoped drag target so card body stays free for selection & context menu */}
+            {/* Grip and checkbox sit in boxes one title line tall, so they centre on its first line; their hit areas overflow. */}
             {dragHandleProps && access.canEdit && (
-                <div
-                    ref={dragHandleProps.ref}
-                    role={dragHandleProps.attributes?.role}
-                    tabIndex={dragHandleProps.attributes?.tabIndex}
-                    aria-roledescription={dragHandleProps.attributes?.["aria-roledescription"]}
-                    aria-describedby={dragHandleProps.attributes?.["aria-describedby"]}
-                    {...(dragHandleProps.listeners ?? {})}
-                    data-no-open="true"
-                    data-dnd-handle="true"
-                    // Same box as the checkbox so the grip centres on the title line; -mr pulls it in past the gap.
-                    className={`-mr-1.5 flex shrink-0 cursor-grab touch-none items-center rounded-md text-twilight-text-muted/40 transition-[opacity,color] hover:text-twilight-text-soft active:cursor-grabbing ${
-                        isBoardCard ? "-ml-1 h-8" : "-ml-2 mt-0.5 h-11 lg:h-8"
-                    }`}
-                    aria-label="Drag to reorder"
-                >
-                    <GripVertical size={16} aria-hidden="true" />
+                <div className={isBoardCard ? "-ml-1 -mr-1.5 flex" : `${titleLine} -ml-2 -mr-1.5`}>
+                    <div
+                        ref={dragHandleProps.ref}
+                        role={dragHandleProps.attributes?.role}
+                        tabIndex={dragHandleProps.attributes?.tabIndex}
+                        aria-roledescription={dragHandleProps.attributes?.["aria-roledescription"]}
+                        aria-describedby={dragHandleProps.attributes?.["aria-describedby"]}
+                        {...(dragHandleProps.listeners ?? {})}
+                        data-no-open="true"
+                        data-dnd-handle="true"
+                        className={`flex shrink-0 cursor-grab touch-none items-center rounded-md text-twilight-text-muted/40 transition-[opacity,color] hover:text-twilight-text-soft active:cursor-grabbing ${
+                            isBoardCard ? "h-8" : "h-11 lg:h-8"
+                        }`}
+                        aria-label="Drag to reorder"
+                    >
+                        <GripVertical size={16} aria-hidden="true" />
+                    </div>
                 </div>
             )}
 
             {/* With subtasks open the checkbox column stretches so its rail runs down beside them. */}
             <div className={`flex shrink-0 flex-col items-center ${subtasksShown ? "self-stretch" : ""}`}>
-                <TaskCheckbox task={task} compact={isBoardCard} />
+                {isBoardCard ? (
+                    <TaskCheckbox task={task} compact />
+                ) : (
+                    <div className={titleLine}>
+                        <TaskCheckbox task={task} />
+                    </div>
+                )}
                 {subtasksShown && <span aria-hidden="true" className={`mt-1 flex-1 ${SUBTASK_RAIL}`} />}
             </div>
 
@@ -375,25 +384,19 @@ export function TaskCard({
                         className={`w-full rounded-2xl text-left cursor-pointer ${isBoardCard ? "p-0" : "p-1 -m-1"}`}
                     >
                         {/* Board titles (21px line) drop onto the 32px checkbox's centre line, with the grip. */}
-                        <div className={`flex items-start gap-2 ${isBoardCard ? "pt-[5px]" : ""}`}>
-                            {task.isPinned || showUrgentIcon ? (
-                                <div className="mt-0.5 flex shrink-0 items-center gap-1.5">
-                                    {task.isPinned && (
-                                        <Pin size={12} className="rotate-45 text-accent-primary" aria-label="Pinned" />
-                                    )}
-                                    {showUrgentIcon && (
-                                        <PriorityIcon
-                                            size={13}
-                                            style={{
-                                                color:
-                                                    task.priority === 4
-                                                        ? "var(--color-priority-urgent)"
-                                                        : "var(--color-priority-high)",
-                                            }}
-                                            aria-hidden="true"
-                                        />
-                                    )}
-                                </div>
+                        <div className={`flex items-start gap-2 ${isBoardCard && !isCompactCard ? "pt-[5px]" : ""}`}>
+                            {showUrgentIcon ? (
+                                <PriorityIcon
+                                    size={13}
+                                    className="mt-0.5 shrink-0"
+                                    style={{
+                                        color:
+                                            task.priority === 4
+                                                ? "var(--color-priority-urgent)"
+                                                : "var(--color-priority-high)",
+                                    }}
+                                    aria-hidden="true"
+                                />
                             ) : null}
 
                             <div className="min-w-0 flex-1">
@@ -401,7 +404,7 @@ export function TaskCard({
                                     className={`block line-clamp-2 ${
                                         // Board cards float the ⋮ over the corner; keep the title clear of it.
                                         isBoardCard
-                                            ? `${access.isShared ? "pr-10 pointer-coarse:pr-11" : "pr-5 pointer-coarse:pr-6"} text-[15px] leading-[1.4]`
+                                            ? `${BOARD_TITLE_CLEAR[Number(access.isShared) + Number(task.isPinned)]} text-[15px] leading-[1.4]`
                                             : COLLECTION_ROW_TITLE
                                     } ${isComplete ? "line-through text-twilight-text-muted" : "text-twilight-text"}`}
                                 >
@@ -409,59 +412,58 @@ export function TaskCard({
                                     <PendingMark id={task.id} />
                                 </span>
 
+                                {/* The date reads first; when it's past, only "Past due" carries colour. */}
                                 {primaryCue ? (
                                     <div
-                                        className={`mt-1.5 flex min-w-0 items-center gap-1.5 text-[12px] font-medium ${primaryCue.className}`}
+                                        className={`mt-1.5 flex min-w-0 items-center gap-1.5 text-[12px] font-medium ${isPastDue ? "text-twilight-text-soft" : primaryCue.className}`}
                                     >
-                                        {(() => {
-                                            const PrimaryCueIcon = primaryCue.icon;
-                                            return <PrimaryCueIcon size={12} aria-hidden="true" />;
-                                        })()}
+                                        <primaryCue.icon size={12} aria-hidden="true" className="shrink-0" />
                                         <span className="truncate">{primaryCue.label}</span>
                                         {scheduleLabel && isPastDue ? (
-                                            <span className="shrink-0 text-[11px] font-semibold text-[var(--color-priority-high)]">
-                                                (Past Due)
+                                            <span className="ml-1 shrink-0 text-[var(--color-priority-high)]">
+                                                Past due
                                             </span>
                                         ) : null}
                                     </div>
                                 ) : null}
 
-                                {effectiveRationaleLabel ? (
-                                    <span className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-accent-primary/20 bg-accent-primary/10 px-2.5 py-1 text-[10px] font-medium text-accent-primary">
-                                        <Sparkles size={11} aria-hidden="true" />
-                                        <span className="truncate">{effectiveRationaleLabel}</span>
-                                    </span>
+                                {rationaleLabel ? (
+                                    <p className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[12px] font-medium text-twilight-text-soft">
+                                        <Sparkles
+                                            size={12}
+                                            aria-hidden="true"
+                                            className="shrink-0 text-accent-primary"
+                                        />
+                                        <span className="truncate">{rationaleLabel}</span>
+                                    </p>
                                 ) : null}
 
                                 {visibleSignals.length > 0 ? (
                                     <div
-                                        className={`${primaryCue ? "mt-2" : "mt-1.5"} flex flex-wrap items-center gap-2`}
+                                        className={`${primaryCue ? "mt-2.5" : "mt-1.5"} flex flex-wrap items-center gap-2`}
                                     >
-                                        {visibleSignals.map((signal) => {
-                                            const SignalIcon = signal.icon;
-                                            return (
-                                                <span
-                                                    key={signal.key}
-                                                    className={`inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-medium ${signal.className}`}
-                                                    style={signal.style}
-                                                >
-                                                    {signal.accentDots?.length ? (
-                                                        <span className="flex items-center gap-1" aria-hidden="true">
-                                                            {signal.accentDots.map((color, index) => (
-                                                                <span
-                                                                    key={`${signal.key}-dot-${index}`}
-                                                                    className="h-1.5 w-1.5 rounded-full"
-                                                                    style={{ backgroundColor: color }}
-                                                                />
-                                                            ))}
-                                                        </span>
-                                                    ) : (
-                                                        <SignalIcon size={12} aria-hidden="true" />
-                                                    )}
-                                                    <span className="truncate">{signal.label}</span>
-                                                </span>
-                                            );
-                                        })}
+                                        {visibleSignals.map((signal) => (
+                                            <span
+                                                key={signal.key}
+                                                className={`inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[11px] font-medium ${signal.className}`}
+                                                style={signal.style}
+                                            >
+                                                {signal.accentDots?.length ? (
+                                                    <span className="flex items-center gap-1" aria-hidden="true">
+                                                        {signal.accentDots.map((color, index) => (
+                                                            <span
+                                                                key={`${signal.key}-dot-${index}`}
+                                                                className="h-1.5 w-1.5 rounded-full"
+                                                                style={{ backgroundColor: color }}
+                                                            />
+                                                        ))}
+                                                    </span>
+                                                ) : (
+                                                    <signal.icon size={12} aria-hidden="true" />
+                                                )}
+                                                <span className="truncate">{signal.label}</span>
+                                            </span>
+                                        ))}
                                     </div>
                                 ) : null}
                             </div>
@@ -492,16 +494,19 @@ export function TaskCard({
                 </div>
             </div>
 
-            {/* Board cards float the creator and the ⋮ together in the top corner, so neither covers the other. */}
+            {/* Pin, creator and ⋮ sit together: in the top corner on a board, else one title line tall so they centre on its first line. */}
             <div
                 className={
                     isBoardCard
-                        ? "absolute right-1.5 top-2 flex items-center pointer-coarse:right-2 pointer-fine:top-2.5"
-                        : "contents"
+                        ? `absolute right-1.5 flex items-center gap-2 pointer-coarse:right-2 ${isCompactCard ? "top-4" : "top-2 pointer-fine:top-3"}`
+                        : `${titleLine} gap-2.5`
                 }
             >
+                {task.isPinned ? (
+                    <Pin size={12} aria-label="Pinned" className="shrink-0 rotate-45 text-accent-primary" />
+                ) : null}
                 {access.isShared && task.projectId ? (
-                    <div data-no-open="true" data-no-dnd="true" className="flex shrink-0 self-center">
+                    <div data-no-open="true" data-no-dnd="true" className="flex shrink-0">
                         <SharedMark task={task} inList={isInList} size={16} />
                     </div>
                 ) : null}
@@ -510,7 +515,7 @@ export function TaskCard({
                 <div
                     data-no-dnd="true"
                     className={`pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${
-                        isBoardCard ? "" : `-mr-2.5 shrink-0 sm:-mr-3.5 ${isCompactCard ? "" : "pt-0.5"}`
+                        isBoardCard ? "" : "-mr-2.5 shrink-0 sm:-mr-3.5"
                     }`}
                 >
                     <TaskContextMenu

@@ -327,7 +327,9 @@ describe("focus views", () => {
             filters: { projectIds: [projectId], effortMax: 1 },
             pinned: true,
         });
-        expect((await call("get_focus_views", {})).views).toEqual([
+        const views = (await call("get_focus_views", {})).views;
+        expect(views).toHaveLength(7); // the six built-in presets come after the pinned view
+        expect(views.slice(0, 1)).toEqual([
             {
                 id: focusViewId,
                 name: "Client quick wins",
@@ -342,7 +344,11 @@ describe("focus views", () => {
         await call("save_focus_view", { focusViewId, name: "Client", filters: { effortMax: null, priorityMin: 4 } });
         expect(titles((await call("get_tasks", { focusViewId })).tasks)).toEqual(["Big client thing"]);
         expect(await call("delete_focus_view", { focusViewId, name: "Client" })).toEqual({ deleted: "Client" });
-        expect((await call("get_focus_views", {})).views).toEqual([]);
+        expect((await call("get_focus_views", {})).views.map((v: { name: string }) => v.name)).not.toContain("Client");
+        // A built-in preset is hidden, not erased, so it never comes back.
+        const quick = (await call("get_focus_views", {})).views[0];
+        await call("delete_focus_view", { focusViewId: quick.id, name: quick.name });
+        expect((await call("get_focus_views", {})).views).toHaveLength(5);
     });
 });
 

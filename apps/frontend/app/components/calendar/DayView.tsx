@@ -11,7 +11,8 @@ import { HOUR_HEIGHT, DAY_GRID_HEIGHT } from "../../lib/utils/calendar/calendar-
 import { useToday } from "../../lib/utils/user-zone";
 import type { Task } from "@cadence/contracts/task";
 import type { HolidayRecord } from "@cadence/contracts/proxy";
-import type { PersonalEvent } from "@cadence/contracts/personal-event";
+import type { PersonalEvent, SharedEvent } from "@cadence/contracts/personal-event";
+import { SharedEventMark } from "../sharing/SharedEventMark";
 
 export interface DayViewProps extends TimelineProps {
     /** The LocalDate being shown */
@@ -22,7 +23,7 @@ export interface DayViewProps extends TimelineProps {
     /** Whether this day is the user's birthday */
     isBirthday?: boolean;
     /** Personal events occurring on this day */
-    personalEvents?: PersonalEvent[];
+    personalEvents?: (PersonalEvent | SharedEvent)[];
     /** The hour the timeline opens scrolled to. */
     startHour?: number;
 }
@@ -167,7 +168,10 @@ export function DayView({
                                     key={evt.id}
                                     className="mb-1 inline-flex max-w-fit items-center gap-2 rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-3 py-1 text-xs font-medium text-accent-nav-schedule"
                                 >
-                                    {evt.emoji ?? "🎉"} {evt.label}
+                                    <span>
+                                        {evt.emoji ?? "🎉"} {evt.label}
+                                    </span>
+                                    {"access" in evt ? <SharedEventMark event={evt} /> : null}
                                 </div>
                             ))}
                             {activeDropPreview?.kind === "allday" && activeDropPreview.dateStr === currentDate ? (

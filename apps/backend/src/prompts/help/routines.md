@@ -8,3 +8,4 @@
 - **Pause** (beside Archive, at the bottom of a routine) for 3 days, a week, two weeks or until a date; days already logged stay. **Archive routine** puts it away (archived routines can be restored).
 - Streaks are quiet; turn them off from the gear on the Routines page, or with Routine streaks in [Tasks & Routines](?settings=tasks).
 - Routine reminders are in [Notifications](?settings=notifications); a reminder only comes on a day the routine is due and still open.
+- **Sharing a routine:** open a routine's menu and choose **Share…** to share it three ways: **Do it together** (you each check off your own days), **Take turns** (one person's turn each time; anyone can cover), or **Cheer me on** (they see the days you do it — never the ones you don't — and can send a quiet in-app cheer). Anyone it's shared with can choose **Remove from my routines** or **Stop cheering** anytime.

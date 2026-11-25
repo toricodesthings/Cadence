@@ -97,6 +97,8 @@ describe("reading and patching settings", () => {
 });
 
 describe("saved focus views", () => {
+    const own = (data: any[]) => data.filter((v) => v.presetKey === null).map((v) => v.name);
+
     it("creates a view (manual by default) and lists pinned views first", async () => {
         await settings("POST", "/focus-views", { name: "Later", definition: FOCUS_DEFINITION, orderIndex: 0 });
         const { status, body } = await settings("POST", "/focus-views", {
@@ -104,22 +106,52 @@ describe("saved focus views", () => {
             definition: FOCUS_DEFINITION,
             isPinned: true,
             orderIndex: 5,
+            icon: "Star",
+            color: "rose",
         });
 
         expect(status).toBe(201);
         expect(body.data.source).toBe("manual");
-        expect((await settings("GET", "/focus-views")).body.data.map((v: any) => v.name)).toEqual([
-            "Quick Wins",
-            "Later",
-        ]);
+        expect(body.data).toMatchObject({ icon: "Star", color: "rose" });
+        const list = (await settings("GET", "/focus-views")).body.data;
+        expect(list[0].name).toBe("Quick Wins");
+        expect(own(list)).toEqual(["Quick Wins", "Later"]);
     });
 
-    it("renames and deletes a view", async () => {
+    it("starts every account with the built-in presets, once", async () => {
+        await settings("GET", "/focus-views");
+        const list = (await settings("GET", "/focus-views")).body.data;
+        expect(list.map((v: any) => v.presetKey)).toEqual([
+            "quick-wins",
+            "due-soon",
+            "needs-dates",
+            "waiting",
+            "deep-focus",
+            "clear-the-fog",
+        ]);
+        expect(list[0]).toMatchObject({ name: "Quick Wins", icon: "Zap", color: "lantern", source: "preset" });
+    });
+
+    it("hides a deleted built-in so it doesn't come back", async () => {
+        const [first] = (await settings("GET", "/focus-views")).body.data;
+        expect((await settings("DELETE", `/focus-views/${first.id}`)).status).toBe(200);
+        const keys = (await settings("GET", "/focus-views")).body.data.map((v: any) => v.presetKey);
+        expect(keys).not.toContain("quick-wins");
+        expect(keys).toHaveLength(5);
+    });
+
+    it("renames, recolours and deletes a view", async () => {
         const { body: view } = await settings("POST", "/focus-views", { name: "Old", definition: FOCUS_DEFINITION });
 
-        expect((await settings("PATCH", `/focus-views/${view.data.id}`, { name: "New" })).body.data.name).toBe("New");
+        const patched = await settings("PATCH", `/focus-views/${view.data.id}`, {
+            name: "New",
+            icon: "Leaf",
+            color: "jade",
+        });
+        expect(patched.body.data).toMatchObject({ name: "New", icon: "Leaf", color: "jade" });
+        expect((await settings("PATCH", `/focus-views/${view.data.id}`, { icon: "Skull" })).status).toBe(400);
         expect((await settings("DELETE", `/focus-views/${view.data.id}`)).status).toBe(200);
-        expect((await settings("GET", "/focus-views")).body.data).toEqual([]);
+        expect(own((await settings("GET", "/focus-views")).body.data)).toEqual([]);
     });
 
     it("treats another user's view as not found for update and delete", async () => {
@@ -130,7 +162,7 @@ describe("saved focus views", () => {
 
         expect((await settings("PATCH", `/focus-views/${theirs.data.id}`, { name: "hijacked" })).status).toBe(404);
         expect((await settings("DELETE", `/focus-views/${theirs.data.id}`)).status).toBe(404);
-        expect((await otherSettings("GET", "/focus-views")).body.data.map((v: any) => v.name)).toEqual(["Theirs"]);
+        expect(own((await otherSettings("GET", "/focus-views")).body.data)).toEqual(["Theirs"]);
     });
 });
 

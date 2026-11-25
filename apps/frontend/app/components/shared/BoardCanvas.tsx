@@ -8,6 +8,13 @@ import { ChipScroller } from "./ChipScroller";
 import { SegmentedControl } from "../primitives/SegmentedControl";
 import { Tip } from "../primitives";
 
+/**
+ * Shared board column sizing across every board view (Capture, Today, Upcoming, Lists, Tags):
+ * columns grow evenly to fill available horizontal space when they fit, and hold a comfortable
+ * minimum width so extra columns overflow into horizontal scroll with a visible cut-off cue.
+ */
+export const BOARD_COLUMN_MIN_WIDTH = "min-w-[min(clamp(24rem,30vw,30rem),78vw)]";
+
 export interface BoardColumn {
     id: string;
     title: string;
@@ -35,7 +42,7 @@ interface BoardCanvasProps {
     onActiveColumnChange?: (id: string) => void;
     /** Compact shells: control pinned beside the column chooser (it doesn't scroll), e.g. manage sections. */
     compactTrailing?: React.ReactNode;
-    /** Wide shells: columns share the width evenly instead of a fixed width each (Capture's few columns). */
+    /** Kept for call-site compatibility; all open board columns now fill evenly above the shared minimum width. */
     fill?: boolean;
     /** Each open column's icon leads its title (Capture). */
     headerIcons?: boolean;
@@ -132,7 +139,6 @@ export function BoardCanvas({
     activeColumnId: controlledId,
     onActiveColumnChange,
     compactTrailing,
-    fill = false,
     headerIcons = false,
 }: BoardCanvasProps) {
     const shell = useShellMode();
@@ -271,7 +277,7 @@ export function BoardCanvas({
                     {columns.map((column) => (
                         <div
                             key={column.id}
-                            className={`${column.collapsed ? "w-[4.75rem] shrink-0" : fill ? "min-w-0 flex-1" : "w-[min(clamp(24rem,28vw,30rem),78vw)] shrink-0"} transition-[width] duration-200 ease-out h-full min-h-0 ${
+                            className={`${column.collapsed ? "w-[4.75rem] shrink-0" : `${BOARD_COLUMN_MIN_WIDTH} flex-1`} transition-[width] duration-200 ease-out h-full min-h-0 ${
                                 mobileMode === "pager" ? "snap-start" : ""
                             }`}
                         >

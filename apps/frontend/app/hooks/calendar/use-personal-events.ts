@@ -1,6 +1,11 @@
 import { useMemo, useCallback } from "react";
 import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query";
-import { personalEventSchema, type PersonalEvent, type UpdatePersonalEvent } from "@cadence/contracts/personal-event";
+import {
+    personalEventSchema,
+    type PersonalEvent,
+    type SharedEvent,
+    type UpdatePersonalEvent,
+} from "@cadence/contracts/personal-event";
 import { useSettings, useUpdateSettings } from "../core/use-settings";
 import { useApiClient } from "../auth/use-api-client";
 import { useAuthedQuery } from "../auth/use-authed-query";
@@ -12,7 +17,7 @@ import { toastError } from "../../lib/utils/error-toast";
 import { toastName, undoWindow } from "../../lib/utils/undo-toast";
 import { personalEventCache } from "./personal-event-cache";
 
-const NO_EVENTS: PersonalEvent[] = [];
+const NO_EVENTS: SharedEvent[] = [];
 
 export function personalEventsQueryOptions(client: ApiClient) {
     return queryOptions({
@@ -47,7 +52,8 @@ export function usePersonalEvents(year: number, month?: number) {
                     { headers: { "Idempotency-Key": event.id } },
                 ),
             ),
-        onMutate: (event) => personalEventCache.edit(queryClient, (list) => [...list, event]),
+        onMutate: (event) =>
+            personalEventCache.edit(queryClient, (list) => [...list, { ...event, access: "owner", members: [] }]),
         onError: (err, _event, context) => {
             if (context) personalEventCache.rollback(queryClient, context.snapshot);
             toastError(err, "Couldn't add event");
@@ -78,9 +84,9 @@ export function usePersonalEvents(year: number, month?: number) {
         onSettled: () => personalEventCache.invalidate(queryClient),
     });
 
-    // Map of "YYYY-MM-DD" → PersonalEvent[] for the given year
+    // Map of "YYYY-MM-DD" → SharedEvent[] for the given year
     const eventsByDate = useMemo(() => {
-        const map = new Map<string, PersonalEvent[]>();
+        const map = new Map<string, SharedEvent[]>();
         if (!enabled) return map;
         for (const event of items) {
             const [mm, dd] = event.monthDay.split("-");
@@ -119,7 +125,7 @@ export function usePersonalEvents(year: number, month?: number) {
 
     // Get events for a specific date string "YYYY-MM-DD"
     const getEventsForDate = useCallback(
-        (dateStr: string): PersonalEvent[] => {
+        (dateStr: string): SharedEvent[] => {
             if (!enabled) return [];
             return eventsByDate.get(dateStr) ?? [];
         },

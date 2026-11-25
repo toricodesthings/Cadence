@@ -22,10 +22,13 @@ export function useCaptureFeed() {
     const notes = useInbox("kept");
     const tasks = useTasks({ state: "ACTIVE", hasNoProject: true, hasNoDate: true });
     const feed = useMemo(() => captureFeed(inbox.data ?? [], tasks.data ?? []), [inbox.data, tasks.data]);
+    const keptNotes = useMemo(() => (notes.data ?? []).filter((i) => i.captureStatus === "kept"), [notes.data]);
     return {
         ...feed,
         inboxItems: inbox.data ?? [],
-        notes: (notes.data ?? []).filter((i) => i.captureStatus === "kept"),
+        notes: keptNotes,
+        /** True only when Capture holds nothing at all: no New thoughts, undated tasks, Older thoughts, or kept Notes. */
+        isEmpty: feed.count === 0 && feed.older.length === 0 && keptNotes.length === 0,
         isLoading: inbox.isLoading || tasks.isLoading,
     };
 }

@@ -34,32 +34,40 @@ export function AvatarFace({
 }
 
 /**
- * One person in a shared list. A button: a tap or Enter opens their profile card (a popover, or a sheet on a phone).
- * `userId` null = whoever owns the list. The 44px touch target is padding around the small face.
+ * Someone's face as a button: hover (or keyboard focus) shows their profile card, a tap or Enter opens it (a popover,
+ * or a sheet on a phone). The 44px touch target is padding around the small face. A `tip` string replaces the hover card.
  */
-export function PersonAvatar({
-    projectId,
+export function ProfileFace({
+    person,
     userId,
+    projectId,
+    former = false,
+    showRole = true,
     size = 18,
     tip,
     className = "",
 }: {
-    projectId: string | null | undefined;
-    userId: string | null | undefined;
+    person: ListPerson | undefined;
+    userId: string;
+    projectId?: string;
+    former?: boolean;
+    showRole?: boolean;
     size?: keyof typeof SIZES;
     tip?: string;
     className?: string;
 }) {
     const [open, setOpen] = useState(false);
-    const { person, project, former } = usePersonInList(projectId, userId);
-    if (!project) return null;
     const label = former ? "A former member" : (person?.name ?? "Member");
+    const card = (
+        <ProfileCard person={person} userId={userId} projectId={projectId} former={former} showRole={showRole} />
+    );
     return (
         <PickerSurface
             open={open}
             onOpenChange={setOpen}
             title={label}
-            tip={tip ?? label}
+            tip={tip ?? card}
+            tipCard={!tip}
             contentProps={{ className: "w-72 p-0 overflow-hidden", align: "end" }}
             flush
             trigger={
@@ -74,8 +82,37 @@ export function PersonAvatar({
                 </button>
             }
         >
-            <ProfileCard person={person} userId={userId ?? project.userId} projectId={project.id} former={former} />
+            {card}
         </PickerSurface>
+    );
+}
+
+/** One person in a shared list. `userId` null = whoever owns the list. */
+export function PersonAvatar({
+    projectId,
+    userId,
+    size = 18,
+    tip,
+    className = "",
+}: {
+    projectId: string | null | undefined;
+    userId: string | null | undefined;
+    size?: keyof typeof SIZES;
+    tip?: string;
+    className?: string;
+}) {
+    const { person, project, former } = usePersonInList(projectId, userId);
+    if (!project) return null;
+    return (
+        <ProfileFace
+            person={person}
+            userId={userId ?? project.userId}
+            projectId={project.id}
+            former={former}
+            size={size}
+            tip={tip ?? (former ? "A former member" : (person?.name ?? "Member"))}
+            className={className}
+        />
     );
 }
 

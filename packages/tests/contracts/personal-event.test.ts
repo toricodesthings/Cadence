@@ -1,5 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { insertPersonalEventSchema, updatePersonalEventSchema } from "@cadence/contracts/personal-event";
+import {
+    insertPersonalEventSchema,
+    sharedEventSchema,
+    updatePersonalEventSchema,
+} from "@cadence/contracts/personal-event";
+
+const UUID1 = "00000000-0000-4000-8000-000000000001";
+const UUID2 = "00000000-0000-4000-8000-000000000002";
+
+describe("sharedEventSchema", () => {
+    it("parses a shared event with access and members", () => {
+        const event = {
+            id: UUID1,
+            label: "Our anniversary",
+            monthDay: "06-14",
+            emoji: "💍",
+            notify: true,
+            startedOn: "2019-06-14",
+            color: "rose",
+            access: "owner" as const,
+            members: [{ userId: UUID2, role: "edit" as const, invitedBy: UUID1 }],
+        };
+        expect(sharedEventSchema.parse(event)).toEqual(event);
+    });
+});
 
 describe("insertPersonalEventSchema", () => {
     it("accepts a minimal label and monthDay", () => {
@@ -11,6 +35,7 @@ describe("insertPersonalEventSchema", () => {
         [{ label: "x".repeat(81), monthDay: "03-14" }, "an 81-char label"],
         [{ label: "Mom", monthDay: "03-14", emoji: "12345" }, "a 5-char emoji"],
         [{ label: "Mom", monthDay: "03-14", id: "abc123" }, "a non-uuid id"],
+        [{ label: "Mom", monthDay: "03-14", access: "owner" }, "an access field on insert"],
     ])("rejects %j (%s)", (body, _why) => {
         expect(insertPersonalEventSchema.safeParse(body).success).toBe(false);
     });

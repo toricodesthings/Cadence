@@ -19,7 +19,7 @@ React Router SPA (`ssr: false`, on purpose) served as Cloudflare Workers static 
 - Creates pick their id with `clientIdFor(input)` and send it as both `id` and `Idempotency-Key`. The optimistic row is then the real row.
 - Show only the end state, never an intermediate step.
 - Order with fractional indexes (`lib/utils/order-index.ts`). Never renumber a whole list.
-- A list shared with the caller carries `access` and `members`. Role checks use `useListAccess` / `useTaskAccess` (never `project.access` inline); task/capture list pickers use `useEditableProjects` (confirming unshared → shared via `MoveToSharedConfirm`), while habit pickers use `useOwnProjects`. Live presence uses `useListPresence` (`ListPresence` DO). Rows pushed over the live socket go through `reconcileTaskInCaches`.
+- A list shared with the caller carries `access` and `members`. Role checks use `useListAccess` / `useTaskAccess` (never `project.access` inline); task/capture list pickers use `useEditableProjects` (confirming unshared → shared via `MoveToSharedConfirm`), while habit pickers use `useOwnProjects`. Shared events carry `access` and `members`, use `SharedEventMark` (compact rows), `EventPeopleLine` (card and panel footer: faces as `ProfileFace` with `showRole={false}`) and `ShareEventSheet`, and never show roles. Shared routines carry `access`, `members`, `shareMode`, `turnOrder` and `today`, and use `ShareRoutineSheet`, `RoutineShareMeta` and `CheeringOnSection`. Live presence uses `useListPresence` (`ListPresence` DO). Rows pushed over the live socket go through `reconcileTaskInCaches`.
 
 ## Code rules
 
@@ -77,6 +77,7 @@ A toast answers "where did it go?"
 | event / reminder / time / takes | `CalendarHeart` / `Bell` / `Clock` / `Hourglass` | waiting / focus view / assistant | `UserCheck` / `Zap` / `Sparkles` |
 | Today / Tomorrow / later / next week | `Sun` / `Sunrise` / `Moon` / `ArrowRight` | pick a day / trash | `Calendar` / `Trash2` |
 | shared / people | `Users` | take a task / make owner | `Hand` / `Crown` |
+| cheer / take turns | `HandHeart` / `Repeat2` | | |
 
 **Motion**
 - Motion explains what opened, moved or changed. It is interruptible and never delays input.

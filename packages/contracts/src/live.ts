@@ -7,6 +7,10 @@ export const liveChangeSchema = z.discriminatedUnion("type", [
     z.object({ type: z.literal("task.gone"), id: z.uuid() }),
     /** Sections or membership changed: refetch that list. */
     z.object({ type: z.literal("list"), listId: z.uuid() }),
+    /** A shared event changed: refetch personal events. */
+    z.object({ type: z.literal("event") }),
+    /** A shared routine changed: refetch routines. */
+    z.object({ type: z.literal("routine") }),
 ]);
 export type LiveChange = z.infer<typeof liveChangeSchema>;
 

@@ -8,6 +8,7 @@ import { getWalSnapshot, subscribeWal } from "../../lib/api/offline-wal";
 import { WAKE_EVENT } from "./use-wake-refresh";
 import { liveMessageSchema, type LiveChange } from "@cadence/contracts/live";
 import { reconcileTaskInCaches, removeTaskFromCaches } from "../../lib/api/cache-sync";
+import { queryKeys } from "../../lib/api/query-keys";
 
 /** Query roots a change on another device can touch. Weather, holidays, location, appearance, auth and assistant data stay out. */
 const LIVE_ROOTS = new Set([
@@ -76,6 +77,16 @@ export function useLiveSync() {
             for (const change of changes) {
                 if (change.type === "task") reconcileTaskInCaches(queryClient, change.task);
                 else if (change.type === "task.gone") removeTaskFromCaches(queryClient, change.id);
+                else if (change.type === "event")
+                    void queryClient.invalidateQueries({
+                        queryKey: queryKeys.personalEvents.all,
+                        refetchType: "active",
+                    });
+                else if (change.type === "routine")
+                    void queryClient.invalidateQueries({
+                        queryKey: queryKeys.habits.all,
+                        refetchType: "active",
+                    });
                 else void queryClient.invalidateQueries({ predicate: isListRead, refetchType: "active" });
             }
         };

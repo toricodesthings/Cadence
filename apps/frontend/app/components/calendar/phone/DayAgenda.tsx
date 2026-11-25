@@ -2,7 +2,8 @@ import { Fragment, useCallback, useLayoutEffect, useMemo, useRef, useState } fro
 import { ChevronDown, Flag, Inbox, Plus } from "lucide-react";
 import type { Task } from "@cadence/contracts/task";
 import type { HolidayRecord } from "@cadence/contracts/proxy";
-import type { PersonalEvent } from "@cadence/contracts/personal-event";
+import type { PersonalEvent, SharedEvent } from "@cadence/contracts/personal-event";
+import { SharedEventMark } from "../../sharing/SharedEventMark";
 import { atLocal, type Instant, type LocalDate } from "@cadence/domain/time";
 import { formatTime } from "../../../lib/utils/date-format";
 import { getUserZone, useToday } from "../../../lib/utils/user-zone";
@@ -29,7 +30,7 @@ export interface DayAgendaProps extends ScheduleRowHandlers {
     tasks: Task[];
     holidays?: HolidayRecord[];
     isBirthday?: boolean;
-    personalEvents?: PersonalEvent[];
+    personalEvents?: (PersonalEvent | SharedEvent)[];
     routineEmoji: (task: Task) => string | null;
     /** Ready-to-place tasks waiting in Holding. */
     hasReady?: boolean;
@@ -129,7 +130,11 @@ function NowLine(props: NowLineProps) {
     );
 }
 
-type DayMarkerPillsProps = { holidays: HolidayRecord[]; isBirthday: boolean; personalEvents: PersonalEvent[] };
+type DayMarkerPillsProps = {
+    holidays: HolidayRecord[];
+    isBirthday: boolean;
+    personalEvents: (PersonalEvent | SharedEvent)[];
+};
 
 /** What the day is: holidays, a birthday, personal events. */
 function DayMarkerPills({ holidays, isBirthday, personalEvents }: DayMarkerPillsProps) {
@@ -155,6 +160,7 @@ function DayMarkerPills({ holidays, isBirthday, personalEvents }: DayMarkerPills
                     className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-accent-nav-schedule/20 bg-accent-nav-schedule/12 px-3 text-xs font-medium text-accent-nav-schedule"
                 >
                     <span aria-hidden="true">{event.emoji ?? "✦"}</span> {event.label}
+                    {"access" in event ? <SharedEventMark event={event} /> : null}
                 </span>
             ))}
         </div>

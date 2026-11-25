@@ -7,6 +7,7 @@ import { isRoutinePaused, routineTone } from "../../lib/utils/habits";
 import { RoutineDayCell } from "./RoutineDayCell";
 import { HabitContextMenu, HabitMenu } from "./HabitMenu";
 import { RoutineMark } from "./RoutineMark";
+import { RoutineShareMeta } from "./RoutineShareMeta";
 import { DRAGGING, useSortableRoutine } from "./SortableRoutines";
 
 export interface RoutineDay {
@@ -92,6 +93,7 @@ export function RoutineIdentity({
                     {habit.title}
                 </span>
                 <RoutineMeta habit={habit} today={today} showStreaks={showStreaks} />
+                <RoutineShareMeta habit={habit} today={today} />
             </span>
         </button>
     );

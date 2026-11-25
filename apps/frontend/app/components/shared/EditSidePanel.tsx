@@ -2,13 +2,14 @@ import { lazy } from "react";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import type { Habit } from "@cadence/contracts/habit";
 import type { LocalDate } from "@cadence/domain/time";
-import type { PersonalEvent } from "@cadence/contracts/personal-event";
+import type { PersonalEvent, SharedEvent } from "@cadence/contracts/personal-event";
 import { StartupSuspense } from "./StartupSuspense";
 
 // Editors load on first selection, never with the first screen (a deep link still waits for its editor).
 const ClarifySheet = lazy(() => import("../holding/ClarifySheet").then((m) => ({ default: m.ClarifySheet })));
 const TaskEditor = lazy(() => import("../tasks/TaskEditor").then((m) => ({ default: m.TaskEditor })));
 const HabitEditor = lazy(() => import("../habits/HabitEditor").then((m) => ({ default: m.HabitEditor })));
+const CheeringPanel = lazy(() => import("../habits/CheeringPanel").then((m) => ({ default: m.CheeringPanel })));
 const PersonalEventEditor = lazy(() =>
     import("../events/PersonalEventEditor").then((m) => ({ default: m.PersonalEventEditor })),
 );
@@ -28,9 +29,11 @@ type EditorProps = {
       }
     | {
           kind: "event";
-          event: PersonalEvent;
+          event: SharedEvent;
           onChange: (patch: Partial<Omit<PersonalEvent, "id">>) => void;
+          onShare?: () => void;
           onDelete: () => void;
+          onRemoveFromMyEvents?: () => void;
       }
 );
 
@@ -50,7 +53,11 @@ function Editor(props: EditorProps) {
         case "task":
             return <TaskEditor key={props.taskId} {...props} />;
         case "habit":
-            return <HabitEditor key={props.habit.id} {...props} />;
+            return props.habit.access === "view" ? (
+                <CheeringPanel key={props.habit.id} {...props} />
+            ) : (
+                <HabitEditor key={props.habit.id} {...props} />
+            );
         case "event":
             return <PersonalEventEditor key={props.event.id} {...props} />;
     }

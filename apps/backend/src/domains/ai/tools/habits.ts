@@ -4,7 +4,7 @@ import { localDateSchema, wallTimeSchema } from "@cadence/contracts/common";
 import { z } from "zod";
 import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
-import { habits, habitLogs, habitTags } from "../../../db/schema";
+import { habitLogs, habitTags } from "../../../db/schema";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { AgentContext } from "./index";
@@ -13,13 +13,18 @@ import { toMinimalHabit } from "./projections";
 import { offsetSchema } from "./drafts";
 import { readSnapshotRoutines, routinesDue, type SnapshotRoutineReader } from "./routine-reads";
 import { habitDays } from "@cadence/domain/repeats";
+import { AppError } from "../../../platform/errors";
+import { requireOwner, routineAccess } from "../../../platform/list-access";
+import { routinePeople } from "../../sharing/sharing.service";
 import {
     createHabit,
     deleteHabit,
+    loadHabitsForCaller,
     moveHabit,
     resolveHabit,
+    setRoutineMemberPrefs,
     updateHabit,
-    withLiveStreaks,
+    type ResolvedHabitRow,
 } from "../../habits/habits.service";
 import {
     habitTargetTimesSchema,
@@ -81,7 +86,7 @@ type DayStatus = "done" | "skipped" | "missed" | "partial" | "open";
 async function routineDays(
     tx: Tx,
     userId: string,
-    rows: { id: string; recurrenceRule: string; createdAt: string; pausedUntil: string | null }[],
+    rows: Pick<ResolvedHabitRow, "id" | "recurrenceRule" | "createdAt" | "pausedUntil" | "access" | "shareMode">[],
     from: string,
     to: string,
     timeZone: string,
@@ -91,6 +96,7 @@ async function routineDays(
         ? await tx
               .select({
                   habitId: habitLogs.habitId,
+                  userId: habitLogs.userId,
                   targetDate: habitLogs.targetDate,
                   status: habitLogs.status,
                   stepStatus: habitLogs.stepStatus,
@@ -99,7 +105,6 @@ async function routineDays(
               .from(habitLogs)
               .where(
                   and(
-                      eq(habitLogs.userId, userId),
                       inArray(
                           habitLogs.habitId,
                           rows.map((row) => row.id),
@@ -109,49 +114,68 @@ async function routineDays(
                   ),
               )
         : [];
-    const byHabit = new Map<string, Map<string, (typeof logs)[number]>>();
+    const byHabit = new Map<string, Map<string, (typeof logs)[number][]>>();
     for (const log of logs) {
         if (!byHabit.has(log.habitId)) byHabit.set(log.habitId, new Map());
-        byHabit.get(log.habitId)!.set(log.targetDate, log);
+        const byDate = byHabit.get(log.habitId)!;
+        const list = byDate.get(log.targetDate) ?? [];
+        list.push(log);
+        byDate.set(log.targetDate, list);
     }
     return new Map(
-        rows.map((row) => [
-            row.id,
-            habitDays(row, byHabit.get(row.id) ?? new Map(), from, to, timeZone, today).map(({ date, log }) => {
-                const status: DayStatus =
-                    log?.status === "COMPLETED"
-                        ? "done"
-                        : log?.status === "SKIPPED"
-                          ? "skipped"
-                          : date >= today
-                            ? "open"
-                            : Object.keys(log?.stepStatus ?? log?.timeMarks ?? {}).length
-                              ? "partial"
-                              : "missed";
-                return { date, status };
-            }),
-        ]),
+        rows.map((row) => {
+            const rawByDate = byHabit.get(row.id) ?? new Map<string, (typeof logs)[number][]>();
+            const picked = new Map<string, (typeof logs)[number]>();
+            for (const [dateKey, list] of rawByDate) {
+                if (row.access === "view") {
+                    const done = list.find((l) => l.status === "COMPLETED");
+                    if (done) picked.set(dateKey, done);
+                } else if (row.shareMode === "turns") {
+                    const resolved =
+                        list.find((l) => l.userId === userId) ??
+                        list.find((l) => l.status === "COMPLETED" || l.status === "SKIPPED");
+                    if (resolved) picked.set(dateKey, resolved);
+                } else {
+                    const mine = list.find((l) => l.userId === userId);
+                    if (mine) picked.set(dateKey, mine);
+                }
+            }
+            return [
+                row.id,
+                habitDays(row, picked, from, to, timeZone, today).map(({ date, log }) => {
+                    if (row.access === "view") {
+                        return { date, status: (log?.status === "COMPLETED" ? "done" : "open") as DayStatus };
+                    }
+                    const status: DayStatus =
+                        log?.status === "COMPLETED"
+                            ? "done"
+                            : log?.status === "SKIPPED"
+                              ? "skipped"
+                              : date >= today
+                                ? "open"
+                                : Object.keys(log?.stepStatus ?? log?.timeMarks ?? {}).length
+                                  ? "partial"
+                                  : "missed";
+                    return { date, status };
+                }),
+            ];
+        }),
     );
 }
 
-/** The routine columns the read projects. */
-const routineColumns = {
-    id: habits.id,
-    title: habits.title,
-    emoji: habits.emoji,
-    recurrenceRule: habits.recurrenceRule,
-    targetTime: habits.targetTime,
-    targetTimes: habits.targetTimes,
-    colorAccent: habits.colorAccent,
-    projectId: habits.projectId,
-    steps: habits.steps,
-    times: habits.times,
-    currentStreak: habits.currentStreak,
-    longestStreak: habits.longestStreak,
-    archived: habits.archived,
-    pausedUntil: habits.pausedUntil,
-    createdAt: habits.createdAt,
-} as const;
+async function turnLabel(tx: Tx, row: ResolvedHabitRow, userId: string): Promise<string | undefined> {
+    if (row.shareMode !== "turns" || !row.today.turn) return undefined;
+    if (row.today.turn === userId) return "you";
+    const people = await routinePeople(tx, row.id);
+    return people.find((p) => p.userId === row.today.turn)?.name ?? "someone";
+}
+
+function shareMeta(row: ResolvedHabitRow, turn?: string) {
+    const isShared = row.access !== "owner" || row.members.length > 0;
+    if (!isShared) return {};
+    const way = row.access === "view" ? "cheering" : (row.shareMode ?? "together");
+    return { shared: true, way, ...(turn ? { turn } : {}) };
+}
 
 export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRoutines?: SnapshotRoutineReader) => ({
     // ── R ──────────────────────────────────────────────────────────────────
@@ -169,25 +193,19 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
             safeExecute("get_habits", userId, async () => {
                 const cap = clampLimit(limit);
                 const db = getDbClient(env);
-                const { rows, live, links, recent } = await withRls(db, userId, async (tx) => {
-                    const rows = await tx
-                        .select(routineColumns)
-                        .from(habits)
-                        .where(
-                            includeArchived
-                                ? eq(habits.userId, userId)
-                                : and(eq(habits.userId, userId), eq(habits.archived, false)),
-                        )
-                        .orderBy(habits.sortOrder, habits.createdAt, habits.id)
-                        .limit(cap + 1)
-                        .offset(offset);
-                    const live = await withLiveStreaks(tx, userId, rows.slice(0, cap), ctx.timezone as Zone, ctx.today);
+                const { rows, live, links, recent, turns } = await withRls(db, userId, async (tx) => {
+                    const { rows: all } = await loadHabitsForCaller(tx, userId, {
+                        archived: includeArchived ? undefined : false,
+                        zone: ctx.timezone as Zone,
+                    });
+                    const sliced = all.slice(offset, offset + cap + 1);
+                    const live = sliced.slice(0, cap);
                     const ids = live.map((row) => row.id);
                     const links = ids.length
                         ? await tx
                               .select({ habitId: habitTags.habitId, tagId: habitTags.tagId })
                               .from(habitTags)
-                              .where(inArray(habitTags.habitId, ids))
+                              .where(and(eq(habitTags.userId, userId), inArray(habitTags.habitId, ids)))
                         : [];
                     const recent = await routineDays(
                         tx,
@@ -198,19 +216,33 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
                         ctx.timezone,
                         ctx.today,
                     );
-                    return { rows, live, links, recent };
+                    const turns = new Map<string, string>();
+                    for (const row of live) {
+                        const t = await turnLabel(tx, row, userId);
+                        if (t) turns.set(row.id, t);
+                    }
+                    return { rows: sliced, live, links, recent, turns };
                 });
                 const count = (id: string, status: DayStatus) =>
                     recent.get(id)?.filter((day) => day.status === status).length ?? 0;
                 const more = rows.length > cap;
                 return {
-                    habits: live.map((r) =>
-                        toMinimalHabit(
-                            { ...r, tagIds: links.filter((l) => l.habitId === r.id).map((l) => l.tagId) },
+                    habits: live.map((r) => ({
+                        ...toMinimalHabit(
+                            {
+                                ...r,
+                                tagIds:
+                                    r.access === "owner"
+                                        ? links.filter((l) => l.habitId === r.id).map((l) => l.tagId)
+                                        : [],
+                            },
                             ctx.today,
-                            { done: count(r.id, "done"), missed: count(r.id, "missed") + count(r.id, "partial") },
+                            r.access === "view"
+                                ? undefined
+                                : { done: count(r.id, "done"), missed: count(r.id, "missed") + count(r.id, "partial") },
                         ),
-                    ),
+                        ...shareMeta(r, turns.get(r.id)),
+                    })),
                     ...(more && { more, nextOffset: offset + cap }),
                 };
             }),
@@ -291,24 +323,12 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
                 const to = [end, ctx.today, addDays(start, MAX_HISTORY_DAYS)].sort()[0];
                 const db = getDbClient(env);
                 return withRls(db, userId, async (tx) => {
-                    const rows = await tx
-                        .select({
-                            id: habits.id,
-                            title: habits.title,
-                            recurrenceRule: habits.recurrenceRule,
-                            createdAt: habits.createdAt,
-                            pausedUntil: habits.pausedUntil,
-                        })
-                        .from(habits)
-                        .where(
-                            and(
-                                eq(habits.userId, userId),
-                                habitId ? eq(habits.id, habitId) : undefined,
-                                includeArchived || habitId ? undefined : eq(habits.archived, false),
-                            ),
-                        )
-                        .orderBy(habits.sortOrder, habits.createdAt)
-                        .limit(50);
+                    const { rows: loaded } = await loadHabitsForCaller(tx, userId, {
+                        archived: includeArchived || habitId ? undefined : false,
+                        habitId,
+                        zone: ctx.timezone as Zone,
+                    });
+                    const rows = loaded.slice(0, 50);
                     const days = await routineDays(tx, userId, rows, start, to, ctx.timezone, ctx.today);
                     return {
                         range: { start, end: to },
@@ -318,9 +338,18 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
                                 const dates = list.filter((day) => day.status === status).map((day) => day.date);
                                 return dates.length ? dates : undefined;
                             };
+                            if (row.access === "view") {
+                                return {
+                                    habitId: row.id,
+                                    title: row.title,
+                                    ...shareMeta(row),
+                                    done: on("done"),
+                                };
+                            }
                             return {
                                 habitId: row.id,
                                 title: row.title,
+                                ...shareMeta(row),
                                 due: list.length,
                                 done: on("done"),
                                 skipped: on("skipped"),
@@ -359,6 +388,16 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
             safeExecute("log_habit", userId, async () =>
                 withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
+                        const access = await routineAccess(tx, userId, input.habitId);
+                        if (access.role === "view") {
+                            const people = await routinePeople(tx, input.habitId);
+                            const ownerName = people.find((p) => p.role === "owner")?.name ?? "the owner";
+                            throw new AppError(
+                                403,
+                                "VIEW_ONLY",
+                                `You're cheering this one on; only ${ownerName} checks it off.`,
+                            );
+                        }
                         const { habit, log } = await resolveHabit(tx, userId, input.habitId, {
                             ...input,
                             at: ctx.currentDate,
@@ -447,6 +486,40 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
             safeExecute("update_habit", userId, async () =>
                 withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
+                        const access = await routineAccess(tx, userId, habitId);
+                        if (access.role === "view") {
+                            throw new AppError(403, "VIEW_ONLY", "You're cheering this one on; you can't edit it.");
+                        }
+                        if (access.role !== "owner") {
+                            if (
+                                patch.archived !== undefined ||
+                                patch.projectId !== undefined ||
+                                patch.tagIds !== undefined
+                            ) {
+                                requireOwner(access, "routine");
+                            }
+                            const { reminderEnabled, pausedUntil, ...defPatch } = patch;
+                            if (reminderEnabled !== undefined || pausedUntil !== undefined) {
+                                await setRoutineMemberPrefs(tx, habitId, { reminderEnabled, pausedUntil });
+                            }
+                            const body = {
+                                ...defPatch,
+                                ...(dayTimes !== undefined && { targetTimes: dayTimes }),
+                                ...(steps !== undefined && {
+                                    steps: steps?.length
+                                        ? steps.map((step) => ({
+                                              id: step.id ?? crypto.randomUUID(),
+                                              title: step.title,
+                                          }))
+                                        : null,
+                                }),
+                            };
+                            if (Object.keys(body).length > 0) {
+                                await updateHabit(tx, access.ownerId, habitId, body);
+                            }
+                            const { rows } = await loadHabitsForCaller(tx, userId, { habitId });
+                            return { result: { habitId, title: rows[0]?.title ?? "" }, id: habitId };
+                        }
                         const row = await updateHabit(tx, userId, habitId, {
                             ...patch,
                             ...(dayTimes !== undefined && { targetTimes: dayTimes }),
@@ -472,6 +545,15 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
             safeExecute("delete_habit", userId, async () =>
                 withRls(getDbClient(env), userId, (tx) =>
                     once(tx, userId, toolCallId, async () => {
+                        const access = await routineAccess(tx, userId, habitId);
+                        if (access.role !== "owner") throw new AppError(404, "NOT_FOUND", "Habit not found");
+                        if (access.audience.length > 1) {
+                            throw new AppError(
+                                403,
+                                "FORBIDDEN",
+                                "This routine is shared. Delete it from the Routines page.",
+                            );
+                        }
                         const row = await deleteHabit(tx, userId, habitId);
                         return { result: { deleted: row.title }, id: userId };
                     }),

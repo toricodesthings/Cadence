@@ -7,6 +7,7 @@ export type EmptyStateVariant =
     | "upcoming"
     | "holding"
     | "capture"
+    | "capture-board"
     | "completed"
     | "schedule"
     | "routines"
@@ -26,7 +27,7 @@ interface EmptyStateProps {
 }
 
 const VARIANTS: Record<
-    Exclude<EmptyStateVariant, "capture">,
+    Exclude<EmptyStateVariant, "capture" | "capture-board">,
     {
         icon: typeof Feather;
         title: string;
@@ -90,6 +91,7 @@ export function EmptyState({
 }: EmptyStateProps) {
     const navigate = useNavigate();
     if (variant === "capture") return <CaptureWindow variant="clear" />;
+    if (variant === "capture-board") return <CaptureWindow variant="board-clear" />;
     const config = VARIANTS[variant];
     const Icon = icon ?? config.icon;
     const line = description === undefined ? config.description : description;

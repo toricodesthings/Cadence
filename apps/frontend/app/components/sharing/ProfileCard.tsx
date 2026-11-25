@@ -1,6 +1,12 @@
-import { Eye, FolderOpen, Pencil, UsersRound } from "lucide-react";
+import type { ReactNode } from "react";
+import { CalendarHeart, Eye, Flame, FolderOpen, Pencil, UsersRound, type LucideIcon } from "lucide-react";
 import type { ListPerson, ListRole } from "@cadence/contracts/sharing";
+import { usePersonalEvents } from "../../hooks/calendar/use-personal-events";
+import { useAllHabits } from "../../hooks/habits/use-habits";
 import { useProjects } from "../../hooks/projects/use-projects";
+import { isSharedRoutine } from "../../hooks/sharing/use-share-routine";
+import { today as todayDay } from "../../lib/utils/user-zone";
+import { RoutineMark } from "../habits/RoutineMark";
 import { isSharedList } from "../../hooks/sharing/use-list-access";
 import { useListOnlineIds } from "../../hooks/sharing/use-list-presence";
 import { ProfileBanner } from "../shared/ProfileBanner";
@@ -17,30 +23,91 @@ export const tagOf = (userId: string) => `#${userId.slice(0, 4)}`;
  * Who someone is, to the people they share a list with: picture, name, `#tag`, pronouns (left out when empty),
  * live online indicator, their role in this list, and shared lists in common. Email and birthday are never here.
  */
+type InCommon = { id: string; name: string; mark: ReactNode };
+
+/** One kind of shared thing (lists, events, routines): its icon and name, then a few chips and "+n". */
+function InCommonGroup({ icon: Icon, label, items }: { icon: LucideIcon; label: string; items: InCommon[] }) {
+    if (items.length === 0) return null;
+    const shown = items.slice(0, 4);
+    return (
+        <li className="flex items-start gap-2.5">
+            <span className="grid size-7 shrink-0 place-items-center rounded-lg surface-control text-twilight-text-soft">
+                <Icon size={14} aria-hidden="true" />
+            </span>
+            <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-twilight-text-soft">
+                    {label} <span className="tabular-nums text-twilight-text-muted">· {items.length}</span>
+                </p>
+                <ul className="mt-1 flex flex-wrap gap-1.5" aria-label={label}>
+                    {shown.map((item) => (
+                        <li
+                            key={item.id}
+                            className="inline-flex max-w-full items-center gap-1 rounded-full surface-control px-2.5 py-0.5 text-xs text-twilight-text"
+                        >
+                            <span aria-hidden="true" className="inline-flex shrink-0 text-twilight-text-soft">
+                                {item.mark}
+                            </span>
+                            <span className="truncate">{item.name}</span>
+                        </li>
+                    ))}
+                    {items.length > shown.length ? (
+                        <li className="inline-flex items-center px-1 text-xs text-twilight-text-muted">
+                            +{items.length - shown.length}
+                        </li>
+                    ) : null}
+                </ul>
+            </div>
+        </li>
+    );
+}
+
+/** Lists, events and routines this person and the viewer share, from what the viewer already has loaded. */
+function useInCommon(userId: string, skip: boolean) {
+    const { data: projects = [] } = useProjects();
+    const { items: events } = usePersonalEvents(Number(todayDay().slice(0, 4)));
+    const { data: habits = [] } = useAllHabits();
+    if (skip) return { lists: [], events: [], routines: [] };
+    const lists = projects
+        .filter((p) => isSharedList(p) && (p.userId === userId || (p.members ?? []).some((m) => m.userId === userId)))
+        .map((p) => ({
+            id: p.id,
+            name: p.name,
+            mark: p.emoji || <FolderOpen size={11} />,
+        }));
+    // An event's owner isn't on the row; they made every link, so they're whoever invited its members.
+    const sharedEvents = events
+        .filter((e) => (e.members ?? []).some((m) => m.userId === userId || m.invitedBy === userId))
+        .map((e) => ({ id: e.id, name: e.label, mark: e.emoji || <CalendarHeart size={11} /> }));
+    const routines = habits
+        .filter(
+            (h) => isSharedRoutine(h) && (h.userId === userId || (h.members ?? []).some((m) => m.userId === userId)),
+        )
+        .map((h) => ({ id: h.id, name: h.title, mark: <RoutineMark emoji={h.emoji} size={11} /> }));
+    return { lists, events: sharedEvents, routines };
+}
+
 export function ProfileCard({
     person,
     userId,
     projectId,
     online,
     former = false,
+    showRole = true,
 }: {
     person: ListPerson | undefined;
     userId: string;
     projectId?: string;
     online?: boolean;
     former?: boolean;
+    /** Shared dates have no roles (Decision 8). */
+    showRole?: boolean;
 }) {
     const RoleIcon = person ? ROLE_ICON[person.role] : null;
     const onlineIds = useListOnlineIds(projectId);
     const isOnline = !former && (online ?? onlineIds.has(userId));
-    const { data: projects = [] } = useProjects();
-    const sharedInCommon = former
-        ? []
-        : projects.filter(
-              (project) =>
-                  isSharedList(project) &&
-                  (project.userId === userId || (project.members ?? []).some((member) => member.userId === userId)),
-          );
+    const inCommon = useInCommon(userId, former);
+    const anyInCommon = inCommon.lists.length + inCommon.events.length + inCommon.routines.length > 0;
+    const showRoleChip = showRole && person && RoleIcon;
 
     return (
         <div className="profile-card-bg">
@@ -55,52 +122,40 @@ export function ProfileCard({
                     )}
                 </div>
             </ProfileBanner>
-            <div className="flex flex-col gap-1 px-4 pb-4 pt-10">
+            <div className="flex flex-col px-4 pb-4 pt-10">
                 <p className="flex flex-wrap items-baseline gap-x-2 font-display text-lg font-semibold text-twilight-text">
                     <span className="break-words">{former ? "A former member" : (person?.name ?? "Cadence user")}</span>
                     {!former && <span className="text-sm font-normal text-twilight-text-soft">{tagOf(userId)}</span>}
                 </p>
                 {person?.pronouns ? <p className="text-sm text-twilight-text-soft">{person.pronouns}</p> : null}
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    {person && RoleIcon ? (
-                        <span
-                            className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ${person.role === "view" ? "surface-control text-twilight-text-soft" : "border border-accent-primary/35 bg-accent-primary/10 font-medium text-accent-primary"}`}
-                        >
-                            <RoleIcon size={12} aria-hidden="true" />
-                            {ROLE_LABEL[person.role]}
-                        </span>
-                    ) : null}
-                    {isOnline ? (
-                        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-feedback-success/15 px-2.5 py-1 text-xs font-medium text-feedback-success">
-                            <span aria-hidden="true" className="size-1.5 rounded-full bg-feedback-success" />
-                            Here now
-                        </span>
-                    ) : null}
-                </div>
-                {sharedInCommon.length > 0 && (
-                    <div className="mt-3 border-t border-twilight-border/60 pt-3">
-                        <p className="mb-1.5 text-xs font-medium text-twilight-text-soft">Shared lists</p>
-                        <ul className="flex flex-wrap gap-1.5">
-                            {sharedInCommon.map((list) => (
-                                <li
-                                    key={list.id}
-                                    className="inline-flex max-w-full items-center gap-1 rounded-full surface-control px-2.5 py-0.5 text-xs text-twilight-text"
-                                >
-                                    {list.emoji ? (
-                                        <span aria-hidden="true">{list.emoji}</span>
-                                    ) : (
-                                        <FolderOpen
-                                            size={11}
-                                            aria-hidden="true"
-                                            className="shrink-0 text-twilight-text-soft"
-                                        />
-                                    )}
-                                    <span className="truncate">{list.name}</span>
-                                </li>
-                            ))}
-                        </ul>
+                {showRoleChip || isOnline ? (
+                    <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                        {showRoleChip ? (
+                            <span
+                                className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ${person.role === "view" ? "surface-control text-twilight-text-soft" : "border border-accent-primary/35 bg-accent-primary/10 font-medium text-accent-primary"}`}
+                            >
+                                <RoleIcon size={12} aria-hidden="true" />
+                                {ROLE_LABEL[person.role]}
+                            </span>
+                        ) : null}
+                        {isOnline ? (
+                            <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-feedback-success/15 px-2.5 py-1 text-xs font-medium text-feedback-success">
+                                <span aria-hidden="true" className="size-1.5 rounded-full bg-feedback-success" />
+                                Here now
+                            </span>
+                        ) : null}
                     </div>
-                )}
+                ) : null}
+                {anyInCommon ? (
+                    <section className="mt-3.5 border-t border-twilight-border/60 pt-3" aria-label="Shared between you">
+                        <h3 className="mb-2.5 text-[11px] font-semibold text-twilight-text">Shared between you</h3>
+                        <ul className="flex flex-col gap-3">
+                            <InCommonGroup icon={FolderOpen} label="Lists" items={inCommon.lists} />
+                            <InCommonGroup icon={CalendarHeart} label="Events" items={inCommon.events} />
+                            <InCommonGroup icon={Flame} label="Routines" items={inCommon.routines} />
+                        </ul>
+                    </section>
+                ) : null}
             </div>
         </div>
     );

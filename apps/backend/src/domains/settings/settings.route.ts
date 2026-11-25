@@ -8,6 +8,7 @@ import type { AuthVariables } from "../../platform/auth";
 import { apiValidator } from "../../platform/validation";
 import { throwIfNotFound } from "../../platform/errors";
 import { sanitizeBackgroundPatch } from "./background-image";
+import { ensureFocusPresets, hideOrDeleteFocusView } from "./focus-presets";
 import {
     deepMerge,
     savedFocusViewInputSchema,
@@ -293,25 +294,21 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
         return c.json({ data: items.map(toNotificationState) });
     })
     .get("/focus-views", async (c) => {
-        const items = await withCallerRls(c, (tx, userId) =>
-            tx
+        const items = await withCallerRls(c, async (tx, userId) => {
+            await ensureFocusPresets(tx, userId);
+            return tx
                 .select()
                 .from(savedFocusViews)
-                .where(eq(savedFocusViews.userId, userId))
-                .orderBy(desc(savedFocusViews.isPinned), savedFocusViews.orderIndex, savedFocusViews.createdAt),
-        );
+                .where(and(eq(savedFocusViews.userId, userId), eq(savedFocusViews.isHidden, false)))
+                .orderBy(desc(savedFocusViews.isPinned), savedFocusViews.orderIndex, savedFocusViews.createdAt);
+        });
 
         return c.json({ data: items.map(toSavedFocusView) });
     })
     .delete("/focus-views/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
 
-        const [deleted] = await withCallerRls(c, (tx, userId) =>
-            tx
-                .delete(savedFocusViews)
-                .where(and(eq(savedFocusViews.id, id), eq(savedFocusViews.userId, userId)))
-                .returning(),
-        );
+        const [deleted] = await withCallerRls(c, (tx, userId) => hideOrDeleteFocusView(tx, userId, id));
 
         throwIfNotFound(deleted, "Focus view");
 

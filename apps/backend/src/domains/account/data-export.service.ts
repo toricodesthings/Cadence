@@ -1,4 +1,4 @@
-import { and, eq, getTableColumns, getTableName, inArray, is } from "drizzle-orm";
+import { and, eq, getTableColumns, getTableName, inArray, is, or } from "drizzle-orm";
 import { PgTable } from "drizzle-orm/pg-core";
 import * as schema from "../../db/schema";
 import { dataExports, tasks } from "../../db/schema";
@@ -47,10 +47,13 @@ export async function buildExport(tx: Tx, identity: { userId: string; email: str
                   : // the links the person made for their shared lists
                     name === "share_invites"
                     ? eq(all.createdBy, userId)
-                    : // task_tags is the one table without a user id: owned through its task
-                      "taskId" in all
-                      ? inArray(all.taskId, tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.userId, userId)))
-                      : undefined;
+                    : // routine_cheers: the cheers the person sent or got
+                      "fromUserId" in all
+                      ? or(eq(all.fromUserId, userId), eq(all.toUserId, userId))
+                      : // task_tags is the one table without a user id: owned through its task
+                        "taskId" in all
+                        ? inArray(all.taskId, tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.userId, userId)))
+                        : undefined;
         if (!scope) throw new Error(`data export doesn't know how to scope ${name}`);
         data[name] = await tx
             .select(columns as never)

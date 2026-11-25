@@ -1,5 +1,14 @@
-import { and, eq, inArray, max, min, sql } from "drizzle-orm";
-import type { HabitRow, HabitLog, InsertHabit, ResolveHabitAction, UpdateHabit } from "@cadence/contracts/habit";
+import { and, asc, eq, inArray, max, min, or, sql } from "drizzle-orm";
+import type {
+    HabitRow,
+    HabitLog,
+    InsertHabit,
+    ResolveHabitAction,
+    RoutineDayShare,
+    RoutineToday,
+    UpdateHabit,
+} from "@cadence/contracts/habit";
+import type { ListMember, ListRole } from "@cadence/contracts/sharing";
 import {
     habitDays,
     habitOccurrences,
@@ -18,24 +27,243 @@ import {
     type LocalDate,
     type Zone,
 } from "@cadence/domain/time";
-import { habits, habitLogs, habitTags } from "../../db/schema";
+import { habits, habitLogs, habitTags, routineCheers, routineMembers } from "../../db/schema";
 import { AppError, assertNoConflict, throwIfNotFound } from "../../platform/errors";
 import { checkIdempotency, insertWithClientId, recordMutation } from "../../platform/idempotency";
+import { routineAccess } from "../../platform/list-access";
 import { assertOwnership } from "../../platform/ownership";
 import { userZone } from "../../platform/user-zone";
 import type { Tx } from "../../types/db";
 import { pruneRoutineReports } from "../ai/memory/memory.service";
 import { assertRowRoom } from "../../platform/storage-ceiling";
+import { reanchoredOrder, reorderTurns, turnFor, turnOrderOf } from "./routine-turns";
+
+export { reanchoredOrder, reorderTurns, turnFor, turnOrderOf };
+
+function laterDate(a: string | null, b: string | null): string | null {
+    if (!a) return b;
+    if (!b) return a;
+    return a >= b ? a : b;
+}
+
+/** Update a member's own reminder, sortOrder, or personal pause on a shared routine. */
+export async function setRoutineMemberPrefs(
+    tx: Tx,
+    habitId: string,
+    prefs: { reminderEnabled?: boolean; sortOrder?: number; pausedUntil?: string | null },
+): Promise<void> {
+    const [row] = await tx.select({ ok: sql<boolean>`r.ok` }).from(
+        sql`cadence_set_routine_member_prefs(
+                ${habitId}::uuid,
+                ${prefs.reminderEnabled !== undefined}, ${prefs.reminderEnabled ?? false},
+                ${prefs.sortOrder !== undefined}, ${prefs.sortOrder ?? 0},
+                ${prefs.pausedUntil !== undefined}, ${prefs.pausedUntil ?? null}::date
+            ) AS r(ok)`,
+    );
+    if (!row?.ok) throw new AppError(404, "NOT_FOUND", "Routine not found");
+}
+
+async function setRoutineMemberStats(
+    tx: Tx,
+    habitId: string,
+    stats: { currentStreak: number; longestStreak: number; totalCompletions: number; totalSkips: number },
+): Promise<void> {
+    await tx.select({ ok: sql<boolean>`r.ok` }).from(
+        sql`cadence_set_routine_member_stats(
+                ${habitId}::uuid,
+                ${stats.currentStreak},
+                ${stats.longestStreak},
+                ${stats.totalCompletions},
+                ${stats.totalSkips}
+            ) AS r(ok)`,
+    );
+}
+
+export type ResolvedHabitRow = HabitRow & {
+    access: ListRole;
+    members: ListMember[];
+    today: RoutineToday;
+    participants: string[];
+};
+
+/** Load the caller's own and shared routines, resolved per caller (R3, R5, R6, R7). */
+export async function loadHabitsForCaller(
+    tx: Tx,
+    userId: string,
+    { archived, habitId, zone: providedZone }: { archived?: boolean; habitId?: string; zone?: Zone } = {},
+): Promise<{ rows: ResolvedHabitRow[]; zone: Zone; today: LocalDate }> {
+    const zone = providedZone ?? (await userZone(tx, userId));
+    const today = todayIn(zone);
+
+    const conditions = [or(eq(habits.userId, userId), eq(routineMembers.userId, userId))];
+    if (archived !== undefined) conditions.push(eq(habits.archived, archived));
+    if (habitId) conditions.push(eq(habits.id, habitId));
+
+    const joined = await tx
+        .select({
+            habit: habits,
+            member: routineMembers,
+        })
+        .from(habits)
+        .leftJoin(routineMembers, and(eq(routineMembers.habitId, habits.id), eq(routineMembers.userId, userId)))
+        .where(and(...conditions));
+
+    if (joined.length === 0) return { rows: [], zone, today };
+
+    const ids = joined.map((j) => j.habit.id);
+    const [allMembers, todayLogs, todayCheers] = await Promise.all([
+        tx
+            .select({
+                habitId: routineMembers.habitId,
+                userId: routineMembers.userId,
+                role: routineMembers.role,
+                invitedBy: routineMembers.invitedBy,
+            })
+            .from(routineMembers)
+            .where(inArray(routineMembers.habitId, ids))
+            .orderBy(asc(routineMembers.joinedAt)),
+        tx
+            .select({
+                habitId: habitLogs.habitId,
+                userId: habitLogs.userId,
+                status: habitLogs.status,
+            })
+            .from(habitLogs)
+            .where(
+                and(
+                    inArray(habitLogs.habitId, ids),
+                    eq(habitLogs.targetDate, today),
+                    eq(habitLogs.status, "COMPLETED"),
+                ),
+            ),
+        tx
+            .select({
+                habitId: routineCheers.habitId,
+                fromUserId: routineCheers.fromUserId,
+            })
+            .from(routineCheers)
+            .where(
+                and(
+                    inArray(routineCheers.habitId, ids),
+                    eq(routineCheers.toUserId, userId),
+                    eq(routineCheers.targetDate, today),
+                ),
+            ),
+    ]);
+
+    const membersByHabit = new Map<string, ListMember[]>();
+    for (const m of allMembers) {
+        const list = membersByHabit.get(m.habitId) ?? [];
+        list.push({ userId: m.userId, role: m.role, invitedBy: m.invitedBy });
+        membersByHabit.set(m.habitId, list);
+    }
+    const completedTodayByHabit = new Map<string, string[]>();
+    for (const l of todayLogs) {
+        if (l.userId === userId) continue;
+        const list = completedTodayByHabit.get(l.habitId) ?? [];
+        list.push(l.userId);
+        completedTodayByHabit.set(l.habitId, list);
+    }
+    const cheersTodayByHabit = new Map<string, string[]>();
+    for (const ch of todayCheers) {
+        const list = cheersTodayByHabit.get(ch.habitId) ?? [];
+        list.push(ch.fromUserId);
+        cheersTodayByHabit.set(ch.habitId, list);
+    }
+
+    const baseRows: ResolvedHabitRow[] = joined.map(({ habit, member }) => {
+        const access: ListRole = habit.userId === userId ? "owner" : (member?.role ?? "view");
+        const members = membersByHabit.get(habit.id) ?? [];
+        const participants = [
+            habit.userId,
+            ...members.filter((m) => m.role === "edit" && m.userId !== habit.userId).map((m) => m.userId),
+        ];
+        const effectiveOrder = habit.shareMode === "turns" ? turnOrderOf(habit, participants) : habit.turnOrder;
+        const turn = habit.shareMode === "turns" && effectiveOrder ? turnFor(habit, effectiveOrder, today, zone) : null;
+        const others = (completedTodayByHabit.get(habit.id) ?? []).map((uid) => ({
+            userId: uid,
+            status: "COMPLETED" as const,
+        }));
+        const cheers = cheersTodayByHabit.get(habit.id) ?? [];
+
+        if (access === "owner") {
+            return {
+                ...habit,
+                turnOrder: effectiveOrder,
+                access,
+                members,
+                participants,
+                today: { turn, others, cheers },
+            };
+        }
+
+        if (access === "view") {
+            return {
+                ...habit,
+                projectId: null,
+                sortOrder: member?.sortOrder ?? 0,
+                reminderEnabled: false,
+                pausedUntil: laterDate(habit.pausedUntil, member?.pausedUntil ?? null),
+                currentStreak: 0,
+                longestStreak: 0,
+                totalCompletions: 0,
+                totalSkips: 0,
+                steps: null,
+                times: null,
+                targetTime: null,
+                targetTimes: null,
+                turnOrder: effectiveOrder,
+                access,
+                members,
+                participants,
+                today: { turn: null, others, cheers: [] },
+            };
+        }
+
+        // Participant (`edit`)
+        const useHouseholdStreak = habit.shareMode === "turns";
+        return {
+            ...habit,
+            projectId: null,
+            sortOrder: member?.sortOrder ?? 0,
+            reminderEnabled: member?.reminderEnabled ?? false,
+            pausedUntil: laterDate(habit.pausedUntil, member?.pausedUntil ?? null),
+            currentStreak: useHouseholdStreak ? habit.currentStreak : (member?.currentStreak ?? 0),
+            longestStreak: useHouseholdStreak ? habit.longestStreak : (member?.longestStreak ?? 0),
+            totalCompletions: useHouseholdStreak ? habit.totalCompletions : (member?.totalCompletions ?? 0),
+            totalSkips: useHouseholdStreak ? habit.totalSkips : (member?.totalSkips ?? 0),
+            turnOrder: effectiveOrder,
+            access,
+            members,
+            participants,
+            today: { turn, others, cheers },
+        };
+    });
+
+    const withStreaks = await withLiveStreaks(tx, userId, baseRows, zone, today);
+    // Order: own routines first, then joined, each by caller's sortOrder then createdAt desc.
+    withStreaks.sort((a, b) => {
+        const aOwn = a.access === "owner" ? 0 : 1;
+        const bOwn = b.access === "owner" ? 0 : 1;
+        if (aOwn !== bOwn) return aOwn - bOwn;
+        if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+        return b.createdAt.localeCompare(a.createdAt);
+    });
+    return { rows: withStreaks, zone, today };
+}
 
 // ── Utility ───────────────────────────────────────────────────────────
 
 /** Expand the committed SQL snapshot after releasing its RLS connection. */
-export function projectHabitRange(
+export function projectHabitRange<
+    H extends HabitRow & Partial<Pick<ResolvedHabitRow, "access" | "members" | "today" | "participants">>,
+>(
     {
         userHabits,
         logs,
         allTags,
-    }: { userHabits: HabitRow[]; logs: HabitLog[]; allTags: { habitId: string; tagId: string }[] },
+        callerId,
+    }: { userHabits: H[]; logs: HabitLog[]; allTags: { habitId: string; tagId: string }[]; callerId?: string },
     { start, end, timeZone: tz, today: todayStr }: { start: string; end: string; timeZone: string; today: string },
 ) {
     const tagsByHabit = new Map<string, string[]>();
@@ -45,23 +273,77 @@ export function projectHabitRange(
         tagsByHabit.set(t.habitId, arr);
     }
 
-    const logsByHabit = new Map<string, Map<string, (typeof logs)[number]>>();
+    const logsByHabit = new Map<string, Map<string, HabitLog[]>>();
     for (const log of logs) {
-        if (!logsByHabit.has(log.habitId)) logsByHabit.set(log.habitId, new Map());
-        logsByHabit.get(log.habitId)!.set(log.targetDate, log);
+        let byDate = logsByHabit.get(log.habitId);
+        if (!byDate) {
+            byDate = new Map();
+            logsByHabit.set(log.habitId, byDate);
+        }
+        const list = byDate.get(log.targetDate) ?? [];
+        list.push(log);
+        byDate.set(log.targetDate, list);
     }
 
     return userHabits.map((habit) => {
-        const days = habitDays(habit, logsByHabit.get(habit.id) ?? new Map(), start, end, tz, todayStr);
-        const logsHydrated = days.map(({ date: dateKey, log: existingLog }) => ({
-            id: existingLog?.id || `virt_${dateKey}`,
-            habitId: habit.id,
-            status: existingLog?.status || "PENDING",
-            targetDate: dateKey,
-            completedAt: existingLog?.completedAt || null,
-            stepStatus: existingLog?.stepStatus ?? null,
-            timeMarks: existingLog?.timeMarks ?? null,
-        }));
+        const access = habit.access ?? "owner";
+        const isSupporter = access === "view";
+        const isTurns = habit.shareMode === "turns";
+        const byDate = logsByHabit.get(habit.id) ?? new Map<string, HabitLog[]>();
+
+        // Pick the primary log per date for `habitDays` expansion.
+        const primaryLogByDate = new Map<string, HabitLog>();
+        for (const [dateKey, dayLogs] of byDate) {
+            if (isSupporter) {
+                const completed = dayLogs.find((l) => l.status === "COMPLETED");
+                if (completed) primaryLogByDate.set(dateKey, completed);
+            } else if (isTurns) {
+                const mine = callerId ? dayLogs.find((l) => l.userId === callerId) : dayLogs[0];
+                const resolved = dayLogs.find((l) => l.status === "COMPLETED" || l.status === "SKIPPED");
+                const chosen = mine ?? resolved;
+                if (chosen) primaryLogByDate.set(dateKey, chosen);
+            } else {
+                const mine = callerId ? dayLogs.find((l) => l.userId === callerId) : dayLogs[0];
+                if (mine) primaryLogByDate.set(dateKey, mine);
+            }
+        }
+
+        const days = habitDays(habit, primaryLogByDate, start, end, tz, todayStr);
+        const dayShares: Record<string, RoutineDayShare> = {};
+        const order = isTurns && habit.participants ? turnOrderOf(habit, habit.participants) : (habit.turnOrder ?? []);
+
+        const logsHydrated = days.map(({ date: dateKey, log: existingLog }) => {
+            const rawDayLogs = byDate.get(dateKey) ?? [];
+            const others = rawDayLogs
+                .filter((l) => l.status === "COMPLETED" && (!callerId || l.userId !== callerId) && l.userId)
+                .map((l) => ({ userId: l.userId!, status: "COMPLETED" as const }));
+            const turn = isTurns && !isSupporter && order.length > 0 ? turnFor(habit, order, dateKey, tz) : null;
+            dayShares[dateKey] = { turn, others };
+
+            if (isSupporter) {
+                const completed = rawDayLogs.find((l) => l.status === "COMPLETED");
+                return {
+                    id: completed?.id || `virt_${dateKey}`,
+                    habitId: habit.id,
+                    status: (completed ? "COMPLETED" : "PENDING") as HabitLog["status"],
+                    targetDate: dateKey,
+                    completedAt: completed?.completedAt || null,
+                    stepStatus: null,
+                    timeMarks: null,
+                };
+            }
+
+            return {
+                id: existingLog?.id || `virt_${dateKey}`,
+                habitId: habit.id,
+                userId: existingLog?.userId,
+                status: existingLog?.status || "PENDING",
+                targetDate: dateKey,
+                completedAt: existingLog?.completedAt || null,
+                stepStatus: existingLog?.stepStatus ?? null,
+                timeMarks: existingLog?.timeMarks ?? null,
+            };
+        });
 
         // Compute window summary
         const completedInWindow = logsHydrated.filter((l) => l.status === "COMPLETED").length;
@@ -70,19 +352,21 @@ export function projectHabitRange(
         const adherenceInWindow = scheduledInWindow > 0 ? completedInWindow / scheduledInWindow : 0;
 
         // Determine due-today and overdue status
-        const isDueToday = days.some((day) => day.date === todayStr);
-        const isOverdue = logsHydrated.some((l) => l.status === "PENDING" && l.targetDate < todayStr);
+        const isDueToday = !isSupporter && days.some((day) => day.date === todayStr);
+        const isOverdue = !isSupporter && logsHydrated.some((l) => l.status === "PENDING" && l.targetDate < todayStr);
 
+        const { participants: _participants, ...rest } = habit;
         return {
-            ...habit,
-            tagIds: tagsByHabit.get(habit.id) || [],
+            ...rest,
+            tagIds: access === "owner" ? tagsByHabit.get(habit.id) || [] : [],
             logs: logsHydrated,
+            days: dayShares,
             isDueToday,
             isOverdue,
-            pendingCountInWindow: pendingInWindow,
-            completedCountInWindow: completedInWindow,
+            pendingCountInWindow: isSupporter ? 0 : pendingInWindow,
+            completedCountInWindow: isSupporter ? completedInWindow : completedInWindow,
             scheduledCountInWindow: scheduledInWindow,
-            adherenceRateInWindow: Math.round(adherenceInWindow * 100) / 100,
+            adherenceRateInWindow: isSupporter ? 0 : Math.round(adherenceInWindow * 100) / 100,
         };
     });
 }
@@ -131,26 +415,29 @@ function recomputeStreaks(
     return { currentStreak, longestStreak, totalCompletions, totalSkips };
 }
 
-/** Which of the given occurrence dates were completed or skipped, keyed by date. */
+/** Which of the given occurrence dates were completed or skipped, keyed by date. `logUser = null` reads anyone's logs (turns mode). */
 async function loadResolvedOccurrenceDates(
     tx: Tx,
     habitId: string,
-    userId: string,
+    logUser: string | null,
     dates: string[],
 ): Promise<Map<string, ResolvedStatus>> {
     if (dates.length === 0) return new Map();
+    const conds = [
+        eq(habitLogs.habitId, habitId),
+        inArray(habitLogs.status, ["COMPLETED", "SKIPPED"]),
+        inArray(habitLogs.targetDate, dates),
+    ];
+    if (logUser) conds.push(eq(habitLogs.userId, logUser));
     const rows = await tx
         .select({ targetDate: habitLogs.targetDate, status: habitLogs.status })
         .from(habitLogs)
-        .where(
-            and(
-                eq(habitLogs.userId, userId),
-                eq(habitLogs.habitId, habitId),
-                inArray(habitLogs.status, ["COMPLETED", "SKIPPED"]),
-                inArray(habitLogs.targetDate, dates),
-            ),
-        );
-    return new Map(rows.map((r) => [r.targetDate, r.status as ResolvedStatus]));
+        .where(and(...conds));
+    const map = new Map<string, ResolvedStatus>();
+    for (const r of rows) {
+        if (map.get(r.targetDate) !== "COMPLETED") map.set(r.targetDate, r.status as ResolvedStatus);
+    }
+    return map;
 }
 
 type ResolvedStatus = "COMPLETED" | "SKIPPED";
@@ -241,29 +528,50 @@ export async function withLiveStreaks<
         createdAt: string;
         pausedUntil: string | null;
         currentStreak: number;
+        shareMode?: "together" | "turns" | null;
+        access?: ListRole;
     },
 >(tx: Tx, userId: string, rows: T[], zone: Zone, today: LocalDate = todayIn(zone)): Promise<T[]> {
     const lasts = new Map<string, string>();
     for (const row of rows) {
+        if (row.access === "view") continue;
         const last = habitDays(row, new Map(), addDays(today, -400), addDays(today, -1), zone, today).at(-1)?.date;
         if (last) lasts.set(row.id, last);
     }
     if (lasts.size === 0) return rows;
     const resolved = await tx
-        .select({ habitId: habitLogs.habitId, targetDate: habitLogs.targetDate })
+        .select({
+            habitId: habitLogs.habitId,
+            userId: habitLogs.userId,
+            targetDate: habitLogs.targetDate,
+            status: habitLogs.status,
+        })
         .from(habitLogs)
         .where(
             and(
-                eq(habitLogs.userId, userId),
                 inArray(habitLogs.habitId, [...lasts.keys()]),
-                inArray(habitLogs.targetDate, [...new Set(lasts.values())]),
+                inArray(habitLogs.targetDate, [...new Set([...lasts.values(), today])]),
                 inArray(habitLogs.status, ["COMPLETED", "SKIPPED"]),
             ),
         );
-    const ok = new Set(resolved.map((r) => `${r.habitId}|${r.targetDate}`));
+    const okAny = new Set(resolved.map((r) => `${r.habitId}|${r.targetDate}`));
+    const okMine = new Set(resolved.filter((r) => r.userId === userId).map((r) => `${r.habitId}|${r.targetDate}`));
+    const doneTodayAny = new Set(
+        resolved.filter((r) => r.targetDate === today && r.status === "COMPLETED").map((r) => r.habitId),
+    );
+    const doneTodayMine = new Set(
+        resolved
+            .filter((r) => r.userId === userId && r.targetDate === today && r.status === "COMPLETED")
+            .map((r) => r.habitId),
+    );
     return rows.map((row) => {
+        if (row.access === "view") return { ...row, currentStreak: 0 };
         const last = lasts.get(row.id);
-        return last && !ok.has(`${row.id}|${last}`) ? { ...row, currentStreak: 0 } : row;
+        const isTurns = row.shareMode === "turns";
+        const set = isTurns ? okAny : okMine;
+        const doneToday = isTurns ? doneTodayAny : doneTodayMine;
+        if (doneToday.has(row.id)) return row;
+        return last && !set.has(`${row.id}|${last}`) ? { ...row, currentStreak: 0 } : row;
     });
 }
 
@@ -418,8 +726,16 @@ async function writeDayLog(
 /**
  * The streaks after a day changed. The log write is visible inside this tx, so both paths read the
  * post-mutation state: the latest occurrence walks back from today; an older one recomputes history.
+ * `logUser = null` computes the household streak over everyone's logs (turns mode).
  */
-async function recomputeStreak(tx: Tx, userId: string, habit: HabitDbRow, targetDate: LocalDate, zone: Zone) {
+async function recomputeStreak(
+    tx: Tx,
+    logUser: string | null,
+    habit: HabitDbRow,
+    longestBase: number,
+    targetDate: LocalDate,
+    zone: Zone,
+) {
     const todayStr = todayIn(zone);
     const occurrencesAfter =
         targetDate < todayStr
@@ -427,33 +743,29 @@ async function recomputeStreak(tx: Tx, userId: string, habit: HabitDbRow, target
             : [];
 
     if (occurrencesAfter.length === 0) {
-        // Hot path: bounded backward walk from today (O(streak), not O(history)).
-        // Correct for completes, un-completes, skips, and any recurrence cadence.
+        const earliestConds = [eq(habitLogs.habitId, habit.id), eq(habitLogs.status, "COMPLETED")];
+        if (logUser) earliestConds.push(eq(habitLogs.userId, logUser));
         const [{ earliest }] = await tx
             .select({ earliest: min(habitLogs.targetDate) })
             .from(habitLogs)
-            .where(
-                and(eq(habitLogs.userId, userId), eq(habitLogs.habitId, habit.id), eq(habitLogs.status, "COMPLETED")),
-            );
+            .where(and(...earliestConds));
         const currentStreak = await computeCurrentStreak(
             habit.recurrenceRule,
             habit.createdAt,
             todayStr,
-            (dates) => loadResolvedOccurrenceDates(tx, habit.id, userId, dates),
+            (dates) => loadResolvedOccurrenceDates(tx, habit.id, logUser, dates),
             { timeZone: zone, earliest },
         );
-        // Longest streak is a monotonic high-water mark; it never shrinks.
-        return { currentStreak, longestStreak: Math.max(habit.longestStreak, currentStreak) };
+        return { currentStreak, longestStreak: Math.max(longestBase, currentStreak) };
     }
 
-    // Historical/backfill resolution — recompute from full history so an
-    // edited past occurrence can re-join or split older runs correctly.
+    const logConds = [eq(habitLogs.habitId, habit.id)];
+    if (logUser) logConds.push(eq(habitLogs.userId, logUser));
     const allLogs = await tx
         .select({ targetDate: habitLogs.targetDate, status: habitLogs.status })
         .from(habitLogs)
-        .where(and(eq(habitLogs.habitId, habit.id), eq(habitLogs.userId, userId)));
+        .where(and(...logConds));
 
-    // From the creation day, or the oldest log when one predates it.
     const firstDay = allLogs.reduce(
         (first, log) => (log.targetDate < first ? log.targetDate : first),
         dayOf(habit.createdAt, zone),
@@ -462,29 +774,18 @@ async function recomputeStreak(tx: Tx, userId: string, habit: HabitDbRow, target
     const streakData = recomputeStreaks(allLogs, allOccurrences, todayStr);
     return {
         currentStreak: streakData.currentStreak,
-        longestStreak: Math.max(habit.longestStreak, streakData.longestStreak),
+        longestStreak: Math.max(longestBase, streakData.longestStreak),
     };
 }
 
-/**
- * Mark a routine done or skipped for a day (PENDING clears it), keeping its
- * totals and streaks in step. A routine with steps can send the day's step
- * marks instead: the status follows from them, and a partly done day is kept
- * as PENDING. A whole-day status clears the step marks (one tap, every step).
- * A routine at set times takes one `time` at a time (with the `at` it happened):
- * that time is merged into the day, and the day closes when no time is open. A
- * "done" with no time records the open time it clearly means (`likelyOpenTime`)
- * or is refused naming the open times; a whole-day skip is refused.
- * The routine row is locked first, so check-ins on it run one after another:
- * two times logged at once on a day with no log both land, and totals never lose a count.
- */
 export async function resolveHabit(tx: Tx, userId: string, id: string, { targetDate, ...action }: ResolveHabitAction) {
-    const [habit] = await tx
-        .select()
-        .from(habits)
-        .where(and(eq(habits.id, id), eq(habits.userId, userId)))
-        .for("update");
+    // Check access before FOR UPDATE: a supporter (`view`) has SELECT but not UPDATE under RLS.
+    const access = await routineAccess(tx, userId, id);
+    if (access.role === "view") {
+        throw new AppError(403, "VIEW_ONLY", "You're cheering this one on; only participants check it off.");
+    }
 
+    const [habit] = await tx.select().from(habits).where(eq(habits.id, id)).for("update");
     throwIfNotFound(habit, "Habit");
 
     const times = habit.times ?? [];
@@ -492,42 +793,106 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
         throw new AppError(400, "VALIDATION_ERROR", "This routine is skipped one time at a time; send each time.");
     }
 
-    // Upsert by habitId + targetDate (unique constraint handles dedup); the routine's lock makes this read current.
-    const [existing] = await tx
+    const dayLogs = await tx
         .select()
         .from(habitLogs)
-        .where(
-            and(eq(habitLogs.userId, userId), eq(habitLogs.habitId, habit.id), eq(habitLogs.targetDate, targetDate)),
-        );
+        .where(and(eq(habitLogs.habitId, habit.id), eq(habitLogs.targetDate, targetDate)));
+
+    const existing = dayLogs.find((l) => l.userId === userId);
+    const otherResolved = dayLogs.find(
+        (l) => l.userId !== userId && (l.status === "COMPLETED" || l.status === "SKIPPED"),
+    );
+    const isTurns = habit.shareMode === "turns";
     const zone = await userZone(tx, userId);
+
+    // Turns mode (R6): one occurrence, anyone closes it; only the logger or owner can clear it.
+    if (isTurns && otherResolved) {
+        const isClear = action.status === "PENDING" && !action.stepStatus && !action.time;
+        if (isClear) {
+            if (access.role !== "owner") {
+                throw new AppError(403, "OWNER_ONLY", "Only the person who logged this day or the owner can clear it.");
+            }
+            await tx.delete(habitLogs).where(eq(habitLogs.id, otherResolved.id));
+            const totalCompletions = Math.max(0, habit.totalCompletions - Number(otherResolved.status === "COMPLETED"));
+            const totalSkips = Math.max(0, habit.totalSkips - Number(otherResolved.status === "SKIPPED"));
+            const { currentStreak, longestStreak } = await recomputeStreak(
+                tx,
+                null,
+                habit,
+                habit.longestStreak,
+                targetDate,
+                zone,
+            );
+            const [updatedHabit] = await tx
+                .update(habits)
+                .set({ totalCompletions, totalSkips, currentStreak, longestStreak, updatedAt: sql`NOW()` })
+                .where(eq(habits.id, habit.id))
+                .returning();
+            return {
+                habit: updatedHabit,
+                log: {
+                    ...otherResolved,
+                    status: "PENDING" as const,
+                    completedAt: null,
+                    resolvedAt: null,
+                    stepStatus: null,
+                    timeMarks: null,
+                },
+            };
+        }
+        // Already closed by someone else: marking done/skipped is a no-op returning that log.
+        return { habit, log: otherResolved };
+    }
+
     const day = resolveDay(habit, existing, targetDate, action, zone);
     const row = await writeDayLog(tx, userId, habit.id, targetDate, existing, day);
     // "Took 30 min" belongs to a marked day: clearing or skipping it takes the answer along.
     await pruneRoutineReports(tx, userId, habit.id, targetDate, row);
 
-    // Incremental totals (O(1)): what this day counted before, and what it counts now.
     const was = existing?.status;
-    const totalCompletions = Math.max(
-        0,
-        habit.totalCompletions + Number(day.status === "COMPLETED") - Number(was === "COMPLETED"),
+    const deltaComplete = Number(day.status === "COMPLETED") - Number(was === "COMPLETED");
+    const deltaSkip = Number(day.status === "SKIPPED") - Number(was === "SKIPPED");
+    const useHouseholdStats = access.role === "owner" || isTurns;
+
+    if (useHouseholdStats) {
+        const totalCompletions = Math.max(0, habit.totalCompletions + deltaComplete);
+        const totalSkips = Math.max(0, habit.totalSkips + deltaSkip);
+        const { currentStreak, longestStreak } = await recomputeStreak(
+            tx,
+            isTurns ? null : userId,
+            habit,
+            habit.longestStreak,
+            targetDate,
+            zone,
+        );
+        const [updatedHabit] = await tx
+            .update(habits)
+            .set({ totalCompletions, totalSkips, currentStreak, longestStreak, updatedAt: sql`NOW()` })
+            .where(eq(habits.id, habit.id))
+            .returning();
+        return { habit: updatedHabit, log: row };
+    }
+
+    // Member in `together` mode: update their own routine_members streak/totals.
+    const [myMember] = await tx
+        .select()
+        .from(routineMembers)
+        .where(and(eq(routineMembers.habitId, habit.id), eq(routineMembers.userId, userId)));
+    const totalCompletions = Math.max(0, (myMember?.totalCompletions ?? 0) + deltaComplete);
+    const totalSkips = Math.max(0, (myMember?.totalSkips ?? 0) + deltaSkip);
+    const { currentStreak, longestStreak } = await recomputeStreak(
+        tx,
+        userId,
+        habit,
+        myMember?.longestStreak ?? 0,
+        targetDate,
+        zone,
     );
-    const totalSkips = Math.max(0, habit.totalSkips + Number(day.status === "SKIPPED") - Number(was === "SKIPPED"));
-    const { currentStreak, longestStreak } = await recomputeStreak(tx, userId, habit, targetDate, zone);
-    const now = sql`NOW()`;
-
-    const [updatedHabit] = await tx
-        .update(habits)
-        .set({
-            totalCompletions,
-            totalSkips,
-            currentStreak,
-            longestStreak,
-            updatedAt: now,
-        })
-        .where(eq(habits.id, habit.id))
-        .returning();
-
-    return { habit: updatedHabit, log: row };
+    await setRoutineMemberStats(tx, habit.id, { currentStreak, longestStreak, totalCompletions, totalSkips });
+    return {
+        habit: { ...habit, currentStreak, longestStreak, totalCompletions, totalSkips },
+        log: row,
+    };
 }
 
 // ── Update ────────────────────────────────────────────────────────────
@@ -625,13 +990,26 @@ async function followSteps(tx: Tx, userId: string, id: string, habit: HabitDbRow
     const stepIds = (habit.steps ?? []).map((step) => step.id);
     if (!stepIds.length || habit.times?.length) return undefined;
     const today = todayIn(await userZone(tx, userId));
-    const [log] = await tx
+    const logs = await tx
         .select()
         .from(habitLogs)
         .where(and(eq(habitLogs.habitId, id), eq(habitLogs.targetDate, today)));
-    if (!log?.stepStatus || stepDayStatus(stepIds, log.stepStatus).status === log.status) return undefined;
-    return (await resolveHabit(tx, userId, id, { targetDate: today, status: "PENDING", stepStatus: log.stepStatus }))
-        .habit;
+    let updated: HabitDbRow | undefined;
+    for (const log of logs) {
+        if (!log.stepStatus) continue;
+        const derived = stepDayStatus(stepIds, log.stepStatus);
+        if (derived.status === log.status) continue;
+        if (log.userId === userId) {
+            updated = (
+                await resolveHabit(tx, userId, id, { targetDate: today, status: "PENDING", stepStatus: log.stepStatus })
+            ).habit;
+        } else {
+            await tx.execute(
+                sql`SELECT cadence_sync_routine_log_status(${log.id}::uuid, ${derived.status}::habit_status, ${derived.status === "COMPLETED" ? sql`now()` : sql`NULL`})`,
+            );
+        }
+    }
+    return updated;
 }
 
 /**
@@ -660,22 +1038,32 @@ async function followTimes(tx: Tx, userId: string, id: string, oldTimes: string[
 
     if (!newTimes.length) return undefined;
     const today = todayIn(await userZone(tx, userId));
-    const [log] = await tx
+    const logs = await tx
         .select()
         .from(habitLogs)
         .where(and(eq(habitLogs.habitId, id), eq(habitLogs.targetDate, today)));
-    if (!log) return undefined;
-    const marks = timeMarksOn(newTimes, log);
-    if (timeDayStatus(newTimes, marks) === log.status) return undefined;
-    const [time, mark] = Object.entries(marks)[0] ?? [newTimes[0], undefined];
-    return (
-        await resolveHabit(tx, userId, id, {
-            targetDate: today,
-            time,
-            status: mark?.status ?? "PENDING",
-            at: mark?.at ?? undefined,
-        })
-    ).habit;
+    let updated: HabitDbRow | undefined;
+    for (const log of logs) {
+        const marks = timeMarksOn(newTimes, log);
+        const derivedStatus = timeDayStatus(newTimes, marks);
+        if (derivedStatus === log.status) continue;
+        if (log.userId === userId) {
+            const [time, mark] = Object.entries(marks)[0] ?? [newTimes[0], undefined];
+            updated = (
+                await resolveHabit(tx, userId, id, {
+                    targetDate: today,
+                    time,
+                    status: mark?.status ?? "PENDING",
+                    at: mark?.at ?? undefined,
+                })
+            ).habit;
+        } else {
+            await tx.execute(
+                sql`SELECT cadence_sync_routine_log_status(${log.id}::uuid, ${derivedStatus}::habit_status, ${derivedStatus === "COMPLETED" ? sql`now()` : sql`NULL`})`,
+            );
+        }
+    }
+    return updated;
 }
 
 /** Move a routine to `position` (1 = first) in the Routines order; past the end = last. */

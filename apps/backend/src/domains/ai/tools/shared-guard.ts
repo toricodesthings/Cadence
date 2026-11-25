@@ -221,7 +221,9 @@ export function scopeLiveBroadcasts(
                 ? change.task.projectId
                 : change.type === "list"
                   ? change.listId
-                  : goneListById?.get(change.id);
+                  : change.type === "task.gone"
+                    ? goneListById?.get(change.id)
+                    : undefined;
         if (!listId) continue;
         byList.get(listId)?.changes.push(change);
     }

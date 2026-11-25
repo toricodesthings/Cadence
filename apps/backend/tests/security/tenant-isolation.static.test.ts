@@ -62,6 +62,9 @@ const USER_SCOPED_TABLES = [
     "devices",
     "pushDeliveries",
     "listMembers",
+    "eventMembers",
+    "routineMembers",
+    "routineCheers",
     "shareInvites",
     "taskPersonal",
 ];
@@ -88,6 +91,10 @@ const ALLOWED_WITHOUT_USERID: Array<{ fragment: string; reason: string }> = [
         fragment: "eq(habitLogs.id, existing.id",
         reason: "`existing` was fetched via a userId-scoped select in the same tx",
     },
+    {
+        fragment: "eq(habitLogs.id, otherResolved.id",
+        reason: "turns clear by the owner only; RLS habit_logs_owner_delete limits it to logs of routines they own",
+    },
     { fragment: "eq(habits.id, habit.id", reason: "`habit` was fetched via a userId-scoped select in the same tx" },
     {
         fragment: "eq(habitTags.habitId, id",
@@ -100,6 +107,14 @@ const ALLOWED_WITHOUT_USERID: Array<{ fragment: string; reason: string }> = [
     {
         fragment: "eq(listMembers.listId, access.listId",
         reason: "stopSharing runs after requireOwner on the same list, and RLS lets only the owner delete other people's rows",
+    },
+    {
+        fragment: "eq(eventMembers.eventId, access.eventId",
+        reason: "stopSharing runs after requireOwner on the same event, and RLS lets only the owner delete other people's rows",
+    },
+    {
+        fragment: "eq(routineMembers.habitId, access.habitId",
+        reason: "stopSharing runs after requireOwner on the same routine, and RLS lets only the owner delete other people's rows",
     },
     {
         fragment: "eq(taskMetrics.id, existing[0].id",

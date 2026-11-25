@@ -2,6 +2,9 @@ import { lazy, Suspense } from "react";
 import { PanelRightClose } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
+import { useRouteViewMode } from "../../hooks/ui/use-route-view-mode";
+import { useSortMode } from "../../hooks/ui/use-sort-mode";
+import type { useTaskDetailSelection } from "../../hooks/ui/use-task-detail-selection";
 import type { SortMode } from "../../lib/utils/task/sort-tasks";
 import type { ViewMode } from "../../hooks/ui/use-view-mode";
 import { Tip } from "../primitives/Tooltip";
@@ -42,6 +45,29 @@ interface TaskRouteControlsProps {
     actions?: RouteAction[];
     /** Name of the actions group on phones. */
     actionsLabel?: string;
+}
+
+/** View, sort, and TaskRouteControls props shared by bucketed task routes (`today`, `upcoming`). */
+export function useTaskRouteControls(
+    routeKey: string,
+    title: string,
+    selection: ReturnType<typeof useTaskDetailSelection>,
+) {
+    const { view, setView } = useRouteViewMode(routeKey);
+    const { sortMode, setSortMode } = useSortMode(routeKey);
+    return {
+        view,
+        sortMode,
+        controlProps: {
+            routeKey,
+            title,
+            view,
+            onViewChange: setView,
+            sortMode,
+            onSortModeChange: setSortMode,
+            onOpenDetails: selection.selectedTaskId ? () => selection.setMobilePanelOpen(true) : undefined,
+        },
+    };
 }
 
 /** The header controls every task list route shares: focus views, view + sort, and the route's own actions, on phone or desktop. */

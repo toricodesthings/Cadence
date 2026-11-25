@@ -17,6 +17,7 @@ const PUBLIC = [
     "push/reminder-clock", // writes elsewhere (chat, MCP, account deletion) ask the person's reminder clock to rebuild or forget
     "settings/settings.route",
     "settings/background-image",
+    "settings/focus-presets",
     "sharing/list-presence", // list/account deletion evicts open presence sockets
     "tasks/task-nlp",
 ];

@@ -91,6 +91,7 @@ export const ERROR_CODES = [
     "TAKE_SELF_ONLY",
     "SHARED_READ_ONLY",
     "STALE_WRITE",
+    "MODE_SET",
     // Push
     "PUSH_UNAVAILABLE",
     // Server

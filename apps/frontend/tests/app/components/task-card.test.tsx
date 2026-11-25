@@ -58,12 +58,11 @@ describe("TaskCard overdue presentation", () => {
         vi.useRealTimers();
     });
 
-    it("appends Past Due to the date row and hides the verbose overdue rationale chip", () => {
-        render(<TaskCard task={baseTask} rationaleLabel="This task is past its due date" />);
+    it("appends Past Due to the date row", () => {
+        render(<TaskCard task={baseTask} />);
 
         expect(screen.getByText("Mar 25")).toBeTruthy();
-        expect(screen.getByText("(Past Due)")).toBeTruthy();
-        expect(screen.queryByText("This task is past its due date")).toBeNull();
+        expect(screen.getByText("Past due")).toBeTruthy();
     });
 });
 

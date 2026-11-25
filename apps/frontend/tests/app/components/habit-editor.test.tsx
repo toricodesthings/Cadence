@@ -139,7 +139,7 @@ describe("HabitEditor", () => {
         choose("List", "Health");
         expect(update).toHaveBeenCalledWith({ id: habit.id, projectId: "project-1" });
         expect(screen.getByRole("button", { name: "Remove tag Daily" })).toBeTruthy();
-        fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+        fireEvent.click(screen.getByRole("button", { name: /^Pause/ }));
         fireEvent.click(screen.getByRole("button", { name: "1 week" }));
         expect(pause).toHaveBeenCalledWith(habit.id, expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/));
         fireEvent.click(screen.getByRole("radio", { name: "Violet" }));
@@ -185,12 +185,12 @@ describe("HabitEditor", () => {
     });
     it("resumes a paused routine", () => {
         setup({ ...habit, pausedUntil: "2099-12-31" });
-        fireEvent.click(screen.getByRole("button", { name: "Resume today" }));
+        fireEvent.click(screen.getByRole("button", { name: /^Resume today/ }));
         expect(resume).toHaveBeenCalledWith(habit.id);
     });
     it("restores an archived routine", () => {
         setup({ ...habit, archived: true });
-        fireEvent.click(screen.getByRole("button", { name: "Restore routine" }));
+        fireEvent.click(screen.getByRole("button", { name: /^Restore routine/ }));
         expect(update).toHaveBeenCalledWith({ id: habit.id, archived: false });
         expect(close).toHaveBeenCalledOnce();
     });

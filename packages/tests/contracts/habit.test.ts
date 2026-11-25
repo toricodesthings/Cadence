@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     habitListQuerySchema,
+    habitSchema,
     habitTargetTimesSchema,
     routineStepsSchema,
     insertHabitSchema,
@@ -74,6 +75,60 @@ describe("routineStepsSchema", () => {
         expect(routineStepsSchema.safeParse([{ id: "a", title: "  " }]).success).toBe(false);
         expect(
             routineStepsSchema.safeParse(Array.from({ length: 13 }, (_, i) => ({ id: String(i), title: "x" }))).success,
+        ).toBe(false);
+    });
+});
+
+describe("shared habit contract", () => {
+    const base = {
+        id: "00000000-0000-4000-8000-000000000001",
+        userId: "00000000-0000-4000-8000-000000000002",
+        title: "Yoga",
+        description: null,
+        recurrenceRule: "FREQ=DAILY",
+        targetTime: null,
+        targetTimes: null,
+        emoji: "🧘",
+        reminderEnabled: false,
+        projectId: null,
+        sortOrder: 0,
+        pausedUntil: null,
+        totalCompletions: 0,
+        totalSkips: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        colorAccent: "lantern",
+        archived: false,
+        notes: null,
+        steps: null,
+        times: null,
+        linkedAppId: null,
+        linkedUrl: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    it("parses an unshared habit row and rejects non-COMPLETED statuses in today.others", () => {
+        expect(habitSchema.safeParse(base).success).toBe(true);
+        expect(
+            habitSchema.safeParse({
+                ...base,
+                today: {
+                    turn: null,
+                    others: [{ userId: base.userId, status: "COMPLETED" }],
+                    cheers: [],
+                },
+            }).success,
+        ).toBe(true);
+        expect(
+            habitSchema.safeParse({
+                ...base,
+                today: {
+                    turn: null,
+                    others: [{ userId: base.userId, status: "SKIPPED" }],
+                    cheers: [],
+                },
+            }).success,
         ).toBe(false);
     });
 });

@@ -104,6 +104,7 @@ describe("joining", () => {
         const stranger = await createUser();
         const { body } = await as(stranger)("GET", `/invite-preview?token=${tokenOf(await link())}`);
         expect(body.data).toMatchObject({
+            kind: "list",
             listId: list.id,
             name: "Our House",
             emoji: "🏠",
@@ -118,7 +119,7 @@ describe("joining", () => {
         const me = await createUser();
         const url = await link();
         const joined = await as(me)("POST", "/join", { token: tokenOf(url) });
-        expect(joined.body.data).toEqual({ listId: list.id });
+        expect(joined.body.data).toEqual({ kind: "list", listId: list.id });
         await as(me)("POST", "/join", { token: tokenOf(url) });
         const projects = apiAs(me, "/projects", projectRoutes);
         expect((await projects("GET", "")).body.data).toMatchObject([
@@ -141,7 +142,7 @@ describe("joining", () => {
 
     it("lets the owner open their own link without becoming a member of it", async () => {
         const { owner, list, join } = await house();
-        expect((await join(owner)).body.data).toEqual({ listId: list.id });
+        expect((await join(owner)).body.data).toEqual({ kind: "list", listId: list.id });
         expect(
             await asOwner(async (pg) => (await pg.query("SELECT 1 FROM list_members")).rows.length),
         ).toBeGreaterThanOrEqual(0);

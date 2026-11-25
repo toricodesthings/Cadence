@@ -35,6 +35,37 @@ vi.mock("~/hooks/sharing/use-list-presence", () => ({
 vi.mock("~/hooks/projects/use-projects", () => ({
     useProjects: () => ({ data: mockProjects }),
 }));
+vi.mock("~/hooks/calendar/use-personal-events", () => ({
+    usePersonalEvents: () => ({
+        items: [
+            {
+                id: "e-1",
+                label: "Anniversary",
+                emoji: "💍",
+                monthDay: "12-08",
+                notify: true,
+                startedOn: null,
+                access: "owner",
+                members: [{ userId: "u-sam", role: "edit", invitedBy: "u-ada" }],
+            },
+        ],
+    }),
+}));
+vi.mock("~/hooks/habits/use-habits", () => ({
+    useAllHabits: () => ({
+        data: [
+            {
+                id: "h-1",
+                userId: "u-ada",
+                title: "Yoga",
+                emoji: null,
+                access: "owner",
+                members: [{ userId: "u-sam", role: "edit", invitedBy: "u-ada" }],
+            },
+            { id: "h-2", userId: "u-ada", title: "Solo run", emoji: null, access: "owner", members: [] },
+        ],
+    }),
+}));
 
 import { Provider as TooltipProvider } from "~/components/primitives/Tooltip";
 import { ShareHeader } from "~/components/sharing/ShareHeader";
@@ -54,14 +85,21 @@ describe("2.4.0 presence, profile viewer, and move-to-shared UI", () => {
         expect(onOpen).toHaveBeenCalledTimes(1);
     });
 
-    it("renders ProfileCard with online status, pronouns, role, and shared lists in common", () => {
+    it("renders ProfileCard with online status, pronouns, role, and the lists, events and routines in common", () => {
         render(<ProfileCard person={mockPeople[1]} userId="u-sam" projectId="p-house" />);
         expect(screen.getByText("Sam Chen")).toBeTruthy();
         expect(screen.getByText("they/them")).toBeTruthy();
         expect(screen.getByText("Can edit")).toBeTruthy();
         expect(screen.getByText("Here now")).toBeTruthy();
-        expect(screen.getByText("Shared lists")).toBeTruthy();
-        expect(screen.getByText("Our House")).toBeTruthy();
+        expect(screen.getByText("Shared between you")).toBeTruthy();
+        expect(screen.getByRole("list", { name: "Lists" }).textContent).toContain("Our House");
+        expect(screen.getByRole("list", { name: "Events" }).textContent).toContain("Anniversary");
+        expect(screen.getByRole("list", { name: "Routines" }).textContent).toBe("Yoga");
+    });
+
+    it("leaves the role out of a ProfileCard for a shared date", () => {
+        render(<ProfileCard person={mockPeople[1]} userId="u-sam" showRole={false} />);
+        expect(screen.queryByText("Can edit")).toBeNull();
     });
 
     it("explains visibility on MoveToSharedConfirm and calls onConfirm", () => {

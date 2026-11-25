@@ -8,10 +8,11 @@ import { isWanted, type SuggestSteps } from "../../hooks/ai/use-suggest-steps";
 
 /**
  * The "Suggest steps" text button beside a subtask field. It never takes focus from the field (a failure leaves the
- * manual path where it was), and is disabled offline.
+ * manual path where it was), and is disabled offline. `iconOnly` shrinks it to ✨ while someone is typing a subtask.
  */
-export function SuggestStepsButton({ s }: { s: SuggestSteps }) {
+export function SuggestStepsButton({ s, iconOnly = false }: { s: SuggestSteps; iconOnly?: boolean }) {
     const online = useOnlineStatus();
+    const label = s.status === "drafting" ? "Drafting…" : "Suggest steps";
     const button = (
         <button
             type="button"
@@ -20,19 +21,23 @@ export function SuggestStepsButton({ s }: { s: SuggestSteps }) {
             disabled={!online || s.status === "drafting"}
             data-no-dnd="true"
             data-no-open="true"
-            className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-[13px] text-accent-primary hover:bg-accent-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-default disabled:opacity-50 pointer-coarse:min-h-11"
+            aria-label={iconOnly ? label : undefined}
+            className={`inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full text-[13px] text-twilight-text-soft transition-colors hover:bg-accent-primary/10 hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 disabled:cursor-default disabled:opacity-50 pointer-coarse:min-h-11 ${
+                iconOnly ? "min-w-9 justify-center pointer-coarse:min-w-11" : "px-2.5"
+            }`}
         >
-            <Sparkles size={13} aria-hidden="true" />
-            {s.status === "drafting" ? "Drafting…" : "Suggest steps"}
+            <Sparkles size={13} aria-hidden="true" className="text-accent-primary" />
+            {iconOnly ? null : label}
         </button>
     );
-    return online ? (
-        button
-    ) : (
-        <Tip label="Needs a connection">
-            <span>{button}</span>
-        </Tip>
-    );
+    if (!online) {
+        return (
+            <Tip label="Needs a connection">
+                <span>{button}</span>
+            </Tip>
+        );
+    }
+    return iconOnly ? <Tip label={label}>{button}</Tip> : button;
 }
 
 /** The draft: ghost steps, all ticked, each editable; Keep steps, Smaller (once) and ×. */

@@ -101,12 +101,13 @@ jobs:
               run: |
                   {
                     echo "RELEASE_NOTES<<CADENCE_RELEASE_NOTES_END"
-                    tr -d '\r' < CHANGELOG.md | awk -v heading="## [${RELEASE_TAG#v}]" '
+                    awk -v heading="## [${RELEASE_TAG#v}]" '
+                      { sub(/\r$/, "") }
                       index($0, heading) == 1 { found = 1; next }
                       found && /^## / { exit }
                       !found { next }
                       $0 == "" { blank = printed; next }
-                      { if (blank) print ""; blank = 0; printed = 1; sub(/^### /, ""); print }'
+                      { if (blank) print ""; blank = 0; printed = 1; sub(/^### /, ""); print }' CHANGELOG.md
                     echo "CADENCE_RELEASE_NOTES_END"
                   } >> "$GITHUB_ENV"
 

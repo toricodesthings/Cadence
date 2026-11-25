@@ -1,13 +1,16 @@
 import { Button } from "../primitives/Button";
 import { useState } from "react";
-import { CalendarHeart, Palette, SlidersHorizontal, Trash2 } from "lucide-react";
+import { CalendarHeart, LogOut, Palette, SlidersHorizontal, Trash2, Users } from "lucide-react";
 import type { PersonalEvent } from "@cadence/contracts/personal-event";
+import { isSharedEvent } from "../../hooks/sharing/use-share-event";
+import { EventPeopleLine } from "../sharing/SharedEventMark";
 import {
     EVENT_SWATCHES,
     eventToneColor,
     eventToneStyle,
     getNextPersonalEventDate,
     toPersonalEventViewModel,
+    type MaybeSharedEvent,
 } from "../../lib/utils/personal-events";
 import { DetailTitle } from "../shared/DetailTitle";
 import { DetailPanelLayout } from "../shared/DetailPanelLayout";
@@ -21,20 +24,26 @@ export function PersonalEventEditor({
     event,
     onChange,
     onClose,
+    onShare,
     onDelete,
+    onRemoveFromMyEvents,
     detailMode = "peek",
     onDetailModeChange,
 }: {
-    event: PersonalEvent;
+    event: MaybeSharedEvent;
     onChange: (patch: Partial<Omit<PersonalEvent, "id">>) => void;
     onClose: () => void;
+    onShare?: () => void;
     onDelete: () => void;
+    onRemoveFromMyEvents?: () => void;
     detailMode?: "peek" | "focus";
     onDetailModeChange?: (mode: "peek" | "focus") => void;
 }) {
     const [detailsOpen, setDetailsOpen] = useState(false);
     const nextDate = getNextPersonalEventDate(event);
     const summary = toPersonalEventViewModel(event);
+    const isOwner = (event.access ?? "owner") === "owner";
+    const shared = isSharedEvent(event);
 
     return (
         <div
@@ -86,7 +95,7 @@ export function PersonalEventEditor({
                     <PanelTrigger
                         icon={SlidersHorizontal}
                         title="Details"
-                        summary={`${summary.monthDayLabel} · Reminder ${event.notify ? "on" : "off"}`}
+                        summary={`${summary.monthDayLabel} · ${!isOwner ? "Remind me" : "Reminder"} ${event.notify ? "on" : "off"}`}
                         onOpen={() => setDetailsOpen(true)}
                     />
                 ) : null}
@@ -102,6 +111,7 @@ export function PersonalEventEditor({
                             setStartedOn={(date) => onChange({ startedOn: date })}
                             notify={event.notify}
                             setNotify={(notify) => onChange({ notify })}
+                            reminderLabel={shared ? "Remind me" : "Reminder dot"}
                         />
                     </section>
                 </Reveal>
@@ -114,23 +124,46 @@ export function PersonalEventEditor({
                         />
                     </FieldBlock>
                 </section>
+                {isOwner && onShare ? (
+                    <Button
+                        variant="ghost"
+                        size="none"
+                        type="button"
+                        onClick={onShare}
+                        className={`${PANEL_TRIGGER} shrink-0 font-normal text-twilight-text`}
+                    >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-primary/10 text-accent-primary">
+                            <Users size={16} aria-hidden="true" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-medium">Share…</span>
+                        </span>
+                    </Button>
+                ) : null}
                 <Button
                     variant="ghost"
                     size="none"
                     type="button"
-                    onClick={onDelete}
+                    onClick={isOwner ? onDelete : (onRemoveFromMyEvents ?? onDelete)}
                     className={`${PANEL_TRIGGER} shrink-0 font-normal text-feedback-error`}
                 >
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-feedback-error/10">
-                        <Trash2 size={16} aria-hidden="true" />
+                        {isOwner ? <Trash2 size={16} aria-hidden="true" /> : <LogOut size={16} aria-hidden="true" />}
                     </span>
                     <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-medium">Delete event</span>
+                        <span className="block text-sm font-medium">
+                            {isOwner ? "Delete event" : "Remove from my events"}
+                        </span>
                         <span className="block text-xs text-twilight-text-muted">
-                            Remove this event from every year.
+                            {isOwner
+                                ? "Remove this event from every year."
+                                : "Remove this shared date from your calendar."}
                         </span>
                     </span>
                 </Button>
+                <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-1">
+                    <EventPeopleLine event={event} className="!text-xs" />
+                </div>
             </DetailPanelLayout>
         </div>
     );

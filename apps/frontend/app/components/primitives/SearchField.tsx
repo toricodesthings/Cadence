@@ -76,6 +76,8 @@ export function SearchField({
 
     return (
         <div
+            // The bordered box shows focus itself, so the input skips the global ring inside it.
+            data-focus-container={variant === "field" ? "" : undefined}
             className={cn(
                 "flex min-w-0 items-center",
                 dims.box,

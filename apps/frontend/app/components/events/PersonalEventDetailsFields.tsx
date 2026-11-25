@@ -13,6 +13,7 @@ export function PersonalEventDetailsFields({
     setStartedOn,
     notify,
     setNotify,
+    reminderLabel = "Reminder dot",
 }: {
     eventDate: string;
     setEventDate: (date: string) => void;
@@ -22,6 +23,7 @@ export function PersonalEventDetailsFields({
     setStartedOn: (date: string) => void;
     notify: boolean;
     setNotify: (enabled: boolean) => void;
+    reminderLabel?: string;
 }) {
     return (
         <ComposerRows>
@@ -61,8 +63,16 @@ export function PersonalEventDetailsFields({
                     aria-label="Count the days since it began"
                 />
             </ComposerRow>
-            <ComposerRow icon={Bell} label="Reminder dot">
-                <Switch checked={notify} onCheckedChange={setNotify} aria-label="Show a reminder dot for this event" />
+            <ComposerRow icon={Bell} label={reminderLabel}>
+                <Switch
+                    checked={notify}
+                    onCheckedChange={setNotify}
+                    aria-label={
+                        reminderLabel === "Remind me"
+                            ? "Remind me about this event"
+                            : "Show a reminder dot for this event"
+                    }
+                />
             </ComposerRow>
         </ComposerRows>
     );
