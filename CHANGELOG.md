@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-11-26
+
 ### Added
 
 - Place a thought or task on any day with one tap in the Place panel, now on phones, tablets and narrow windows too.
