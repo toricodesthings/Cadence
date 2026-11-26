@@ -13,16 +13,10 @@ import {
 } from "../../lib/utils/date-format";
 import { today } from "../../lib/utils/user-zone";
 
-// Plain tinted chevrons, as in the iOS calendar: arrows inside a card are not chrome, so no glass.
 const NAV_BTN =
     "glass-none touch-target flex cursor-pointer items-center justify-center rounded-lg text-accent-primary transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 const NO_MARKS = new Set<number>();
 
-/**
- * Month header (label + prev/next, optional year select) over the compact
- * `CalendarGrid`. The one calendar body behind every date choice: `DatePicker`
- * and the task schedule surface both render it.
- */
 export function MonthCalendar({
     viewDay,
     onViewDayChange,
@@ -31,15 +25,11 @@ export function MonthCalendar({
     marked = NO_MARKS,
     yearNav = false,
 }: {
-    /** Any LocalDate in the month being viewed. */
     viewDay: LocalDate;
     onViewDayChange: (day: LocalDate) => void;
-    /** A LocalDate, or "" for none. */
     selectedDate: LocalDate | "";
     onSelectDate: (day: LocalDate) => void;
-    /** Day numbers in the viewed month that carry a dot. */
     marked?: Set<number>;
-    /** A year select, for far-off dates like birthdays. */
     yearNav?: boolean;
 }) {
     const year = Number(viewDay.slice(0, 4));
@@ -102,33 +92,21 @@ export function MonthCalendar({
 }
 
 interface DatePickerProps {
-    /** A LocalDate; null or "" when unset. */
     value: LocalDate | null;
     onChange: (date: LocalDate | null) => void;
-    /** Accessible name, e.g. "Series end date". */
     label: string;
-    /** Allows clearing (a quiet footer action on desktop; the OS clear control on touch). */
     clearLabel?: string;
-    /** A year select, for far-off dates like birthdays. */
     yearNav?: boolean;
     disabled?: boolean;
-    /** Default trigger text when unset. */
     placeholder?: string;
-    /** Classes for the default trigger, or the wrapper around a custom one. */
     className?: string;
-    /** Custom trigger (a button). Defaults to a field-styled button. */
     children?: React.ReactElement;
 }
 
-/**
- * The app's single date picker. Touch devices get the platform's own picker
- * (iOS wheel, Android calendar); pointer devices get a `MonthCalendar` popover.
- */
 export function DatePicker(props: DatePickerProps) {
     return useShellMode().isTouch ? <NativeDateField {...props} /> : <DesktopDatePicker {...props} />;
 }
 
-/** The field-styled trigger both pickers show, so an empty touch field still reads as a date. */
 function DateFieldButton({
     value,
     label,
@@ -176,8 +154,6 @@ function NativeDateField({
             className="absolute inset-0 min-w-0 cursor-pointer opacity-0"
         />
     );
-    // The visible trigger stays; a transparent native input over it takes the tap.
-    // A custom trigger takes `className` on its wrapper; the default button takes it itself.
     const trigger = children ?? (
         <DateFieldButton value={value} placeholder={placeholder} disabled={disabled} className={className} />
     );

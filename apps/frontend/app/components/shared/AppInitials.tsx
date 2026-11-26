@@ -1,4 +1,3 @@
-/** The same neutral tile for every app: Cadence's own initials, never a vendor mark. Decorative: the full name always sits beside it. */
 export function AppInitials({ initials }: { initials: string }) {
     return (
         <span

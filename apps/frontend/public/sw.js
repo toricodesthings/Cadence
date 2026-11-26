@@ -1,13 +1,8 @@
 /// <reference lib="webworker" />
-/** @type {ServiceWorkerGlobalScope} */
 
-// Cache schema, not an app version. Build assets carry content hashes in their
-// URLs; v3 retires shells that could contain a one-time OAuth callback response.
 const CACHE_NAME = "cadence-shell-v3";
 const CACHE_PREFIX = "cadence-shell-";
-// Every web build asset, written in by react-router.config.ts `buildEnd`.
-const PRECACHE = /*__PRECACHE__*/ [];
-// The asset list the cache was last pruned to, so an open older tab keeps its chunks.
+const PRECACHE = [];
 const MANIFEST_KEY = "/__cadence-precache__";
 
 function isHtml(response) {
@@ -19,8 +14,6 @@ function isHtml(response) {
     );
 }
 
-// Only immutable build assets belong in the asset cache. Public scripts,
-// /app/*.css and Vite module requests must always reach the network.
 const ASSET_TYPES = {
     js: /^(text|application)\/(javascript|ecmascript)\b/i,
     css: /^text\/css\b/i,
@@ -37,12 +30,10 @@ function assetType(url) {
         : (/^\/assets\/.+-[\w-]{8,}\.(js|css|woff2|png|ico|svg|webp)$/.exec(url.pathname)?.[1] ?? null);
 }
 
-// Never persist an error or the SPA's HTML fallback as CSS/JavaScript.
 function isAsset(type, response) {
     return response.ok && !response.redirected && ASSET_TYPES[type].test(response.headers.get("content-type") ?? "");
 }
 
-// Offline support is best effort: a quota/write failure must not break loading.
 function store(cache, request, response) {
     return cache.put(request, response).catch(() => undefined);
 }
@@ -70,15 +61,12 @@ function warmAssets(cache) {
     return assetWarming;
 }
 
-// Navigations open from the saved shell, so a plain reload reopens the build already running.
-// The app's update toast asks for the new shell first (and waits for the reply) before reloading.
 async function refreshShell() {
     const cache = await caches.open(CACHE_NAME);
     const response = await fetch("/", { cache: "no-store", signal: AbortSignal.timeout(10_000) });
     if (isHtml(response)) await store(cache, "/", response);
 }
 
-// A reconnect/return retries assets missed during installation, keeping full coverage automatic.
 self.addEventListener("message", (event) => {
     if (event.data?.type === "cadence-precache") event.waitUntil(caches.open(CACHE_NAME).then(warmAssets));
     if (event.data?.type === "cadence-refresh-shell") {
@@ -112,7 +100,6 @@ self.addEventListener("activate", (event) => {
                     .map((key) => caches.delete(key)),
             );
 
-            // Keep this build's assets and the previous build's; drop anything older.
             const cache = await caches.open(CACHE_NAME);
             const previous = await (await cache.match(MANIFEST_KEY))?.json().catch(() => null);
             if (Array.isArray(previous) && PRECACHE.length) {
@@ -132,18 +119,11 @@ self.addEventListener("activate", (event) => {
     );
 });
 
-// Reminders are shown through the registration (the only way on iOS). The server pushes them
-// so they arrive with the app closed; a push must always show a notification (Safari revokes
-// subscriptions that don't). The payload is a Declarative Web Push message (Safari 18.4+ shows it
-// itself if this worker can't; `mutable` hands it here first): { web_push, notification: { title,
-// body, navigate, tag } }. Older payloads were flat: { title, body, route, tag }.
 self.addEventListener("push", (event) => {
     let data = {};
     try {
         data = event.data ? event.data.json() : {};
-    } catch {
-        /* malformed: still show something */
-    }
+    } catch {}
     if (!data || typeof data !== "object") data = {};
     const message = data.notification && typeof data.notification === "object" ? data.notification : data;
     event.waitUntil(
@@ -159,7 +139,6 @@ self.addEventListener("push", (event) => {
     );
 });
 
-/** Path and query of a same-origin URL; anything else is no route. */
 function sameOriginRoute(href) {
     if (typeof href !== "string") return null;
     try {
@@ -170,9 +149,6 @@ function sameOriginRoute(href) {
     }
 }
 
-// The app icon shows the bell's unread count, saved by the app (APP_BADGE_KEY in
-// platform/installed-app.ts). A reminder pushed while no window is on screen adds one; a visible
-// app keeps the count itself. Best effort: the app sets the true count when it opens.
 const APP_BADGE_KEY = "cadence-app-badge";
 async function raiseBadge() {
     try {
@@ -182,13 +158,9 @@ async function raiseBadge() {
         const count = (Number(await idb("readonly", (s) => s.get(APP_BADGE_KEY))) || 0) + 1;
         await idb("readwrite", (s) => s.put(count, APP_BADGE_KEY));
         await self.navigator.setAppBadge(count);
-    } catch {
-        /* the notification still shows */
-    }
+    } catch {}
 }
 
-// A tap brings the app forward on the reminder's target. A running tab is told where to go;
-// otherwise the app opens there. Only same-origin paths are followed.
 self.addEventListener("notificationclick", (event) => {
     event.notification.close();
     const route = event.notification.data?.route;
@@ -208,8 +180,6 @@ self.addEventListener("fetch", (event) => {
     const url = new URL(request.url);
     if (request.method !== "GET" || url.origin !== self.location.origin) return;
     if (url.pathname.startsWith("/api")) return;
-    // Auth navigations must reach the browser's network stack directly. Never
-    // cache a callback as the offline shell or substitute a shell for it.
     if (url.pathname === "/auth" || url.pathname.startsWith("/auth/")) return;
 
     if (request.mode === "navigate") {
@@ -217,9 +187,6 @@ self.addEventListener("fetch", (event) => {
             (async () => {
                 const cache = await caches.open(CACHE_NAME);
                 try {
-                    // Stale-while-revalidate: a validated cached shell opens at once; its assets are
-                    // precached (this build and the previous one), and a newer deploy is announced by
-                    // the app's update toast. The fresh shell is saved for the next visit.
                     const saved = await cache.match("/");
                     const network = (async () => (await event.preloadResponse) || fetch(request))();
                     event.waitUntil(
@@ -252,12 +219,6 @@ self.addEventListener("fetch", (event) => {
         })(),
     );
 });
-
-// ── Background Sync (Chromium/Android only) ──
-// Changes made offline sync after the app is closed. An open app replays them
-// itself, so it is only asked to. Otherwise this replays the app's queue
-// (idb-keyval's store) with the same locks and Idempotency-Keys the app uses,
-// and any failure it can retry rejects, so the browser tries again later.
 
 const WAL_PREFIX = "cadence-mutation-wal:";
 
@@ -323,22 +284,19 @@ async function replayQueue(userId) {
     const response = await fetch("/api/auth/token", { credentials: "include", cache: "no-store" });
     const { token } = response.ok ? await response.json() : {};
     if (!token) throw new Error("No session");
-    // Never replay one person's offline queue under another signed-in account's token.
     if (jwtSub(token) !== userId) return;
 
     for (;;) {
         const entries = (await idb("readonly", (s) => s.get(WAL_PREFIX + userId))) ?? [];
-        if (entries.some((e) => e.status === "failed")) return; // The app shows and orders these.
+        if (entries.some((e) => e.status === "failed")) return;
         const entry = entries.find((e) => e.status === "pending");
         if (!entry) return;
-        if (!entry.requests) throw new Error("Queued by an older version"); // The app replays it.
+        if (!entry.requests) throw new Error("Queued by an older version");
 
-        // A note's payload is frozen once a request leaves, so a retry repeats it exactly.
         if (entry.op.type === "upsert_note" && !entry.attempted) {
             await changeQueue(userId, (all) => all.map((e) => (e.id === entry.id ? { ...e, attempted: true } : e)));
         }
-        // The session token goes only to this origin's API, whatever a queue entry names.
-        if (!entry.requests.every((r) => isOwnApi(r.url))) throw new Error("Not this app's API"); // The app replays it.
+        if (!entry.requests.every((r) => isOwnApi(r.url))) throw new Error("Not this app's API");
         for (const [index, request] of entry.requests.entries()) {
             const key = request.key ?? entry.id;
             const res = await fetch(request.url, {
@@ -346,7 +304,6 @@ async function replayQueue(userId) {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     "Idempotency-Key": index ? `${key}:${index}` : key,
-                    // When the person made it, as the app's own replay sends (a late replay teaches nothing).
                     "X-Queued-At": new Date(entry.createdAt).toISOString(),
                     ...(request.json !== undefined && { "Content-Type": "application/json" }),
                 },
@@ -355,7 +312,7 @@ async function replayQueue(userId) {
             if (res.ok || (res.status === 404 && !entry.op.type.startsWith("create_"))) continue;
             if (res.status === 401 || res.status === 429 || res.status >= 500)
                 throw new Error(`Retry later (${res.status})`);
-            if (res.status === 409) return; // A note conflict: the app reconciles it (merge or Sync review), never the worker.
+            if (res.status === 409) return;
             const body = await res.json().catch(() => null);
             await changeQueue(userId, (all) =>
                 all.map((e) =>
@@ -386,7 +343,6 @@ self.addEventListener("sync", (event) => {
             const keys = await idb("readonly", (s) => s.getAllKeys());
             for (const key of keys.filter((k) => typeof k === "string" && k.startsWith(WAL_PREFIX))) {
                 const userId = key.slice(WAL_PREFIX.length);
-                // Another replay (a tab opening right now) already holds it: let that one finish.
                 await navigator.locks.request(`cadence-wal-replay:${userId}`, { ifAvailable: true }, (lock) =>
                     lock ? replayQueue(userId) : undefined,
                 );

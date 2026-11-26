@@ -43,8 +43,8 @@ describe("atLocal across DST", () => {
     });
 
     it("takes the earlier instant in the fall overlap", () => {
-        expect(atLocal("2026-11-01", "01:30", TORONTO)).toBe("2026-11-01T05:30:00.000Z"); // EDT, first pass
-        expect(atLocal("2026-11-01", "01:30", LA)).toBe("2026-11-01T08:30:00.000Z"); // PDT
+        expect(atLocal("2026-11-01", "01:30", TORONTO)).toBe("2026-11-01T05:30:00.000Z");
+        expect(atLocal("2026-11-01", "01:30", LA)).toBe("2026-11-01T08:30:00.000Z");
     });
 
     it("keeps the wall time on ordinary days either side of a change", () => {
@@ -54,7 +54,7 @@ describe("atLocal across DST", () => {
 
     it("bounds a day, including a 23 and a 25 hour day", () => {
         expect(startOfDay("2026-11-01", TORONTO)).toBe("2026-11-01T04:00:00.000Z");
-        expect(endOfDay("2026-11-01", TORONTO)).toBe("2026-11-02T04:59:59.999Z"); // 25 hours
+        expect(endOfDay("2026-11-01", TORONTO)).toBe("2026-11-02T04:59:59.999Z");
         expect(Date.parse(startOfDay("2026-03-09", TORONTO)) - Date.parse(startOfDay("2026-03-08", TORONTO))).toBe(
             23 * 3_600_000,
         );
@@ -63,12 +63,12 @@ describe("atLocal across DST", () => {
 
 describe("dayOf", () => {
     it("reads 23:59 and 00:00 on the right day at the zone extremes", () => {
-        const kiritimati = "Pacific/Kiritimati"; // UTC+14
-        const pago = "Pacific/Pago_Pago"; // UTC-11
-        expect(dayOf("2026-10-05T09:59:00Z", kiritimati)).toBe("2026-10-05"); // 23:59
-        expect(dayOf("2026-10-05T10:00:00Z", kiritimati)).toBe("2026-10-06"); // 00:00
-        expect(dayOf("2026-10-05T10:59:00Z", pago)).toBe("2026-10-04"); // 23:59
-        expect(dayOf("2026-10-05T11:00:00Z", pago)).toBe("2026-10-05"); // 00:00
+        const kiritimati = "Pacific/Kiritimati";
+        const pago = "Pacific/Pago_Pago";
+        expect(dayOf("2026-10-05T09:59:00Z", kiritimati)).toBe("2026-10-05");
+        expect(dayOf("2026-10-05T10:00:00Z", kiritimati)).toBe("2026-10-06");
+        expect(dayOf("2026-10-05T10:59:00Z", pago)).toBe("2026-10-04");
+        expect(dayOf("2026-10-05T11:00:00Z", pago)).toBe("2026-10-05");
     });
 
     it("is the day the app shows for a late deadline instant", () => {
@@ -104,7 +104,7 @@ describe("LocalDate arithmetic", () => {
         expect(addDays("2026-02-28", 1)).toBe("2026-03-01");
         expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
         expect(daysBetween("2026-10-05", "2026-11-02")).toBe(28);
-        expect(weekdayOf("2026-10-05")).toBe(1); // Monday
+        expect(weekdayOf("2026-10-05")).toBe(1);
         expect(weekRange("2026-10-07", "Monday")).toEqual({ start: "2026-10-05", end: "2026-10-11" });
         expect(weekRange("2026-10-07", "Sunday")).toEqual({ start: "2026-10-04", end: "2026-10-10" });
         expect(monthRange("2028-02-10")).toEqual({ start: "2028-02-01", end: "2028-02-29" });
@@ -122,7 +122,7 @@ describe("formatInZone", () => {
 });
 
 describe("expandSeries", () => {
-    const classStart = atLocal("2026-10-26", "14:35", TORONTO); // Monday
+    const classStart = atLocal("2026-10-26", "14:35", TORONTO);
     const classEnd = atLocal("2026-10-26", "15:55", TORONTO);
 
     it("keeps a weekly 14:35 class at 14:35 across the November DST change", () => {
@@ -134,7 +134,7 @@ describe("expandSeries", () => {
         });
         expect(days.map((d) => d.day)).toEqual(["2026-10-26", "2026-11-02", "2026-11-09"]);
         expect(days.map((d) => wallTimeOf(d.start!, TORONTO))).toEqual(["14:35", "14:35", "14:35"]);
-        expect(days[1].start).toBe("2026-11-02T19:35:00.000Z"); // not 18:35Z: no drift
+        expect(days[1].start).toBe("2026-11-02T19:35:00.000Z");
         expect(days.map((d) => wallTimeOf(d.end!, TORONTO))).toEqual(["15:55", "15:55", "15:55"]);
     });
 
@@ -204,9 +204,9 @@ describe("expandSeries", () => {
 
 describe("toZonedIso", () => {
     it.each([
-        ["2026-09-22T02:30:00.000Z", "America/Toronto", "2026-09-21T22:30:00-04:00"], // daylight time
-        ["2026-01-22T02:30:00.000Z", "America/Toronto", "2026-01-21T21:30:00-05:00"], // standard time
-        ["2026-09-22T02:30:00.000Z", "Asia/Kolkata", "2026-09-22T08:00:00+05:30"], // half-hour zone
+        ["2026-09-22T02:30:00.000Z", "America/Toronto", "2026-09-21T22:30:00-04:00"],
+        ["2026-01-22T02:30:00.000Z", "America/Toronto", "2026-01-21T21:30:00-05:00"],
+        ["2026-09-22T02:30:00.000Z", "Asia/Kolkata", "2026-09-22T08:00:00+05:30"],
         ["2026-09-22T02:30:00.000Z", "Pacific/Auckland", "2026-09-22T14:30:00+12:00"],
         ["2026-09-22T02:30:00.000Z", "UTC", "2026-09-22T02:30:00+00:00"],
     ])("%s in %s -> %s, the same instant", (instant, zone, expected) => {

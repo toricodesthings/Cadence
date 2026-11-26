@@ -15,14 +15,12 @@ import { createTag, deleteTag, updateTag } from "../../tags/tags.service";
 
 const color = z.enum(TAG_COLOR_NAMES);
 
-/** The model names a palette colour; the row stores its hex (`TAG_PALETTE`). */
 const toHex = <T extends { color?: string }>(input: T): T =>
     input.color === undefined
         ? input
         : { ...input, color: TAG_PALETTE[TAG_COLOR_NAMES.indexOf(input.color as never)] ?? input.color };
 
 export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
-    // ── R ──────────────────────────────────────────────────────────────────
     get_tags: tool({
         description: "The user's tags, by name. Search with query; more:true and nextOffset when there's more.",
         inputSchema: z.object({
@@ -56,7 +54,6 @@ export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
             }),
     }),
 
-    // ── W ──────────────────────────────────────────────────────────────────
     create_tag: tool({
         description:
             "Creates a tag. Leave colour out unless they named one; Cadence picks one. Returns its tagId. (Task writes can also tag by name, making the tag on the way.)",
@@ -73,7 +70,6 @@ export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
             }),
     }),
 
-    // ── U ──────────────────────────────────────────────────────────────────
     update_tag: tool({
         description: "Renames or recolours a tag; every task and routine keeps it. Send only what changes.",
         inputSchema: z.object({
@@ -93,7 +89,6 @@ export const tagTools = (env: Env, userId: string, _ctx: AgentContext) => ({
             ),
     }),
 
-    // ── D ──────────────────────────────────────────────────────────────────
     delete_tag: tool({
         description: "Deletes a tag for good; it comes off every task and routine (they stay). Echo the name.",
         inputSchema: z.object({ tagId: z.uuid(), name: z.string().max(100) }),

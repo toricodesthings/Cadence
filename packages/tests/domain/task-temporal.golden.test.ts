@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { classifyTaskReadShape, type TaskReadShape, type TaskTemporal } from "@cadence/domain/task-temporal";
 
-/**
- * Golden table: one classifier serves backend and frontend; this asserts it covers every shape.
- */
 type Fields = Pick<TaskTemporal, "dueDate" | "endDate" | "scheduledStart">;
 const NONE: Fields = { dueDate: null, endDate: null, scheduledStart: null };
 const CASES: Array<{ name: string; fields: Fields; expected: TaskReadShape }> = [

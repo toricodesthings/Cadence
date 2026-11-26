@@ -8,12 +8,9 @@ import { routineTone } from "../../../lib/utils/habits";
 import { formatWeekdayNarrow } from "../../../lib/utils/date-format";
 import { RoutineDayCell } from "../../habits/RoutineDayCell";
 import { ResolvingRow, StepEmpty, StepShell } from "../StepShell";
+import { HabitReviewSkeleton } from "../WeeklyReviewSkeleton";
 import type { ReviewActions } from "./shared";
 
-/**
- * The last seven days as the app's own day cells: tap to check a day off (or un-check it), right-click or
- * long-press for Skip and Clear. A day it wasn't due is a dot; an earlier day left open stays quiet, never a miss.
- */
 function RoutineWeek({ item, today, bloom }: { item: HabitReviewItem; today: string; bloom: boolean }) {
     const logs = new Map((item.habit.logs ?? []).map((l) => [l.targetDate, l]));
     return (
@@ -106,10 +103,10 @@ function HabitReviewCard({
     );
 }
 
-/* ─── Step 3 · Routines ─── */
 export function HabitsStep({
     habits,
     anyHabits,
+    isLoading,
     pauseHabit,
     onReviewed,
     onEdit,
@@ -117,9 +114,9 @@ export function HabitsStep({
 }: {
     habits: HabitReviewItem[];
     anyHabits: boolean;
+    isLoading?: boolean;
     pauseHabit: ReviewActions["pauseHabit"];
     onReviewed: (id: string) => void;
-    /** Opens the routine's panel beside the list; the card stays until Keep or Pause. */
     onEdit: (id: string) => void;
     titleInHeader?: boolean;
 }) {
@@ -127,8 +124,10 @@ export function HabitsStep({
     const { data: settings } = useSettings();
     const bloom = !settings?.tasks?.intelligence?.lowStimulationMode;
     return (
-        <StepShell step={3} count={habits.length} titleInHeader={titleInHeader}>
-            {habits.length > 0 ? (
+        <StepShell step={3} count={isLoading ? undefined : habits.length} titleInHeader={titleInHeader}>
+            {isLoading ? (
+                <HabitReviewSkeleton />
+            ) : habits.length > 0 ? (
                 <div className="flex flex-col gap-2.5">
                     <AnimatePresence initial={false}>
                         {habits.map((item) => (

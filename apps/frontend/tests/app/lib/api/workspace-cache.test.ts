@@ -11,7 +11,6 @@ describe("hardRefreshWorkspaceCaches", () => {
         expect(removeQueries).toHaveBeenCalledWith({ queryKey: ["settings"], type: "inactive" });
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["settings"], refetchType: "active" });
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["search-notes"], refetchType: "active" });
-        // Server-added subtasks show without a reload.
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["subtasks"], refetchType: "active" });
     });
 });

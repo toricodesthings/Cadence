@@ -31,7 +31,6 @@ const modelSays = (level: number, p = 0.98) =>
         ),
     );
 
-/** Eight own choices over two levels, none similar to "Write up the lab". */
 async function history() {
     for (let i = 0; i < 8; i++)
         await make(`Unrelated chore ${"abcdefgh"[i]}${i}`, { effort: i % 2 ? 3 : 1, effortOrigin: "manual" });

@@ -75,9 +75,7 @@ describe("offline queue", () => {
 
     it("drops an edit to something deleted elsewhere, and holds later changes behind a failed one", async () => {
         const OTHER = "22222222-2222-4222-8222-222222222222";
-        fetchMock
-            .mockResolvedValueOnce(status(404)) // update of a task deleted elsewhere
-            .mockResolvedValueOnce(status(400)); // create rejected
+        fetchMock.mockResolvedValueOnce(status(404)).mockResolvedValueOnce(status(400));
         await wal.enqueueWalEntry({ type: "update_task", id: OTHER, payload: { title: "Gone" } });
         await wal.enqueueWalEntry({ type: "create_task", payload: { id: TASK, title: "", orderIndex: 1 } });
         await wal.enqueueWalEntry({ type: "update_task", id: TASK, payload: { title: "After" } });
@@ -149,7 +147,7 @@ describe("offline notes", () => {
 
         await replayWal(testQueryClient());
 
-        expect(fetchMock).toHaveBeenCalledTimes(2); // no write of any combined text
+        expect(fetchMock).toHaveBeenCalledTimes(2);
         const [entry] = wal.getWalSnapshot();
         expect(entry).toMatchObject({ status: "failed", conflict: true });
         expect((entry.op as { payload: { body: string } }).payload.body).toBe("From the phone");

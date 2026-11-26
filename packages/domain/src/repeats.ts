@@ -1,5 +1,3 @@
-// Repeating things come in three kinds (Fixed · Routine · Task). These helpers
-// hold the rules shared by every client.
 import { RRule } from "rrule";
 import {
     addDays,
@@ -14,10 +12,6 @@ import {
 
 const RRULE_DAY_KEYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const;
 
-/**
- * A routine's time on a given day: the weekday override when one is set
- * ("" means "any time that day"), otherwise the routine's usual time.
- */
 export function routineTimeOn(
     routine: { targetTime: string | null; targetTimes?: Record<string, string> | null },
     date: string,
@@ -28,22 +22,10 @@ export function routineTimeOn(
     return routine.targetTime;
 }
 
-/**
- * Whether a routine's pause covers `day`. A pause runs from `today` through
- * `pausedUntil` (all `YYYY-MM-DD`); it never hides a day already past.
- */
 export function isPausedOn(pausedUntil: string | null | undefined, day: string, today: string): boolean {
     return !!pausedUntil && day >= today && day <= pausedUntil;
 }
 
-/**
- * A routine's rule, anchored so its days never depend on when it was created.
- * A rule without INTERVAL or COUNT repeats every day/week/month/year the same
- * way, so its anchor (the creation day in `zone`) is moved back by whole
- * periods to on or before `from`: earlier days follow the same pattern and can
- * be logged. "Every N" rules keep the creation day, which they count from.
- * Routines live on LocalDates, so the rule runs in a floating UTC frame.
- */
 function habitStart(recurrenceRule: string, createdAt: string, from: LocalDate, zone: Zone) {
     const { freq, interval = 1, count } = parseRecurrenceRule(recurrenceRule, zone);
     let anchor = dayOf(createdAt, zone);
@@ -52,7 +34,6 @@ function habitStart(recurrenceRule: string, createdAt: string, from: LocalDate, 
             const period = freq === RRule.DAILY ? 1 : 7;
             anchor = addDays(anchor, -Math.ceil(daysBetween(from, anchor) / period) * period);
         } else {
-            // Months and years: step back whole years so the day of the month stays (clamp Feb 29 on non-leap years).
             const y = Number(anchor.slice(0, 4));
             const targetYear = y - (y - Number(from.slice(0, 4)) + 1);
             const rest = anchor.slice(4);
@@ -64,10 +45,6 @@ function habitStart(recurrenceRule: string, createdAt: string, from: LocalDate, 
     return anchor;
 }
 
-/**
- * The days a routine is due between two days, inclusive (see {@link habitStart}).
- * Throws on an invalid rule.
- */
 export function habitOccurrences(
     recurrenceRule: string,
     createdAt: string,
@@ -85,11 +62,6 @@ export function habitOccurrences(
 
 type StepMark = "COMPLETED" | "SKIPPED";
 
-/**
- * A routine day's status from its steps, keeping only steps the routine still
- * has. Every step settled → COMPLETED (SKIPPED when every one was skipped);
- * some → PENDING, a partial day that's kept; none → PENDING with nothing to keep.
- */
 export function stepDayStatus(
     stepIds: readonly string[],
     marks: Readonly<Record<string, StepMark>>,
@@ -104,10 +76,6 @@ export function stepDayStatus(
     return { status: settled.every((mark) => mark === "SKIPPED") ? "SKIPPED" : "COMPLETED", stepStatus: kept };
 }
 
-/**
- * Each step's mark on a day. A day checked off (or skipped) as a whole, without
- * step marks, reads as every step done (or skipped).
- */
 export function stepMarksOn(
     stepIds: readonly string[],
     log: { status: string; stepStatus?: Readonly<Record<string, StepMark>> | null } | undefined,
@@ -118,16 +86,11 @@ export function stepMarksOn(
     return {};
 }
 
-/** A routine at set times: one mark per "HH:MM". `at` is when it happened; null on a day logged whole. */
 export interface TimeMarkOn {
     status: StepMark;
     at: string | null;
 }
 
-/**
- * A routine's times on a day: its set times when it has them (they replace the
- * usual time and weekday overrides), otherwise its one time, otherwise none.
- */
 export function routineTimesOn(
     routine: {
         targetTime: string | null;
@@ -141,11 +104,6 @@ export function routineTimesOn(
     return time ? [time] : [];
 }
 
-/**
- * Each time's mark on a day, keeping only times the routine still has. A day
- * checked off (or skipped) as a whole, before the routine had set times, reads
- * as every time done (or skipped) with no recorded instant.
- */
 export function timeMarksOn(
     times: readonly string[],
     log: { status: string; timeMarks?: Readonly<Record<string, TimeMarkOn>> | null } | undefined,
@@ -159,11 +117,6 @@ export function timeMarksOn(
     return {};
 }
 
-/**
- * A routine day's status from its times. Every time done → COMPLETED. Nothing
- * left open but some skipped → SKIPPED (closed, never claimed as done). Any
- * time still open → PENDING. A miss never carries forward: the next day starts fresh.
- */
 export function timeDayStatus(
     times: readonly string[],
     marks: Readonly<Record<string, TimeMarkOn>>,
@@ -173,11 +126,6 @@ export function timeDayStatus(
     return settled.every((time) => marks[time].status === "COMPLETED") ? "COMPLETED" : "SKIPPED";
 }
 
-/**
- * A day's log after one time is marked (`PENDING` clears it) or, with no `time`,
- * after the whole day is cleared. Other times keep their marks, a day logged
- * whole included. Server and optimistic cache both use it.
- */
 export function applyTimeMark(
     times: readonly string[],
     log: Parameters<typeof timeMarksOn>[1],
@@ -188,23 +136,17 @@ export function applyTimeMark(
         Object.assign(marks, timeMarksOn(times, log));
         if (change.status === "PENDING") delete marks[change.time];
         else if (marks[change.time]?.status !== change.status)
-            marks[change.time] = { status: change.status, at: change.at }; // a repeat keeps when it happened
+            marks[change.time] = { status: change.status, at: change.at };
     }
     return { status: timeDayStatus(times, marks), timeMarks: Object.keys(marks).length ? marks : null };
 }
 
-/** Counts for "1 of 3 done" / "2 done · 1 skipped". */
 export function timeProgress(times: readonly string[], marks: Readonly<Record<string, TimeMarkOn>>) {
     const done = times.filter((time) => marks[time]?.status === "COMPLETED").length;
     const skipped = times.filter((time) => marks[time]?.status === "SKIPPED").length;
     return { done, skipped, open: times.length - done - skipped, total: times.length };
 }
 
-/**
- * The time "Mark done" records: the first open time not yet past `now` ("HH:MM"),
- * else the latest open one (everything left is late). Earlier open times stay
- * reachable in the checklist. Null once nothing is open.
- */
 export function nextOpenTime(
     times: readonly string[],
     marks: Readonly<Record<string, TimeMarkOn>>,
@@ -214,14 +156,8 @@ export function nextOpenTime(
     return open.find((time) => time >= now) ?? open.at(-1) ?? null;
 }
 
-/** How far a check-in may sit from a set time and still clearly be that one. */
 export const LIKELY_TIME_MINUTES = 90;
 
-/**
- * The open time a "done" with no time most likely means: the one nearest `now`
- * ("HH:MM") when it's within {@link LIKELY_TIME_MINUTES} (08:00 at 8:45); on
- * another day (`now` null) the only one left open. Null when it isn't clear: ask.
- */
 export function likelyOpenTime(
     times: readonly string[],
     marks: Readonly<Record<string, TimeMarkOn>>,
@@ -235,15 +171,9 @@ export function likelyOpenTime(
     return nearest !== undefined && gap(nearest) <= LIKELY_TIME_MINUTES ? nearest : null;
 }
 
-// ponytail: keyword list, not a classifier. The user can switch kinds in one tap.
 const FIXED_WORDS =
     /\b(class|lecture|lab|seminar|tutorial|lesson|course|school|shift|stand-?up|meeting|appointment|therapy)\b/i;
 
-/**
- * Default "each time" behaviour for a new task. A timed series with an end
- * whose title reads like something that happens to you (class, shift…)
- * becomes a Fixed block; everything else stays a task.
- */
 export function suggestInteractionMode(task: {
     title: string;
     recurrenceRule?: string | null;
@@ -254,12 +184,6 @@ export function suggestInteractionMode(task: {
     return timedSeries && FIXED_WORDS.test(task.title) ? "timetable" : "task";
 }
 
-/**
- * A routine's due days in [from, to] (local `YYYY-MM-DD`) with each day's log,
- * exactly as Routines shows them: from the day before it was created ("I did it
- * yesterday too"), earlier days only when logged; a pause hides today onward,
- * never the past. Days without a log are open (today, later) or missed (before).
- */
 export function habitDays<L extends { targetDate: string }>(
     habit: { recurrenceRule: string; createdAt: string; pausedUntil: string | null },
     logsByDate: Map<string, L>,

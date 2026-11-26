@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type RefObject, type ReactNode } from "react";
 
-/** Save title changes on blur/Enter, and keep titles readable while resizing. */
 export function DetailTitle({
     value,
     onSave,
@@ -18,7 +17,6 @@ export function DetailTitle({
     label: string;
     maxLength?: number;
     textareaRef?: RefObject<HTMLTextAreaElement | null>;
-    /** A list you can only view: the title shows, and can be selected, but not changed. */
     readOnly?: boolean;
 }) {
     const [draft, setDraft] = useState(value);

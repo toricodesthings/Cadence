@@ -13,16 +13,8 @@ import { codeTools, publicOutcome } from "./code-tools";
 import { installCadenceSearch } from "./method-search";
 import { instructions, publishedTools, type PublishedEntry } from "./server";
 
-// Search ranking is Cadence's (patched hook); the rest of Code Mode is the library's.
 installCadenceSearch();
 
-/**
- * Code Mode: the model writes JavaScript against a typed `cadence.*` SDK that runs in an isolated Dynamic Worker and
- * returns only the final data. One `CodeModeHost` per person; one runtime (history + approvals) per connection.
- * Every SDK method is a published tool (`publishedTools`), so budgets, validation and error bodies are the direct tools'.
- */
-
-/** The request's session, as plain data across RPC. The connection row was already checked by `serveMcp`. */
 export type CodeSession = {
     userId: string;
     connectionId: string;
@@ -31,7 +23,6 @@ export type CodeSession = {
     ctx: Omit<AgentContext, "waitUntil">;
 };
 export type CodeDecision = { code: string } | { executionId: string; decision: "approve" | "reject" | "undo" };
-/** completed | paused | error | rejected | rolled_back, each with the run's id and its own keys (never the `calls` log). */
 export type CodeOutcome = { status: string; executionId: string; [key: string]: unknown };
 
 class CadenceConnector extends CodemodeConnector<Env> {
@@ -54,7 +45,6 @@ class CadenceConnector extends CodemodeConnector<Env> {
     }
 }
 
-/** Search hits: the model needs the path, what it does and whether it pauses. */
 const hit = (r: { path: string; description?: string; requiresApproval?: boolean }) => ({
     path: r.path,
     description: r.description,
@@ -63,7 +53,6 @@ const hit = (r: { path: string; description?: string; requiresApproval?: boolean
 
 export class CodeModeHost extends DurableObject<Env> {
     #runtime(s: CodeSession) {
-        // Remembered so `forget()` can delete every connection's facet.
         this.ctx.storage.kv.put(`conn:${s.connectionId}`, 1);
         let wrote = false;
         const entries = publishedTools(
@@ -80,7 +69,6 @@ export class CodeModeHost extends DurableObject<Env> {
         const rt = createCodemodeRuntime({
             ctx: this.ctx,
             name: s.connectionId,
-            // No fetch()/connect(): the sandbox reaches only the connector. 30s keeps a stuck loop from holding a request.
             executor: new DynamicWorkerExecutor({ loader: this.env.LOADER!, timeout: 30_000, globalOutbound: null }),
             connectors: [
                 new CadenceConnector(
@@ -104,14 +92,13 @@ export class CodeModeHost extends DurableObject<Env> {
         return this.#runtime(s).rt.describe(path);
     }
 
-    /** `wrote`: the run changed something, so the Worker replans reminders once (not once per write), as a direct call does. */
     async run(s: CodeSession, input: CodeDecision): Promise<{ outcome: CodeOutcome; wrote: boolean }> {
         const { rt, entries, wrote } = this.#runtime(s);
         const executionId = "executionId" in input ? input.executionId : "";
         try {
             let outcome: CodeOutcome;
             if ("code" in input) {
-                await rt.expirePaused(); // paused runs older than 24h end here, so no cron is needed
+                await rt.expirePaused();
                 outcome = (await rt.execute({ code: input.code })) as CodeOutcome;
             } else if (input.decision === "approve") {
                 outcome = (await rt.approve({ executionId })) as CodeOutcome;
@@ -140,13 +127,11 @@ export class CodeModeHost extends DurableObject<Env> {
         }
     }
 
-    /** Disconnect: drop that connection's history. 0.5.6's internal facet name is `codemode:<name>`; re-check on a bump. */
     forgetConnection(connectionId: string) {
         this.ctx.facets.delete(`codemode:${connectionId}`);
         this.ctx.storage.kv.delete(`conn:${connectionId}`);
     }
 
-    /** Account deletion: every connection's history, then the host itself. */
     async forget() {
         for (const [key] of this.ctx.storage.kv.list({ prefix: "conn:" })) this.forgetConnection(key.slice(5));
         await this.ctx.storage.deleteAll();
@@ -156,7 +141,6 @@ export class CodeModeHost extends DurableObject<Env> {
 export const codeHost = (env: Env, userId: string) =>
     env.CODE_MODE!.get(env.CODE_MODE!.idFromName(userId), { locationHint: "enam" });
 
-/** Disconnect (one connection) or account deletion (all). Best effort: never fails the request. */
 export async function forgetCodeMode(env: Env, userId: string, connectionId?: string): Promise<void> {
     if (!env.CODE_MODE) return;
     try {

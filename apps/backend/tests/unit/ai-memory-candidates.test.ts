@@ -109,7 +109,6 @@ describe("acceptCandidates: what only the planning learners compute with", () =>
                 labels,
             )[0].value,
         ).toBeNull();
-        // Only a preference can carry one.
         expect(
             acceptCandidates(
                 reply({ kind: "life", text: "Studies after dinner", when: { buckets: ["evening"], about: null } }),

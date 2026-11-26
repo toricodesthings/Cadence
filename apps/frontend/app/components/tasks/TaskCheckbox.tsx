@@ -16,14 +16,11 @@ interface TaskCheckboxProps {
     task?: Task;
     subtask?: Subtask;
     compact?: boolean;
-    /** A list you can only view: the box shows the state and can't change it. A task works this out itself; a step is told. */
     readOnly?: boolean;
 }
 
-/** What the box checks off: a task (a Fixed one can't be) or a subtask. */
 function checkboxSubject(task: Task | undefined, subtask: Subtask | undefined) {
     if (task) {
-        // A Fixed block passes on its own: no check-off.
         const fixed = !supportsManualTaskCompletion(task);
         return {
             id: task.id,
@@ -42,7 +39,6 @@ function checkboxSubject(task: Task | undefined, subtask: Subtask | undefined) {
     };
 }
 
-/** How much of the completion countdown is left, 1 → 0. */
 function countdownOf(pending: { commitAt: number; durationMs: number } | undefined, now: number) {
     return pending ? Math.max(0, Math.min(1, (pending.commitAt - now) / pending.durationMs)) : 0;
 }
@@ -75,7 +71,6 @@ function FixedMark() {
     );
 }
 
-/** The visible ring is one 22px title line tall on every device; only the button around it grows for touch. */
 const RING = "size-[22px]";
 
 function markSize(small: boolean) {
@@ -91,7 +86,6 @@ function markTone(confirmed: boolean, isWaiting: boolean) {
 
 type CheckMarkProps = {
     compact: boolean;
-    /** A subtask's smaller ring. */
     small: boolean;
     confirmed: boolean;
     isWaiting: boolean;
@@ -100,7 +94,6 @@ type CheckMarkProps = {
     sparkleKey: number;
 };
 
-/** The ring: a countdown halo while completion waits, a check or pause inside, and the celebration burst. */
 function CheckMark({
     compact,
     small,
@@ -176,7 +169,6 @@ function CheckMark({
                 </AnimatePresence>
             </motion.span>
 
-            {/* Celebration sparkle burst */}
             <AnimatePresence>
                 {sparkleKey > 0 && <CelebrationBurst key={sparkleKey} compact={compact} />}
             </AnimatePresence>
@@ -184,8 +176,6 @@ function CheckMark({
     );
 }
 
-/** Circular checkbox that toggles task between states */
-/** The check or pause mark swapping in and out. */
 const MARK_POP = {
     initial: { opacity: 0, scale: 0.8 },
     animate: { opacity: 1, scale: 1 },
@@ -240,7 +230,7 @@ export function TaskCheckbox({ task, subtask, compact = false, readOnly }: TaskC
     };
 
     const handleToggle = (e: React.MouseEvent) => {
-        e.stopPropagation(); // prevent card expansion click
+        e.stopPropagation();
         if (fixed || locked) {
             return;
         }
@@ -317,7 +307,6 @@ export function TaskCheckbox({ task, subtask, compact = false, readOnly }: TaskC
             )}
         </button>
     );
-    // A disabled button takes no pointer events: the tip sits on a wrapper so it still shows.
     return locked ? (
         <Tip label="View only">
             <span className="inline-flex">{box}</span>

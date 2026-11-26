@@ -2,7 +2,6 @@ import { fireEvent, render, screen, waitFor, configure } from "@testing-library/
 import { describe, expect, it, vi } from "vitest";
 import { InstructionField } from "../../../app/components/weekly-review/InstructionField";
 
-// Real parser and real composers: under four parallel zone runs a wait needs more than the 1s default.
 configure({ asyncUtilTimeout: 5000 });
 
 vi.mock("../../../app/hooks/projects/use-projects", () => ({

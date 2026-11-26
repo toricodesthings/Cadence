@@ -11,11 +11,9 @@ import { toastError } from "../../lib/utils/error-toast";
 import { inboxCache } from "./optimistic-helpers";
 import { useSettings } from "../core/use-settings";
 
-/** `id` is chosen by the caller (`crypto.randomUUID()`), so it can place the capture before it syncs. */
 export interface NewCapture {
     id: string;
     rawText: string;
-    /** Placed as a task right after (⌘↵, a day): never shown as a thought, so it can't flash in the feed. */
     placing?: boolean;
 }
 
@@ -68,9 +66,8 @@ export function useCreateInboxItem() {
         },
 
         onSuccess: (item, { placing }, context) => {
-            if (!item || placing) return; // Queued offline, or about to become a task
+            if (!item || placing) return;
             reconcileInboxItemInCaches(queryClient, item, context?.optimisticId);
-            // The server suggests a list and section after saving; pick it up once, quietly, a moment later.
             if (smartPlacementOn)
                 setTimeout(() => queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all }), 4_000);
         },
@@ -80,7 +77,6 @@ export function useCreateInboxItem() {
             toastError(err, "Couldn't add inbox item");
         },
 
-        // A placed capture's refetch belongs to the placing (it would show the thought again in between).
         onSettled: (data, error, { placing }) =>
             !placing && !wasQueued(data, error) && refetchAfterWrites(queryClient, queryKeys.inbox.all),
     });

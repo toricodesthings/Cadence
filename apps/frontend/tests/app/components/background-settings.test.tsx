@@ -15,8 +15,6 @@ vi.mock("../../../app/lib/utils/image", () => ({
     cropImage: mocks.crop,
 }));
 
-// jsdom never loads the image, so the cropper is a stub that reports what the real one does once it has:
-// the media size, the frame size, and the pixel area for the current zoom (centred, in source pixels).
 vi.mock("react-easy-crop", async () => {
     const { useEffect } = await import("react");
     function Cropper({

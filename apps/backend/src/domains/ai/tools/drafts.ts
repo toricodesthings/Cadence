@@ -1,13 +1,6 @@
-/**
- * Task schemas for the write tools, derived from the REST contracts so a tool can
- * never offer a field the write path would drop or read differently. All-day is
- * derived (no `scheduledStart`). A deadline is a day (`dueDate`, YYYY-MM-DD, a time in it
- * is rejected); a time means a timed block (`scheduledStart` instant with offset) or a reminder.
- */
 import { instantSchema, localDateSchema } from "@cadence/contracts/common";
 import { z } from "zod";
 
-/** Shared paging offset schema across AI read tools. */
 export const offsetSchema = z
     .number()
     .int()
@@ -20,7 +13,6 @@ import { insertTagSchema } from "@cadence/contracts/tag";
 import { insertTaskSchema, taskPrioritySchema, updateTaskSchema } from "@cadence/contracts/task";
 import { upsertNoteSchema } from "@cadence/contracts/note";
 
-/** How much of a note the model sees, and the longest note it may rewrite whole. */
 export const NOTE_READ_LIMIT = 1_000;
 
 const priority = taskPrioritySchema.describe("0 none, 1 low, 2 medium, 3 high, 4 urgent. Only one the user gave.");
@@ -82,8 +74,6 @@ export const taskDraftSchema = insertTaskSchema
         tagNames: tagNames.optional().describe("Tags by name: an existing tag matches, a new name makes one."),
         reminderAt: reminderAt.optional(),
         hideUntil: hideUntil.optional(),
-        // Display-only (the card shows it; the write drops it), so an extra key is
-        // stripped rather than failing the whole call.
         fromImage: z
             .object({
                 title: quote,

@@ -3,7 +3,6 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { buildTaskWhereClause } from "../../src/domains/tasks/tasks.read";
 
-/** Render the WHERE clause the list route would run for these query filters. */
 function whereFor(filters: Parameters<typeof buildTaskWhereClause>[1], zone = "America/Toronto") {
     return new PgDialect().sqlToQuery(and(...buildTaskWhereClause("user-1", filters, zone))!);
 }
@@ -18,7 +17,6 @@ describe("task list filtering", () => {
 
         expect(query.sql).toContain('"tasks"."due_on" <=');
         expect(query.params).toContain("2026-03-09");
-        // Toronto is UTC-4 on 2026-03-10 (DST began 03-08): start of the next local day.
         expect(query.params).toContain("2026-03-10T04:00:00.000Z");
     });
 

@@ -2,7 +2,6 @@ import { z } from "zod";
 import { instantSchema } from "./common";
 
 export const insertSubtaskSchema = z.object({
-    /** Client-chosen id, so it can be used before it syncs. */
     id: z.uuid().optional(),
     title: z.string().trim().min(1).max(500),
     orderIndex: z.number(),
@@ -10,7 +9,6 @@ export const insertSubtaskSchema = z.object({
 
 const subtaskTaskIdsSchema = z.array(z.uuid()).max(200);
 
-/** `GET /subtasks?taskIds=a,b`: at most 200 ids (about 7.5KB of URL). */
 export const subtasksByTaskQuerySchema = z.object({
     taskIds: z
         .string()
@@ -18,7 +16,6 @@ export const subtasksByTaskQuerySchema = z.object({
         .pipe(subtaskTaskIdsSchema),
 });
 
-/** Body of the legacy `POST /subtasks/bulk`, still called by older desktop builds. */
 export const bulkSubtasksSchema = z.object({ taskIds: subtaskTaskIdsSchema });
 
 export const updateSubtaskSchema = z.object({
@@ -43,8 +40,6 @@ export const subtaskRowSchema = z.object({
 });
 export type SubtaskRow = z.infer<typeof subtaskRowSchema>;
 
-// `userId` is optional on the client entity (optimistic caches build subtasks
-// without it); the Row keeps it required for DB parity.
 export const subtaskSchema = subtaskRowSchema.extend({
     userId: z.uuid().optional(),
     createdBy: z.uuid().nullable().optional(),

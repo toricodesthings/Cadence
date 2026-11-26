@@ -1,10 +1,3 @@
-/**
- * S1: pick a list and section for a saved capture, in the background.
- *
- * Save never waits for this. The user's lists are read in one short transaction, the model is called with
- * none open, and the suggestion is stored (only if it clears the threshold and still exists) at
- * `inbox_items.analysis.suggestedPlacement`. Clarify and Sort all read it from there.
- */
 import { and, eq, sql } from "drizzle-orm";
 import type { SuggestedEffort, SuggestedPlacement, SuggestedPriorityFromWords } from "@cadence/contracts/inbox";
 import { inboxItems, projects, taskSections } from "../../db/schema";
@@ -40,7 +33,6 @@ const PRIORITY_LEVELS: DecisionCandidate[] = [
 
 const words = (text: string) => new Set(text.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? []);
 
-/** Over the cap: keep the pairs sharing the most words with the capture. ponytail: word overlap, add recency when users pass 255 pairs. */
 function shortlist(pairs: DecisionCandidate[], text: string): DecisionCandidate[] {
     if (pairs.length <= MAX_PAIRS) return pairs;
     const have = words(text);
@@ -52,14 +44,12 @@ function shortlist(pairs: DecisionCandidate[], text: string): DecisionCandidate[
         .map(({ pair }) => pair);
 }
 
-/** S1's list question over `list` and `list › section` pairs. */
 export const placementQuestion = (pairs: DecisionCandidate[], text: string): DecisionQuestion => ({
     type: "choice",
     instructions: INSTRUCTIONS,
     candidates: shortlist(pairs, text),
 });
 
-/** The `priority_said` question, only when the words hold no cue the parser reads: it translates what they said, it never infers. */
 export const priorityQuestion = (text: string): DecisionQuestion | null =>
     parsePriority(text).entities.length === 0
         ? { type: "choice", instructions: PRIORITY_INSTRUCTIONS, candidates: PRIORITY_LEVELS }
@@ -92,7 +82,6 @@ export async function suggestPlacement(env: Env, userId: string, captureId: stri
                     .from(taskSections)
                     .where(eq(taskSections.userId, userId)),
             ]);
-            // E3 batched: the capture's text is the title its task will most likely have.
             const effort = await effortQuestion(
                 tx,
                 userId,
@@ -127,7 +116,6 @@ export async function suggestPlacement(env: Env, userId: string, captureId: stri
         }
         if (!Object.keys(questions).length) return;
 
-        // One request: one call, one budget unit. With the effort question the state carries their choices beside the text.
         const state = loaded.effort ? loaded.effort.state : text;
         const answers = await decide(env, { kinds, state, questions, userHash: await hashIdentifier(userId) });
 
@@ -151,7 +139,6 @@ export async function suggestPlacement(env: Env, userId: string, captureId: stri
             stored.suggestedEffort = effort;
         }
 
-        // Re-check in a fresh transaction: the pair and the capture may have changed during the call.
         const wrote = await withRls(db, userId, async (tx) => {
             const decision = answers.pick;
             if (decision?.id) {
@@ -184,7 +171,6 @@ export async function suggestPlacement(env: Env, userId: string, captureId: stri
                 if (list && section) stored.suggestedPlacement = suggestion;
             }
             if (!Object.keys(stored).length) return false;
-            // Merged in SQL so a concurrent edit of `analysis` (userOverrides) is never overwritten.
             const updated = await tx
                 .update(inboxItems)
                 .set({
@@ -201,7 +187,6 @@ export async function suggestPlacement(env: Env, userId: string, captureId: stri
                 .returning({ id: inboxItems.id });
             return updated.length > 0;
         });
-        // Written after the response (and its ping): tell the person's devices, the one that captured too.
         if (wrote) await pingLive(env, userId);
     } catch (error) {
         logger.warn("ai", "placement_suggestion_failed", {

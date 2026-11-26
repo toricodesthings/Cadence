@@ -39,7 +39,6 @@ describe("sections", () => {
 
         const { status } = await sections("POST", "", { name: "Sneaky", orderIndex: 0, projectId: theirs.data.id });
 
-        // RLS hides the row, so ownership resolves as "not found" and never leaks that it exists.
         expect(status).toBe(404);
         expect((await otherSections("GET", `?projectId=${theirs.data.id}`)).body.data).toEqual([]);
     });

@@ -129,7 +129,7 @@ export async function readDesktopAuthSession(): Promise<StoredDesktopAuthSession
     try {
         memoryCache = parseStoredSession(getWebStorage()?.getItem(DESKTOP_AUTH_STORAGE_KEY));
     } catch {
-        memoryCache = null; // Storage blocked.
+        memoryCache = null;
     }
     return memoryCache;
 }
@@ -164,8 +164,6 @@ export async function writeDesktopAuthSession(session: StoredDesktopAuthSession)
         }
     }
 
-    // Inside the app a failed native store must never downgrade the sign-in to browser storage;
-    // the fallback is only for the desktop build running in a plain browser (dev).
     if (hasDesktopWindow()) {
         memoryCache = null;
         log.error("desktop-auth", "Couldn't save your desktop sign-in securely.");

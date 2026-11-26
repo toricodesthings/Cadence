@@ -1,7 +1,3 @@
-/**
- * Cards for organizing writes: `update_project`/`delete_project`,
- * `update_tag`/`delete_tag`, and the saved focus view writes.
- */
 import { Check, Filter, FolderPen, Tag as TagIcon } from "lucide-react";
 import { IdentityBlock, TagPill } from "./ProposalCard";
 import { ApprovalCard, DeleteApprovalCard, type RetiredRenderContext, type ToolRenderContext } from "./ApprovalCard";
@@ -18,7 +14,6 @@ function useProjectName() {
 
 type ProjectPatch = { name?: string; emoji?: string | null; colorAccent?: string };
 
-/** "Renamed from “Old” · New emoji · Colour: sage" */
 function projectChanges(patch: ProjectPatch, current: string) {
     const emoji = patch.emoji === null ? "No emoji" : patch.emoji ? "New emoji" : null;
     return [
@@ -30,7 +25,6 @@ function projectChanges(patch: ProjectPatch, current: string) {
         .join(" · ");
 }
 
-/** The list's name after the change, its title with the emoji, and what changes. */
 function projectCardText(patch: ProjectPatch, current: string) {
     const name = patch.name ?? current;
     const emoji = patch.emoji ? `${patch.emoji} ` : "";
@@ -57,7 +51,6 @@ export function UpdateProjectCard({ ctx }: { ctx: ToolRenderContext<"update_proj
     );
 }
 
-/** `delete_project` is permanent; what happens to its tasks is on the card. Auto still waits for this tap. */
 export function DeleteProjectCard({ ctx }: { ctx: ToolRenderContext<"delete_project"> }) {
     const input = ctx.part?.input ?? {};
     const output = ctx.part?.output;
@@ -90,7 +83,6 @@ export function DeleteProjectCard({ ctx }: { ctx: ToolRenderContext<"delete_proj
 
 type TagPatch = { name?: string; color?: string };
 
-/** "Renamed from #old · Colour: sage" */
 function tagChanges(patch: TagPatch, current: { name: string } | undefined) {
     return (
         [
@@ -132,7 +124,6 @@ export function UpdateTagCard({ ctx }: { ctx: ToolRenderContext<"update_tag"> })
     );
 }
 
-/** `delete_tag` is permanent; tasks and routines keep everything but the tag. Auto still waits for this tap. */
 export function DeleteTagCard({ ctx }: { ctx: ToolRenderContext<"delete_tag"> }) {
     const persona = useAssistantPersona();
     const name: string = ctx.part?.input?.name ?? ctx.part?.output?.deleted ?? "this tag";
@@ -175,11 +166,9 @@ const DUE_COPY: Record<string, string> = {
 };
 const STATE_COPY: Record<string, string> = { ACTIVE: "Open", WAITING: "Waiting", COMPLETE: "Done", ARCHIVED: "Trash" };
 
-/** An option's label ("High"), or the raw value when it has none. */
 const labelOf = (options: readonly { value: number; label: string }[], value: number) =>
     options.find((o) => o.value === value)?.label ?? value;
 
-/** The filters with a value of their own: priority, effort, time, due window, flags and sort. */
 function valueFilterParts(filters: ViewFilters) {
     return [
         filters.needsDate ? "No date" : null,
@@ -195,7 +184,6 @@ function valueFilterParts(filters: ViewFilters) {
     ];
 }
 
-/** "Client · High+ · Low effort · Due this week", from the filters a view sets. */
 function useFilterSummary(filters: ViewFilters = {}) {
     const projectName = useProjectName();
     const lookupTags = useTagsLookup();
@@ -232,7 +220,6 @@ export function CreateFocusViewCard({ ctx }: { ctx: ToolRenderContext<"save_focu
 
 const PIN_COPY: Record<string, string> = { true: "Pin", false: "Unpin" };
 
-/** "Renamed from “Old” · Pin · <filters>" */
 function focusViewChanges(
     input: { name?: string; pinned?: boolean },
     current: string | undefined,
@@ -268,7 +255,6 @@ export function UpdateFocusViewCard({ ctx }: { ctx: ToolRenderContext<"save_focu
     );
 }
 
-/** `delete_focus_view` is permanent (no task changes). Auto still waits for this tap. */
 export function DeleteFocusViewCard({ ctx }: { ctx: ToolRenderContext<"delete_focus_view"> }) {
     const name: string = ctx.part?.input?.name ?? ctx.part?.output?.deleted ?? "this view";
     return (

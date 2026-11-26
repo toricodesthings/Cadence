@@ -5,11 +5,6 @@ import { HeroBough } from "~/components/hero/HeroBough";
 import { startIntro } from "~/lib/intro";
 import { NOT_FOUND } from "~/lib/site";
 
-/**
- * The 404: the same night, framed by the hero's portrait pair (section 11 of the plan — the motif follows the
- * reader onto every route). The boughs grow in exactly as they do on the home page; the hold the head script
- * sets is lifted here, since no Hero is mounted to lift it (without JS it lifts itself after three seconds).
- */
 export function NotFound() {
     useEffect(() => startIntro(), []);
 

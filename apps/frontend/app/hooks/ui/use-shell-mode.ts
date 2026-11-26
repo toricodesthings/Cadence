@@ -2,16 +2,12 @@ import { useSyncExternalStore } from "react";
 
 export type ShellMode = "wide" | "laptop" | "tablet" | "phone";
 
-/** Touch-first devices (phones, tablets). Hybrids with a mouse or trackpad don't match. */
 const TOUCH_QUERY = "(hover: none) and (pointer: coarse)";
 
-/** No pointer info (no `matchMedia`): width alone decides, as for touch. */
 export function isTouchFirst(): boolean {
     return window.matchMedia?.(TOUCH_QUERY).matches ?? true;
 }
 
-/** Width picks the layout. A mouse or trackpad keeps the desktop one down to 768px, so a tall
- * narrow monitor never gets the touch shell; tablet exists only for touch-first devices. */
 export function getShellMode(width: number, touch: boolean): ShellMode {
     if (width >= 1440) return "wide";
     if (width >= 1120 || (!touch && width >= 768)) return "laptop";
@@ -19,7 +15,6 @@ export function getShellMode(width: number, touch: boolean): ShellMode {
     return "phone";
 }
 
-/** For code outside React (event handlers); components use `useShellMode`. */
 export function currentShellMode(): ShellMode {
     return getShellMode(window.innerWidth, isTouchFirst());
 }
@@ -34,8 +29,6 @@ function subscribe(listener: () => void) {
     };
 }
 
-/** The one source of device class: layout (`mode`, from width + pointer) and input (`isTouch`).
- * Branch on these, never on raw widths or media queries in components. */
 export function useShellMode() {
     const mode = useSyncExternalStore<ShellMode>(subscribe, currentShellMode, () => "wide");
     const isTouch = useSyncExternalStore(subscribe, isTouchFirst, () => false);

@@ -10,9 +10,6 @@ import { FinaleLand } from "./FinaleLand";
 import { SkyBody } from "./FinaleSkyScene";
 import { Sigil } from "./Sigil";
 
-/* The crown opens over a quiet invitation. Petals, lanterns and the valley carry the fantasy scenery;
- * the blossom holds the one signup link, followed by a single reassurance. */
-
 export function Finale() {
     return (
         <section className="finale" aria-labelledby="finale-title">
@@ -24,7 +21,6 @@ export function Finale() {
                 <BoughSegment name="finale" />
             </div>
             <Drift kind="fall" />
-            {/* The village's lanterns again, rising past the invitation: the same night, a year on */}
             <Drift kind="lantern" className="finale-lanterns" />
 
             <div className="finale-stage">

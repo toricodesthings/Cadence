@@ -1,5 +1,3 @@
-// Synthetic people (seeded, so CI is deterministic) run through the planning rules end to end: what gets recorded,
-// when a preference is claimed, and when it lets go. The owner replay and field behaviour are checked elsewhere.
 import { describe, expect, it } from "vitest";
 import type { TimeOfDay } from "@cadence/contracts/planning";
 import { atLocal, addDays, type LocalDate } from "@cadence/domain/time";
@@ -11,7 +9,6 @@ const zone = "America/Toronto";
 const START = "2026-09-01";
 const today = (n: number): LocalDate => addDays(START, n);
 
-/** A tiny seeded generator, so a persona is the same every run. */
 function rng(seed: number) {
     let state = seed >>> 0;
     return () => (state = (Math.imul(state, 1664525) + 1013904223) >>> 0) / 2 ** 32;
@@ -34,7 +31,6 @@ const inputFor = (day: LocalDate, tasks: ReturnType<typeof block>[]): FindTimeIn
     preferred: [],
 });
 
-/** What the server would record for a manual drop: nothing unless another part of the day also had room. */
 function record(
     day: LocalDate,
     chosen: TimeOfDay,

@@ -1,7 +1,6 @@
 import { CloudUpload } from "lucide-react";
 import { useIsUnsynced } from "../../lib/api/mutation-outbox";
 
-/** A quiet mark after a title while a change to it waits to sync (made offline). */
 export function PendingMark({ id }: { id: string | undefined }) {
     if (!useIsUnsynced(id)) return null;
     return (

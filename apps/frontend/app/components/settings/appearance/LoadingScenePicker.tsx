@@ -5,7 +5,6 @@ import { resolveLoadingSeason, type Season } from "../../../lib/themes/season";
 
 type LoadingSeasonPref = "auto" | Season;
 
-/** Twilight values from loading-tokens.css, pared down to sky, light and three ridges. */
 const SCENES: Record<
     Season,
     {
@@ -60,7 +59,6 @@ const SEASON_ORDER: readonly Season[] = ["spring", "summer", "autumn", "winter"]
 function MiniScene({ season, className }: { season: Season; className?: string }) {
     const s = SCENES[season];
     const id = useId();
-    // Summer's sun sits low on the horizon; the moons ride high.
     const light = season === "summer" ? { x: 112, y: 60, r: 7 } : { x: 116, y: 24, r: 5 };
 
     return (
@@ -93,7 +91,6 @@ function MiniScene({ season, className }: { season: Season; className?: string }
                     <circle cx={light.x} cy={light.y} r={light.r} fill={s.light} opacity=".9" />
                 </>
             ) : (
-                // Spring has no key light: a band of mist instead.
                 <ellipse cx="80" cy="62" rx="90" ry="14" fill={s.detail} opacity=".12" />
             )}
 

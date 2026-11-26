@@ -6,7 +6,6 @@ import { cn } from "../../../lib/utils";
 import { copyNote, downloadMarkdown } from "./note-export";
 
 function Version({ title, text, other, tone }: { title: string; text: string; other: string; tone: string }) {
-    // A line the other version doesn't have is the difference worth seeing.
     const elsewhere = useMemo(() => new Set(other.split("\n")), [other]);
     return (
         <section aria-label={title} className="min-w-0 space-y-1.5">
@@ -32,10 +31,6 @@ function Version({ title, text, other, tone }: { title: string; text: string; ot
     );
 }
 
-/**
- * Two edits overlapped: show both and let the user pick. Nothing was merged by guess and the
- * choice you don't make stays recoverable until you discard it.
- */
 export function NoteConflictSheet({
     open,
     onClose,

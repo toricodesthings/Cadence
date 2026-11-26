@@ -2,7 +2,6 @@ import { toastName, toastUndo } from "../../lib/utils/undo-toast";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { useUpdateInboxItem } from "./use-update-inbox-item";
 
-/** Reversible status transitions, shared by row, details and bulk actions. */
 export function useCaptureActions() {
     const update = useUpdateInboxItem();
     const setStatus = (item: InboxItem, status: "discarded" | "kept" | "clarifying") =>
@@ -12,7 +11,6 @@ export function useCaptureActions() {
                 captureStatus: status,
             })
             .then(() => {
-                // It leaves this list, so the toast names it and says where it went.
                 toastUndo(
                     toastName(item.rawText),
                     () =>

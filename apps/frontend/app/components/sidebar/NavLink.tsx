@@ -10,17 +10,12 @@ interface NavLinkProps {
     count?: React.ReactNode;
     countLabel?: string;
     countAppearance?: "plain" | "badge";
-    /** Show a subtle dot indicator next to the icon */
     showDot?: boolean;
-    /** Tailwind class for active icon/text color, e.g. "text-accent-primary" */
     activeColor?: string;
-    /** Tailwind class for active background, e.g. "bg-accent-primary/15" */
     activeBg?: string;
-    /** Tailwind class for hover color */
     hoverColor?: string;
 }
 
-/** Reusable navigation item with optional unread count badge */
 export function NavLink({
     icon: Icon,
     label,
@@ -39,6 +34,7 @@ export function NavLink({
     return (
         <Link
             to={href}
+            prefetch="intent"
             aria-current={active ? "page" : undefined}
             aria-label={typeof count === "number" ? `${label}, ${count} ${countLabel}` : label}
             className={`

@@ -70,7 +70,6 @@ describe("event sharing", () => {
         expect(denied.status).toBe(403);
         expect(denied.body.error.code).toBe("OWNER_ONLY");
 
-        // Unknown, expired, and reset links return 410.
         expect((await listsAs(sam)("GET", `/invite-preview?token=${"A".repeat(43)}`)).status).toBe(410);
         expect((await shareAs(owner)("DELETE", `/${event.id}/invites`)).status).toBe(200);
         expect((await listsAs(sam)("GET", `/invite-preview?token=${tokenOf(url)}`)).status).toBe(410);
@@ -99,7 +98,6 @@ describe("event sharing", () => {
         );
         expect(ownerMember).toEqual([]);
 
-        // 20 people ceiling (owner + 19 members).
         await asOwner(async (pg) => {
             for (let i = 0; i < 18; i++) {
                 const id = crypto.randomUUID();
@@ -111,7 +109,6 @@ describe("event sharing", () => {
         expect(overPeople.status).toBe(413);
         expect(overPeople.body.error.code).toBe("SHARE_LIMIT");
 
-        // 100 shared events per account ceiling.
         const { join: joinAnother } = await anniversary();
         const busy = await createUser();
         await asOwner(async (pg) => {
@@ -157,7 +154,6 @@ describe("event sharing", () => {
             },
         ]);
 
-        // Member updates label and turns off their own notify.
         const patched = await eventsAs(sam)("PATCH", `/${event.id}`, {
             label: "Wedding anniversary",
             notify: false,
@@ -165,15 +161,12 @@ describe("event sharing", () => {
         expect(patched.status).toBe(200);
         expect(patched.body.data).toMatchObject({ label: "Wedding anniversary", notify: false });
 
-        // Owner sees new label, keeps their own notify = true.
         const ownerAfter = (await eventsAs(owner)("GET", "")).body.data;
         expect(ownerAfter[0]).toMatchObject({ label: "Wedding anniversary", notify: true });
 
-        // Member sees notify = false.
         const samAfter = (await eventsAs(sam)("GET", "")).body.data;
         expect(samAfter[0]).toMatchObject({ label: "Wedding anniversary", notify: false });
 
-        // Member cannot delete; owner delete removes for everyone.
         expect((await eventsAs(sam)("DELETE", `/${event.id}`)).status).toBe(403);
         expect((await eventsAs(owner)("DELETE", `/${event.id}`)).status).toBe(200);
         expect((await eventsAs(sam)("GET", "")).body.data).toEqual([]);
@@ -188,29 +181,23 @@ describe("event sharing", () => {
         await join(sam, url);
         await join(kai, url);
 
-        // People endpoint shows owner + members.
         const people = (await shareAs(sam)("GET", `/${event.id}/people`)).body.data;
         expect(people.map((p: { name: string }) => p.name)).toEqual(["Tori", "Sam", "Kai"]);
 
-        // Non-owner cannot remove another person; owner cannot remove themselves.
         expect((await shareAs(sam)("DELETE", `/${event.id}/members/${kai}`)).status).toBe(403);
         expect((await shareAs(owner)("DELETE", `/${event.id}/members/${owner}`)).status).toBe(403);
 
-        // Sam removes from their own events.
         expect((await shareAs(sam)("DELETE", `/${event.id}/members/${sam}`)).status).toBe(200);
         expect((await eventsAs(sam)("GET", "")).body.data).toEqual([]);
 
-        // Owner removes Kai.
         expect((await shareAs(owner)("DELETE", `/${event.id}/members/${kai}`)).status).toBe(200);
         expect((await eventsAs(kai)("GET", "")).body.data).toEqual([]);
 
-        // Re-join and stop sharing.
         await join(sam, url);
         expect((await shareAs(owner)("DELETE", `/${event.id}/members`)).status).toBe(200);
         expect((await eventsAs(sam)("GET", "")).body.data).toEqual([]);
         expect((await join(sam, url)).status).toBe(410);
 
-        // List join regression.
         const list = (await apiAs(owner, "/projects", projectRoutes)("POST", "", { name: "Groceries" })).body.data;
         const listUrl = (await listsAs(owner)("POST", `/${list.id}/invites`)).body.data.url as string;
         const joinedList = await listsAs(sam)("POST", "/join", { token: tokenOf(listUrl) });

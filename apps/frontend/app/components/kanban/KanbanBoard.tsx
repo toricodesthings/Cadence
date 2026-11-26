@@ -49,16 +49,12 @@ interface KanbanBoardProps {
     selectedTaskId?: string | null;
     onSelectTask?: (id: string) => void;
     desktopCanvasPaddingClassName?: string;
-    /** Compact shells: the section tab in view, owned by the route so its add sheet can target it. */
     activeSectionId?: string;
     onActiveSectionChange?: (id: string) => void;
-    /** Compact shells: opens the route's section management sheet. */
     onManageSections?: () => void;
-    /** A filter is on: fold away columns it leaves empty. */
     hideEmptySections?: boolean;
 }
 
-/** A single column (droppable zone) in the Kanban board */
 function KanbanColumn({
     section,
     tasks,
@@ -86,7 +82,6 @@ function KanbanColumn({
     onMove?: (by: -1 | 1) => void;
     first?: boolean;
     last?: boolean;
-    /** The column's drag grip (sections only). */
     grip?: React.ReactNode;
     projectId?: string | null;
     canEdit?: boolean;
@@ -102,7 +97,6 @@ function KanbanColumn({
 
     return (
         <div className="flex flex-col h-full surface-card rounded-[28px] min-w-[280px]">
-            {/* Header */}
             <div className="relative flex items-center justify-between gap-3 border-b border-twilight-border/30 px-5 py-4 group">
                 {isRenaming && onRename ? (
                     <input
@@ -124,7 +118,6 @@ function KanbanColumn({
                 ) : (
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                            {/* The grip is part of the header, starting at the same padding as Unsectioned's title. */}
                             {grip ? <span className="-my-1 flex">{grip}</span> : null}
                             <h3 className="truncate font-display text-base font-semibold text-twilight-text">
                                 {section.name}
@@ -172,7 +165,6 @@ function KanbanColumn({
                 </div>
             </div>
 
-            {/* Droppable card area */}
             <div
                 ref={setNodeRef}
                 className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin flex flex-col gap-3 min-h-[200px]"
@@ -227,12 +219,6 @@ function KanbanColumn({
     );
 }
 
-/**
- * Kanban Board — columns are user-defined TaskSections.
- *
- * This is NOT a separate page. It's a view mode activated by `?view=kanban`.
- * Dragging a card between columns changes its `sectionId`.
- */
 export function KanbanBoard({
     tasks,
     projectId = null,
@@ -271,7 +257,6 @@ export function KanbanBoard({
         }, {});
     }, [allTags, tasks]);
 
-    // Scroll to the new "add column" area when entering add mode
     useEffect(() => {
         if (isAddingColumn && addColumnRef.current) {
             addColumnRef.current.scrollIntoView({ behavior: "smooth", inline: "end", block: "nearest" });
@@ -282,7 +267,6 @@ export function KanbanBoard({
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
     );
-    // A column drag only meets other columns; a card drag never meets one.
     const collision: CollisionDetection = (args) => {
         const isColumn = args.active.data.current?.type === SECTION_SORT;
         const containers = args.droppableContainers.filter((c) => (c.data.current?.type === SECTION_SORT) === isColumn);
@@ -357,7 +341,6 @@ export function KanbanBoard({
                 shouldUpdate = true;
             }
         } else {
-            // Dropped on a card
             const overTask = tasks.find((t) => t.id === over.id);
             if (overTask) {
                 targetSectionId = overTask.sectionId || null;
@@ -421,7 +404,6 @@ export function KanbanBoard({
             { name, orderIndex: nextOrder },
             {
                 onSuccess: () => {
-                    // After optimistic insert, scroll to show the new column
                     requestAnimationFrame(() => {
                         if (addColumnRef.current) {
                             addColumnRef.current.scrollIntoView({
@@ -482,7 +464,6 @@ export function KanbanBoard({
                 onPointerCancel={dragScroll.onPointerCancel}
             >
                 <div className={`flex h-full min-h-full items-stretch gap-4 ${desktopCanvasPaddingClassName}`.trim()}>
-                    {/* Unsectioned column first; only section columns can be renamed, moved or deleted */}
                     {visibleColumns
                         .filter((column) => column.id === "ungrouped")
                         .map((column) => (
@@ -515,7 +496,6 @@ export function KanbanBoard({
                             ))}
                     </SortableContext>
 
-                    {/* Add column button */}
                     <div ref={addColumnRef} className="w-[min(20rem,70vw)] shrink-0" hidden={!canEdit}>
                         {isAddingColumn ? (
                             <div className="bg-twilight-backdrop/20 rounded-2xl border border-twilight-border/40 p-4">

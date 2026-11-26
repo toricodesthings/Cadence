@@ -17,7 +17,6 @@ import { fetchTaskNote } from "../../hooks/tasks/use-task-note-api";
 import { NoteConflictSheet } from "../tasks/note/NoteConflictSheet";
 import { toast } from "sonner";
 
-/** A queued note edit that overlapped a newer version: both texts side by side, then keep either. */
 function QueuedNoteConflict({ entry, title, onClose }: { entry: WalEntry; title?: string; onClose: () => void }) {
     const queryClient = useQueryClient();
     const userId = useAuthState().session?.user.id;
@@ -31,7 +30,6 @@ function QueuedNoteConflict({ entry, title, onClose }: { entry: WalEntry; title?
                 onClose();
             });
     }, [op.taskId, onClose]);
-    // The version not picked stays on this device until discarded in the note.
     const setAside = (body: string) =>
         userId ? keepRecoveryCopy(noteJournal, userId, op.taskId, entry.id, body).catch(() => undefined) : undefined;
     if (!latest) return null;
@@ -70,10 +68,6 @@ function QueuedNoteConflict({ entry, title, onClose }: { entry: WalEntry; title?
     );
 }
 
-/**
- * Changes that didn't sync, one by one: what it was, why, and Retry or Discard.
- * Nothing is dropped without the user choosing it (Discard asks once).
- */
 export function SyncReviewSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
     const outbox = useMutationOutbox();
     const queryClient = useQueryClient();

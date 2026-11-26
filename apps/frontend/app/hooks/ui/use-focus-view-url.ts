@@ -7,14 +7,6 @@ import { writeParam } from "./use-url-state";
 
 const ORDERS: readonly CaptureOrder[] = ["newest", "oldest", "priority"];
 
-/**
- * Capture order (`?order=`), a focus preset (`?focus=`) and a saved view (`?saved=`) in the address, so a
- * browser view can be bookmarked or shared. The store stays the working copy: a URL that names one wins
- * when the bar mounts or the address changes; otherwise the store writes itself to the address.
- * A custom view (no preset or saved view behind it) is written as short readable params
- * (`?state=waiting&pmin=2&bare=1`, see `definitionToParams`), fields at default left out.
- * A name that matches nothing (another account's saved view) is ignored and dropped.
- */
 export function useFocusViewUrl(capture: boolean) {
     const [params, setParams] = useSearchParams();
     const {
@@ -28,21 +20,17 @@ export function useFocusViewUrl(capture: boolean) {
         customDefinition,
         setCustomDefinition,
     } = useFocusViewStore();
-    // The order only means something on Capture; other pages leave `order` alone.
     const urlOrder = capture ? (ORDERS.find((o) => o === params.get("order")) ?? null) : null;
     const preset = FOCUS_VIEW_PRESETS.find((p) => p.id === params.get("focus")) ?? null;
     const urlSaved = params.get("saved");
-    // When the address names a view, it is applied first; the store only writes to the address after that.
     const urlCustom = preset || urlSaved ? null : definitionFromParams(params);
     const urlCustomKey = urlCustom ? JSON.stringify(urlCustom) : "";
-    // Only a view with nothing named behind it is written as params.
     const customKey =
         !activePresetId && !activeSavedViewId && customDefinition
             ? JSON.stringify(definitionToParams(customDefinition))
             : "";
     const adopting = useRef(Boolean(urlOrder || preset || urlSaved || urlCustom));
 
-    // Address → store.
     useEffect(() => {
         if (urlOrder && urlOrder !== captureOrder) setCaptureOrder(urlOrder);
     }, [urlOrder]); // eslint-disable-line react-hooks/exhaustive-deps -- applies when the address changes, not when the store does
@@ -59,7 +47,6 @@ export function useFocusViewUrl(capture: boolean) {
             setCustomDefinition(urlCustom);
     }, [urlCustomKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Store → address.
     useEffect(() => {
         if (adopting.current) {
             adopting.current = false;

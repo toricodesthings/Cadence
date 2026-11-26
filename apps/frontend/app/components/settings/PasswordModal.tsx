@@ -6,7 +6,7 @@ import * as Dialog from "../primitives/Dialog";
 import { authClient, authError } from "../../lib/auth-client";
 import { queryKeys } from "../../lib/api/query-keys";
 
-const MIN_PASSWORD_LENGTH = 8; // Better Auth's default minPasswordLength
+const MIN_PASSWORD_LENGTH = 8;
 
 type PasswordFieldProps = React.ComponentProps<typeof Input> & { id: string; label: string; hint?: string };
 
@@ -35,7 +35,6 @@ type CodeStepProps = {
     onSend: () => void;
 };
 
-/** The emailed code: a button to send it, then the field for it. */
 function CodeStep({ email, codeSent, otp, setOtp, loading, onSend }: CodeStepProps) {
     if (!codeSent) {
         return (
@@ -125,17 +124,11 @@ type PasswordDraft = {
     confirmPassword: string;
 };
 
-/** Long enough, confirmed, and proven: the current password, or the emailed code. */
 function canSavePassword(draft: PasswordDraft) {
     const proven = draft.useCode ? draft.codeSent && draft.otp.length > 0 : draft.currentPassword.length > 0;
     return draft.newPassword.length >= MIN_PASSWORD_LENGTH && draft.newPassword === draft.confirmPassword && proven;
 }
 
-/**
- * Changes the password with the current one, or sets one with a code emailed to the account
- * address. The code path covers OAuth-only accounts (the OTP reset creates the credential
- * account) and anyone who forgot their current password.
- */
 export function PasswordModal({ email, hasPassword }: { email: string; hasPassword: boolean }) {
     const queryClient = useQueryClient();
     const [open, setOpen] = useState(false);
@@ -208,7 +201,6 @@ export function PasswordModal({ email, hasPassword }: { email: string; hasPasswo
                         </Dialog.DialogDescription>
                     </Dialog.DialogHeader>
                     <div className="py-4 flex flex-col gap-4">
-                        {/* Lets password managers tie the new password to the right account. */}
                         <input type="email" name="username" autoComplete="username" value={email} readOnly hidden />
                         {useCode ? (
                             <CodeStep

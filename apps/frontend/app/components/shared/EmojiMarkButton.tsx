@@ -2,11 +2,6 @@ import type { ReactNode } from "react";
 import { Pencil, SmilePlus } from "lucide-react";
 import { EmojiPickerPopover } from "./EmojiPickerPopover";
 
-/**
- * An item's emoji as a tappable tile (routines, events). Hover or focus lays a
- * pencil over it so it reads as "change", and with none set it shows `fallback`
- * the same way. The picker offers Remove while one is set.
- */
 export function EmojiMarkButton({
     emoji,
     onChange,
@@ -14,7 +9,6 @@ export function EmojiMarkButton({
 }: {
     emoji: string | null;
     onChange: (emoji: string | null) => void;
-    /** Shown when no emoji is set, e.g. the item type's icon. */
     fallback?: ReactNode;
 }) {
     const label = emoji ? "Change emoji" : "Add an emoji";

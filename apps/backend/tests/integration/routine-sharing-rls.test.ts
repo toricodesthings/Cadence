@@ -52,14 +52,12 @@ describe("a shared routine under row-level security", () => {
         expect(visible).toHaveLength(1);
         expect(visible[0].userId).toBe(owner);
 
-        // Inserting a log with the owner's user_id fails RLS.
         await expect(
             as(participant, (tx) =>
                 tx.insert(habitLogs).values({ habitId, userId: owner, status: "COMPLETED", targetDate: "2026-11-25" }),
             ),
         ).rejects.toThrow();
 
-        // Inserting own log on the same day as owner succeeds (unique index is per user).
         const [ownLog] = await as(participant, (tx) =>
             tx
                 .insert(habitLogs)
@@ -68,7 +66,6 @@ describe("a shared routine under row-level security", () => {
         );
         expect(ownLog.userId).toBe(participant);
 
-        // One person cannot log the same day twice.
         await expect(
             as(participant, (tx) =>
                 tx
@@ -105,7 +102,6 @@ describe("a shared routine under row-level security", () => {
     it("restricts cheers to members, prevents impersonation, and shows cheers only to sender and recipient", async () => {
         const { owner, participant, supporter, outsider, habitId } = await seedSharedRoutine();
 
-        // Outsider cannot cheer on a routine they aren't in.
         await expect(
             as(outsider, (tx) =>
                 tx.insert(routineCheers).values({
@@ -117,7 +113,6 @@ describe("a shared routine under row-level security", () => {
             ),
         ).rejects.toThrow();
 
-        // Sender cannot impersonate another user.
         await expect(
             as(supporter, (tx) =>
                 tx.insert(routineCheers).values({
@@ -129,7 +124,6 @@ describe("a shared routine under row-level security", () => {
             ),
         ).rejects.toThrow();
 
-        // Supporter cheers owner -> visible to supporter and owner, not to participant or outsider.
         await as(supporter, (tx) =>
             tx.insert(routineCheers).values({
                 habitId,

@@ -1,13 +1,6 @@
 import { cssVars } from "./loading-geometry";
 
-/**
- * Sky lanterns in two depth planes. Far ones (depth < 0.6) rise from behind the
- * town between the ridges; near ones rise from below the screen in front of it.
- * Three wrappers: rise (translate/recede/fade) → static depth scale → sway.
- * Blur is baked with SVG filters inside the sprite; no CSS filter on moving boxes.
- */
 interface LanternConfig {
-    /** Stage x (%) and portrait stage x (%); lanterns without `xp` are hidden in portrait. */
     x: number;
     xp?: number;
     scale: number;
@@ -15,9 +8,7 @@ interface LanternConfig {
     blur?: "far" | "mid";
     color: "amber" | "honey" | "vermilion";
     duration: number;
-    /** 0–1 point in the cycle shown on the first frame (negative delay). */
     phase: number;
-    /** Reduced-motion still height in stage units. */
     pose: number;
     optional?: boolean;
     sway?: number;
@@ -53,7 +44,6 @@ const FAR: readonly LanternConfig[] = [
     { x: 22, scale: 0.8, opacity: 0.8, color: "vermilion", duration: 33, phase: 0.08, pose: 450 },
 ];
 
-// Portrait xp values put the columns at the viewport edges (the wordmark spans most of a phone's width).
 const NEAR: readonly LanternConfig[] = [
     {
         x: 28,

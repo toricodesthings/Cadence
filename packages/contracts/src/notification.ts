@@ -3,7 +3,6 @@ import { instantSchema } from "./common";
 
 export const notificationObjectTypeSchema = z.enum(["task", "habit", "event"]);
 
-/** When a reminder was shown, dismissed or deferred, per object and trigger. */
 export const notificationStateRowSchema = z.object({
     id: z.uuid(),
     userId: z.uuid(),
@@ -27,7 +26,6 @@ export const notificationStateSchema = notificationStateRowSchema.extend({
 });
 export type NotificationState = z.infer<typeof notificationStateSchema>;
 
-/** POST /settings/notification-state. Omitted fields keep their stored value. */
 export const upsertNotificationStateSchema = z.object({
     objectType: notificationObjectTypeSchema,
     objectId: z.uuid(),

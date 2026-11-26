@@ -22,10 +22,6 @@ import { CARD } from "../shared/DetailPanelSections";
 import { ProfileFace } from "../sharing/PersonAvatar";
 import { RoutineMark } from "./RoutineMark";
 
-/**
- * A routine someone is cheering on (R7): what it is, whose it is, and this month's done days. The server sends only
- * done days and zeroed streaks to a supporter, so nothing here can show a miss, a skip or a run.
- */
 export function CheeringPanel({
     habit,
     onClose,

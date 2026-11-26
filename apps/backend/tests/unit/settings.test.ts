@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { migrateLegacySettings, normalizeSettings } from "../../src/domains/settings/settings.service";
 
-// Schema and deepMerge rules are tested in @cadence/contracts.
-// This covers what the backend adds on top when it reads stored settings.
 describe("normalizeSettings", () => {
     it("moves legacy users to approximate location and fills every default", () => {
         const normalized = normalizeSettings({

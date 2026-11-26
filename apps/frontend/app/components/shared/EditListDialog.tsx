@@ -10,7 +10,6 @@ interface EditListDialogProps {
     list: { id: string; name: string; colorAccent: string; emoji?: string | null };
 }
 
-/** Rename a list and restyle it (emoji + colour) in one place. The form mounts on open, so it always starts from the list's current look. */
 export function EditListDialog({ open, onOpenChange, list }: EditListDialogProps) {
     return (
         <Dialog.Dialog open={open} onOpenChange={onOpenChange}>

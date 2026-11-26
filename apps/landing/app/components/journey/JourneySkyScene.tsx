@@ -2,7 +2,6 @@ import { cssVars, n1, pt, rng } from "~/lib/geometry";
 
 const TINTS = ["spring", "summer", "autumn", "winter"] as const;
 
-/** The sticky sky's stars: faint, fixed to the screen like a real sky, one path per warmth. */
 const SKY = (() => {
     const rand = rng(83);
     let cool = "";
@@ -18,7 +17,6 @@ const SKY = (() => {
     return { cool, warm };
 })();
 
-/** Four stars that twinkle in the sticky sky: [x %, y %, duration s, delay s]. */
 const TWINKLES: readonly (readonly [number, number, number, number])[] = [
     [11, 16, 5.3, -1.4],
     [83, 11, 6.7, -3.9],

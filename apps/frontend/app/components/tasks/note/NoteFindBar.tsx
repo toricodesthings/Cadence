@@ -12,7 +12,6 @@ import { cn } from "../../../lib/utils";
 const FIELD =
     "h-11 min-w-0 flex-1 rounded-xl border border-twilight-border-light bg-white/[0.05] px-3 text-[15px] text-twilight-text placeholder:text-twilight-text-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent-primary/40";
 
-/** Find (and, when disclosed, replace) in the open note. Matches are decorations: nothing here edits until you replace. */
 export function NoteFindBar({
     editor,
     onClose,

@@ -19,10 +19,6 @@ interface ScheduleDrop {
     preview: CalendarDropPreview;
 }
 
-/**
- * One interpretation of the target for both the drag preview and the eventual write. `guess` sizes a block made
- * now from an untimed task; an existing block is never resized by it.
- */
 export function resolveScheduleDrop(task: Task, dropId: string, guess?: DurationGuess | null): ScheduleDrop | null {
     if (!canDragScheduleTask(task)) return null;
     const previous = temporalOf(task);

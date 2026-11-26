@@ -1,22 +1,10 @@
-/**
- * The arrival flight: the scene drifts into the valley and dissolves while the app is live underneath.
- *
- * Every layer gets its own `scale` / `translate` / `opacity` animation, all on one spring easing, so the
- * compositor plays them even while the revealed workspace holds the main thread (a custom-property driver
- * froze there on iOS and the scene just vanished). Fades run over a slice [from, from + span] of the
- * eased progress, so nearer layers go first.
- */
-
-// The one knob for how far it travels; reduced motion sets it to 0 in loading-scene.css.
 const flyK = (screen: Element) => Number.parseFloat(getComputedStyle(screen).getPropertyValue("--ls-fly-k")) || 0;
 
-/** 600ms, or a 200ms fade when reduced motion zeroes the travel. */
 export const flyMs = () => {
     const screen = document.querySelector(".loading-screen");
     return screen && flyK(screen) === 0 ? 200 : 600;
 };
 
-// A critically damped spring from rest (x = 1 − (1 + ωt)e^(−ωt), ω = 6), normalised to end at 1.
 const FLY_EASE = (() => {
     const x = (t: number) => 1 - (1 + 6 * t) * Math.exp(-6 * t);
     const samples = Array.from({ length: 24 }, (_, i) => (x(i / 23) / x(1)).toFixed(4));
@@ -25,7 +13,6 @@ const FLY_EASE = (() => {
 const FLY_FALLBACK = "cubic-bezier(0.3, 0, 0.15, 1)";
 
 type Layer = { sel: string; depth?: number; fade?: [from: number, span: number]; lift?: boolean };
-// depth: how much nearer the plane is (its scale grows by k × depth); the column also rises as it grows.
 const FLIGHT: Layer[] = [
     { sel: ".ls-par-far", depth: 1.5 },
     { sel: ".ls-par-town", depth: 4 },
@@ -36,7 +23,6 @@ const FLIGHT: Layer[] = [
     { sel: ".ls-vignette", fade: [0, 0.7] },
 ];
 
-/** Opacity from `start` to 0 across [from, from + span]; `smooth` gives the ends zero slope (smoothstep). */
 function fadeFrames(start: number, [from, span]: [number, number], smooth = false): Keyframe[] {
     const steps = smooth ? [0, 0.25, 0.5, 0.75, 1] : [0, 1];
     const ease = (t: number) => (smooth ? t * t * (3 - 2 * t) : t);
@@ -44,7 +30,6 @@ function fadeFrames(start: number, [from, span]: [number, number], smooth = fals
     return [{ offset: 0, opacity: start }, ...frames, { offset: 1, opacity: 0 }];
 }
 
-/** Starts the flight on every layer of `screen`. Reverse them all to glide home. */
 export function startFlight(screen: HTMLElement): Animation[] {
     const k = flyK(screen);
     const duration = flyMs();

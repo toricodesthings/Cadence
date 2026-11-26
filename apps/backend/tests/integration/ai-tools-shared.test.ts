@@ -158,7 +158,6 @@ describe("assistant tools on shared lists", () => {
             flush,
         } = await setup();
 
-        // Editor creates a task in the shared list -> succeeds and notifies audience.
         const made = await call(editorTools.create_tasks, {
             tasks: [{ title: "Buy bread", projectId: sharedList.id }],
         });
@@ -168,7 +167,6 @@ describe("assistant tools on shared lists", () => {
         expect(pings).toContain(`replan:${ownerId}`);
         expect(pings).toContain(`ping:${viewerId}`);
 
-        // Editor updates, reschedules, edits subtasks, creates & renames sections.
         const updated = await call(editorTools.update_tasks, {
             taskIds: [sharedTask.id],
             patch: { title: "Buy oat milk" },
@@ -187,7 +185,6 @@ describe("assistant tools on shared lists", () => {
         const sec = await call(editorTools.create_sections, { projectId: sharedList.id, names: ["Hardware"] });
         expect(sec.sections).toHaveLength(1);
 
-        // Editor cannot rename/delete the list or delete sections (OWNER_ONLY).
         const renameDenied = await call(editorTools.update_project, {
             projectId: sharedList.id,
             patch: { name: "Renamed" },
@@ -197,14 +194,12 @@ describe("assistant tools on shared lists", () => {
         const delSecDenied = await call(editorTools.delete_section, { sectionId: section.id });
         expect(delSecDenied).toMatchObject({ ok: false, code: "OWNER_ONLY" });
 
-        // Owner CAN rename the list.
         const renamed = await call(ownerTools.update_project, {
             projectId: sharedList.id,
             patch: { name: "Our Home" },
         });
         expect(renamed.name).toBe("Our Home");
 
-        // Viewer cannot write anything (VIEW_ONLY).
         const viewCreate = await call(viewerTools.create_tasks, {
             tasks: [{ title: "Sneak", projectId: sharedList.id }],
         });
@@ -220,15 +215,12 @@ describe("assistant tools on shared lists", () => {
     it("guards against stale writes by naming who changed the shared task", async () => {
         const { sharedList, sharedTask, ownerTasks, editorTools } = await setup();
 
-        // Editor reads the shared task (records seenTaskUpdatedAt in ctx).
         const read = await call(editorTools.get_tasks, { projectId: sharedList.id });
         expect(read.tasks[0].id).toBe(sharedTask.id);
 
-        // Owner edits the task in the meantime.
         await new Promise((r) => setTimeout(r, 15));
         await ownerTasks("PATCH", `/${sharedTask.id}`, { title: "Buy almond milk" });
 
-        // Editor attempts to write without re-reading -> STALE_WRITE naming Ada.
         const stale = await call(editorTools.update_tasks, {
             taskIds: [sharedTask.id],
             patch: { title: "Buy soy milk" },
@@ -241,7 +233,6 @@ describe("assistant tools on shared lists", () => {
     it("checks for duplicate titles across all members when creating in a shared list", async () => {
         const { sharedList, ownerTools } = await setup();
 
-        // "Buy milk" was created by Sam; Ada tries to create "buy milk" without sameTitleOk.
         const held = await call(ownerTools.create_tasks, {
             tasks: [{ title: "buy milk", projectId: sharedList.id }],
         });
@@ -250,7 +241,6 @@ describe("assistant tools on shared lists", () => {
             expect.arrayContaining([expect.objectContaining({ title: "Buy milk", createdBy: "Sam" })]),
         );
 
-        // With sameTitleOk: true it proceeds.
         const forced = await call(ownerTools.create_tasks, {
             tasks: [{ title: "buy milk", projectId: sharedList.id }],
             sameTitleOk: true,
@@ -270,7 +260,6 @@ describe("assistant tools on shared lists", () => {
             ],
             [priv, sh1, sh2],
         );
-        // Private task is never included in any shared-list broadcast; each shared list gets only its own task.
         expect(batches).toHaveLength(2);
         expect(batches.some((b) => b.changes.some((c) => c.type === "task" && c.task.id === "t-priv"))).toBe(false);
         const s1Batch = batches.find((b) => b.changes.some((c) => c.type === "task" && c.task.id === "t-s1"));
@@ -293,20 +282,17 @@ describe("assistant tools on shared lists", () => {
         const link = (await ownerShare("POST", `/${event.id}/invites`)).body.data.url as string;
         await editorLists("POST", "/join", { token: tokenOf(link) });
 
-        // Member sees shared: true and sharedBy: "Ada".
         const memberEvents = await call(editorTools.get_events, {});
         expect(memberEvents.events).toEqual([
             expect.objectContaining({ id: event.id, label: "Anniversary", shared: true, sharedBy: "Ada" }),
         ]);
 
-        // Owner sees shared: true and no sharedBy.
         const ownerEventsRead = await call(ownerTools.get_events, {});
         expect(ownerEventsRead.events).toEqual([
             expect.objectContaining({ id: event.id, label: "Anniversary", shared: true }),
         ]);
         expect(ownerEventsRead.events[0].sharedBy).toBeUndefined();
 
-        // Member can save_event on the shared event, which replans both clocks.
         pings.length = 0;
         const saved = await call(editorTools.save_event, {
             eventId: event.id,
@@ -317,12 +303,10 @@ describe("assistant tools on shared lists", () => {
         expect(pings).toContain(`replan:${editorId}`);
         expect(pings).toContain(`replan:${ownerId}`);
 
-        // Owner delete_event on a shared event is refused.
         const ownerDel = await call(ownerTools.delete_event, { eventId: event.id });
         expect(ownerDel).toMatchObject({ ok: false, status: 403 });
         expect(ownerDel.error).toContain("This event is shared. Delete it from the Events page.");
 
-        // Member delete_event is not-found; stranger delete_event is not-found.
         expect(await call(editorTools.delete_event, { eventId: event.id })).toMatchObject({ ok: false, status: 404 });
         expect(await call(viewerTools.delete_event, { eventId: event.id })).toMatchObject({ ok: false, status: 404 });
         expect(viewerId).toBeTruthy();
@@ -343,7 +327,6 @@ describe("assistant tools on shared lists", () => {
         await editorLists("POST", "/join", { token: tokenOf(turnsLink) });
         await viewerLists("POST", "/join", { token: tokenOf(cheerLink) });
 
-        // Pin turnsFrom to 2030-03-04 so 03-04 is Ada's turn and 03-05 is Sam's turn.
         await ownerShare("PUT", `/${habit.id}/turns`, { order: [ownerId, editorId] });
         const db = (await import("../helpers/db")).getTestDb();
         const { withRls } = await import("../../src/platform/rls");
@@ -356,7 +339,6 @@ describe("assistant tools on shared lists", () => {
                 .where(eq(habitsTable.id, habit.id)),
         );
 
-        // Today (2030-03-04) is Ada's turn: Sam's get_habits names "Ada", schedule window assigns 03-04 to Ada and 03-05 to Sam, supporter sees none.
         const editorRead = await call(editorTools.get_habits, {});
         expect(editorRead.habits).toEqual([
             expect.objectContaining({ id: habit.id, shared: true, way: "turns", turn: "Ada" }),
@@ -368,7 +350,6 @@ describe("assistant tools on shared lists", () => {
         const viewerSched = await call(viewerTools.get_schedule_window, { start: "2030-03-04", end: "2030-03-05" });
         expect(viewerSched.routines).toEqual([]);
 
-        // Sam covers Ada's turn via log_habit -> broadcasts replan to Ada, Sam, and Kai, and Ada's get_habit_status_today sees COMPLETED.
         pings.length = 0;
         const covered = await call(editorTools.log_habit, {
             habitId: habit.id,
@@ -385,9 +366,8 @@ describe("assistant tools on shared lists", () => {
             expect.objectContaining({ habitId: habit.id, status: "COMPLETED" }),
         ]);
         const editorTodayStatus = await call(editorTools.get_habit_status_today, {});
-        expect(editorTodayStatus.statuses).toEqual([]); // not Sam's turn today
+        expect(editorTodayStatus.statuses).toEqual([]);
 
-        // Owner clears and skips today; supporter history never shows skipped/missed.
         await ownerHabits("POST", `/${habit.id}/resolve`, { targetDate: "2030-03-04", status: "PENDING" });
         await ownerHabits("POST", `/${habit.id}/resolve`, { targetDate: "2030-03-04", status: "SKIPPED" });
 
@@ -410,7 +390,6 @@ describe("assistant tools on shared lists", () => {
         expect(supporterHist.routines[0].skipped).toBeUndefined();
         expect(supporterHist.routines[0].missed).toBeUndefined();
 
-        // Supporter cannot log_habit -> exact R14 refusal naming owner.
         const supporterLog = await call(viewerTools.log_habit, {
             habitId: habit.id,
             status: "COMPLETED",
@@ -419,12 +398,10 @@ describe("assistant tools on shared lists", () => {
         expect(supporterLog).toMatchObject({ ok: false, status: 403 });
         expect(supporterLog.error).toContain("You're cheering this one on; only Ada checks it off.");
 
-        // Owner cannot delete_habit on a shared routine -> exact R14 refusal.
         const ownerDel = await call(ownerTools.delete_habit, { habitId: habit.id, title: "Clean kitchen" });
         expect(ownerDel).toMatchObject({ ok: false, status: 403 });
         expect(ownerDel.error).toContain("This routine is shared. Delete it from the Routines page.");
 
-        // Participant cannot archive -> 403 OWNER_ONLY.
         const editorArchive = await call(editorTools.update_habit, {
             habitId: habit.id,
             patch: { archived: true },

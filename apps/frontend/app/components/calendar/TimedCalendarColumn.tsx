@@ -15,18 +15,14 @@ import {
 import { trackUsageEvent } from "../../lib/api/track-event";
 import type { CalendarEventInfo } from "./CalendarEventPopover";
 
-/** What Day and Week pass through to their timed columns. */
 export interface TimelineProps {
     activeDropPreview?: CalendarDropPreview | null;
-    /** Ghost block placement for click-to-create preview */
     draftPlacement?: { dateStr: string; startMinute: number; endMinute: number } | null;
     onSelectTask: (id: string) => void;
     onResizeTask?: (id: string, durationMinutes: number) => void;
-    /** Callback when user clicks an empty grid cell (opens event popover) */
     onGridClick?: (info: CalendarEventInfo) => void;
 }
 
-/** The timeline's scroll box, opened at `startHour` (and again whenever `day` changes). */
 export function useOpenAtHour(startHour: number, day?: string) {
     const ref = useRef<HTMLDivElement>(null);
     useEffect(() => {
@@ -35,7 +31,6 @@ export function useOpenAtHour(startHour: number, day?: string) {
     return ref;
 }
 
-/** Day and Week share grid geometry, marker dispatch, drop previews and context creation. */
 export function TimedCalendarColumn({
     dateStr,
     tasks,

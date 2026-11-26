@@ -48,7 +48,6 @@ describe("useApplyInstruction", () => {
             );
         });
 
-        // "a" still holds what we wrote; on "b" someone has since moved the day.
         client.setQueryData([...queryKeys.tasks.all, "list"], [task("a", "2026-10-12"), task("b", "2026-10-20")]);
         ((toast.success as any).mock.calls[0][1].action.onClick as () => void)();
 

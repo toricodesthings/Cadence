@@ -11,11 +11,6 @@ import { forgetRoute } from "../../lib/resume-route";
 import { syncAppBadge } from "../../platform/installed-app";
 import { useApiClient } from "./use-api-client";
 
-/**
- * Sign-out for the user's own buttons: changes that haven't synced yet belong to
- * this account, so ask before dropping them. (Forced sign-outs keep the queue for
- * when the same account signs back in.) Render `dialog` next to the button.
- */
 export function useSignOut() {
     const { completeSignOut, session } = useAuthState();
     const client = useApiClient();
@@ -33,9 +28,7 @@ export function useSignOut() {
                 await clearWal();
                 if (session) await clearNoteJournal(session.user.id).catch(() => undefined);
             }
-            // This device stops getting the account's reminders while signed out (best effort: a forced sign-out can't ask; the next account to register the browser takes it over).
             await forgetThisDevice(client).catch(() => undefined);
-            // The next account on this device starts on Capture with no badge.
             forgetRoute();
             await syncAppBadge(0);
             await completeSignOut();
@@ -45,7 +38,6 @@ export function useSignOut() {
     };
 
     const signOut = async () => {
-        // Text still in a note editor reaches the queue (or Cadence) before anything is counted.
         setPending(true);
         await flushNoteSessions().finally(() => setPending(false));
         const unsynced = unsyncedNoteCount();

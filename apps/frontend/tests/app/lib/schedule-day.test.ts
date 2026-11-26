@@ -91,7 +91,6 @@ describe("schedule-day", () => {
     });
 
     it("shows a timed block on the user's day of its start, not the UTC day", () => {
-        // 9pm in Toronto on the 22nd is already the 23rd in UTC.
         expect(taskDays(task({ scheduledStart: "2026-09-23T01:00:00Z" }))).toEqual(["2026-09-22"]);
     });
 
@@ -129,5 +128,10 @@ describe("schedule-day", () => {
                 task({}),
             ]),
         ).toBe(4);
+    });
+
+    it("weighs each owed task by its load share", () => {
+        const shares: Record<string, number> = { a: 0.5, b: 0 };
+        expect(dayLoad([task({ id: "a", effort: 2 }), task({ id: "b", effort: 3 })], (t) => shares[t.id])).toBe(1);
     });
 });

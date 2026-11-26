@@ -3,7 +3,6 @@ import type { Task } from "@cadence/contracts/task";
 import type { GuessOf } from "../../hooks/tasks/use-effort-guess";
 import { dayOfInstant, nlpClock } from "./date-format";
 
-/** §11.6: One-sentence reasoning for Today and Upcoming rationale display */
 const REASON_SENTENCES: Record<TaskRankReason, string> = {
     overdue: "This task is past its due date",
     due_today: "This task is due today",
@@ -18,16 +17,8 @@ const REASON_SENTENCES: Record<TaskRankReason, string> = {
     scheduled_now: "This task is scheduled around the current time",
 };
 
-/**
- * §9.2: Reasons that indicate ranking materially changed order. Overdue, high priority, pinned and
- * waiting are left out: the card already shows them (Past due, the priority bars, the pin, "Waiting on").
- */
 const MATERIAL_REASONS: Set<TaskRankReason> = new Set(["quick_win", "looks_quick", "scheduled_now"]);
 
-/**
- * §11.6: Return a one-sentence rationale ONLY when ranking
- * materially changed the task's order. Returns null for non-material reasons.
- */
 export function getMaterialRankingLabel(reasons: TaskRankReason[]): string | null {
     const materialReason = reasons.find((r) => MATERIAL_REASONS.has(r));
     if (!materialReason) return null;
@@ -36,7 +27,6 @@ export function getMaterialRankingLabel(reasons: TaskRankReason[]): string | nul
 
 type RankRoute = NonNullable<Parameters<typeof rankTasks>[1]["routeContext"]>;
 
-/** Smart-sorts a route's tasks, returning them in rank order and the one-line reason for each that moved. */
 export function rankTasksForRoute(tasks: Task[], routeContext: RankRoute, guessOf?: GuessOf) {
     const rankable: RankableTask[] = tasks.map((t) => ({
         id: t.id,
@@ -56,7 +46,6 @@ export function rankTasksForRoute(tasks: Task[], routeContext: RankRoute, guessO
     const ranked = rankTasks(rankable, { routeContext, clock: nlpClock(), dayOf: dayOfInstant });
     const rationaleByTaskId: Record<string, string | null> = {};
     for (const item of ranked) {
-        // A quick win from Light effort is already on the card as "Light effort".
         const shown = item.task.effort === 1 ? item.reasons.filter((r) => r !== "quick_win") : item.reasons;
         rationaleByTaskId[item.task.id] = getMaterialRankingLabel(shown);
     }

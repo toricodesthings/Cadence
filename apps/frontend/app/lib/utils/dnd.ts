@@ -1,7 +1,6 @@
 import { MouseSensor as LibMouseSensor, TouchSensor as LibTouchSensor } from "@dnd-kit/core";
 
 function allowsDrag(target: EventTarget | null) {
-    // Element, not HTMLElement: a press often lands on the grip's SVG icon.
     if (!(target instanceof Element)) return false;
     if (target.closest('[data-no-dnd="true"]')) return false;
     return Boolean(target.closest('[data-dnd-handle="true"], [data-dnd-draggable="true"]'));

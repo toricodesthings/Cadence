@@ -1,23 +1,15 @@
-// The one place that converts between Instant, LocalDate, WallTime and Zone.
-// Pure, `Intl` only, shaped like `Temporal` so it can be swapped for it later.
 import { RRule } from "rrule";
 import { DomainError } from "./errors";
 
-/** One exact moment: ISO 8601 (this module writes `Z`; offsets are accepted). */
 export type Instant = string;
-/** A calendar day, `YYYY-MM-DD`, with no time and no zone. */
 export type LocalDate = string;
-/** A clock time, `HH:MM`, always read with the day and zone it belongs to. */
 export type WallTime = string;
-/** An IANA zone name, e.g. `America/Toronto`. Never an offset, never "local". */
 export type Zone = string;
 
 export type WeekStart = "Sunday" | "Monday" | "Saturday";
 
 const MIN = 60_000;
 const DAY_MS = 86_400_000;
-
-// ── Zones ──
 
 export { isZone } from "@cadence/contracts/common";
 
@@ -45,7 +37,6 @@ function wallParts(ms: number, zone: Zone) {
     return parts as { year: number; month: number; day: number; hour: number; minute: number; second: number };
 }
 
-/** Minutes east of UTC that `zone` is at `ms` (DST-aware). */
 function offsetMinutes(ms: number, zone: Zone): number {
     const p = wallParts(ms, zone);
     const wallAsUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
@@ -54,8 +45,6 @@ function offsetMinutes(ms: number, zone: Zone): number {
 
 const toMs = (instant: Instant | Date) => (typeof instant === "string" ? Date.parse(instant) : instant.getTime());
 const pad = (n: number, width = 2) => String(n).padStart(width, "0");
-
-// ── Today, days and clocks ──
 
 export function isLocalDate(value: unknown): value is LocalDate {
     if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -68,18 +57,15 @@ export function isWallTime(value: unknown): value is WallTime {
     return typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
-/** The day an instant falls on in `zone`. */
 export function dayOf(instant: Instant | Date, zone: Zone): LocalDate {
     const p = wallParts(toMs(instant), zone);
     return `${pad(p.year, 4)}-${pad(p.month)}-${pad(p.day)}`;
 }
 
-/** The user's today. */
 export function todayIn(zone: Zone, now: Date = new Date()): LocalDate {
     return dayOf(now, zone);
 }
 
-/** The clock time an instant shows in `zone`. */
 export function wallTimeOf(instant: Instant | Date, zone: Zone): WallTime {
     const p = wallParts(toMs(instant), zone);
     return `${pad(p.hour)}:${pad(p.minute)}`;
@@ -96,10 +82,6 @@ function wallMs(day: LocalDate, time: WallTime) {
     return Date.UTC(y, m - 1, d, hh, mm);
 }
 
-/**
- * A wall time on a day, as an instant. A time skipped by a DST jump moves forward
- * (02:30 on spring-forward → 03:30); a time that happens twice takes the earlier.
- */
 export function atLocal(day: LocalDate, time: WallTime, zone: Zone): Instant {
     const wall = wallMs(day, time);
     const before = offsetMinutes(wall - DAY_MS, zone);
@@ -107,22 +89,18 @@ export function atLocal(day: LocalDate, time: WallTime, zone: Zone): Instant {
     const valid = [...new Set([before, after])]
         .map((off) => wall - off * MIN)
         .filter((t) => offsetMinutes(t, zone) === (wall - t) / MIN);
-    // No valid candidate: the time is in a gap; the pre-jump offset lands it one gap later.
     const ms = valid.length ? Math.min(...valid) : wall - before * MIN;
     return new Date(ms).toISOString();
 }
 
-/** The instant a local day begins. */
 export function startOfDay(day: LocalDate, zone: Zone): Instant {
     return atLocal(day, "00:00", zone);
 }
 
-/** The last millisecond of a local day. */
 export function endOfDay(day: LocalDate, zone: Zone): Instant {
     return new Date(Date.parse(startOfDay(addDays(day, 1), zone)) - 1).toISOString();
 }
 
-/** `2026-10-05T14:35:00-04:00`: the instant as the user's wall clock with its offset. */
 export function toZonedIso(instant: Instant | Date, zone: Zone): string {
     const ms = toMs(instant);
     const p = wallParts(ms, zone);
@@ -131,46 +109,33 @@ export function toZonedIso(instant: Instant | Date, zone: Zone): string {
     return `${pad(p.year, 4)}-${pad(p.month)}-${pad(p.day)}T${pad(p.hour)}:${pad(p.minute)}:${pad(p.second)}${off < 0 ? "-" : "+"}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`;
 }
 
-// ── LocalDate arithmetic (no zone involved) ──
-
 export function addDays(day: LocalDate, days: number): LocalDate {
     const { y, m, d } = dayParts(day);
     return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
-/** Whole days from `from` to `to` (negative when `to` is earlier). */
 export function daysBetween(from: LocalDate, to: LocalDate): number {
     return Math.round((wallMs(to, "00:00") - wallMs(from, "00:00")) / DAY_MS);
 }
 
-/** 0 = Sunday … 6 = Saturday. */
 export function weekdayOf(day: LocalDate): number {
     const { y, m, d } = dayParts(day);
     return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
 }
 
-/** The weekday index (0 = Sunday) a week starting on each name begins at. */
 export const WEEK_START_INDEX: Record<WeekStart, 0 | 1 | 6> = { Sunday: 0, Monday: 1, Saturday: 6 };
 
-/** The seven days (first, last) of the week containing `day`. */
 export function weekRange(day: LocalDate, weekStart: WeekStart = "Sunday"): { start: LocalDate; end: LocalDate } {
     const back = (weekdayOf(day) - WEEK_START_INDEX[weekStart] + 7) % 7;
     const start = addDays(day, -back);
     return { start, end: addDays(start, 6) };
 }
 
-/** The first and last day of the month containing `day`. */
 export function monthRange(day: LocalDate): { start: LocalDate; end: LocalDate } {
     const { y, m } = dayParts(day);
     return { start: `${pad(y, 4)}-${pad(m)}-01`, end: new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10) };
 }
 
-// ── Display ──
-
-/**
- * The only display formatter. An instant is shown in `zone`; a LocalDate is a day
- * with no zone, so it renders as stored (date parts only).
- */
 export function formatInZone(
     value: Instant | LocalDate | Date,
     zone: Zone,
@@ -185,12 +150,6 @@ export function formatInZone(
     );
 }
 
-// ── Repeating series ──
-
-/**
- * rrule only speaks `Date`, so a LocalDate series runs in a floating UTC frame: a day is the
- * UTC midnight of that date. These three are the only crossings between the frame and LocalDates.
- */
 export const floatingStart = (day: LocalDate): Date => new Date(wallMs(day, "00:00"));
 export const floatingEnd = (day: LocalDate): Date => new Date(wallMs(day, "00:00") + DAY_MS - 1);
 export const floatingDay = (date: Date): LocalDate => date.toISOString().slice(0, 10);
@@ -205,7 +164,6 @@ export interface SeriesOccurrence {
 
 const UNTIL = /(^|;)UNTIL=([^;]+)/i;
 
-/** The inclusive last day of a rule (`UNTIL=YYYYMMDD`; a legacy `…Z` instant reads in `zone`) and the rule without it. `until` is null with no UNTIL, undefined when it can't be read. */
 function splitUntil(rule: string, zone: Zone): { rule: string; until: LocalDate | null | undefined } {
     const match = UNTIL.exec(rule);
     if (!match) return { rule, until: null };
@@ -223,17 +181,14 @@ function splitUntil(rule: string, zone: Zone): { rule: string; until: LocalDate 
     return { rule: rule.replace(UNTIL, "").replace(/^;/, ""), until };
 }
 
-/** A rule's UNTIL as a LocalDate, or null when it has none or can't be read. */
 export function untilOf(rule: string, zone: Zone = "UTC"): LocalDate | null {
     return splitUntil(rule, zone).until ?? null;
 }
 
-/** `UNTIL=YYYYMMDD` for a LocalDate. */
 export function untilClause(day: LocalDate): string {
     return `UNTIL=${day.replaceAll("-", "")}`;
 }
 
-/** Bound the anchor-to-window span and returned occurrences (~100 years). */
 export const MAX_RECURRENCE_DAYS = 36_600;
 
 function invalidRule(): never {
@@ -243,10 +198,8 @@ function invalidRule(): never {
     );
 }
 
-/** BYSETPOS bounds per FREQ: positions select days within a period, never a timeset. */
 const SETPOS_MAX: Record<string, number> = { DAILY: 1, WEEKLY: 7, MONTHLY: 31, YEARLY: 366 };
 const positiveInt = (value: string) => /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) && Number(value) >= 1;
-/** Comma list of non-zero integers within ±max (1..max when `negative` is false). */
 const signedList = (value: string, max: number, negative = true) =>
     value
         .split(",")
@@ -258,7 +211,6 @@ const signedList = (value: string, max: number, negative = true) =>
                 Number(item) >= (negative ? -max : 1) &&
                 Number(item) <= max,
         );
-/** Every RRULE field this contract accepts, each with its own check; any other field is invalid. */
 const RRULE_FIELDS: Record<string, (value: string, freq: string) => boolean> = {
     FREQ: () => true,
     UNTIL: () => true,
@@ -267,7 +219,6 @@ const RRULE_FIELDS: Record<string, (value: string, freq: string) => boolean> = {
     BYMONTH: (value) => signedList(value, 12, false),
     BYMONTHDAY: (value) => signedList(value, 31),
     BYYEARDAY: (value) => signedList(value, 366),
-    // Bound prefix work too: between's callback only sees in-range dates.
     BYSETPOS: (value, freq) =>
         signedList(value, SETPOS_MAX[freq]) && new Set(value.split(",").map(Number)).size === value.split(",").length,
     BYWEEKNO: (value) => signedList(value, 53),
@@ -279,11 +230,6 @@ const RRULE_FIELDS: Record<string, (value: string, freq: string) => boolean> = {
     WKST: (value) => /^(MO|TU|WE|TH|FR|SA|SU)$/.test(value),
 };
 
-/**
- * One day-based RRULE, shared by writes and stored-state reads. The series owns
- * its start, time and zone: embedded calendars and subdaily selectors are not
- * part of this contract. Validate before rrule can iterate or build a timeset.
- */
 export function parseRecurrenceRule(rule: string, zone: Zone = "UTC") {
     if (rule.length > 500) invalidRule();
     const normalized = rule
@@ -312,7 +258,6 @@ export function parseRecurrenceRule(rule: string, zone: Zone = "UTC") {
     }
 }
 
-/** Whether a rule is valid for a single day-based series. */
 export function isValidRule(rule: string, zone: Zone = "UTC"): boolean {
     try {
         parseRecurrenceRule(rule, zone);
@@ -322,15 +267,6 @@ export function isValidRule(rule: string, zone: Zone = "UTC"): boolean {
     }
 }
 
-/**
- * The occurrences of a repeating series on local days `from`…`to` (inclusive).
- * - All-day (`start: { day }`): LocalDates only, no instant is ever produced.
- * - Timed (`start: { instant, end? }`): rrule runs in a floating wall-clock frame (BYDAY
- *   and the time are local), and each occurrence converts back with `atLocal`, so a
- *   2:35 PM class stays 2:35 PM across a DST change. The span from start to end is kept
- *   in wall time.
- * The rule carries no DTSTART or TZID; `UNTIL` is a LocalDate, inclusive.
- */
 export function expandSeries(args: {
     rule: string;
     start: SeriesStart;
@@ -377,7 +313,6 @@ export function expandSeries(args: {
     });
 }
 
-/** The first occurrence on or after `from` (up to ~2 years ahead), or null. Used to anchor a series near a day. */
 export function nextOccurrence(
     args: Omit<Parameters<typeof expandSeries>[0], "range"> & { from: LocalDate },
 ): SeriesOccurrence | null {

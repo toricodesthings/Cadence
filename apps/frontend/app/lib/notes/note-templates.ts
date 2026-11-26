@@ -1,8 +1,3 @@
-/**
- * Note templates — calm, task-oriented starting points.
- * Accessed via /template slash command or template insert action.
- */
-
 import { formatShortDateLabel } from "../utils/date-format";
 import { today } from "../utils/user-zone";
 
@@ -40,7 +35,6 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
         id: "meeting",
         label: "Meeting Notes",
         description: "Capture meeting outcomes and actions",
-        // A getter: the date is when the template is inserted, in the user's zone.
         get body() {
             return `## Meeting Notes
 

@@ -6,7 +6,6 @@ export const SORT_MODE_OPTIONS: Array<{ value: SortMode; label: string }> = [
     { value: "manual", label: "Manual" },
 ];
 
-/** The sort choice as touch rows — shared by every compact controls popover. */
 export function SortOptionList({ mode, onModeChange }: { mode: SortMode; onModeChange: (mode: SortMode) => void }) {
     return (
         <div className="space-y-2">

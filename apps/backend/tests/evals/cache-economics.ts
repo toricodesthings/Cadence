@@ -1,6 +1,5 @@
 import type { CacheVariant } from "../../src/domains/ai/agent";
 
-/** Cache probes report observed charges, never prices reconstructed from aggregate writes. */
 export interface CacheTrial {
     variant: CacheVariant;
     stage: string;
@@ -46,7 +45,6 @@ interface ProductionReply {
     cached?: number | null;
 }
 
-/** Observed arrival gaps, not inferred provider hits or reconstructed billing. */
 export function productionCacheWeights(rows: ProductionReply[], model: string) {
     const weights: CacheWeights = {
         cold: 0,
@@ -114,7 +112,6 @@ export function productionCacheWeights(rows: ProductionReply[], model: string) {
     };
 }
 
-/** Reweight measured stratum charges; this is a synthetic cost index, not a production invoice. */
 export function weightedCacheTrials(
     trials: CacheTrial[],
     weights: CacheWeights,
@@ -157,7 +154,6 @@ export function weightedCacheTrials(
             weightedRequests: Object.values(weights).reduce((sum, n) => sum + n, 0),
             strata,
             weightedCostUsd: complete ? strata.reduce((sum, s) => sum + s.weight * s.meanCostUsd!, 0) : null,
-            // Observed extrema sensitivity, not a statistical confidence interval.
             weightedMinUsd: complete ? strata.reduce((sum, s) => sum + s.weight * s.minCostUsd!, 0) : null,
             weightedMaxUsd: complete ? strata.reduce((sum, s) => sum + s.weight * s.maxCostUsd!, 0) : null,
         };

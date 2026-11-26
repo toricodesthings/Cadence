@@ -20,11 +20,7 @@ type Appearance = UserSettings["appearance"];
 type Update = ReturnType<typeof useUpdateSettings>["mutate"];
 type ThemeSectionsProps = { appearance: Appearance; update: Update; onThemePreset: (presetId: ThemePresetId) => void };
 
-/** Theme mode, curated themes and the accent palette; a photo background sets all three until left. */
 function ThemeSections({ appearance, update, onThemePreset: handleThemePreset }: ThemeSectionsProps) {
-    // A photo owns the accent and the light/dark of the whole interface, so
-    // choosing a theme or a preset means leaving it — the photo stays
-    // stored, and picking it again in Background brings it back.
     const photoActive = appearance.backgroundMode === "image";
     const leavePhoto = photoActive ? { backgroundMode: "theme" as const } : {};
     const photoNote = photoActive
@@ -32,7 +28,6 @@ function ThemeSections({ appearance, update, onThemePreset: handleThemePreset }:
         : undefined;
     return (
         <>
-            {/* ── Theme Mode ── */}
             <SettingsSection title="Theme">
                 {photoNote && <p className="text-[12px] leading-relaxed text-twilight-text-muted">{photoNote}</p>}
                 <div className="grid grid-cols-3 gap-3">
@@ -133,12 +128,10 @@ function BackgroundSection({
 
 type ComfortSectionsProps = { appearance: Appearance; update: Update; lowStimulation: boolean };
 
-/** Loading scene, motion, low stimulation, density and (desktop) layout scale. */
 function ComfortSections({ appearance, update, lowStimulation }: ComfortSectionsProps) {
     const { layoutScale, setLayoutScale } = useDesktopLayoutScale();
     return (
         <>
-            {/* ── Loading screen ── */}
             <SettingsSection title="Loading screen">
                 <p className="text-sm text-twilight-text-muted">
                     The scene you see while Cadence opens. Auto changes with the seasons.
@@ -149,7 +142,6 @@ function ComfortSections({ appearance, update, lowStimulation }: ComfortSections
                 />
             </SettingsSection>
 
-            {/* ── Motion ── */}
             <SettingsSection title="Motion">
                 <SettingsRow
                     title="Animation preference"
@@ -306,7 +298,6 @@ export function AppearanceTab() {
 
             <ThemeSections appearance={appearance} update={update} onThemePreset={handleThemePreset} />
 
-            {/* ── Background ── */}
             <BackgroundSection
                 appearance={appearance}
                 update={update}

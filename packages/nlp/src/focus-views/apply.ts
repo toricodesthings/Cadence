@@ -1,8 +1,3 @@
-/**
- * Pure focus view filter — no external dependencies (no Fuse.js).
- * Importable separately to avoid pulling Fuse.js into the main bundle.
- */
-
 import type { FocusViewDefinition } from "./index.js";
 import { addDaysLocal, endOfMonthLocal, weekdayLocal, type LocalDate, type NlpClock } from "../core/index.js";
 
@@ -17,12 +12,10 @@ type FocusTask = {
     waitingOn?: string | null | undefined;
 };
 
-/** An empty choice allows anything; otherwise the value must be one of those chosen. */
 function inChosen<T>(chosen: readonly T[], value: T): boolean {
     return chosen.length === 0 || chosen.includes(value);
 }
 
-/** Where the task sits: its state, list, and whether it has a date or a list at all. */
 function matchesPlacement(task: FocusTask, definition: FocusViewDefinition): boolean {
     const hasDate = Boolean(task.dueDate || task.scheduledStart);
     if (!inChosen(definition.states, task.state) || !inChosen(definition.projectIds, task.projectId ?? ""))
@@ -33,19 +26,16 @@ function matchesPlacement(task: FocusTask, definition: FocusViewDefinition): boo
     return !(definition.missingStructureOnly && hasDate && task.projectId);
 }
 
-/** How big or important the task is. */
 function matchesSize(task: FocusTask, definition: FocusViewDefinition): boolean {
     if (definition.priorityMin !== null && task.priority < definition.priorityMin) return false;
     if (definition.effortMax !== null && task.effort !== null && task.effort > definition.effortMax) return false;
     if (definition.effortMin !== null && task.effort !== null && task.effort < definition.effortMin) return false;
-    // "Short" is a known estimate: a task with no estimate is not known to be short.
     return (
         definition.durationMaxMinutes === null ||
         (task.durationEstimate != null && task.durationEstimate <= definition.durationMaxMinutes)
     );
 }
 
-/** Whether the task's day falls in the window. An undated task is in every window but "overdue". */
 function inDueWindow(
     day: LocalDate | null,
     window: NonNullable<FocusViewDefinition["dueWindow"]>,
@@ -57,7 +47,6 @@ function inDueWindow(
             return day < today;
         case "today":
             return day <= today;
-        // Up to and including the next Sunday (existing behaviour).
         case "this_week":
             return day <= addDaysLocal(today, 7 - weekdayLocal(today));
         case "this_month":
@@ -65,10 +54,6 @@ function inDueWindow(
     }
 }
 
-/**
- * Filter tasks based on a Focus View definition.
- * Works on already-fetched task arrays (client-side filtering).
- */
 export function applyFocusView<T extends FocusTask>(
     tasks: T[],
     definition: FocusViewDefinition,

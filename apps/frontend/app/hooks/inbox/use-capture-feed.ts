@@ -16,7 +16,6 @@ export function captureFeed(items: InboxItem[], tasks: Task[], now = Date.now())
     return { thoughts, older, tasks: noDay, count: thoughts.length + noDay.length };
 }
 
-/** The single definition of Capture, shared by its feed and navigation badges. */
 export function useCaptureFeed() {
     const inbox = useInbox();
     const notes = useInbox("kept");
@@ -27,7 +26,6 @@ export function useCaptureFeed() {
         ...feed,
         inboxItems: inbox.data ?? [],
         notes: keptNotes,
-        /** True only when Capture holds nothing at all: no New thoughts, undated tasks, Older thoughts, or kept Notes. */
         isEmpty: feed.count === 0 && feed.older.length === 0 && keptNotes.length === 0,
         isLoading: inbox.isLoading || tasks.isLoading,
     };

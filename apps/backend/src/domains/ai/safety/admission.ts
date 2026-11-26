@@ -11,12 +11,6 @@ import type { AuthVariables } from "../../../platform/auth";
 
 type AiContext = Context<{ Bindings: Env; Variables: AuthVariables }>;
 
-/**
- * Pre-stream 429 for the AI usage budget. The HTTP status is still unsent here, so
- * we use the normal JSON `AppError` envelope (reusing the `AI_RATE_LIMITED` spec the
- * frontend already renders with a Retry affordance) and attach `Retry-After` +
- * `X-RateLimit-*` headers — mirroring the global `rateLimitResponse` in index.ts.
- */
 export function aiRateLimitResponse(
     c: AiContext,
     opts: {
@@ -44,7 +38,6 @@ export function aiRateLimitResponse(
     );
 }
 
-/** Pre-stream refusal for the assistant as a whole: resting until UTC midnight (spend cap), or unmetered in production. */
 function aiUnavailableResponse(c: AiContext, code: "AI_SPEND_CAPPED" | "AI_UPSTREAM_UNAVAILABLE", retryAfterS: number) {
     setRequestErrorCode(c, code);
     const { status, isRetryable } = AI_ERROR_CODES[code];
@@ -54,12 +47,6 @@ function aiUnavailableResponse(c: AiContext, code: "AI_SPEND_CAPPED" | "AI_UPSTR
     );
 }
 
-/**
- * Admits a cost-bearing assistant call (a chat turn, Suggest steps) against the global
- * daily spend ceiling and the person's usage budget: `rejected` is the response to return;
- * otherwise `admitted` says whether a reserve was taken (only those are settled) and
- * `headers` echo the remaining budget on the success response.
- */
 export async function admitChatTurn(
     c: AiContext,
     rlRedis: Redis | null,
@@ -71,7 +58,6 @@ export async function admitChatTurn(
 }> {
     const { userKey, userHash, reserved, limits, newImages } = turn;
     const requestId = getRequestId(c);
-    // No budget store: fine for local dev, never in production (it would run unmetered).
     if (!rlRedis) {
         if (getDeploymentStage(c.env) !== "production") return { admitted: false };
         logger.error("ai", "ai_ratelimit_unconfigured", { requestId });
@@ -102,11 +88,9 @@ export async function admitChatTurn(
         }
         return { admitted: true, headers: rateLimitHeaders(admission.remaining, limits) };
     } catch {
-        // Redis unreachable → fail-closed (production default) or fail-open per policy.
         logger.warn("ai", "ai_ratelimit_unavailable", { requestId, userHash, op: "admit" });
         if (limits.failClosed)
             return { admitted: false, rejected: aiRateLimitResponse(c, { retryAfterS: 30, limits }) };
-        // Fail-open must not mean unmetered: a tight per-person limiter stands in while the budget is blind.
         if (c.env.RATE_LIMITER_AI && !(await c.env.RATE_LIMITER_AI.limit({ key: c.get("userId") })).success) {
             return { admitted: false, rejected: aiRateLimitResponse(c, { retryAfterS: 30, limits }) };
         }

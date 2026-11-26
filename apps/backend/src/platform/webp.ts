@@ -1,13 +1,6 @@
-/**
- * Still-WebP sanitizer shared by every user image upload (photo backgrounds,
- * chat images). Clients re-encode to WebP, which drops camera metadata, but the
- * server never trusts that: only one still frame is accepted, and the file is
- * rebuilt without EXIF/XMP or unknown chunks.
- */
 import { AppError } from "./errors";
 import type { Env } from "../types/env";
 
-/** Chunks a still WebP may carry. Everything else (EXIF, XMP, ANIM, ANMF, unknown) is dropped or rejected. */
 const KEPT_CHUNKS = new Set(["VP8X", "ICCP", "ALPH", "VP8 ", "VP8L"]);
 const IMAGE_CHUNKS = new Set(["VP8 ", "VP8L"]);
 const VP8X_FLAG_ANIMATION = 0x02;
@@ -37,17 +30,14 @@ function writeU32(bytes: Uint8Array, offset: number, value: number) {
     bytes[offset + 3] = (value >>> 24) & 0xff;
 }
 
-/** Width/height of the bitstream in an image chunk's payload, or null if unreadable. */
 function bitstreamDimensions(type: string, payload: Uint8Array): { width: number; height: number } | null {
     if (type === "VP8 ") {
-        // Frame tag (3 bytes), start code 9d 01 2a, then 14-bit width and height.
         if (payload.length < 10 || payload[3] !== 0x9d || payload[4] !== 0x01 || payload[5] !== 0x2a) return null;
         return {
             width: (payload[6] | (payload[7] << 8)) & 0x3fff,
             height: (payload[8] | (payload[9] << 8)) & 0x3fff,
         };
     }
-    // VP8L: signature 0x2f, then 14-bit (width - 1) and 14-bit (height - 1).
     if (payload.length < 5 || payload[0] !== 0x2f) return null;
     const bits = readU32(payload, 1);
     return { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 };
@@ -56,13 +46,10 @@ function bitstreamDimensions(type: string, payload: Uint8Array): { width: number
 type Chunk = { type: string; start: number; end: number };
 
 export interface StillWebpOptions {
-    /** Longest edge accepted, in pixels. */
     maxDimension: number;
-    /** What the image is, for error messages ("Background image", "Image"). */
     label: string;
 }
 
-/** The RIFF chunks after the WebP header, each checked to end inside the file. */
 function readChunks(bytes: Uint8Array, label: string): Chunk[] {
     const riffEnd = Math.min(bytes.length, readU32(bytes, 4) + 8);
     const chunks: Chunk[] = [];
@@ -72,7 +59,7 @@ function readChunks(bytes: Uint8Array, label: string): Chunk[] {
         const end = offset + 8 + size;
         if (end > riffEnd) throw unsupported(`${label} is truncated`);
         chunks.push({ type, start: offset, end });
-        offset = end + (size % 2); // chunks are padded to an even length
+        offset = end + (size % 2);
     }
     return chunks;
 }
@@ -85,7 +72,6 @@ function webpErrors(label: string, maxDimension: number) {
     };
 }
 
-/** The one still image's dimensions, from its bitstream header; throws for anything else. */
 function stillDimensions(bytes: Uint8Array, chunks: Chunk[], label: string, maxDimension: number) {
     const { notStill, animated, tooLarge } = webpErrors(label, maxDimension);
     if (chunks.some((chunk) => chunk.type === "ANIM" || chunk.type === "ANMF")) throw animated();
@@ -99,12 +85,6 @@ function stillDimensions(bytes: Uint8Array, chunks: Chunk[], label: string, maxD
     return dims;
 }
 
-/**
- * Validate a WebP and return a copy without metadata chunks, plus its size.
- * Throws `UNSUPPORTED_IMAGE` (415) for anything that is not one still WebP frame,
- * `IMAGE_TOO_LARGE` (413) past `maxDimension`. Dimensions come from the headers;
- * pixels are never decoded, so a decompression bomb can't reach the Worker.
- */
 export function sanitizeStillWebp(
     bytes: Uint8Array,
     { maxDimension, label }: StillWebpOptions,
@@ -136,7 +116,6 @@ export function sanitizeStillWebp(
     return { bytes: out, width: dims.width, height: dims.height };
 }
 
-/** The user-assets bucket, or a retryable 503 naming what can't be stored (`what`: "Background", "Image"). */
 export function requireBucket(env: Env, what: string): R2Bucket {
     if (!env.USER_ASSETS) {
         throw new AppError(503, "STORAGE_UNAVAILABLE", `${what} storage is not available right now`, true);
@@ -144,7 +123,6 @@ export function requireBucket(env: Env, what: string): R2Bucket {
     return env.USER_ASSETS;
 }
 
-/** A stored WebP as a sandboxed response; a conditional request that still matches gets 304. */
 export function webpResponse(
     object: R2ObjectBody | R2Object,
     cacheControl: string,

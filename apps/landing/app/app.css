@@ -1,13 +1,3 @@
-/*
- * CONTRAST FLOOR: Never use text opacity below /90 on twilight backgrounds.
- *
- * Cadence Landing — design tokens.
- * Mirrors the brand layer of apps/frontend/app/app.css (the design source of truth):
- * fonts, Twilight surfaces/text/borders, feedback + accent colors, the Lantern defaults
- * behind --accent-*, motion tokens, and the Daylight overrides. App-only layers
- * (density, alternate palettes, theme presets, auth, Radix, z-index) are left out.
- * When a mirrored token changes in the app, change it here in the same commit.
- */
 @import "tailwindcss";
 @import "@fontsource-variable/sora";
 @import "@fontsource-variable/outfit";
@@ -18,11 +8,9 @@
 @source "./**/*.{ts,tsx}";
 
 @theme static {
-    /* === TYPOGRAPHY === */
     --font-sans: "Sora Variable", "Sora", system-ui, -apple-system, sans-serif;
     --font-display: "Outfit Variable", "Outfit", system-ui, sans-serif;
 
-    /* === TWILIGHT THEME (Default Dark) === */
     --color-twilight-void: #070e1a;
     --color-twilight-deep: #0a1628;
     --color-twilight-base: #0f1d32;
@@ -31,26 +19,21 @@
     --color-twilight-surface-hover: #1a2d4a;
     --color-twilight-elevated: #1c2f50;
 
-    /* Text — warm whites and silver-blues */
     --color-twilight-text: #e8edf5;
     --color-twilight-text-soft: #b8c5d4;
     --color-twilight-text-muted: #8899b0;
 
-    /* Contrast-safe text opacity presets — NEVER go below these */
     --alpha-muted-min: 0.9;
     --alpha-muted-large: 0.7;
     --alpha-soft-min: 0.7;
 
-    /* Borders */
     --color-twilight-border: rgba(255, 255, 255, 0.1);
     --color-twilight-border-interactive: rgba(255, 255, 255, 0.2);
     --color-twilight-border-light: rgba(255, 255, 255, 0.15);
 
-    /* === FEEDBACK === */
     --color-feedback-success: #5dba72;
     --color-feedback-error: #d97756;
 
-    /* === ACCENTS === */
     --color-lantern: #e8a44a;
     --color-lantern-soft: rgba(232, 164, 74, 0.12);
     --color-lantern-dim: rgba(232, 164, 74, 0.06);
@@ -64,7 +47,6 @@
     --color-personal: #cf72a8;
     --color-personal-soft: rgba(207, 114, 168, 0.12);
 
-    /* === ACCENT INDIRECTION (palette-responsive) === */
     --color-accent-primary: var(--accent-primary);
     --color-accent-primary-soft: var(--accent-primary-soft);
     --color-accent-primary-dim: var(--accent-primary-dim);
@@ -72,7 +54,6 @@
     --color-accent-on-primary: var(--accent-on-primary);
 }
 
-/* === MOTION TOKENS === */
 :root {
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
     --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
@@ -82,16 +63,13 @@
     --duration-smooth: 300ms;
     --duration-expressive: 450ms;
 
-    /* Landing scenes */
-    --ease-out-bloom: cubic-bezier(0.22, 1.18, 0.36, 1); /* tiny overshoot, blossoms only */
-    --ease-sine: cubic-bezier(0.37, 0, 0.63, 1); /* idle sway, twinkle */
-    --duration-scene: 1300ms; /* one bough growth */
-    --duration-reveal: 700ms; /* wordmark, cards */
-    /* Intro timings are multiplied by this; 0 jumps every entrance to its end frame. */
+    --ease-out-bloom: cubic-bezier(0.22, 1.18, 0.36, 1);
+    --ease-sine: cubic-bezier(0.37, 0, 0.63, 1);
+    --duration-scene: 1300ms;
+    --duration-reveal: 700ms;
     --hero-dur-scale: 1;
 }
 
-/* Reduced motion: every `var(--hero-still, …)` animation drops out and the base rule (the final pose) shows. */
 @media (prefers-reduced-motion: reduce) {
     :root {
         --hero-still: none;
@@ -99,15 +77,10 @@
     }
 }
 
-/* Away (lib/away.ts: the tab is hidden or the window lost focus): every idle loop holds its frame. A loop takes
-   its play state from this (`… infinite both var(--hero-loop, running)`); scroll-bound motion never does, since an
-   unfocused window can still be scrolled */
 :root[data-away] {
     --hero-loop: paused;
 }
 
-/* === SEASONS — the journey's chapters wear four of the app's palettes (primaries mirrored from its
-   [data-palette] rules), pulled toward the scene's lantern light so the page stays one night === */
 :root {
     --palette-rose: #e879a8;
     --palette-violet: #a78bfa;
@@ -115,7 +88,6 @@
     --palette-frost: #7eb8d4;
 }
 
-/* The scene's own light: the accent where the scene begins. A season re-tints the accent under it, never the wood */
 .hero,
 .journey {
     --hero-light: var(--accent-primary);
@@ -125,7 +97,6 @@
     --accent-primary: color-mix(in srgb, var(--season) 65%, var(--hero-light));
     --accent-primary-soft: color-mix(in srgb, var(--accent-primary) 12%, transparent);
     --accent-glow: color-mix(in srgb, var(--accent-primary) 18%, transparent);
-    /* Tailwind's accent utilities resolve through this, so they follow the season too */
     --color-accent-primary: var(--accent-primary);
 }
 
@@ -142,17 +113,13 @@
     --season: var(--palette-frost);
 }
 
-/* === HERO SCENE TOKENS — derived from brand tokens; the hero stays a night scene in every theme.
-   The journey shares them, and each [data-season] re-resolves them against its own accent === */
 .hero,
 .journey,
 [data-season] {
-    /* Sky: the zenith gets a plum tint, the horizon warms toward the accent */
     --hero-sky-zenith: color-mix(in srgb, var(--color-twilight-void) 82%, var(--color-violet));
     --hero-sky-mid: var(--color-twilight-deep);
     --hero-sky-horizon: color-mix(in srgb, var(--color-twilight-base) 72%, var(--accent-tertiary));
 
-    /* Dusk (after ignition): everything lifts one step and warms */
     --hero-dusk-zenith: color-mix(in srgb, var(--color-twilight-deep) 70%, var(--color-violet));
     --hero-dusk-mid: color-mix(in srgb, var(--color-twilight-base) 85%, var(--accent-secondary));
     --hero-dusk-horizon: color-mix(in srgb, var(--color-twilight-surface) 60%, var(--accent-tertiary));
@@ -160,9 +127,6 @@
     --hero-star-cool: color-mix(in srgb, var(--color-twilight-text) 80%, var(--accent-secondary));
     --hero-star-warm: color-mix(in srgb, var(--color-twilight-text) 70%, var(--accent-primary));
 
-    /* Wood: dark amber, never black. The lantern accent is sunk into one warm bark anchor (no brand token is brown;
-     mixing orange into the navy void goes khaki). Edges are the deepest orange, the face toward the moon is lit,
-     the core is the warm heart; the rim is the moonlit key light */
     --hero-bark: color-mix(in srgb, #2a1a12 85%, var(--color-twilight-void));
     --hero-wood: color-mix(in srgb, var(--hero-light) 22%, var(--hero-bark));
     --hero-wood-lit: color-mix(in srgb, var(--hero-light) 36%, var(--hero-bark));
@@ -172,7 +136,6 @@
     --hero-ember: var(--accent-primary);
     --hero-ember-soft: var(--accent-glow);
 
-    /* Plum blossom: cool-pink petals, warm core */
     --hero-petal: color-mix(in srgb, var(--color-personal) 45%, var(--color-twilight-text));
     --hero-petal-shade: color-mix(in srgb, var(--color-personal) 55%, var(--color-twilight-base));
     --hero-petal-core: var(--accent-primary);
@@ -184,11 +147,8 @@
     --hero-wordmark-halo: color-mix(in srgb, var(--color-twilight-void) 35%, transparent);
     --hero-vignette: rgba(4, 6, 12, 0.45);
     --hero-horizon-core: color-mix(in srgb, var(--accent-primary) 24%, transparent);
-    /* Divider crest under the name: warm gold filigree, hairlines that fade into the sky */
     --hero-crest: color-mix(in srgb, var(--accent-primary) 70%, var(--hero-lamp));
     --hero-crest-line: color-mix(in srgb, var(--accent-primary) 60%, transparent);
-    /* Sigils: the logo's ribbon, mostly orange and lit amber with berry only in its shadowed end, each softened
-     toward the text so the rings glow rather than shout */
     --hero-sigil-berry: color-mix(
         in srgb,
         color-mix(in srgb, var(--color-personal) 74%, var(--color-violet)) 88%,
@@ -207,22 +167,18 @@
         transparent
     );
 
-    /* Moon: warm-white disk, cool halo */
     --hero-moon: color-mix(in srgb, var(--color-twilight-text) 88%, var(--accent-tertiary));
     --hero-moon-halo: color-mix(in srgb, var(--accent-secondary) 40%, var(--color-twilight-text));
-    /* Landscape: each nearer layer darker and crisper; bases dissolve into the warm haze */
     --hero-land-distant: color-mix(in srgb, var(--color-twilight-surface) 80%, var(--color-violet));
     --hero-land-far: color-mix(in srgb, var(--color-twilight-base) 85%, var(--color-violet));
     --hero-land-mid: color-mix(in srgb, var(--color-twilight-deep) 88%, var(--color-violet));
     --hero-land-near: color-mix(in srgb, var(--color-twilight-void) 92%, var(--color-violet));
     --hero-land-haze: color-mix(in srgb, var(--hero-dusk-horizon) 70%, var(--accent-primary) 30%);
     --hero-land-rim: color-mix(in srgb, var(--accent-secondary) 70%, var(--color-twilight-text));
-    /* Water holds the sky: the haze lifted toward the moon's rim light */
     --hero-land-water: color-mix(in srgb, var(--hero-land-haze) 45%, var(--hero-land-rim));
     --hero-lamp: color-mix(in srgb, var(--hero-light) 85%, white);
 }
 
-/* One logo accent for the home page's scenery, independent of each chapter's seasonal tint. */
 .hero:not(.lost),
 .journey {
     --accent-ember: color-mix(in srgb, var(--color-solstice) 85%, var(--accent-primary));
@@ -231,7 +187,6 @@
     --hero-warm-glow: color-mix(in srgb, var(--hero-warm-light) 16%, transparent);
 }
 
-/* A faint shared sky tint and copper-gold bough connect the features to the opening and closing scenes. */
 .journey {
     --hero-sky-mid: color-mix(in srgb, var(--color-twilight-deep) 94%, var(--hero-atmosphere));
     --hero-branch-light: color-mix(in srgb, var(--hero-light) 60%, var(--accent-ember));
@@ -257,7 +212,6 @@
     );
 }
 
-/* Opening and closing skies blend the mauve treatment halfway with the original blue and copper dusk. */
 .hero:not(.lost),
 .finale {
     --hero-atmosphere-glow: color-mix(in srgb, var(--hero-atmosphere) 14%, transparent);
@@ -309,19 +263,16 @@
     --hero-crest-line: color-mix(in srgb, var(--accent-ember) 42%, transparent);
 }
 
-/* Two in every five flower groups carry the rose tint; keep the same mix at every viewport size. */
 .hero:not(.lost) .hero-bough > svg:last-of-type > g:is(:nth-of-type(5n + 1), :nth-of-type(5n + 2)) .hero-flower,
 .finale-crown .bough-seg > g:is(:nth-of-type(5n + 1), :nth-of-type(5n + 2)) .seg-flower {
     --hero-petal: color-mix(in srgb, var(--palette-rose) 48%, var(--color-twilight-text));
     --hero-petal-shade: color-mix(in srgb, var(--color-personal) 72%, var(--hero-bark));
 }
 
-/* === PALETTE INDIRECTION — Lantern defaults (reference --accent-*, not --color-lantern) === */
 :root {
     --accent-primary: var(--color-lantern);
     --accent-primary-soft: var(--color-lantern-soft);
     --accent-primary-dim: var(--color-lantern-dim);
-    /* The copper every primary button wears; the home scenery pins its own below its seasonal tints */
     --accent-ember: color-mix(in srgb, var(--color-solstice) 85%, var(--accent-primary));
     --accent-secondary: var(--color-moonlit);
     --accent-secondary-soft: var(--color-moonlit-soft);
@@ -332,7 +283,6 @@
     --accent-on-primary: #0f1d32;
 }
 
-/* === DAYLIGHT THEME — applied via data-theme="daylight" on <html> === */
 [data-theme="daylight"] {
     color-scheme: light;
 
@@ -369,7 +319,6 @@
     --color-feedback-error: #dc2626;
 }
 
-/* === BASE === */
 @layer base {
     :root {
         color-scheme: dark;
@@ -388,7 +337,6 @@
         background: var(--color-twilight-void);
     }
 
-    /* Tailwind v4 Preflight no longer sets cursor:pointer on buttons. */
     a[href],
     button:not(:disabled),
     [role="button"]:not([aria-disabled="true"]),
@@ -408,17 +356,7 @@
     }
 }
 
-/* === COMPONENTS === */
 @layer components {
-    /*
-   * Buttons (components/ButtonLink.tsx): lantern = the primary action (warm glass, never dark text on solid
-   * orange), ghost = moonlit glass, quiet = a text link. A lit button is layers on one small box, dressed
-   * like an ornate game menu: a halo behind, the glass (::before) and its lit state (::after), a gradient
-   * rim, an aura (two arcs of light circling the rim), a gem on each end, four-point star sparkles, embers
-   * (lantern only), then the label. Hover lifts it, lights the glass and rim, sets the aura circling, turns
-   * the gems and makes the stars twinkle. Every motion is transform or opacity; no backdrop blur (it
-   * re-blurs as the scene moves).
-   */
     .button {
         position: relative;
         isolation: isolate;
@@ -476,7 +414,6 @@
         pointer-events: none;
     }
 
-    /* Glass: ::before rests, ::after is the lit state that fades in */
     .button-lantern::before,
     .button-lantern::after,
     .button-ghost::before,
@@ -491,7 +428,6 @@
         transition: opacity var(--duration-smooth) var(--ease-out-quart);
     }
 
-    /* Halo: a pool of light behind the glass, painted once, then only faded and scaled */
     .button-glow {
         inset: -70% -22%;
         z-index: -2;
@@ -507,7 +443,6 @@
         background: radial-gradient(closest-side, var(--button-halo), transparent);
     }
 
-    /* Rim: a 1px gradient ring, masked so the glass inside stays translucent; brightest on top, where light falls */
     .button-rim::before,
     .button-rim::after {
         padding: 1px;
@@ -523,8 +458,6 @@
         background: var(--button-rim-lit);
     }
 
-    /* Aura: two arcs of light chasing round the rim, like a sigil charging. The ring is a mask on the
-     container; inside it a conic square only rotates, so the circling is composited */
     .button-aura {
         padding: 1.5px;
         opacity: 0;
@@ -555,7 +488,6 @@
         animation-play-state: paused;
     }
 
-    /* Gems: a small diamond set into each end of the rim; hover turns them half round, with a little overshoot */
     .button-gem {
         position: absolute;
         top: 50%;
@@ -580,8 +512,6 @@
         right: -3.5px;
     }
 
-    /* Stars: four-point sparkles on the rim, each a soft glow with a sharp cross of light; they twinkle while
-     hovered (paused, and faded out, otherwise) */
     .button-stars {
         opacity: 0;
         transition: opacity var(--duration-smooth) var(--ease-out-quart);
@@ -608,7 +538,6 @@
         background: radial-gradient(circle closest-side, white 0 16%, var(--button-star) 55%, transparent);
     }
 
-    /* Embers: sparks lifting off the lantern's top edge; they run only while hovered and fade out when left */
     .button-embers {
         opacity: 0;
         transition: opacity var(--duration-smooth) var(--ease-out-quart);
@@ -632,7 +561,6 @@
         animation-play-state: paused;
     }
 
-    /* Lantern */
     .button-lantern {
         --button-halo: color-mix(in srgb, var(--accent-ember) 22%, transparent);
         --button-aura: color-mix(in srgb, var(--accent-primary) 45%, white);
@@ -692,7 +620,6 @@
             inset 0 0 18px -6px color-mix(in srgb, var(--accent-primary) 55%, transparent);
     }
 
-    /* Ghost: moonlit glass, cool where the lantern is warm */
     .button-ghost {
         --button-halo: color-mix(in srgb, var(--accent-secondary) 26%, transparent);
         --button-aura: color-mix(in srgb, var(--accent-secondary) 50%, white);
@@ -739,7 +666,6 @@
         box-shadow: inset 0 1px 0 color-mix(in srgb, var(--accent-secondary) 35%, transparent);
     }
 
-    /* Quiet: text that brightens over a lantern underline drawn out from the centre */
     .button-quiet {
         color: var(--color-twilight-text-soft);
     }
@@ -754,7 +680,6 @@
         transition: scale var(--duration-expressive) var(--ease-out-expo);
     }
 
-    /* Hover only where there is a real pointer, so a tap never leaves a button stuck lit */
     @media (hover: hover) {
         .button-lantern:hover,
         .button-ghost:hover {
@@ -824,14 +749,12 @@
         }
     }
 
-    /* Press: the glass sinks back under the finger */
     .button:active {
         translate: 0 0;
         scale: 0.97;
         transition-duration: 60ms;
     }
 
-    /* Keyboard focus: the lit state plus a ring that clears the glow */
     .button:focus-visible {
         box-shadow:
             0 0 0 2px var(--color-twilight-void),
@@ -862,7 +785,6 @@
         scale: 1 1;
     }
 
-    /* Reduced motion: light still answers the pointer, nothing moves */
     @media (prefers-reduced-motion: reduce) {
         .button:hover,
         .button:active {
@@ -888,7 +810,6 @@
         }
     }
 
-    /* Cursor light: plain translucent warmth (a blend mode here would re-composite the whole page every frame) */
     .cursor-glow {
         position: fixed;
         inset: 0;
@@ -944,17 +865,10 @@
         }
     }
 
-    /*
-   * The footer (components/SiteFooter.tsx): the ground under the finale's valley. It borrows the page's own
-   * vocabulary rather than inventing a footer style: the mark and the wordmark's treatment, the crest, and
-   * the crest's gold on the group headings. One still glow carries the valley's last light over the join.
-   */
     .site-footer {
         overflow: clip;
     }
 
-    /* The valley's last light, pooled on the ground: an ellipse wholly inside the footer that fades to nothing on
-     every side (a gradient brightest at its box's edge, or a box the footer clips, leaves a hard band) */
     .footer-glow {
         position: absolute;
         top: 1rem;
@@ -992,7 +906,6 @@
         color: var(--color-twilight-text);
     }
 
-    /* The way back up: the quiet link's lantern underline, drawn from the middle */
     .footer-top {
         position: relative;
         font-size: inherit;
@@ -1052,9 +965,6 @@
     }
 }
 
-/* === UTILITIES === */
-
-/* Page ground: lantern glow overhead, a moonlit wash to the side, the void beneath. */
 @utility ambient-backdrop {
     background:
         radial-gradient(60rem 36rem at 50% -12%, var(--accent-glow), transparent 70%),

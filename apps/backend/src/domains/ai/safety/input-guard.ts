@@ -1,13 +1,3 @@
-/**
- * AI-specific input caps and validation (docs/ai_upgrade/09 §2.1).
- *
- * The global 100 KB body limit (index.ts) already bounds the request; these caps
- * are tighter, AI-specific bounds that reject resource-exhaustion payloads and
- * keep context size predictable. Oversized input is rejected via the EXISTING 400
- * path (`AppError(400, "INVALID_REQUEST", …)`), so the route's normal error
- * envelope and logging cover it — no new error channel.
- */
-
 import {
     CHAT_IMAGE_LIMITS,
     CHAT_IMAGE_MEDIA_TYPE,
@@ -18,30 +8,22 @@ import {
 } from "@cadence/contracts/ai";
 import { AppError } from "../../../platform/errors";
 
-/** Max summed length of all text parts in a single message (single source: contracts). */
 export const MAX_MESSAGE_CHARS = SHARED_MAX_MESSAGE_CHARS;
 
-/** Max number of `parts` entries in a single message (single source: contracts). */
 export const MAX_PARTS_PER_MESSAGE = SHARED_MAX_PARTS_PER_MESSAGE;
 
-/** Max UTF-8 byte size of any single part (after JSON serialization). */
 export const MAX_PART_BYTES = 16_000;
 
-/** Max stored rows (messages) replayed into model context (bounds prompt size & cost). */
 export const MAX_HISTORY_TURNS = 40;
 
-/** Rows the history window drops at once when a thread outgrows {@link MAX_HISTORY_TURNS}. */
 export const HISTORY_DROP_STEP = 16;
 
-/** Max output tokens the model may emit per turn. */
 export const MAX_OUTPUT_TOKENS = 2_048;
 
-/** Max tool-loop iterations per turn (bounds runaway tool spend). */
 export const MAX_TOOL_STEPS = 15;
 
 const encoder = new TextEncoder();
 
-/** Extract the displayable text length of a single UI message part. */
 function textLengthOfPart(part: unknown): number {
     if (typeof part === "string") return part.length;
     if (part && typeof part === "object") {
@@ -51,17 +33,11 @@ function textLengthOfPart(part: unknown): number {
     return 0;
 }
 
-/** UTF-8 byte size of a part's serialized form. */
 function byteSizeOfPart(part: unknown): number {
     const serialized = typeof part === "string" ? part : JSON.stringify(part ?? "");
     return encoder.encode(serialized).length;
 }
 
-/**
- * A file part may only be a `cadence-image:` reference to a WebP or PDF, with nothing
- * else on it (no filename: names leak). The provider is never pointed at an
- * arbitrary URL or handed an inline data URL.
- */
 function isAttachmentReference(part: unknown): boolean {
     if (!part || typeof part !== "object") return false;
     const { type, mediaType, url, ...rest } = part as Record<string, unknown>;
@@ -73,13 +49,6 @@ function isAttachmentReference(part: unknown): boolean {
     );
 }
 
-/**
- * Throw `AppError(400, "INVALID_REQUEST")` when a message exceeds the AI-specific
- * char / parts-count / per-part-size / attachment caps, or carries a file part that
- * isn't an attachment reference. Sums text-part lengths for the char cap. A message
- * without `parts` (legacy `content`-only shape) passes — the schema layer handles
- * that surface.
- */
 export function assertMessageWithinCaps(
     message: { role: string; parts?: unknown[] },
     maxImages: number = CHAT_IMAGE_LIMITS.perMessage,
@@ -112,18 +81,11 @@ export function assertMessageWithinCaps(
     }
 }
 
-/**
- * Index of the first stored row the model sees, out of `total`. The window holds at
- * most {@link MAX_HISTORY_TURNS} rows and its start moves in steps of
- * {@link HISTORY_DROP_STEP}, so the replayed history stays byte-identical (and
- * provider-cached) for that many rows instead of shifting on every turn.
- */
 export function historyWindowStart(total: number): number {
     if (total <= MAX_HISTORY_TURNS) return 0;
     return Math.ceil((total - MAX_HISTORY_TURNS) / HISTORY_DROP_STEP) * HISTORY_DROP_STEP;
 }
 
-/** History opens on a user message: drops the leading rows a window start cut into. Pure. */
 export function startAtUser<T extends { role: string }>(history: T[]): T[] {
     const first = history.findIndex((m) => m.role === "user");
     return first < 0 ? [] : history.slice(first);

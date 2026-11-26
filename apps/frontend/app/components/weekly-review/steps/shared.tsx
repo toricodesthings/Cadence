@@ -35,11 +35,9 @@ export interface ReviewAction {
     icon: LucideIcon;
     onClick: () => Promise<void> | void;
     variant?: string;
-    /** The decision model's pick: shown as the primary with a small mark, never applied without the tap. */
     guess?: boolean;
 }
 
-/** A row's subtask panel, opened by "Break into steps?": the cursor is already in the field (`useInlineSubtasks` takes the ask). */
 export function ReviewSteps({ taskId }: { taskId: string }) {
     const { data: subtasks = [] } = useSubtasks(taskId);
     const ui = useInlineSubtasks(taskId);
@@ -56,10 +54,6 @@ export function ReviewSteps({ taskId }: { taskId: string }) {
     );
 }
 
-/**
- * The row's title, renamed in place: hovering shows a pencil, a click turns it into a field with Save and Cancel.
- * Enter saves, Escape cancels; leaving the field keeps the draft open (nothing is lost or saved by accident).
- */
 function RenamableTitle({ title, onRename }: { title: string; onRename?: (title: string) => void }) {
     const [draft, setDraft] = useState<string | null>(null);
     const text = "truncate text-[0.9375rem] font-medium text-twilight-text";
@@ -148,26 +142,21 @@ export function ReviewListItem({
     onRename,
 }: {
     title: string;
-    /** Rename in place (the title becomes a field). */
     onRename?: (title: string) => Promise<void>;
     taskId?: string;
-    /** The one suggestion on this page, when it is for this row. */
     offer?: { kind: PlanningOffer; onAccept: () => void; onNotNow: () => void } | null;
     actions: ReviewAction[];
     pendingActionKey: string | null;
     actionKeyPrefix: string;
     actionError: string | null;
     onRunAction: (key: string, fn: () => Promise<void>) => void;
-    /** Pick this row for one change to several. */
     select?: { checked: boolean; onChange: () => void };
-    /** Say a change in words instead of tapping a fixed choice. */
     typed?: {
         placeholder: string;
         applyLabel: string;
         onApply: (patch: InstructionPatch) => Promise<void>;
         listId?: string | null;
     };
-    /** A quiet chip under the title (a capture's suggested list). */
     chip?: ReactNode;
 }) {
     const [typing, setTyping] = useState(false);
@@ -203,7 +192,6 @@ export function ReviewListItem({
                     const isDanger = act.variant === "danger";
                     const isPrimary = act.variant === "cardPrimary";
                     const Icon = act.icon;
-                    // The primary carries its label so the likely choice reads in under 2s; the rest are icons with a Tip.
                     const button = (
                         <button
                             type="button"
@@ -295,10 +283,6 @@ export type StepProps = { review: ReviewActions };
 export type DayChoice = { day: LocalDate } | { later: true };
 type DayFor = ReturnType<typeof useWeekRoom>["dayFor"];
 
-/**
- * A row's day choices, in one fixed order: the primary (the day its words name, else the model's guess, else Today),
- * then Today · Tomorrow · Later, then Trash. A guess only moves into the primary slot; nothing else moves or goes.
- */
 export function dayActions({
     words,
     guess,

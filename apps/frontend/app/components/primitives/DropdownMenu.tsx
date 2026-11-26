@@ -1,9 +1,3 @@
-/**
- * Primitive: DropdownMenu
- *
- * Pre-themed Radix DropdownMenu with Cadence's twilight glass aesthetic.
- * Domain components import from here — never from @radix-ui/react-dropdown-menu directly.
- */
 import * as RadixDropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Check, type LucideIcon } from "lucide-react";
 import { Switch } from "./Switch";
@@ -11,7 +5,6 @@ import { useOpeningReleaseGuard } from "../../hooks/ui/use-opening-release-guard
 import { FLOATING_MORPH, MENU_HOVER, MENU_ITEM, MENU_LABEL, MENU_SWITCH, MENU_SURFACE, morphFrom } from "./menu-styles";
 import { themedMenuParts } from "./menu-parts";
 
-/* ── Re-exports (no styling needed) ─────────────────────────────── */
 export const Root = RadixDropdownMenu.Root;
 export const Trigger = RadixDropdownMenu.Trigger;
 export const Portal = RadixDropdownMenu.Portal;
@@ -20,7 +13,6 @@ export const RadioGroup = RadixDropdownMenu.RadioGroup;
 
 export const { SubTrigger, SubContent, Item, Separator } = themedMenuParts(RadixDropdownMenu);
 
-/* ── Content ────────────────────────────────────────────────────── */
 export const Content = ({
     className = "",
     sideOffset = 4,
@@ -45,7 +37,6 @@ export const Content = ({
     );
 };
 
-/** A selected menu choice, with the same focus and touch targets as other items. */
 export const RadioItem = ({
     className = "",
     children,
@@ -64,14 +55,12 @@ export const RadioItem = ({
     </RadixDropdownMenu.RadioItem>
 );
 
-/** A group's mini header (see `MENU_LABEL`). */
 export const Label = ({ className = "", ...props }: RadixDropdownMenu.DropdownMenuLabelProps) => (
     <RadixDropdownMenu.Label className={`${MENU_LABEL} ${className}`} {...props} />
 );
 
 type RowProps = { icon: LucideIcon; label: string; checked: boolean };
 
-/** One choice of several (a sort order): the chosen row carries the check. */
 export const CheckItem = ({ icon: Icon, label, checked, onSelect }: RowProps & { onSelect: () => void }) => (
     <RadixDropdownMenu.CheckboxItem
         checked={checked}
@@ -86,7 +75,6 @@ export const CheckItem = ({ icon: Icon, label, checked, onSelect }: RowProps & {
     </RadixDropdownMenu.CheckboxItem>
 );
 
-/** On/off: the row toggles and the menu stays open. */
 export const SwitchItem = ({
     icon: Icon,
     label,

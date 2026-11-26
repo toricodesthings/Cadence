@@ -7,6 +7,12 @@ import { CalendarGrid } from "./CalendarGrid";
 import { WeekView } from "./WeekView";
 import { DayView } from "./DayView";
 import { YearView } from "./YearView";
+import {
+    ScheduleDaySkeleton,
+    ScheduleMonthSkeleton,
+    ScheduleWeekSkeleton,
+    ScheduleYearSkeleton,
+} from "./ScheduleSkeleton";
 import { ScheduleHeader } from "./ScheduleHeader";
 import { PeriodDock } from "../layout/PeriodNav";
 import { ScheduleOptions } from "./ScheduleOptions";
@@ -17,6 +23,7 @@ import { MONTH_NAMES } from "../../lib/utils/date-format";
 import { dayHeading, parseYMD } from "../../lib/utils/calendar/calendar-math";
 import { dayLoad, taskDays } from "../../lib/utils/calendar/schedule-day";
 import { loadWord } from "../../lib/utils/task/day-load";
+import { useLoadShare } from "../../hooks/sharing/use-load-share";
 import type { useShellMode } from "../../hooks/ui/use-shell-mode";
 import type { usePeriodSwipe } from "../../hooks/ui/use-period-swipe";
 import type { ScheduleNavigation } from "../../hooks/calendar/use-schedule-navigation";
@@ -37,7 +44,6 @@ type ScheduleCalendarProps = {
     swipe: ReturnType<typeof usePeriodSwipe>;
 };
 
-/** "Today", "Tomorrow", "In 3 days", "2 days ago". */
 function relativeDay(days: number) {
     if (days === 0) return "Today";
     if (days === 1) return "Tomorrow";
@@ -45,8 +51,8 @@ function relativeDay(days: number) {
     return days > 0 ? `In ${days} days` : `${-days} days ago`;
 }
 
-/** Phone header: name what’s on screen; the back arrow zooms out. */
 function usePhoneHeader(navigation: ScheduleNavigation, phoneGroups: ScheduleData["phoneGroups"]) {
+    const shareOf = useLoadShare();
     const { year, month, currentDate, todayIso, viewMode, handleViewMode } = navigation;
     const { y: todayYear } = parseYMD(todayIso);
     return useMemo(() => {
@@ -62,21 +68,19 @@ function usePhoneHeader(navigation: ScheduleNavigation, phoneGroups: ScheduleDat
         const items = phoneGroups.get(currentDate) ?? [];
         return {
             title: dayHeading(currentDate),
-            meta: items.length ? `${relation} · ${loadWord(dayLoad(items))}` : relation,
+            meta: items.length ? `${relation} · ${loadWord(dayLoad(items, shareOf))}` : relation,
             backLabel: MONTH_NAMES[month],
             onZoomOut: () => handleViewMode("month"),
         };
-    }, [currentDate, handleViewMode, month, phoneGroups, todayIso, todayYear, viewMode, year]);
+    }, [currentDate, handleViewMode, month, phoneGroups, shareOf, todayIso, todayYear, viewMode, year]);
 }
 
-/** The key the slide animation tracks: one per period on screen. */
 function viewKeyOf({ viewMode, year, month, currentDate }: ScheduleNavigation, weekDates: string[]) {
     if (viewMode === "month") return `month-${year}-${month}`;
     if (viewMode === "week") return `week-${weekDates[0]}`;
     return viewMode === "day" ? `day-${currentDate}` : `year-${year}`;
 }
 
-/** The day's holidays and personal events, when those overlays are on. */
 function dayExtras(data: ScheduleData, day: string) {
     return {
         holidays: data.holidayOverlay.enabled ? (data.holidaysByDateRecord[day] ?? []) : [],
@@ -85,10 +89,9 @@ function dayExtras(data: ScheduleData, day: string) {
     };
 }
 
-// ── Views ───────────────────────────────────────────────────────────────────
-
 function MonthPane({ shell, navigation, data, selection, actions, drag, creation, swipe }: ScheduleCalendarProps) {
     const { year, month, currentDate } = navigation;
+    if (data.isLoading) return <ScheduleMonthSkeleton year={year} month={month} phone={shell.isPhone} />;
     if (shell.isPhone) {
         return (
             <MonthFold
@@ -129,6 +132,14 @@ function MonthPane({ shell, navigation, data, selection, actions, drag, creation
 }
 
 function WeekPane({ navigation, data, selection, actions, drag, creation }: ScheduleCalendarProps) {
+    if (data.isLoading) {
+        return (
+            <ScheduleWeekSkeleton
+                weekDates={data.weekDates}
+                startHour={data.userSettings?.calendar?.timelineStartHour}
+            />
+        );
+    }
     return (
         <WeekView
             weekDates={data.weekDates}
@@ -149,6 +160,9 @@ function WeekPane({ navigation, data, selection, actions, drag, creation }: Sche
 
 function DayPane({ shell, navigation, data, selection, actions, drag, creation, swipe }: ScheduleCalendarProps) {
     const { currentDate } = navigation;
+    if (data.isLoading) {
+        return <ScheduleDaySkeleton phone={shell.isPhone} startHour={data.userSettings?.calendar?.timelineStartHour} />;
+    }
     const extras = dayExtras(data, currentDate);
     if (shell.isPhone) {
         return (
@@ -182,6 +196,7 @@ function DayPane({ shell, navigation, data, selection, actions, drag, creation, 
 }
 
 function YearPane({ shell, navigation, data }: ScheduleCalendarProps) {
+    if (data.isLoading) return <ScheduleYearSkeleton compact={shell.isPhone} />;
     return (
         <div className="flex-1 min-h-0 p-4">
             <YearView
@@ -247,7 +262,6 @@ export function ScheduleCalendar(props: ScheduleCalendarProps) {
     return (
         <CalendarChipActionsContext.Provider value={chipActions}>
             <div className="h-full flex flex-col overflow-hidden">
-                {/* Header */}
                 <ScheduleHeader
                     year={year}
                     month={month}
@@ -267,7 +281,6 @@ export function ScheduleCalendar(props: ScheduleCalendarProps) {
                     phone={shell.isPhone ? phoneHeader : undefined}
                 />
 
-                {/* Phone Day: the week stays put while the day below swipes. */}
                 {isPhoneDay ? (
                     <DayStrip
                         weekDates={weekDates}
@@ -279,9 +292,7 @@ export function ScheduleCalendar(props: ScheduleCalendarProps) {
                     />
                 ) : null}
 
-                {/* Main calendar area */}
                 <div className="flex-1 min-h-0 relative flex overflow-hidden">
-                    {/* Calendar views */}
                     <motion.div
                         {...dragProps}
                         className={`flex-1 min-w-0 relative overflow-hidden${shell.isCompact ? " select-none" : ""}`}

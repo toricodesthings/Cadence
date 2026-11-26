@@ -3,7 +3,6 @@ import { ComposerRow, ComposerRows, ROW_PILL } from "../shared/Composer";
 import { Switch } from "../primitives";
 import { DatePicker } from "../shared/DatePicker";
 
-/** Shared event fields for creation (Events, Schedule) and in-place editing. */
 export function PersonalEventDetailsFields({
     eventDate,
     setEventDate,

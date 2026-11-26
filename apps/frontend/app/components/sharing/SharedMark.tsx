@@ -7,7 +7,6 @@ import { AvatarFace, PersonAvatar } from "./PersonAvatar";
 
 type SharedMarkTask = Pick<Task, "projectId" | "createdBy" | "takenBy">;
 
-/** One shared mark, the same everywhere (Law 7): taker beats creator; inside the list, avatar only. */
 export function SharedMark({
     task,
     inList = false,
@@ -17,7 +16,6 @@ export function SharedMark({
 }: {
     task: SharedMarkTask;
     inList?: boolean;
-    /** False when rendered inside an interactive row button (e.g. search results) to avoid nested buttons. */
     interactive?: boolean;
     size?: 16 | 18;
     className?: string;

@@ -3,7 +3,6 @@ import type { ApiClient } from "../../lib/api/client";
 import { useApiClient } from "./use-api-client";
 import { useAuthState } from "./use-auth-state";
 
-/** `useQuery` that waits for a signed-in session. `enabled` adds the caller's own condition. */
 export function useAuthedQuery<TQueryFnData, TError, TData, TKey extends QueryKey>(
     options: (client: ApiClient) => UseQueryOptions<TQueryFnData, TError, TData, TKey>,
     enabled = true,

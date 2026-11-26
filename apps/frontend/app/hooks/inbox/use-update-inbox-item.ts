@@ -23,10 +23,6 @@ export function useUpdateInboxItem() {
                 return res.json();
             },
         ),
-        // Apply the patch to the cached capture immediately. Discard
-        // (captureStatus → "discarded") drops it from the holding feed; a
-        // section move updates it in place. Both feel instant instead of
-        // waiting on the round-trip.
         onMutate: ({ id, ...data }) =>
             inboxCache.edit(queryClient, (items) =>
                 items.map((item) => (item.id === id ? ({ ...item, ...data } as InboxItem) : item)),

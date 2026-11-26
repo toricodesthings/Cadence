@@ -1,13 +1,10 @@
-/** Centralized query key factory — single source of truth for cache targeting */
 export const queryKeys = {
-    /** This account's own recorded Effort choices (separate from `tasks`: task cache patches must not touch it). */
     effortEvidence: ["effort-evidence"] as const,
     tasks: {
         all: ["tasks"] as const,
         list: (filters: Record<string, unknown>) => ["tasks", filters] as const,
         detail: (id: string) => ["tasks", id] as const,
     },
-    /** Notes by canonical owner. The search projection has its own prefix so task cache patches cannot alter it. */
     notes: {
         search: ["search-notes"] as const,
         detail: (ownerId: string) => ["tasks", ownerId, "note"] as const,
@@ -16,10 +13,6 @@ export const queryKeys = {
         all: ["projects"] as const,
         detail: (id: string) => ["projects", id] as const,
     },
-    /**
-     * Who is in a shared list (names, pictures, pronouns). Keyed by the sorted member ids from the list row, so it
-     * refetches when membership changes and never on a live ping. Not under a live root: pictures are base64.
-     */
     listPeople: (listId: string, memberIds: readonly string[]) => ["list-people", listId, memberIds] as const,
     eventPeople: (eventId: string, memberIds: readonly string[]) => ["event-people", eventId, memberIds] as const,
     routinePeople: (habitId: string, memberIds: readonly string[]) => ["routine-people", habitId, memberIds] as const,
@@ -56,7 +49,6 @@ export const queryKeys = {
     },
     appearance: {
         all: ["appearance"] as const,
-        /** The user's background photo, cached as a blob (never persisted to IndexedDB by the query cache). */
         backgroundImage: (userId: string | null, imageId: string | null) =>
             ["appearance", "background", userId, imageId] as const,
     },
@@ -64,7 +56,6 @@ export const queryKeys = {
         notificationState: (userId: string | undefined) =>
             ["settings", userId ?? "anonymous", "notification-state"] as const,
         focusViews: (userId: string | undefined) => ["settings", userId ?? "anonymous", "focusViews"] as const,
-        /** Every device that may show this account's reminders. */
         devices: (userId: string | undefined) => ["settings", userId ?? "anonymous", "devices"] as const,
     },
     ai: {
@@ -74,13 +65,9 @@ export const queryKeys = {
         memory: ["ai", "memory"] as const,
         duration: (taskId: string, completedAt?: string | null) =>
             ["ai", "memory", "duration", taskId, completedAt ?? "current"] as const,
-        /** The person's answers to "how long did it take?", the estimator's input. */
         durationEvidence: ["ai", "memory", "duration-evidence"] as const,
-        /** What Find a time orders by: the person's choices and stated times of day. */
         planningEvidence: ["ai", "memory", "planning-evidence"] as const,
-        /** The tasks each planning offer may show on. */
         planningOffers: ["ai", "memory", "planning-offers"] as const,
-        /** How long a routine took on one day. */
         routineDurationAll: ["ai", "memory", "routine-duration"] as const,
         routineDuration: (habitId: string, day: string, time?: string | null) =>
             ["ai", "memory", "routine-duration", habitId, day, time ?? null] as const,
@@ -97,19 +84,17 @@ export const queryKeys = {
     },
 } as const;
 
-/** Differentiated stale times for each data type.
- *  Tasks go stale quickly (user edits frequently); tags/projects are stable. */
 export const STALE_TIMES = {
-    OFFLINE_WINDOW: 60 * 60 * 1000, // 1 hour — background warming freshness
-    TASKS: 30 * 1000, // 30s — tasks change frequently
-    NOTES: 5 * 1000, // 5s — an open note is also polled, so edits from elsewhere show up
-    PROJECTS: 5 * 60 * 1000, // 5min — projects rarely change
-    INBOX: 60 * 1000, // 1min — inbox items moderate frequency
-    TAGS: 10 * 60 * 1000, // 10min — tags very rarely change
-    EVENTS: 10 * 60 * 1000, // 10min — yearly events rarely change
-    PEOPLE: Infinity, // who is in a shared list: its key changes when membership does
-    NOTIFICATIONS: 60 * 1000, // 1min — shared reminder state across surfaces
-    HABITS: 60 * 1000, // 1min — habits have moderate frequency
-    HOLIDAYS: 7 * 24 * 60 * 60 * 1000, // 7 days — reuse a year's dates across calendar views
-    HOLIDAY_REGIONS: 24 * 60 * 60 * 1000, // 1 day — country and subdivision metadata
+    OFFLINE_WINDOW: 60 * 60 * 1000,
+    TASKS: 30 * 1000,
+    NOTES: 5 * 1000,
+    PROJECTS: 5 * 60 * 1000,
+    INBOX: 60 * 1000,
+    TAGS: 10 * 60 * 1000,
+    EVENTS: 10 * 60 * 1000,
+    PEOPLE: Infinity,
+    NOTIFICATIONS: 60 * 1000,
+    HABITS: 60 * 1000,
+    HOLIDAYS: 7 * 24 * 60 * 60 * 1000,
+    HOLIDAY_REGIONS: 24 * 60 * 60 * 1000,
 } as const;

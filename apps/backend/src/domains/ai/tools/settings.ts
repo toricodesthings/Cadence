@@ -22,16 +22,11 @@ function setPath(target: Json, path: string, value: unknown) {
     parent[last] = value;
 }
 
-/** The leaves of a patch as dotted paths. Arrays and null are leaves. */
 function leafPaths(patch: unknown, prefix = ""): string[] {
     if (!isObject(patch)) return [prefix];
     return Object.entries(patch).flatMap(([key, value]) => leafPaths(value, prefix ? `${prefix}.${key}` : key));
 }
 
-/**
- * What a patch actually changed: each leaf whose value differs, with its old and new value, and the
- * `from` values as a patch that puts them back (what the card's Undo sends).
- */
 export function diffSettings(before: unknown, after: unknown, patch: unknown) {
     const changed: { key: string; from: unknown; to: unknown }[] = [];
     const undo: Json = {};

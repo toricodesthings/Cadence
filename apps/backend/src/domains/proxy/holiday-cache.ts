@@ -3,7 +3,6 @@ import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { logger, issuesFromError } from "../../platform/log";
 
-/** Public holiday data only; JWT/rate-limit middleware still runs before this. */
 export const holidayCache: MiddlewareHandler<{ Bindings: Env; Variables: AuthVariables }> = async (c, next) => {
     if (c.req.method !== "GET") return next();
     const cache =
@@ -18,7 +17,6 @@ export const holidayCache: MiddlewareHandler<{ Bindings: Env; Variables: AuthVar
     const url = new URL(c.req.url);
     url.pathname = `/__holiday_cache/v1${url.pathname}`;
     url.searchParams.sort();
-    // No bearer token, cookies, CORS or user identity in the stored object.
     const key = new Request(url, { method: "GET" });
     try {
         const hit = await cache.match(key);

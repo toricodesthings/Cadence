@@ -13,7 +13,6 @@ import { HOUR_HEIGHT } from "../../lib/utils/calendar/calendar-utils";
 import { CALENDAR_SLOT_MINUTES } from "../../lib/utils/calendar/calendar-dnd";
 import { syncNowSheen, useIsUnderNowLine } from "./CurrentTimeIndicator";
 
-/** The priority is the edge bar and the wash, never the title's colour: accent is for "now". */
 const PRIORITY_BAR: Record<TaskPriority, string> = {
     0: "bg-twilight-text-muted/40",
     1: "bg-[var(--color-priority-low)]",
@@ -32,32 +31,20 @@ const PRIORITY_WASH: Record<TaskPriority, string> = {
 
 const FIXED_WASH = "[--chip-wash:color-mix(in_srgb,var(--color-moonlit)_6%,transparent)]";
 
-// ── The chip ────────────────────────────────────────────────────────────────
-
 export interface CalendarTaskChipProps {
     task: Task;
-    /** "pill" = compact month-view inline chip; "block" = absolute-positioned week/day chip */
     variant: "pill" | "block";
     onSelect: (taskId: string) => void;
-    /** Called when user finishes resize-drag on bottom edge. durationMinutes is the new total duration. */
     onResize?: (taskId: string, durationMinutes: number) => void;
-    /** AI-suggested task — renders with shimmer border */
     isSuggested?: boolean;
-    /** For block variant: inline style with top/height from time calculation */
     style?: CSSProperties;
-    /** The source cell id used in DnD drag data */
     sourceId?: string;
-    /** Pill leads with its start time (Month cells and grouped routine lists). */
     month?: boolean;
-    /** Pill sized to its words (Day's all-day lane) instead of filling its row */
     fit?: boolean;
-    /** Which side the hover card opens on */
     tipSide?: "left" | "right";
-    /** A routine badge is docked on this block's right edge */
     badge?: boolean;
 }
 
-/** The one leading mark: the app's checkbox for a task, the routine's ring, nothing for Fixed (its bar is its mark). */
 function LeadMark({ task, kind, compact }: { task: Task; kind: ScheduleKind; compact?: boolean }) {
     if (kind === "fixed") return null;
     return kind === "routine" ? (
@@ -69,7 +56,6 @@ function LeadMark({ task, kind, compact }: { task: Task; kind: ScheduleKind; com
     );
 }
 
-/** How a chip of this kind looks: its wash and border, edge bar, title and time colours. */
 function chipLook(kind: ScheduleKind, priority: TaskPriority, tone: string, isDone: boolean) {
     const routine = kind === "routine";
     const kindClasses = routine
@@ -84,7 +70,6 @@ function chipLook(kind: ScheduleKind, priority: TaskPriority, tone: string, isDo
     return { kindClasses, kindStyle, barClass, titleClass, timeClass };
 }
 
-/** Bottom-edge resize: the snapped drag distance while it moves, and the new length on release. */
 function useChipResize(task: Task, onResize: CalendarTaskChipProps["onResize"]) {
     const [resizeDeltaPx, setResizeDeltaPx] = useState(0);
     const resizeStartY = useRef<number | null>(null);
@@ -123,16 +108,13 @@ function useChipResize(task: Task, onResize: CalendarTaskChipProps["onResize"]) 
 }
 
 const SLOT_PX = (CALENDAR_SLOT_MINUTES / 60) * HOUR_HEIGHT;
-/** A resize drag of `deltaPx`, in whole calendar slots. */
 const snappedSlots = (deltaPx: number) => Math.round(deltaPx / SLOT_PX);
 
-/** The block's height while a resize drag is under way (never under 18px); unset when the style sets none. */
 function resizedHeight(style: CSSProperties | undefined, deltaPx: number): CSSProperties {
     const baseHeight = style?.height != null ? parseFloat(String(style.height)) : undefined;
     return baseHeight != null ? { height: `${Math.max(18, baseHeight + deltaPx)}px` } : {};
 }
 
-/** What both chip shapes share: the task, its look, drag wiring and the open action. */
 type ChipParts = {
     task: Task;
     kind: ScheduleKind;
@@ -149,7 +131,6 @@ type ChipParts = {
     tipSide: "left" | "right";
 };
 
-/** The draggable, clickable surface both chip shapes sit on; `className` adds the shape. */
 function ChipShell({
     chip,
     style,
@@ -178,7 +159,6 @@ function ChipShell({
     );
 }
 
-/** Month cells and the all-day lane: a rounded pill, the time first in Month. */
 function PillChip({ chip, fit, month }: { chip: ChipParts; fit: boolean; month: boolean }) {
     const { task, kind, look, isDragging, open } = chip;
     const showTime = month && task.scheduledStart;
@@ -212,11 +192,9 @@ type BlockChipProps = {
     badge: boolean;
     isNowLive: boolean;
     resizeDeltaPx: number;
-    /** The bottom-edge handle's pointer handlers; null when the block can't be resized. */
     resizeHandlers: ReturnType<typeof useChipResize>["handlers"] | null;
 };
 
-/** Week and Day: an absolutely placed block with its times, resizable from the bottom edge. */
 function BlockChip({ chip, style, badge, isNowLive, resizeDeltaPx, resizeHandlers }: BlockChipProps) {
     const { task, kind, look, isDragging, open } = chip;
     const start = task.scheduledStart;
@@ -237,7 +215,6 @@ function BlockChip({ chip, style, badge, isNowLive, resizeDeltaPx, resizeHandler
             <div
                 className={`cal-chip-row absolute inset-0 flex items-center gap-1.5 pl-3 ${badge ? "pr-12" : "pr-1.5"}`}
             >
-                {/* Edge bar: priority for a task, moonlit for Fixed */}
                 {look.barClass ? (
                     <div className={`absolute bottom-1.5 left-0 top-1.5 w-1 rounded-full ${look.barClass}`} />
                 ) : null}
@@ -267,7 +244,6 @@ function BlockChip({ chip, style, badge, isNowLive, resizeDeltaPx, resizeHandler
                 <SharedMark task={task} size={16} />
             </div>
 
-            {/* Bottom-edge resize handle */}
             {resizeHandlers && (
                 <div
                     className="group/resize absolute z-20 bottom-0 left-2 right-2 flex h-2 cursor-s-resize items-center justify-center"
@@ -341,7 +317,6 @@ export function CalendarTaskChip({
         tipSide,
     };
 
-    // ── PILL variant (Month view, All-Day lane) ─────────────────────────────
     if (variant === "pill") return <PillChip chip={chip} fit={fit} month={month} />;
     const canResize = !!onResize && movable && !isDragging;
     return (
@@ -356,7 +331,6 @@ export function CalendarTaskChip({
     );
 }
 
-/** A lightweight drag overlay clone shown while dragging */
 export function CalendarTaskChipOverlay({ task }: { task: Task }) {
     const priority = (task.priority ?? 0) as TaskPriority;
     const isTimed = !!task.scheduledStart;

@@ -10,7 +10,6 @@ import { toastUndo } from "../../lib/utils/undo-toast";
 import { useAutoTagOfferStore } from "../../stores/auto-tag-offer-store";
 import type { Task } from "@cadence/contracts/task";
 
-/** Add or remove one tag on these tasks in every cached list. */
 function patchTagIds(queryClient: QueryClient, tagId: string, taskIds: string[], linked: boolean) {
     const ids = new Set(taskIds);
     queryClient.setQueriesData<Task[]>({ queryKey: queryKeys.tasks.all }, (old) =>
@@ -29,7 +28,6 @@ function patchTagIds(queryClient: QueryClient, tagId: string, taskIds: string[],
 
 const count = (n: number) => `${n} task${n === 1 ? "" : "s"}`;
 
-/** After a tag is made that is named like a list or section: tag the open tasks already there? Then an Undo. */
 export function AutoTagOfferDialog() {
     const { offer, clear } = useAutoTagOfferStore();
     const client = useApiClient();

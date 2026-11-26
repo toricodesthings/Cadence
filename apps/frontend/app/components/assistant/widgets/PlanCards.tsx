@@ -25,15 +25,9 @@ const toInstant = (zoned: string) => new Date(zoned).toISOString();
 
 type FindTimeOutput = NonNullable<ToolRenderContext<"find_time">["part"]["output"]>;
 
-/**
- * "Plan my day": `fit_day`'s result as Fit today's own preview. The tool only read; Place here is the person's tap,
- * the same `POST /tasks/place` and one Undo as on Today. A plan for a day that has passed is laid out again for today.
- */
 export function FitDayCard({ ctx }: { ctx: ToolRenderContext<"fit_day"> }) {
     const output = ctx.part.state === "output-available" ? ctx.part.output : undefined;
-    // Running shows the read chip's spinner; a failure is explained in the assistant's own words.
     if (!output || output.ok !== true || !output.day) return null;
-    // "Spread my week": one section per day, each placed on its own tap.
     if ("days" in output && output.days)
         return (
             <div className="flex flex-col gap-2">
@@ -126,7 +120,6 @@ function FitDayCardBody({ output }: { output: DayPlan }) {
     );
 }
 
-/** One task's gap from `find_time`: one row with Place and Another time. Place is the person's tap, with Undo. */
 export function FindTimeCard({ ctx }: { ctx: ToolRenderContext<"find_time"> }) {
     const output = ctx.part.state === "output-available" ? ctx.part.output : undefined;
     if (!output || output.ok !== true || !output.task) return null;
@@ -148,7 +141,6 @@ function FindTimeCardBody({
     const [placedAt, setPlacedAt] = useState<string | null>(null);
     const [placing, setPlacing] = useState(false);
     const zone = getUserZone();
-    // A chat read again later never offers a time that has already passed.
     const proposals = useMemo(
         () =>
             (output.proposals ?? [])
@@ -187,7 +179,6 @@ function FindTimeCardBody({
         setPlacing(true);
         const before = temporalOf(task);
         try {
-            // Every time of day seen so far: a pick after comparing is what teaches, a first one kept doesn't.
             await find.write(task, proposal, [...new Set(proposals.slice(0, index + 1).map((p) => p.bucket))]);
             const label = formatChipTime(proposal.start, proposal.end);
             setPlacedAt(label);

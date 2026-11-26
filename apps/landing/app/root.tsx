@@ -9,7 +9,6 @@ import outfitLatinHref from "@fontsource-variable/outfit/files/outfit-latin-wght
 import soraLatinHref from "@fontsource-variable/sora/files/sora-latin-wght-normal.woff2?url";
 
 export const links: Route.LinksFunction = () => [
-    // Fetch the Latin faces alongside the stylesheet instead of after it parses.
     { rel: "preload", href: soraLatinHref, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
     { rel: "preload", href: outfitLatinHref, as: "font", type: "font/woff2", crossOrigin: "anonymous" },
     { rel: "stylesheet", href: appStylesHref },
@@ -19,14 +18,12 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
     return (
-        // The head script adds hero attributes before hydration; they are expected.
         <html lang="en" suppressHydrationWarning>
             <head>
                 <meta charSet="utf-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1" />
                 <meta name="color-scheme" content="dark" />
-                {/* Blocking on purpose: it must hold the intro and flag a return visit before the first paint */}
-                <script dangerouslySetInnerHTML={{ __html: HEAD_SCRIPT }} /> {/* nosemgrep */}
+                <script dangerouslySetInnerHTML={{ __html: HEAD_SCRIPT }} />
                 <meta name="theme-color" content="#070e1a" />
                 <Meta />
                 <Links />

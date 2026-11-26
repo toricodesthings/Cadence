@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CreateHabitDialog } from "../../../app/components/habits/CreateHabitDialog";
 import { Provider } from "../../../app/components/primitives/Tooltip";
 
-// Real parser and real composers: under four parallel zone runs a wait needs more than the 1s default.
 configure({ asyncUtilTimeout: 5000 });
 
 const create = vi.fn();

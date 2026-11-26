@@ -6,7 +6,6 @@ import { HabitContextMenu, HabitMenu } from "./HabitMenu";
 import { RoutineIdentity, openOnCardClick } from "./RoutineWeekRow";
 import { monthStats, RoutineMonthGrid } from "./RoutineMonthGrid";
 
-/** A card per routine: its month (every loggable day tappable) and a neutral footer. */
 export function HabitsMonthView({
     year,
     month,
@@ -28,14 +27,12 @@ export function HabitsMonthView({
     weekStartsOn: 0 | 1 | 6;
     habits: Habit[];
     sort: RoutineSort;
-    /** A drag picks Custom. */
     onSortChange: (sort: RoutineSort) => void;
     today: string;
     showStreaks: boolean;
     bloom: boolean;
     selectedHabitId: string | null;
     onSelectHabit: (id: string) => void;
-    /** Phone: drop the weeks before a routine existed to save height. */
     trimEarlyWeeks: boolean;
     lead?: ReactNode;
     empty: ReactNode;
@@ -44,8 +41,6 @@ export function HabitsMonthView({
 
     return (
         <div className="min-h-0 flex-1 overflow-auto px-4 pb-28 scrollbar-thin sm:px-6">
-            {/* Cards share the row (auto-fit), and the band and cards share one
-                width, capped per card so one routine isn't a page-wide month. */}
             <div style={{ maxWidth: `${Math.max(sorted.length, 2) * 36}rem` }}>
                 {lead}
                 {sorted.length === 0 ? (

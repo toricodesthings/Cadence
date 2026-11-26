@@ -7,7 +7,6 @@ import { removeTaskFromCaches } from "../../lib/api/cache-sync";
 import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
 
-/** Delete a task with optimistic removal from all caches */
 export function useDeleteTask() {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -31,7 +30,6 @@ export function useDeleteTask() {
     });
 }
 
-/** Empty Trash: every trashed task goes for good (the server deletes them all, loaded or not). */
 export function useEmptyTrash() {
     const client = useApiClient();
     const queryClient = useQueryClient();

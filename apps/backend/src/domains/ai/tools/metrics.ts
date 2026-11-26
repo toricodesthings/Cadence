@@ -10,7 +10,6 @@ import type { AgentContext } from "./index";
 import { safeExecute } from "./index";
 
 export const metricTools = (env: Env, userId: string, _ctx?: AgentContext) => ({
-    // ── R ──────────────────────────────────────────────────────────────────
     get_user_metrics: tool({
         description:
             "The user's workload signals: currentBurnoutIndex (1–100; null = not enough history: say unknown, never guess), " +
@@ -28,7 +27,6 @@ export const metricTools = (env: Env, userId: string, _ctx?: AgentContext) => ({
                         .where(eq(userMetrics.userId, userId))
                         .limit(1),
                 );
-                // A failed recompute answers with what is stored rather than failing the tool.
                 if (signalsStale(stored?.at)) await computeWorkloadSignals(db, userId).catch(() => undefined);
                 const result = await withRls(db, userId, async (tx) => {
                     const [row] = await tx

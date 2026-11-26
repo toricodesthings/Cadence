@@ -105,7 +105,7 @@ beforeEach(() => {
     jwt = "jwt-1";
     dropAuthJwt.mockClear();
     vi.stubGlobal("WebSocket", FakeSocket);
-    vi.spyOn(Math, "random").mockReturnValue(0.5); // jitter factor 1
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
     client = new QueryClient();
     invalidate = vi.spyOn(client, "invalidateQueries").mockResolvedValue();
 });
@@ -212,7 +212,7 @@ describe("useLiveSync", () => {
             client.setQueryData(queryKeys.tasks.list({ state: "ACTIVE" }), []);
             await mount();
             last().message({ v: 1 });
-            last().message({ v: 3, changes: [change(makeTask({ title: "Gap" }))] }); // skipped v 2
+            last().message({ v: 3, changes: [change(makeTask({ title: "Gap" }))] });
             await advance(1_000);
             expect(invalidate).toHaveBeenCalledTimes(1);
             last().message({ v: 4, changes: [{ type: "task", task: { nope: true } }] });
@@ -273,7 +273,7 @@ describe("useLiveSync", () => {
         expect(FakeSocket.all).toHaveLength(1);
         await advance(35_000);
         expect(last().sent).toEqual(["ping", "ping"]);
-        await advance(10_000); // no pong
+        await advance(10_000);
         await advance(1_000);
         expect(FakeSocket.all).toHaveLength(2);
     });
@@ -338,7 +338,6 @@ describe("useLiveSync", () => {
         jwt = "jwt-1";
         await advance(1_000);
         expect(FakeSocket.all).toHaveLength(1);
-        // ...and after a 4401 too
         last().open();
         jwt = new Error("auth down");
         last().drop(4401);
@@ -367,7 +366,7 @@ describe("useLiveSync", () => {
         await advance(1_000);
         expect(last().protocols).toEqual(["cadence.live", "t.u1.secret", "tab-1"]);
         last().open();
-        last().drop(4401); // expired or forgotten ticket
+        last().drop(4401);
         await settle();
         expect(last().protocols).toEqual(["cadence.live", "jwt-1", "tab-1"]);
         expect(dropAuthJwt).not.toHaveBeenCalled();

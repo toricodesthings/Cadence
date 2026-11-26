@@ -9,12 +9,6 @@ export const rise: Variants = {
     show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } },
 };
 
-/**
- * A standalone page outside the workspace: stars behind one glass card with the
- * diagonal light sweep and the logo on top. Used by consent, sign-in/up, the auth
- * callbacks and the error pages. Give `title` (plus `description`, `actions`) for a
- * message; `children` render below it. Needs no providers, so root errors can use it.
- */
 export function CardPage({
     as: Wrapper = "main",
     title,

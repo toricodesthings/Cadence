@@ -11,28 +11,19 @@ import { formatTime } from "../../lib/utils/date-format";
 const MAX_VISIBLE_TASKS = 2;
 
 interface CalendarDayCellProps {
-    /** The cell's LocalDate; null for a blank cell */
     day: LocalDate | null;
     isToday: boolean;
-    /** A day before today: rests at lower contrast so the eye starts at today */
     isPast?: boolean;
     isSelected: boolean;
     hasTask: boolean;
-    /** Has holidays scheduled on this day — shows as a warm ember marker */
     hasHoliday?: boolean;
-    /** User's birthday falls on this day — shows a violet birthday marker */
     hasBirthday?: boolean;
-    /** Has personal events on this day — shows a warm rose marker */
     hasPersonalEvent?: boolean;
-    /** Number of personal events on this day for denser date affordances */
     personalEventCount?: number;
     onSelect: (day: LocalDate) => void;
-    /** "compact" = sidebar/picker, "full" = schedule page */
     variant?: "compact" | "full";
-    /** Tasks for this cell (full variant only) */
     tasks?: Task[];
     onSelectTask?: (taskId: string) => void;
-    /** Right-click callback for context menu / creating a task */
     onContextAdd?: (info: CalendarEventInfo) => void;
 }
 
@@ -44,7 +35,6 @@ type CompactDayCellProps = Pick<
     onSelect: (day: LocalDate) => void;
 };
 
-/** The compact variant (sidebar, deadline picker): the date with small markers under it. */
 function CompactDayCell({
     day,
     isToday,
@@ -107,7 +97,6 @@ function CompactEventMark({ count }: { count: number }) {
     );
 }
 
-/** Holiday, birthday and personal-event markers beside a full cell's date. */
 function DayMarkers({
     hasHoliday,
     hasBirthday,
@@ -154,7 +143,6 @@ function FullEventMark({ count }: { count: number }) {
 
 type FixedLine = NonNullable<ReturnType<typeof splitMonthDay>["fixed"]>;
 
-/** The week's repeating Fixed shape, one quiet line: when you're busy, without 40 identical chips */
 function FixedSummary({ fixed, onOpen }: { fixed: FixedLine; onOpen: () => void }) {
     const start = fixed.start ? formatTime(fixed.start.toISOString()) : null;
     const end = fixed.end ? formatTime(fixed.end.toISOString()) : null;
@@ -189,7 +177,6 @@ function FixedSummary({ fixed, onOpen }: { fixed: FixedLine; onOpen: () => void 
 
 type DayChipsProps = { items: Task[]; sourceId: string; onSelectTask: (taskId: string) => void };
 
-/** The first chips, then the rest behind "+N more". */
 function DayChips({ items, sourceId, onSelectTask }: DayChipsProps) {
     const hiddenCount = items.length - MAX_VISIBLE_TASKS;
     const chip = (task: Task) => (
@@ -199,7 +186,6 @@ function DayChips({ items, sourceId, onSelectTask }: DayChipsProps) {
         <div className="w-full px-1 pb-1 flex flex-col gap-[2px]">
             {items.slice(0, MAX_VISIBLE_TASKS).map(chip)}
 
-            {/* +N more popover */}
             {hiddenCount > 0 && (
                 <Popover.Root>
                     <Popover.Trigger asChild>
@@ -222,7 +208,6 @@ function DayChips({ items, sourceId, onSelectTask }: DayChipsProps) {
 
 const noop = () => {};
 
-/** Single calendar day cell — adapts to compact (sidebar) or full (schedule) layout */
 export function CalendarDayCell(props: CalendarDayCellProps) {
     const { day, variant = "compact" } = props;
     if (!day) {
@@ -231,12 +216,10 @@ export function CalendarDayCell(props: CalendarDayCellProps) {
         }
         return <div className="invisible" aria-hidden="true" />;
     }
-    // ── Compact variant (sidebar, deadline picker) ──────────────────────────
     if (variant === "compact") return <CompactDayCell {...props} day={day} />;
     return <FullDayCell {...props} day={day} />;
 }
 
-/** The full variant (schedule page): date, markers, the Fixed line and task chips; a drop target. */
 function FullDayCell({
     day,
     isToday,
@@ -253,17 +236,14 @@ function FullDayCell({
 }: CalendarDayCellProps & { day: LocalDate }) {
     const dateStr = day;
 
-    // Weekend tint (Saturday = 6, Sunday = 0)
     const dayOfWeek = weekdayOf(day);
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-    // Clicking cell background navigates to day view
     const handleCellClick = (e: React.MouseEvent) => {
         if ((e.target as HTMLElement).closest("button, [data-task-chip]")) return;
         onSelect(day);
     };
 
-    // Right-click opens event popover
     const handleContextMenu = (e: React.MouseEvent) => {
         e.preventDefault();
         if (!onContextAdd) return;
@@ -277,7 +257,6 @@ function FullDayCell({
         });
     };
 
-    // Droppable for DnD
     const { setNodeRef, isOver } = useDroppable({
         id: `day-${dateStr}`,
     });
@@ -308,7 +287,6 @@ function FullDayCell({
             `}
             style={{ minHeight: 120 }}
         >
-            {/* Date number — clicking navigates */}
             <button
                 type="button"
                 onClick={() => onSelect(day)}
@@ -336,7 +314,6 @@ function FullDayCell({
 
             {fixed ? <FixedSummary fixed={fixed} onOpen={() => onSelect(day)} /> : null}
 
-            {/* Task chips */}
             {items.length > 0 && (
                 <DayChips items={items} sourceId={`day-${dateStr}`} onSelectTask={onSelectTask ?? noop} />
             )}

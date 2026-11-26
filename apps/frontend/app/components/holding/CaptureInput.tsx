@@ -34,7 +34,6 @@ import type { DraftFields } from "@cadence/domain/nlp-draft";
 import type { LocalDate } from "@cadence/domain/time";
 import type { DateStyle } from "@cadence/nlp/core";
 
-/** A typed day turns a capture into a task only on one short line; a longer vent that names a day stays a thought. */
 const TASK_LINE_WORDS = 12;
 
 const isTaskLine = (text: string): boolean => {
@@ -42,17 +41,13 @@ const isTaskLine = (text: string): boolean => {
     return Boolean(line) && !line.includes("\n") && line.split(/\s+/).length <= TASK_LINE_WORDS;
 };
 
-/** A long or multi-line draft keeps its typed days as words: the parser may not turn them into a day. */
 const WORDS_ONLY = { dueDate: null, scheduledStart: null, scheduledEnd: null, recurrenceRule: null } as const;
 
-/** A day picked for one draft. */
 interface DayPick {
-    /** The text it was picked for. */
     for: string;
     schedule: ScheduleUpdates;
 }
 
-/** A pick holds while the draft is still that text, edited rather than replaced: it keeps the first half it was picked for. */
 export const pickHolds = (pickedFor: string, value: string): boolean => {
     const anchor = pickedFor.trim();
     return value.trim().startsWith(anchor.slice(0, Math.ceil(anchor.length / 2)));
@@ -61,8 +56,6 @@ export const pickHolds = (pickedFor: string, value: string): boolean => {
 const isDated = ({ dueDate, scheduledStart }: Pick<DraftFields, "dueDate" | "scheduledStart">) =>
     Boolean(dueDate || scheduledStart);
 
-/** Read and write a tab-scoped draft; storage can be missing or blocked, and the draft still works without it. */
-/** A typed task as sent: what is shown is what is sent, and the server stores it as sent. */
 function taskPayload(
     id: string,
     text: string,
@@ -91,7 +84,6 @@ function taskPayload(
     };
 }
 
-/** Shared draft semantics for the page, phone composer and Quick Add. With `storageKey`, a half-written thought survives leaving the page. */
 function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storageKey?: string) {
     const [value, setValue] = useState(() => readCaptureDraft(storageKey));
     useEffect(() => {
@@ -103,8 +95,6 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
     const [error, setError] = useState(false);
     const [pasted, setPasted] = useState(false);
     const input = useRef<HTMLTextAreaElement>(null);
-    // autoFocus without the scroll: in a phone sheet the field mounts while the sheet is still below the screen,
-    // and a plain focus makes iOS pan the whole page up to reach it, over the top of the screen.
     const takeFocus = useCallback((el: HTMLTextAreaElement | null) => {
         input.current = el;
         el?.focus({ preventScroll: true });
@@ -118,11 +108,8 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
     const dateStyle = settings?.dateTime?.dateStyle ?? "mdy";
     const { isTouch } = useShellMode();
     const savedCapture = useRef<InboxItem | undefined>(undefined);
-    // A day set in the picker (or cleared there: "No date"). Picked beats typed.
     const [pick, setPick] = useState<DayPick | null>(null);
     const picked = pick && pickHolds(pick.for, value) ? pick.schedule : null;
-    // One rule: a day means a task. A picked day always counts; a typed one only on a short line, so the parser
-    // reads days only there. Read live, like every composer: the day control shows what Enter saves.
     const nlp = useNlpParse({
         input: value,
         projects,
@@ -142,7 +129,6 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
         dateStyle,
         enabled: nlpEnabled,
     });
-    // The sheet's Task switch: an undated draft saves as a task too. A day already makes it one.
     const [taskMode, setTaskMode] = useState(false);
     const dated = isDated(nlp.fields);
     const asTask = dated || taskMode;
@@ -153,28 +139,20 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
         .split(/\r?\n/)
         .map((s) => s.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "").trim())
         .filter(Boolean);
-    /**
-     * Decide on what Enter saves. The parser still loading (a cold open, typing fast) is the one wait,
-     * and only for a draft that could be a task.
-     */
     const draftFor = (forceTask: boolean, split: boolean) => {
         const mayBeTask = !split && (forceTask || picked !== null || isTaskLine(value));
         if (!mayBeTask) return null;
         return nlp.ready ? nlp : nlp.finalize();
     };
-    /** Saves one line as a capture, then (as a task) places it. `retry` is a capture that saved before its placing failed. */
     const saveLine = async (
         text: string,
         draft: Awaited<ReturnType<typeof draftFor>>,
         task: boolean,
         retry: InboxItem | undefined,
     ) => {
-        // Offline the create is queued and returns nothing, but the id is ours,
-        // so "as task" can still be queued right behind it.
         const id = retry?.id ?? newRowId();
         const item = retry ?? (await create.mutateAsync({ id, rawText: text, placing: task }));
         try {
-            // What is shown is what is sent, and the server stores it as sent. A task always has its draft.
             if (task) await process.mutateAsync(taskPayload(id, text, draft!, endDate, dateStyle));
         } catch (err) {
             savedCapture.current = item ?? ({ id } as InboxItem);
@@ -182,14 +160,11 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
         }
         return item;
     };
-    /** Saves the draft: a task when it has a day (or `forceTask`, ⌘↵), else a thought; `split` saves each line as a thought. */
     const save = (forceTask = false, split = false) => {
         if (!value.trim() || busy) return;
         const original = value;
         let remaining = split ? lines : [value.trim()];
         const pending = draftFor(forceTask, split);
-        // Only a loading parser is awaited (the field holds still for it); a ready draft clears at once and
-        // saves behind the scenes, since the row is already on screen. A failure puts the draft back.
         const run = async (draft: Awaited<ReturnType<typeof draftFor>>) => {
             setError(false);
             const task = draft !== null && (forceTask || isDated(draft.fields));
@@ -275,16 +250,13 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
             )}
         </>
     );
-    // The list composer's calendar button: shows the day the draft will save, and picking one makes it a task.
     const focusField = () => {
         const el = input.current;
         el?.focus();
         el?.setSelectionRange(el.value.length, el.value.length);
     };
-    // After picking, focus is back in the field, so Enter saves (not reopens the picker).
     const pickDay = (next: ScheduleUpdates) => setPick({ for: value, schedule: next });
     const dayControl = <DeadlineTrigger schedule={schedule} onChange={pickDay} returnFocus={focusField} />;
-    // The sheet's when, in the iOS grouped card under the field: the date, then whether it's a task.
     const rows = (
         <ComposerRows>
             <ComposerRow icon={Calendar} label="Date">
@@ -295,14 +267,12 @@ function useCaptureDraft(onSaved?: (item: InboxItem | undefined) => void, storag
             </ComposerRow>
         </ComposerRows>
     );
-    // No day yet: this (or ⌘↵) still saves it as a task, undated. Touch has no ⌘, so it says it in words.
     const taskControl = asTask ? null : (
         <Button
             variant="ghost"
             size="none"
             disabled={!value.trim() || busy}
             aria-keyshortcuts="Meta+Enter Control+Enter"
-            // Keep focus in the field, so the inline row can't fold mid-click.
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => save(true)}
             className={`shrink-0 gap-1 rounded-lg font-sans text-xs font-medium ${isTouch ? "min-h-9 px-2" : "px-1.5 py-1"}`}
@@ -382,18 +352,11 @@ export function useCaptureComposer({
     };
 }
 
-/** Keycap for shortcut hints, shared with the feed's shortcut line. */
 export const KBD =
     "inline-flex h-5 min-w-5 items-center justify-center rounded-md border border-twilight-border/60 bg-white/[0.04] px-1.5 font-sans text-[10px] font-medium text-twilight-text-soft";
 
-/** The hero's keycaps share one size, so "Ctrl" and "↵" read as a pair. */
 const KEYCAP = KBD.replace("text-[10px]", "text-[11px]");
 
-/**
- * One quiet line until you type; then it grows with each line and the Capture row slides in. It stays open
- * while focus stays, so a run of captures doesn't jolt the feed (or the greeting) after every save. Leaving
- * with a draft folds the row and leaves a soft glow: the thought is waiting, and nothing looks live.
- */
 export function CaptureInput() {
     const { session } = useAuthState();
     const draft = useCaptureDraft(
@@ -404,10 +367,7 @@ export function CaptureInput() {
     const [engaged, setEngaged] = useState(false);
     const hasDraft = draft.value.trim().length > 0;
     const active = focused && (engaged || hasDraft);
-    // On a cold open the page mounts inert behind startup, so autoFocus misses. Take focus once it's revealed,
-    // and only if nothing else has it, so "open and type" just works.
     const revealed = useContext(StartupReadyContext);
-    // A restored draft carries on from its end, not its start.
     useEffect(() => {
         const el = draft.input.current;
         if (!el || !revealed) return;
@@ -416,7 +376,6 @@ export function CaptureInput() {
         if (document.activeElement === document.body) el.focus({ preventScroll: true });
     }, [revealed, draft.input]);
     const ready = Boolean(draft.value.trim()) && !draft.busy;
-    // Fit to the text, and again whenever the column's width changes. A parked draft folds to two lines.
     useLayoutEffect(() => {
         const el = draft.input.current;
         if (!el) return;
@@ -424,7 +383,6 @@ export function CaptureInput() {
         const fit = () => {
             el.style.height = "auto";
             el.style.height = `${Math.min(el.scrollHeight, cap)}px`;
-            // Past the cap it scrolls; soft edges say so instead of slicing lines.
             el.toggleAttribute("data-overflow", el.scrollHeight > cap);
         };
         fit();
@@ -440,11 +398,9 @@ export function CaptureInput() {
             onInput={() => setEngaged(true)}
             onFocus={() => setFocused(true)}
             onBlur={(e) => {
-                // The day picker opens outside this box; the row stays open behind it.
                 if (e.currentTarget.contains(e.relatedTarget) || isFloatingFocus(e.relatedTarget)) return;
                 setFocused(false);
                 setEngaged(false);
-                // A resting draft shows how the thought starts.
                 if (draft.input.current) draft.input.current.scrollTop = 0;
             }}
             className="capture-surface group px-4 py-3.5"
@@ -460,7 +416,6 @@ export function CaptureInput() {
             </div>
             <Reveal open={active}>
                 <div className="flex items-center justify-between gap-3 pb-1 pl-7.5 pt-3">
-                    {/* A multi-line paste offers its split in the day control's place. */}
                     {draft.splitCount ? (
                         <Button
                             variant="subtle"
@@ -486,7 +441,6 @@ export function CaptureInput() {
                         variant="cardPrimary"
                         size="sm"
                         disabled={!ready}
-                        // Keep focus in the field (Safari doesn't focus a clicked button), so the row can't fold mid-click.
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => draft.save()}
                         className="h-9 min-h-9 shrink-0 rounded-full px-4 text-[13px]"

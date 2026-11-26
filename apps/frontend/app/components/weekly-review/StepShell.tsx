@@ -6,10 +6,6 @@ import { EmptyState } from "../tasks/EmptyState";
 import { SPRINGS } from "../../lib/constants/motion";
 import { STEPS } from "./WeeklyResetSidebar";
 
-/**
- * One layout for every step: a large title + count, top-anchored at the same height, then the body in a container
- * that lists grow inside by container query. No outer card: only rows and cards carry surfaces.
- */
 export function StepShell({
     step,
     title: titleOverride,
@@ -19,12 +15,9 @@ export function StepShell({
     children,
 }: {
     step: number;
-    /** Welcome: a centred title over a centred body. */
     center?: boolean;
-    /** When the page's title isn't the step's name (Welcome reads "Weekly Reset"). */
     title?: string;
     count?: number | null;
-    /** The compact header carries the name and count, so the large title is for screen readers only (Welcome keeps its hero). */
     titleInHeader?: boolean;
     children: ReactNode;
 }) {
@@ -57,7 +50,6 @@ export function StepShell({
     );
 }
 
-/** The one bottom bar: Back and Next (Done on the last step), or the batch bar while rows are picked. */
 export function StepFooter({
     step,
     onBack,
@@ -69,13 +61,11 @@ export function StepFooter({
     onBack: () => void;
     onNext: () => void;
     onDone: () => void;
-    /** Replaces Back/Next (one bottom bar, never two). */
     children?: ReactNode;
 }) {
     const last = step === STEPS.length - 1;
     return (
         <div className="sticky bottom-0 layer-shell-header -mx-4 mt-auto sm:-mx-8 md:-mx-12">
-            {/* A scroll-edge fade instead of a border: the content scrolls under the bar. */}
             <div
                 aria-hidden="true"
                 className="pointer-events-none h-6 bg-[linear-gradient(to_top,color-mix(in_srgb,var(--color-panel)_55%,transparent),transparent)]"
@@ -113,7 +103,6 @@ export function StepFooter({
     );
 }
 
-/** An empty step: an icon and two words. Next is in the footer. */
 export function StepEmpty({ icon, title }: { icon: LucideIcon; title: string }) {
     return (
         <div className="flex flex-1 flex-col justify-center">
@@ -122,7 +111,6 @@ export function StepEmpty({ icon, title }: { icon: LucideIcon; title: string }) 
     );
 }
 
-/** A row that leaves by closing its gap (height + fade) instead of the list jumping. */
 export function ResolvingRow({ children }: { children: ReactNode }) {
     return (
         <motion.div

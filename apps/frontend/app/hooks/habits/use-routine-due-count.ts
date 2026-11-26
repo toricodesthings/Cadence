@@ -3,7 +3,6 @@ import { useAuthState } from "../auth/use-auth-state";
 import { useSettings } from "../core/use-settings";
 import { useToday } from "../../lib/utils/user-zone";
 
-/** One count for every navigation surface, scoped to today's scheduled instances. */
 export function useRoutineDueCount() {
     const today = useToday();
     const { session } = useAuthState();

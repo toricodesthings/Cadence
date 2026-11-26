@@ -11,9 +11,6 @@ import type { ChatFileRef } from "../../lib/ai/messages";
 import { bubbleIn } from "../../lib/constants/motion";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 
-/** Conversation avatar — the sigil for the assistant, the signed-in user's photo
- * (or initial) for them. `min-w-8` is load-bearing: without it a flex child's
- * automatic minimum resolves to the image's intrinsic size and it balloons. */
 export function ChatAvatar({ userImage, userInitial }: { userImage?: string | null; userInitial?: string } = {}) {
     if (userInitial !== undefined) {
         return (
@@ -33,7 +30,6 @@ export function ChatAvatar({ userImage, userInitial }: { userImage?: string | nu
     );
 }
 
-/** One run of assistant prose — a glass card in the panel's own surface tone. */
 export function AssistantText({ text }: { text: string }) {
     return (
         <div className="w-fit max-w-full rounded-[20px] rounded-tl-md border border-white/[0.06] bg-panel-raised/70 px-4 py-3 text-[14px] leading-relaxed text-twilight-text-soft shadow-[0_10px_30px_-18px_rgba(0,0,0,0.6)]">
@@ -51,16 +47,6 @@ async function copyText(text: string) {
     }
 }
 
-/**
- * One chat turn. The user's turn is a right-aligned accent bubble (with inline
- * edit); the assistant's is its sigil + an ordered stack of `children` (prose,
- * tool activity, proposal cards — in the order they happened).
- *
- * Actions sit IN FLOW under the whole turn, after any tool chip or card, so they
- * never overlap what follows and always leave the turn room to breathe. On touch,
- * a long-press opens the same actions as a menu; only the latest reply keeps its
- * row visible there.
- */
 export function ChatMessage({
     isUser,
     text,
@@ -78,24 +64,18 @@ export function ChatMessage({
     images = [],
 }: {
     isUser: boolean;
-    /** Plain text of the turn — what Copy copies and Edit starts from. */
     text: string;
-    /** Assistant turn body (ignored for the user, whose bubble renders `text`). */
     children?: React.ReactNode;
     showAvatar?: boolean;
-    /** The newest turn of its role — its actions stay visible. */
     latest?: boolean;
     canRegenerate?: boolean;
     canEdit?: boolean;
     onRegenerate?: () => void;
     onSaveEdit?: (next: string) => void;
-    /** Trailing slot on the action row (failed-send retry). */
     meta?: React.ReactNode;
-    /** Read receipt, shown under the user's avatar. */
     receipt?: React.ReactNode;
     userImage?: string | null;
     userInitial?: string;
-    /** Ids of the photos the user sent with this turn. */
     images?: ChatFileRef[];
 }) {
     const reduceMotion = useReducedMotion();
@@ -129,7 +109,6 @@ export function ChatMessage({
 
     const regenerate = canRegenerate ? onRegenerate : undefined;
     const edit = canEdit ? () => setEditing(true) : undefined;
-    // Touch reaches actions by long-press; only the latest reply keeps a row.
     const showRow = !editing && (!isTouch || (latest && !isUser)) && (text.length > 0 || meta);
 
     const body = isUser ? (
@@ -195,8 +174,6 @@ export function ChatMessage({
                 {editing ? (
                     editor
                 ) : (
-                    // Long-press (touch only — desktop keeps the native right-click
-                    // for copying a selection) lifts the turn and opens its actions.
                     <ContextMenu.Root
                         onOpenChange={(open) => {
                             if (open) navigator.vibrate?.(8);

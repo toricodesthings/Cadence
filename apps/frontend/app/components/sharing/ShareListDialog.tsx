@@ -44,7 +44,6 @@ const ROLES: { role: ShareRole; label: string; icon: typeof Eye }[] = [
     { role: "edit", label: ROLE_LABEL.edit, icon: Pencil },
 ];
 
-/** Choose view or edit: the same quiet control for a person and for the link. `children` adds items below the roles. */
 function RolePicker({
     role,
     onChange,
@@ -90,7 +89,6 @@ function RolePicker({
     );
 }
 
-/** Copy link, which turns into ✓ Copied for a moment once the link is on the clipboard. */
 export function CopyLinkButton({ onCopy, pending }: { onCopy: (done: () => void) => void; pending: boolean }) {
     const [copied, setCopied] = useState(false);
     useEffect(() => {
@@ -132,7 +130,6 @@ export function CopyLinkButton({ onCopy, pending }: { onCopy: (done: () => void)
     );
 }
 
-/** What the owner may do to one person: choose what they can do, hand ownership over, or remove them. */
 function RoleMenu({ project, person }: { project: Project; person: ListPerson }) {
     const setRole = useSetMemberRole();
     const remove = useRemoveMember();
@@ -176,7 +173,6 @@ function RoleMenu({ project, person }: { project: Project; person: ListPerson })
                 open={confirmRemove}
                 onOpenChange={(open) => {
                     setConfirmRemove(open);
-                    // The confirm has no trigger of its own: on Cancel, focus goes back to the menu that opened it.
                     if (!open) requestAnimationFrame(() => roleButton.current?.focus());
                 }}
                 title={`Remove ${name}?`}
@@ -188,7 +184,6 @@ function RoleMenu({ project, person }: { project: Project; person: ListPerson })
     );
 }
 
-/** A role nobody here can change: the owner's, or yours in someone else's list (in the accent, since it's what you can do). */
 function RolePill({ role, mine }: { role: ListPerson["role"]; mine: boolean }) {
     const Icon = ROLE_ICON[role];
     return (
@@ -253,10 +248,6 @@ function PersonRow({
     );
 }
 
-/**
- * The body of the share surface: the people in one soft group, then (owner) the link with its Copy, then the quiet
- * way out and Done. `withDone` is off in the phone sheet, whose ✓ already closes it.
- */
 export function ShareListPanel({
     project,
     onClose,
@@ -275,12 +266,10 @@ export function ShareListPanel({
     const onlineIds = useListPresence(project.id, shared);
     const [viewing, setViewing] = useState<ListPerson | null>(null);
     const createInvite = useCreateInvite();
-    // The link's role is chosen before copying; most links are for viewing.
     const [linkRole, setLinkRole] = useState<ShareRole>("view");
     const resetInvites = useResetInvites();
     const stopSharing = useStopSharing();
     const leave = useLeaveList();
-    // Not shared yet: nobody to fetch, so the owner's own row comes from their session.
     const people: ListPerson[] | undefined =
         fetched ??
         (owner && !shared && me
@@ -423,7 +412,6 @@ export function ShareListPanel({
     );
 }
 
-/** Share a list you own, or see who is in one you were let into. A dialog with a mouse, a sheet on a touch phone. */
 export function ShareListDialog({
     project,
     open,

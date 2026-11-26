@@ -1,6 +1,5 @@
 import { Button } from "../primitives/Button";
 
-/** The "Show older" button under a paged list; nothing once everything is loaded. */
 export function ShowOlder({ loadMore, isFetching }: { loadMore?: () => void; isFetching: boolean }) {
     if (!loadMore) return null;
     return (

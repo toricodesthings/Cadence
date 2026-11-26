@@ -20,11 +20,6 @@ interface TookSave {
     mutate: (input: { value: DurationValue; anchored: boolean } | null) => void;
 }
 
-/**
- * "Took 45 min" (Full only). With no answer it reads "Took · Add": the one way someone who is never asked can still
- * teach Cadence. It renders what the server stored, never its own draft: Saving… while a change is on its way, and
- * "Couldn't save · Retry" with the choice kept if it fails. A task's answer and a routine day's are the same row.
- */
 function TookField({
     view,
     save,
@@ -43,7 +38,6 @@ function TookField({
             {editing ? (
                 <div className="flex flex-col items-end gap-1.5">
                     <DurationChoices
-                        // Their own answer, shown as the picked chip: re-saving it must not turn it into an "About right".
                         reference={null}
                         suggested={view && view.lowMinutes === view.highMinutes ? view.lowMinutes : undefined}
                         skipLabel="Cancel"
@@ -118,7 +112,6 @@ export function TookRow({
     return <TookField view={view} save={save} />;
 }
 
-/** The same row on a routine's marked day (or marked time): "Took · Add" until they say. Never asked for, only offered. */
 export function RoutineTookRow({
     habitId,
     day,

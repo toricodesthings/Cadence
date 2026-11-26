@@ -1,28 +1,3 @@
-/**
- * AI usage budget — admission + settlement for the cost-bearing chat turn
- * (docs/Update 4/06-16-2026_ai-rate-limiting-and-abuse-protection-plan.md).
- *
- * The requirement: bound abuse + token drainage on TWO rolling windows (5h and
- * 1 week), each metered on TWO dimensions (requests AND tokens). This is an
- * always-on guardrail (no enable flag): it is enforced whenever Upstash is
- * reachable, layered ON TOP of the existing per-turn caps (`input-guard.ts`) and
- * the Cloudflare short-window limiters — never replacing them.
- *
- * The crux is that a turn's token cost is unknown until the model reports
- * `totalUsage` in `onFinish`. So we RESERVE a conservative estimate at admission,
- * then RECONCILE to the actual at settlement (a possibly-negative `INCRBY`).
- *
- *   admit()  — one pipeline: increment requests + reserve tokens in all four
- *              counters + bump the concurrency counter, then evaluate the caps.
- *              On any breach, one compensating pipeline rolls the attempt back so
- *              a rejected turn is budget-neutral (no orphaned spend).
- *   settle() — idempotent per streamId: true-up the token counters to actual and
- *              release the concurrency slot. Runs in onFinish (even on disconnect).
- *   readUsage() — cheap read for GET /ai/usage transparency ("messages left…").
- *
- * Every mutating op is a SINGLE pipelined round-trip (§15.3), on the same Upstash
- * REST client the resumption path already uses.
- */
 import type { Redis } from "@upstash/redis/cloudflare";
 import { CHAT_IMAGE_LIMITS, type AiImageUsage, type AiUsage } from "@cadence/contracts/ai";
 import { getDeploymentStage, type Env } from "../../../types/env";
@@ -37,30 +12,9 @@ import {
     type Dimension,
 } from "./rate-limit-keys";
 
-/** Flat token allowance folded into the reserve for history + tool round-trips. */
 const HISTORY_TOOL_BUDGET = 3_000;
-/** Tokens one image costs on Claude: (width × height) / 750, about 1,600 at its 1.15-megapixel ceiling. */
 const TOKENS_PER_IMAGE = 1_600;
 
-// SECURITY NOTE: `redis.eval` runs Redis server-side Lua (NOT JavaScript eval). Both
-// scripts below are STATIC module constants — no value is ever interpolated into the
-// script body. All dynamic inputs (the user-scoped keys + limits/reserve) are passed
-// as parameterized KEYS/ARGV, and a script can only touch the keys handed to it, so
-// there is no injection surface and no cross-tenant reach (§15.1).
-
-/**
- * ADMISSION — one atomic, single-billed `EVAL` (Upstash bills per command; a pipeline
- * of N commands is N commands and is **not atomic**, so we consolidate). It reads the
- * four budget counters + inflight, evaluates every cap, and mutates **only if it
- * admits** — so a rejected turn touches nothing (no rollback round-trip, no TOCTOU
- * window). EXPIRE … NX anchors each window's TTL at its first write.
- *
- *   KEYS = [req5h, req7d, tok5h, tok7d, inflight, img24h]
- *   ARGV = [reserve, lim_req5h, lim_tok5h, lim_req7d, lim_tok7d, lim_conc, w5_s, w7_s, inflight_ttl_s, images, lim_img24h, w24_s]
- *   ⇒    [admitted(0|1), dimension, window, used_req5h, used_tok5h, used_req7d, used_tok7d, pttl5h_ms, pttl7d_ms, used_img24h, pttl24h_ms]
- *
- * `images` is the turn's NEW image sends (re-sends count zero); 0 never trips the image cap.
- */
 const ADMIT_SCRIPT = `
 -- @cadence:ai:rl:admit:v2
 local r5 = tonumber(redis.call('GET', KEYS[1]) or '0')
@@ -98,14 +52,6 @@ p5 = redis.call('PTTL', KEYS[1]); p7 = redis.call('PTTL', KEYS[2])
 return {1, '', '', r5 + 1, t5 + reserve, r7 + 1, t7 + reserve, p5, p7, i, pi}
 `;
 
-/**
- * SETTLEMENT — one atomic, single-billed `EVAL`. Reconciles the token reserve to the
- * actual delta (refund/top-up) and releases the concurrency slot, flooring inflight at
- * 0 so a stray double-release can never drive it negative. `onFinish` is the sole
- * settler (fires once per stream), so no idempotency marker is needed (§9.1).
- *
- *   KEYS = [tok5h, tok7d, inflight]   ARGV = [delta]   ⇒ 1
- */
 const SETTLE_SCRIPT = `
 -- @cadence:ai:rl:settle:v1
 local delta = tonumber(ARGV[1])
@@ -123,17 +69,12 @@ export interface AiLimits {
     tokens7d: number;
     maxConcurrent: number;
     reserve: number;
-    /** Files (photos and PDFs, one shared count) sent per 24h window. */
     images24h: number;
-    /** Images per message (the client's chip limit follows it). */
     imagesPerMessage: number;
-    /** Attached-but-unsent uploads a user may have waiting. */
     imagesMaxPending: number;
-    /** When Redis is unreachable: true → reject (429; default in production), false → admit behind `RATE_LIMITER_AI`. */
     failClosed: boolean;
 }
 
-/** Remaining headroom + reset epochs, surfaced as `X-RateLimit-*` on a 429. */
 export interface RemainingByWindow {
     req5h: number;
     tok5h: number;
@@ -149,7 +90,6 @@ export type AdmitResult =
     | { ok: true; reserved: number; remaining: RemainingByWindow }
     | {
           ok: false;
-          /** `AI_IMAGE_LIMITED` when only the image quota tripped: the text can still go. */
           code: "AI_RATE_LIMITED" | "AI_IMAGE_LIMITED";
           window: Window;
           dimension: Dimension | "concurrency";
@@ -157,30 +97,21 @@ export type AdmitResult =
           remaining: RemainingByWindow;
       };
 
-/** Coerce a Redis reply (number, numeric string, or null) to a finite number. */
 function num(v: unknown): number {
     if (typeof v === "number") return Number.isFinite(v) ? v : 0;
     const n = Number(v ?? 0);
     return Number.isFinite(n) ? n : 0;
 }
 
-/** PTTL (ms) → whole seconds, falling back to the full window when no TTL is set. */
 function ttlSec(pttlMs: number, fallbackS: number): number {
     return pttlMs > 0 ? Math.ceil(pttlMs / 1000) : fallbackS;
 }
 
-/** Parse a positive integer env var, falling back to a default. */
 export function intEnv(raw: string | undefined, fallback: number): number {
     const parsed = Number.parseInt((raw ?? "").trim(), 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-/**
- * Resolve limits from env. The defaults were first sized for a cheaper model and kept for
- * `anthropic/claude-haiku-5.5` (a heavy-but-legitimate user stays under them; the global daily
- * spend ceiling bounds the total). All are env-overridable, so policy can be retuned from
- * `ai_turn.costUsd` without a code deploy.
- */
 export function resolveLimits(env: Env): AiLimits {
     const failMode = env.AI_RATE_LIMIT_FAIL_MODE?.trim().toLowerCase();
     return {
@@ -197,30 +128,14 @@ export function resolveLimits(env: Env): AiLimits {
     };
 }
 
-/**
- * A deliberately conservative per-turn token HOLD (not a billing figure —
- * settlement trues it up). It only needs to be ≥ a typical turn so a concurrent
- * burst can't systematically under-reserve. Floors at the env reserve.
- *
- * ponytail: counts the incoming message's images, not every image the history
- * window re-sends (that needs history, loaded after admission); the floor covers
- * a few replayed images and settlement trues up the rest.
- */
 export function estimateReserve(incomingChars: number, limits: AiLimits, imageCount = 0): number {
     const inputEst = Math.ceil(Math.max(0, incomingChars) / 4) + TOKENS_PER_IMAGE * Math.max(0, imageCount);
     return Math.max(limits.reserve, inputEst + MAX_OUTPUT_TOKENS + HISTORY_TOOL_BUDGET);
 }
 
-/** Prompt-cache reads and writes, priced against a plain input token (Anthropic and most providers). */
 export const CACHE_READ_WEIGHT = 0.1;
 export const CACHE_WRITE_WEIGHT = 1.25;
 
-/**
- * The budget tokens one usage object spends. Input the provider served from its prompt
- * cache counts at {@link CACHE_READ_WEIGHT} and cache writes at {@link CACHE_WRITE_WEIGHT},
- * as they're billed: `inputTokens` includes both, so a raw total would charge a cached
- * turn as if nothing were cached. Falls back to the total, then input+output, then 0.
- */
 export function meterUsage(usage: unknown): number {
     const u = usage as
         | {
@@ -244,24 +159,12 @@ export function meterUsage(usage: unknown): number {
     return input + output;
 }
 
-/**
- * The tokens a finished turn spends. `messageMetadata` attaches `{ totalUsage, model }` to
- * the finish part (ai.route.ts), so the usage lands on `responseMessage.metadata.totalUsage`.
- * A stopped or failed turn has none (no finish part): the route charges its summed
- * `finish-step` usage instead.
- */
 export function readMeteredTokens(responseMessage: unknown): number {
     return meterUsage((responseMessage as { metadata?: { totalUsage?: unknown } } | null)?.metadata?.totalUsage);
 }
 
-/** What a turn cost OpenRouter's side: exact USD and the model that actually answered. */
 export type TurnSpend = { costUsd?: number; servedModel?: string };
 
-/**
- * Add one finished step to the turn's spend. OpenRouter reports its exact charge on
- * every response (`providerMetadata.openrouter.usage.cost`); `servedModel` differs
- * from the requested model when OpenRouter falls back. No cost reported → stays unset.
- */
 export function addStepSpend(
     spend: TurnSpend,
     step: { providerMetadata?: unknown; response?: { modelId?: string } },
@@ -300,12 +203,6 @@ function buildRemaining(
     };
 }
 
-/**
- * Admit (or reject) one turn in a SINGLE atomic, single-billed `EVAL` (§15.3). The
- * script checks every cap and mutates only when it admits, so a rejected turn is
- * inherently budget-neutral (nothing to roll back) and there is no check-then-set
- * race (Lua runs atomically server-side).
- */
 export async function admit(
     redis: Redis,
     userKey: string,
@@ -365,28 +262,12 @@ export async function admit(
     };
 }
 
-/**
- * Reconcile the admission reserve to the ACTUAL token usage (refund or top-up) and
- * release the concurrency slot, in a SINGLE atomic, single-billed `EVAL`. A negative
- * delta (the common case — the reserve over-held) refunds the unused tokens. No
- * idempotency marker: `onFinish` is the sole settler and fires once per stream, and
- * the script floors inflight at 0 so even a stray double-release can't go negative.
- *
- * (Window TTLs are NOT re-armed here: a turn is capped at 45s ≪ the 5h/7d windows,
- * so a window can never roll over mid-turn and leave a TTL-less recreated key.)
- */
 export async function settle(redis: Redis, userKey: string, reserved: number, actualTokens: number): Promise<void> {
     const k = rlKeys(userKey);
-    const delta = Math.max(0, actualTokens) - reserved; // negative = refund the unused hold
+    const delta = Math.max(0, actualTokens) - reserved;
     await redis.eval(SETTLE_SCRIPT, [k.tok5h, k.tok7d, k.inflight], [String(delta)]);
 }
 
-/**
- * Build the `X-RateLimit-*` response headers from a remaining snapshot (no
- * `Retry-After`). Returned on BOTH the success and 429 paths so the client can hold
- * its own budget view (the display "source of truth") and avoid polling GET /ai/usage
- * — the numbers are already in hand from `admit`, so this costs zero extra Redis.
- */
 export function rateLimitHeaders(remaining: RemainingByWindow, limits: AiLimits): Record<string, string> {
     return {
         "X-RateLimit-Limit-Requests-5h": String(limits.requests5h),
@@ -405,7 +286,6 @@ export function rateLimitHeaders(remaining: RemainingByWindow, limits: AiLimits)
     };
 }
 
-/** A zero-usage budget snapshot (used when the budget is not configured/reachable). */
 export function emptyUsage(limits: AiLimits): AiUsage {
     return {
         enabled: false,
@@ -425,12 +305,10 @@ export function emptyUsage(limits: AiLimits): AiUsage {
     };
 }
 
-/** A PTTL (ms) as a reset epoch, or null when no window is armed. */
 function resetEpoch(pttlMs: number): number | null {
     return pttlMs > 0 ? Math.floor(Date.now() / 1000) + Math.ceil(pttlMs / 1000) : null;
 }
 
-/** The caller's image quota alone (1×GET + 1×PTTL), for the upload response. */
 export async function readImageUsage(redis: Redis, userKey: string, limits: AiLimits): Promise<AiImageUsage> {
     const k = rlKeys(userKey);
     const res = (await redis.pipeline().get(k.img24h).pttl(k.img24h).exec()) as unknown[];
@@ -442,10 +320,6 @@ export async function readImageUsage(redis: Redis, userKey: string, limits: AiLi
     };
 }
 
-/**
- * Read the caller's current budget usage in ONE pipeline (5×GET + 3×PTTL). Read-only
- * and scoped to the caller's own `userKey` — never reveals another tenant's numbers.
- */
 export async function readUsage(redis: Redis, userKey: string, limits: AiLimits): Promise<AiUsage> {
     const k = rlKeys(userKey);
     const res = (await redis

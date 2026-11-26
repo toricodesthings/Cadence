@@ -6,9 +6,7 @@ import { useOnlineStatus } from "../../hooks/core/use-online-status";
 import { SyncReviewSheet } from "./SyncReviewSheet";
 
 const changes = (count: number) => `${count} change${count === 1 ? "" : "s"}`;
-/** Only a backlog that took a while earns a "synced" note; quick saves stay silent. */
 const NOTICE_AFTER_MS = 5_000;
-/** One slot for connection news, so offline → online → synced replace each other. */
 const CONNECTION_TOAST = "connection";
 
 function connectionToast(online: boolean) {
@@ -28,7 +26,6 @@ export function OfflineBanner() {
     const since = useRef<number | null>(null);
     const wasOnline = useRef(isOnline);
 
-    // A quick word when the connection changes; never on first load.
     useEffect(() => {
         if (wasOnline.current === isOnline) return;
         wasOnline.current = isOnline;
@@ -74,7 +71,6 @@ export function OfflineBanner() {
             );
         }
         if (waiting > 0) {
-            // Online on paper, but requests aren't getting through (weak signal).
             return (
                 <div role="status" aria-live="polite" className="offline-banner offline-banner--syncing">
                     <CloudUpload size={14} aria-hidden="true" />

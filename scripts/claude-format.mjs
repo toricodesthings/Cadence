@@ -1,4 +1,3 @@
-// Claude Code hooks: `track` (PostToolUse) records each edited path; `flush` (Stop) formats them once with oxfmt.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, extname, relative, resolve, isAbsolute } from "node:path";
 import { spawnSync } from "node:child_process";

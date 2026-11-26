@@ -1,6 +1,5 @@
 import { useLocation, useNavigate } from "react-router";
 
-/** One history entry per utility sheet; detail changes stay inside that sheet. */
 export function useUtilityNavigation() {
     const location = useLocation();
     const navigate = useNavigate();

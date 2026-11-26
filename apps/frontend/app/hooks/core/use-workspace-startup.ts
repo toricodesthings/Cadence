@@ -9,8 +9,6 @@ export const StartupReadyContext = createContext(true);
 type QueryKey = readonly unknown[];
 type StartupRoute = ReturnType<typeof startupRoute>;
 
-// Never part of the first screen: decoration, the assistant, the developer tools probe.
-// They fill in after reveal with their own skeleton or fade.
 const NEVER_GATES = new Set([
     "weather",
     "location",
@@ -20,24 +18,18 @@ const NEVER_GATES = new Set([
     "ai",
     "admin-capabilities",
 ]);
-// The photo background: waits, but falls back after SLOW_START_MS or an error.
 const OPTIONAL_DOMAINS = new Set(["appearance"]);
 
 const filtersOf = (key: QueryKey) =>
     typeof key[1] === "object" && key[1] !== null ? (key[1] as Record<string, unknown>) : {};
-// ["settings", userId] is the settings row; longer keys (notification state, focus views) are not.
 const isSettingsRow = (key: QueryKey) => key[0] === "settings" && key.length === 2;
 const isDomain = (key: QueryKey, ...domains: string[]) => domains.includes(String(key[0]));
 
-/** Each entry route's first-screen data. Routes not listed wait for every mounted query
- * except the never-gating ones. Sidebar counts, the planner rail and badges fill in after reveal. */
 const FIRST_SCREEN: Partial<Record<StartupRoute, (key: QueryKey) => boolean>> = {
-    // The feed (thoughts, No day yet tasks, kept notes) and the chips its rows show.
     capture: (key) =>
         isSettingsRow(key) ||
         isDomain(key, "inbox", "projects", "tags", "subtasks") ||
         (key[0] === "tasks" && filtersOf(key).hasNoDate === true && filtersOf(key).hasNoProject === true),
-    // That list's tasks, sections and routines.
     list: (key) =>
         isSettingsRow(key) ||
         isDomain(key, "projects", "tags", "sections", "subtasks") ||
@@ -55,9 +47,6 @@ function needsInitialData(query: Query) {
     return query.isActive() && query.state.data === undefined;
 }
 
-/** Observe the mounted first screen, including queries enabled by earlier results.
- * No duplicate prefetch definitions, and no requests for unvisited routes.
- */
 export function useWorkspaceStartup(enabled: boolean, pathname: string) {
     const client = useQueryClient();
     const cache = client.getQueryCache();
@@ -70,7 +59,6 @@ export function useWorkspaceStartup(enabled: boolean, pathname: string) {
     const route = startupRoute(pathname);
     const blockers = useCallback(() => {
         const queries = cache.getAll();
-        // Offline with a saved workspace: open it; a view without saved data says so itself.
         const hasSavedWorkspace = queries.some(
             (query) =>
                 query.state.data !== undefined &&
@@ -95,8 +83,6 @@ export function useWorkspaceStartup(enabled: boolean, pathname: string) {
         return queries.length ? "pending" : "ready";
     }, [blockers, complete, enabled]);
     const state = useSyncExternalStore(subscribe, snapshot, () => "pending");
-    // Share of the first screen in hand: gating queries with data, loaded chunks, the restored cache.
-    // Later queries grow the total, so this can dip; the bar never moves back.
     const progressOf = useCallback(() => {
         const unknown = pendingChunks + (restoring ? 1 : 0);
         const total =
@@ -113,8 +99,6 @@ export function useWorkspaceStartup(enabled: boolean, pathname: string) {
 
     useEffect(() => {
         if (!enabled || complete || restoring || pendingChunks > 0 || state !== "ready") return;
-        // Let query observers mount and dependent children commit before reveal.
-        // Recheck the live cache, since subscriptions can change between frames.
         let frame = requestAnimationFrame(() => {
             frame = requestAnimationFrame(() => {
                 if (blockers().length === 0) {

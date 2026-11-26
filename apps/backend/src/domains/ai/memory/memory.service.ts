@@ -11,25 +11,17 @@ import type { Env } from "../../../types/env";
 import { isLearning, memoryStateOf, readMemoryState } from "./memory-mode";
 import { completionBucket, slotBucket } from "./signals";
 
-/** Memory is on for a person: they chose Basic or Full. `settings` is `users.settings`. */
 export function memoryIsOn(settings: unknown): boolean {
     return isLearning(memoryStateOf(settings).mode);
 }
 
-/** A change the person made in the app, as memory reads it (Full only). */
 export type PersonActivity =
     | { kind: "reschedule"; taskId: string; from: { scheduledStart: string | null; dueDate: string | null } }
     | { kind: "complete" }
     | { kind: "routine"; habitId: string; day: string };
 
-/** Signals kept per person per day: real use is a few dozen; a script posting /duration in a loop must not grow the table or the nightly read. */
 export const MAX_SIGNALS_PER_DAY = 150;
 
-/**
- * Records changes the person made themselves, for the patterns and durations Full learns. Best-effort and
- * silent: it never throws into a request, writes nothing unless the mode is Full, and the callers are
- * routes only (the assistant, MCP and imports go through services and never get here).
- */
 export async function recordPersonActivity(
     env: Env,
     userId: string,
@@ -86,10 +78,6 @@ export { pruneRoutineReports } from "./duration";
 export { scheduleLearn } from "./queue";
 export { readMemoryState } from "./memory-mode";
 
-/**
- * What the person said about how they plan (preferences and constraints), as one line for a decision model's state.
- * Only what their memory mode may read (`usableBy`); empty with memory off.
- */
 export async function planningSaid(tx: Tx, userId: string, maxChars: number): Promise<string> {
     const { mode } = await readMemoryState(tx, userId);
     if (!isLearning(mode)) return "";

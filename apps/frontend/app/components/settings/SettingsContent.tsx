@@ -12,7 +12,6 @@ import {
     MapPin,
 } from "lucide-react";
 
-// Tabs
 import { AccountTab } from "./tabs/AccountTab";
 import { NotificationsTab } from "./tabs/NotificationsTab";
 import { DateTimeTab } from "./tabs/DateTimeTab";
@@ -38,15 +37,12 @@ export type TabId =
     | "location"
     | "privacy";
 
-/** Old tab ids that still arrive in links (chat history, bookmarks): where their settings live now. */
 const MOVED_TABS: Record<string, TabId> = { ai: "tasks" };
 
-/** The tab a `?settings=` value opens, following moved tabs. */
 export function settingsTab(value: string | null): string | null {
     return value ? (MOVED_TABS[value] ?? value) : value;
 }
 
-/** `keywords` are the tab's row titles, so search finds "quiet hours" as well as "Notifications". Keep them in step with the tab. */
 export const SETTINGS_CATEGORIES = [
     { label: "Account", isHeader: true },
     {

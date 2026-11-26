@@ -15,7 +15,6 @@ import { useRovingGrid } from "../../hooks/ui/use-roving-grid";
 import { RoutineDayCell } from "./RoutineDayCell";
 import { isLoggable, logsByDay } from "./RoutineWeekRow";
 
-/** Check-ins and the longest unbroken run among a month's scheduled days up to today. Never counts misses. */
 export function monthStats(habit: Habit, today: string) {
     let checkIns = 0;
     let run = 0;
@@ -32,11 +31,6 @@ export function monthStats(habit: Habit, today: string) {
     return { checkIns, longest };
 }
 
-/**
- * A routine's month, weeks starting on `weekStartsOn`; every day that can be
- * logged is a tappable `RoutineDayCell`. `fromFirstWeek` drops the weeks before
- * the routine existed (or its first logged day).
- */
 export function RoutineMonthGrid({
     habit,
     year,
@@ -65,7 +59,7 @@ export function RoutineMonthGrid({
         while (cells.length % 7) cells.push(null);
         const rows = Array.from({ length: cells.length / 7 }, (_, i) => cells.slice(i * 7, i * 7 + 7));
         if (!fromFirstWeek) return rows;
-        const created = addDays(dayOfInstant(habit.createdAt), -1); // the day before creation can be logged too
+        const created = addDays(dayOfInstant(habit.createdAt), -1);
         const firstLog = habit.logs?.map((log) => log.targetDate).sort()[0];
         const first = [created, firstLog].filter(Boolean).sort()[0]!;
         return rows.filter((row) => row.some((iso) => iso && iso >= first));
@@ -102,7 +96,7 @@ export function RoutineMonthGrid({
                 ))}
             </div>
             {weeks.map((week, row) => {
-                const quiet = !week.some((iso) => iso && logs.has(iso)); // nothing due that week
+                const quiet = !week.some((iso) => iso && logs.has(iso));
                 return (
                     <div key={row} role="row" className="grid grid-cols-7 gap-1.5">
                         {week.map((iso, col) => (

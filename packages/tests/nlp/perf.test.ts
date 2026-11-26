@@ -3,7 +3,6 @@ import { parse } from "@cadence/nlp";
 import { resolveDraft } from "@cadence/domain/nlp-draft";
 import { CLOCK, ZONE } from "./corpus";
 
-// A named, honest measurement: warm parse + draft of a 200-character title against 500 lists and 2,000 tags.
 describe("parse performance (this machine, node, warm)", () => {
     it("stays far from a regression for a 200-character input with 500 lists / 2,000 tags", () => {
         const context = {
@@ -43,7 +42,6 @@ describe("parse performance (this machine, node, warm)", () => {
         const warm = times.slice(20).sort((a, b) => a - b);
         const p95 = warm[Math.floor(warm.length * 0.95)];
         console.info(`parse+draft p50 ${warm[Math.floor(warm.length / 2)].toFixed(2)}ms p95 ${p95.toFixed(2)}ms`);
-        // The 25ms budget is a measurement on an idle machine (see docs); under parallel CI load this only guards against an order-of-magnitude regression.
         expect(p95).toBeLessThan(250);
-    }, 60_000); // 120 runs under the four-zone parallel matrix can pass 5s of wall time; p95 is the check
+    }, 60_000);
 });

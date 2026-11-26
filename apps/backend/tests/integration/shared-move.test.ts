@@ -54,7 +54,6 @@ describe("moving tasks into a shared list", () => {
         await editor.steps("POST", `/tasks/${personal.id}/subtasks`, { title: "Buy LED bulb", orderIndex: 0 });
         await editor.notes("PATCH", `/tasks/${personal.id}/note`, { body: "Needs warm 2700K bulb" });
 
-        // Seed personal learning rows on the task before moving.
         await asOwner(async (pg) => {
             await pg.query("INSERT INTO task_metrics (task_id, user_id, reschedule_count) VALUES ($1, $2, 2)", [
                 personal.id,
@@ -76,7 +75,6 @@ describe("moving tasks into a shared list", () => {
             reminderAt: "2027-03-01T14:00:00.000Z",
         });
 
-        // Owner sees the task, its subtasks, and its note, without the editor's personal reminder.
         const ownerTasks = (await owner.tasks("GET", `?projectId=${list.id}`)).body.data;
         const found = ownerTasks.find((t: { id: string }) => t.id === personal.id);
         expect(found).toMatchObject({ id: personal.id, userId: ownerId, reminderAt: null });
@@ -88,7 +86,6 @@ describe("moving tasks into a shared list", () => {
         const ownerNote = (await owner.notes("GET", `/tasks/${personal.id}/note`)).body.data;
         expect(ownerNote).toMatchObject({ body: "Needs warm 2700K bulb", userId: ownerId });
 
-        // Personal learning rows were dropped.
         const [metrics, nlp] = await asOwner((pg) =>
             Promise.all([
                 pg.query("SELECT id FROM task_metrics WHERE task_id = $1", [personal.id]),
@@ -128,7 +125,6 @@ describe("moving tasks into a shared list", () => {
         const { ownerId, list, editor } = await sharedSetup();
         const personal = (await editor.tasks("POST", "", { title: "Before move", orderIndex: 1 })).body.data;
 
-        // Trying to assign someone else while moving is rejected before the move happens.
         const forbidden = await editor.tasks("PATCH", `/${personal.id}`, {
             projectId: list.id,
             takenBy: ownerId,
@@ -136,7 +132,6 @@ describe("moving tasks into a shared list", () => {
         expect(forbidden.status).toBe(403);
         expect(forbidden.body.error.code).toBe("TAKE_SELF_ONLY");
 
-        // Moving with expectedUpdatedAt + title succeeds without a false 409 conflict.
         const moved = await editor.tasks("PATCH", `/${personal.id}`, {
             projectId: list.id,
             title: "After move",
@@ -168,12 +163,10 @@ describe("processing a capture into a shared list", () => {
             reminderAt: "2027-04-01T15:00:00.000Z",
         });
 
-        // Owner sees the task, without editor's personal reminder or tag.
         const ownerTasks = (await owner.tasks("GET", `?projectId=${list.id}`)).body.data;
         const found = ownerTasks.find((t: { id: string }) => t.id === processed.body.data.id);
         expect(found).toMatchObject({ title: "Order groceries", reminderAt: null, tagIds: [] });
 
-        // Unprocess archives the shared task cleanly.
         const undone = await editor.inbox("POST", `/${capture.id}/unprocess`);
         expect(undone.status).toBe(200);
         const afterUndo = (await owner.tasks("GET", `?projectId=${list.id}&state=ARCHIVED`)).body.data;

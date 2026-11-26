@@ -51,7 +51,6 @@ export function useFocusViews() {
     return query;
 }
 
-/** Writes a saved view, then refetches the list. */
 function useFocusViewWrite<TInput, TResult>(
     write: (client: ReturnType<typeof useApiClient>, input: TInput) => Promise<TResult>,
 ) {
@@ -66,7 +65,6 @@ function useFocusViewWrite<TInput, TResult>(
     });
 }
 
-// The nlp definition types `states` as the loose `string[]`; the values are valid task states, so it narrows to the contract shape.
 const toWire = <T extends Partial<FocusViewInput>>(view: T) => ({
     ...view,
     definition: view.definition as FocusViewDefinitionInput,
@@ -77,7 +75,6 @@ export const useCreateFocusView = () =>
         unwrapResponse(await client.api.settings["focus-views"].$post({ json: toWire(input) })),
     );
 
-/** Patches the cached list at once (the panel reads it), then refetches once the write lands. */
 function useOptimisticFocusViewWrite<TInput>(
     write: (client: ReturnType<typeof useApiClient>, input: TInput) => Promise<unknown>,
     patch: (views: SavedFocusViewRow[], input: TInput) => SavedFocusViewRow[],
@@ -117,7 +114,6 @@ export const useUpdateFocusView = () =>
         "Couldn't change the view",
     );
 
-/** Gone at once; the delete is sent once Undo's window closes. A built-in preset is hidden by the server. */
 export const useDeleteFocusView = () =>
     useOptimisticFocusViewWrite(
         async (client, view: { id: string; name: string }) => {

@@ -22,7 +22,6 @@ export function useScheduleDrag(tasks: ReadonlyMap<string, Task>) {
         },
         [tasks],
     );
-    // A view switch can replace the active query during a drag; retain its source task.
     const findDraggedTask = useCallback(
         (id: string) => tasks.get(id) ?? (activeDragTask?.id === id ? activeDragTask : undefined),
         [tasks, activeDragTask],

@@ -18,7 +18,6 @@ import { ShowOlder } from "../shared/ShowOlder";
 import { toastName, toastUndo } from "../../lib/utils/undo-toast";
 import { cn } from "../../lib/utils";
 
-/** Search appears once the page is long enough to need it. */
 const SEARCH_AFTER = 30;
 
 const GROUPS: ReadonlyArray<{ title: string; kinds: readonly MemoryKind[] }> = [
@@ -46,7 +45,6 @@ const since = (fact: MemoryFact) =>
 
 const things = (n: number) => `${n} ${n === 1 ? "thing" : "things"}`;
 
-/** Full's read of the last 3 months: a rough bar while it runs (a little each night), then what it learned, for a week. */
 function CatchUp({ progress, learned, doneAt }: NonNullable<MemoryPage["catchUp"]>) {
     if (doneAt) {
         return (
@@ -86,11 +84,6 @@ function CatchUp({ progress, learned, doneAt }: NonNullable<MemoryPage["catchUp"
     );
 }
 
-/**
- * "What Cadence knows": everything remembered, in plain sentences. Tapping an item shows where it came
- * from and a Forget button (one tap, with Undo). Every other change goes through the pinned chat box,
- * so there is no editor and no review queue. Same envelope as the usage overlay.
- */
 export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: (text: string) => void }) {
     const { data, isLoading } = useMemoryPage();
     const setMode = useSetMemoryMode();
@@ -98,14 +91,12 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
     const restore = useRestoreMemory();
     const clear = useClearMemory();
     const older = useOlderMemory();
-    // Pages beyond the first live here: the cached page is only ever the newest 30.
     const [more, setMore] = useState<{ facts: MemoryFact[]; nextCursor: string | null } | null>(null);
     const [openId, setOpenId] = useState<string | null>(null);
     const [query, setQuery] = useState("");
     const [draft, setDraft] = useState("");
     const backRef = useRef<HTMLButtonElement>(null);
 
-    // Opened from Settings, the closing dialog hands focus back to its trigger after this mounts: take it once that's done.
     useEffect(() => {
         const timer = window.setTimeout(() => {
             if (!document.activeElement || document.activeElement === document.body) backRef.current?.focus();
@@ -114,7 +105,6 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
     }, []);
 
     const forgottenHere = useRef(new Set<string>());
-    // A Forget (or a new fact) shifts the first page's edge, so an older page can repeat its last facts: each shows once.
     const facts = useMemo(() => {
         const first = data?.facts ?? [];
         const onFirst = new Set(first.map((f) => f.id));
@@ -128,7 +118,6 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
                       setMore({ facts: [...(more?.facts ?? []), ...page.facts], nextCursor: page.nextCursor }),
               })
         : undefined;
-    // The mode in effect: an unchosen memory is Basic, and says so.
     const chosen = data?.mode ?? "basic";
     const shown = useMemo(() => {
         const needle = query.trim().toLowerCase();
@@ -136,7 +125,6 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
     }, [facts, query]);
 
     const onForget = (fact: MemoryFact) => {
-        // Undo waits for the forget to land, or the restore could arrive first and find nothing to bring back.
         const forgotten = forget.mutateAsync({ id: fact.id }).then(
             () => true,
             () => false,
@@ -169,7 +157,6 @@ export function MemoryOverlay({ onClose, onAsk }: { onClose: () => void; onAsk: 
         <OverlayPanel label="What Cadence knows" title="What Cadence knows" onClose={onClose} backRef={backRef}>
             <ScrollArea.Root className="min-h-0 flex-1">
                 <ScrollArea.Viewport className="px-3 py-4">
-                    {/* The viewport wraps its children in a block, so the column lives on its own element. */}
                     <div className="flex flex-col gap-5">
                         <div
                             role="radiogroup"

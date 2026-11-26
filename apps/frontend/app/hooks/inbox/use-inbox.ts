@@ -4,7 +4,6 @@ import type { ApiClient } from "../../lib/api/client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 
-/** Shared with the offline prefetch so their keys match. */
 export function inboxQueryOptions(client: ApiClient, status: "clarifying" | "kept" = "clarifying") {
     return queryOptions({
         queryKey: status === "kept" ? queryKeys.inbox.notes : queryKeys.inbox.all,

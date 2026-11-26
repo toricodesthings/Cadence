@@ -14,7 +14,6 @@ interface ShortcutOptions {
     onLayoutScaleIncrease?: () => void;
     onLayoutScaleDecrease?: () => void;
     onLayoutScaleReset?: () => void;
-    // Page-level navigation (§10.3)
     onNextSection?: () => void;
     onPrevSection?: () => void;
     onNextStep?: () => void;
@@ -43,7 +42,6 @@ function matchesLayoutScaleShortcut(e: KeyboardEvent, direction: "increase" | "d
     return e.key === "0";
 }
 
-/** Parse a binding string like "mod+k" and test against a KeyboardEvent */
 function matchesBinding(e: KeyboardEvent, binding: string): boolean {
     const parts = binding.toLowerCase().split("+");
     const key = parts[parts.length - 1];
@@ -64,12 +62,6 @@ function isMetaBinding(binding: string): boolean {
     return parts.includes("mod") || parts.includes("ctrl") || parts.includes("alt");
 }
 
-/**
- * Global keyboard shortcuts — reads bindings from user settings.
- *
- * What each key does is listed once, for people, in `lib/constants/shortcuts.ts`
- * (Settings › Keyboard Shortcuts and the `?` reference): change both together.
- */
 export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
     const navigate = useNavigate();
     const { data: settings } = useSettings();
@@ -89,10 +81,8 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
             const inInput =
                 target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable;
 
-            // Mid-composition keys belong to the input method.
             if (e.isComposing) return;
 
-            // Command palette — always active even in inputs, except the note editor, which owns ⌘/Ctrl+K for links.
             if (
                 shortcutsEnabled &&
                 matchesBinding(e, bindings.commandPalette) &&
@@ -124,7 +114,6 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
 
             if (!shortcutsEnabled) return;
 
-            // Meta-bindings (mod+key) work even in inputs
             const metaBindings: [string, (() => void) | undefined][] = [
                 [bindings.focusSearch, opts.onFocusSearch],
                 [bindings.toggleView, opts.onToggleView],
@@ -142,10 +131,8 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
                 }
             }
 
-            // Skip letter shortcuts when typing in inputs
             if (inInput) return;
 
-            // G-prefix navigation (two-key chord)
             if (goPending.current) {
                 goPending.current = false;
                 clearTimeout(goTimeout.current);
@@ -177,7 +164,6 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
                 return;
             }
 
-            // Non-meta configurable bindings
             for (const [binding, handler] of metaBindings) {
                 if (!handler || isMetaBinding(binding)) continue;
                 if (matchesBinding(e, binding)) {
@@ -187,17 +173,14 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
                 }
             }
 
-            // Page-level navigation (§10.3)
             const key = e.key.toLowerCase();
 
-            // Shortcut reference: ? (shift+/ on most keyboards)
             if (e.key === "?" && opts.onShortcutReference) {
                 e.preventDefault();
                 opts.onShortcutReference();
                 return;
             }
 
-            // Section nav: j = next, k = prev
             if (key === "j" && opts.onNextSection) {
                 e.preventDefault();
                 opts.onNextSection();
@@ -209,7 +192,6 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
                 return;
             }
 
-            // Weekly Reset: →/n = next step, ←/b = prev step, Escape = exit
             if ((e.key === "ArrowRight" || key === "n") && opts.onNextStep) {
                 e.preventDefault();
                 opts.onNextStep();

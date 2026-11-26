@@ -14,7 +14,6 @@ import {
     type PersonalEventViewModel,
 } from "../../lib/utils/personal-events";
 
-/** What can be done to an event from a list row or card. `onOpen` opens it, or closes it when already open. */
 export interface EventActions {
     onOpen: (event: MaybeSharedEvent) => void;
     onEdit: (event: MaybeSharedEvent) => void;
@@ -37,7 +36,6 @@ export function EventCard({
     onRename,
 }: EventActions & { item: PersonalEventViewModel; onRename: (event: MaybeSharedEvent, label: string) => void }) {
     const isOwner = (item.event.access ?? "owner") === "owner";
-    // A picked colour washes the whole card softly; no colour keeps the plain glass card.
     const tinted = Boolean(eventToneColor(item.event.color));
     return (
         <ContextMenu.Root
@@ -122,7 +120,6 @@ export function EventCard({
                         </div>
                     </div>
 
-                    {/* One block: the countdown, then its day. Concentric with the card: 27px − 17px inset = 10px. */}
                     <div className="mt-4 rounded-[10px] border border-[color-mix(in_srgb,var(--event-tone)_16%,transparent)] bg-[color-mix(in_srgb,var(--event-tone)_10%,transparent)] px-3 py-3 transition-colors duration-300">
                         <p className="text-base font-semibold text-[var(--event-ink)] transition-colors duration-300">
                             {item.countdownLabel}
@@ -174,7 +171,6 @@ export function EventCard({
     );
 }
 
-/** The card's title: tap it to rename in place (Enter saves, Escape cancels). */
 function EventTitle({ label, onRename }: { label: string; onRename: (label: string) => void }) {
     const [editing, setEditing] = useState(false);
     const draft = useTitleDraft(label, onRename);

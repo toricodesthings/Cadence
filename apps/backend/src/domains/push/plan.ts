@@ -1,9 +1,3 @@
-/**
- * A person's reminder plan: every OS alert due in the next {@link PLAN_HORIZON_MS}, worked out ahead from
- * Postgres while it is awake, so the `ReminderClock` can send each one at its second without asking again.
- * The plan is derived and disposable: any write rebuilds it. The rulebook (`deriveReminders`, `dueAlert`) is
- * the same one the app uses; this only asks it at the instants where its answer can change.
- */
 import { OPEN_TASK_STATES } from "@cadence/contracts/task";
 import { and, between, eq, gt, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
 import { addDays, atLocal, formatInZone, todayIn, type Zone } from "@cadence/domain/time";
@@ -27,9 +21,7 @@ import { loadHabitsForCaller, turnFor, turnOrderOf } from "../habits/habits.serv
 import type { PushMessage, PushOutcome } from "./web-push";
 import type { DbClient } from "../../platform/db";
 
-/** How far ahead a plan reaches. Every write rebuilds it; the clock rebuilds itself when it runs out. */
 export const PLAN_HORIZON_MS = 7 * 24 * 3600_000;
-/** A device that has failed this many sends in a row is dropped. */
 const MAX_FAILURES = 10;
 const HOUR = 3600_000;
 
@@ -51,7 +43,6 @@ export interface ReminderPlan {
     zone?: Zone;
 }
 
-/** Where a tap goes: the reminder's route, with the same focus params the in-app list adds. */
 function openUrl(reminder: Reminder): string | null {
     if (!reminder.route) return null;
     if (!reminder.entityId || reminder.kind === "personal-event") return reminder.route;
@@ -83,12 +74,10 @@ export interface PlanInput {
     hour12: boolean;
     tasks: ReminderTask[];
     habits: HabitRow[];
-    /** habitId → day → that day's log. */
     logs: Map<string, Map<string, Log>>;
     personalEvents: PersonalEvent[];
 }
 
-/** The rulebook's answer at `t`: OS-alerting reminders of switched-on kinds, with routines due on t's day. */
 function reminderDeriver(input: PlanInput) {
     const { zone, prefs } = input;
     const routinesByDay = new Map<string, ReminderHabit[]>();
@@ -124,7 +113,6 @@ function reminderDeriver(input: PlanInput) {
                         )
                             return [];
                     }
-                    // An untouched day has no log yet: every time is still open.
                     const log = input.logs.get(habit.id)?.get(day) ?? {
                         targetDate: day,
                         status: "PENDING",
@@ -154,7 +142,6 @@ function reminderDeriver(input: PlanInput) {
     };
 }
 
-/** Every reminder the rulebook shows at some point in [now, until]: its windows reach an hour ahead, so hourly samples see them all. */
 export function sampleReminders(input: PlanInput, now: number, until: number): Reminder[] {
     const derive = reminderDeriver(input);
     const seen = new Map<string, Reminder>();
@@ -162,12 +149,6 @@ export function sampleReminders(input: PlanInput, now: number, until: number): R
     return [...seen.values()];
 }
 
-/**
- * The alerts to send between now and until. `dueAlert` can only turn true at an alert's own instant, a
- * deferral, or the end of quiet hours or a pause, so it is asked exactly there (and now, for anything still
- * owed). Each occurrence key is planned once, at the first instant it is due.
- * ponytail: one derivation per candidate instant (a few dozen a day); index reminders by instant if plans get slow.
- */
 export function planAlerts(
     input: PlanInput,
     sampled: Reminder[],
@@ -216,7 +197,6 @@ export function planAlerts(
     return entries;
 }
 
-/** Reads everything the next {@link PLAN_HORIZON_MS} of alerts depends on, in one RLS transaction, and plans them. Null: the account is gone. */
 export async function loadReminderPlan(db: DbClient, userId: string, now: Date): Promise<ReminderPlan | null> {
     const until = now.getTime() + PLAN_HORIZON_MS;
     return withRls(db, userId, async (tx) => {
@@ -225,10 +205,8 @@ export async function loadReminderPlan(db: DbClient, userId: string, now: Date):
         const settings = normalizeSettings(row.settings ?? {});
         const prefs = settings.notifications;
         const zone = await userZone(tx, userId);
-        // The account's browser/desktop notification switch still gates every device while devices are per-browser.
         if (!prefs.browser) return { targets: [], entries: [], until, zone };
 
-        // Only devices the server can reach, and only the ones still switched on here.
         const targets = (await tx
             .select({ id: devices.id, endpoint: devices.endpoint, p256dh: devices.p256dh, auth: devices.auth })
             .from(devices)
@@ -268,17 +246,14 @@ export async function loadReminderPlan(db: DbClient, userId: string, now: Date):
                     or(
                         sql`${tasks.reminderAt} BETWEEN ${from}::timestamptz AND ${to}::timestamptz`,
                         sql`${tasks.waitingReminder} BETWEEN ${from}::timestamptz AND ${to}::timestamptz`,
-                        // A deadline alerts only on its own day; the heads-up `ahead` days before.
                         between(tasks.dueDate, today, lastDay),
                         ...(ahead ? [between(tasks.dueDate, addDays(today, ahead), addDays(lastDay, ahead))] : []),
-                        // Timed blocks: one-offs starting in the window (longest lead 2 h), and every repeating series (expanded in the rulebook).
                         sql`${tasks.scheduledStart} BETWEEN ${from}::timestamptz AND ${iso(until + 4 * HOUR)}::timestamptz`,
                         and(isNotNull(tasks.recurrenceRule), isNotNull(tasks.scheduledStart)),
                     ),
                 ),
             );
 
-        // Personal reminders set by this user on tasks in shared lists they don't own.
         const personalRows = await tx
             .select({
                 id: tasks.id,
@@ -312,7 +287,6 @@ export async function loadReminderPlan(db: DbClient, userId: string, now: Date):
             });
         }
 
-        // Every reminding routine (own + shared `edit`, never supporters), and the logs already made for the plan's days.
         const { rows: allActiveHabits } = await loadHabitsForCaller(tx, userId, { archived: false, zone });
         const habitRows: HabitRow[] = allActiveHabits
             .filter((h) => h.access !== "view" && h.reminderEnabled)
@@ -379,7 +353,6 @@ export async function loadReminderPlan(db: DbClient, userId: string, now: Date):
         const sampled = sampleReminders(input, now.getTime(), until);
         if (sampled.length === 0) return { targets, entries: [], until, zone };
 
-        // Dismissal and deferral are keyed by the reminder id, the same rows the app reads.
         const states = await tx
             .select({
                 triggerId: notificationState.triggerId,
@@ -402,7 +375,6 @@ export async function loadReminderPlan(db: DbClient, userId: string, now: Date):
     });
 }
 
-/** What the clock learned about a device since the last rebuild: written back while Neon is awake for it anyway. */
 export interface DeviceOutcome {
     lastSuccessAt?: string;
     failures: number;
@@ -421,7 +393,6 @@ export function recordOutcome(
     else outcomes[deviceId] = { ...seen, failures: seen.failures + 1 };
 }
 
-/** Outcomes kept back after a failed settle, joined with ones recorded since: failures add up, `gone` sticks, the newer success wins. */
 export function mergeOutcomes(
     older: Record<string, DeviceOutcome>,
     newer: Record<string, DeviceOutcome>,
@@ -441,7 +412,6 @@ export function mergeOutcomes(
     return merged;
 }
 
-/** 404/410 drops a device, a success resets its failure count, and repeated failures drop it too. */
 export async function settleOutcomes(db: DbClient, userId: string, outcomes: Record<string, DeviceOutcome>) {
     const entries = Object.entries(outcomes);
     if (entries.length === 0) return;
@@ -466,13 +436,8 @@ export async function settleOutcomes(db: DbClient, userId: string, outcomes: Rec
     });
 }
 
-/** One delivery: an occurrence on one device. */
 export const deliveryKey = (key: string, deviceId: string) => `${key}|${deviceId}`;
 
-/**
- * A clock's first build: what the old minute cron already claimed in the last day, so a deadline alert it sent
- * this morning isn't sent again. Goes with the `push_deliveries` table.
- */
 export async function legacySent(db: DbClient, userId: string, now: Date): Promise<Record<string, number>> {
     const rows = await withRls(db, userId, (tx) =>
         tx

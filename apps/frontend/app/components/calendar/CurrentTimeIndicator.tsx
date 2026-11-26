@@ -3,14 +3,12 @@ import { wallTimeOf } from "@cadence/domain/time";
 import { HOUR_HEIGHT } from "../../lib/utils/calendar/calendar-utils";
 import { getUserZone } from "../../lib/utils/user-zone";
 
-/** Offset of the now-line: the user's wall clock, not the device's. */
 function getNowTop() {
     const [h, m] = wallTimeOf(new Date(), getUserZone()).split(":").map(Number);
     const seconds = Math.floor(Date.now() / 1000) % 60;
     return ((h * 60 + m + seconds / 60) / 60) * HOUR_HEIGHT;
 }
 
-// One shared 15s clock for every chip that asks whether the now-line crosses it.
 const NOW_STEP_MS = 15_000;
 const subscribeNow = (onChange: () => void) => {
     const id = window.setInterval(onChange, NOW_STEP_MS);
@@ -18,7 +16,6 @@ const subscribeNow = (onChange: () => void) => {
 };
 const getNowBucket = () => Math.floor(Date.now() / NOW_STEP_MS) * NOW_STEP_MS;
 
-/** True while the current-time line sits inside [start, end). */
 export function useIsUnderNowLine(start?: string | null, end?: string | null, enabled = true) {
     const now = useSyncExternalStore(enabled ? subscribeNow : noopSubscribe, getNowBucket, () => 0);
     if (!enabled || !start || !end) return false;
@@ -26,8 +23,6 @@ export function useIsUnderNowLine(start?: string | null, end?: string | null, en
 }
 const noopSubscribe = () => () => {};
 
-/** Pins the now-line sheen animations under `el` to the document's time origin, so the
- *  line and every chip it crosses run in phase no matter when each mounted. */
 export function syncNowSheen(el: Element | null) {
     el?.getAnimations({ subtree: true }).forEach((a) => {
         if (a instanceof CSSAnimation && a.animationName.startsWith("cadence-now-")) a.startTime = 0;

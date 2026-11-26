@@ -1,11 +1,3 @@
-/**
- * Small paid wire/economics probe: pnpm eval:cache. Twelve main calls, a real
- * six-minute gap, then controls for consent/schema changes, >20 blocks and deploys.
- * eval:cache:matched repeats the four main strata three times in rotating order.
- * eval:cache:resume reuses a prior probe for actual >60-minute expiry (three calls).
- * Synthetic data only; no tool execution, user writes, keepalive or discarded warmups.
- * This is mechanism evidence, not a weighted production acceptance corpus.
- */
 import { expect, it } from "vitest";
 import { generateText, type ModelMessage } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
@@ -213,7 +205,6 @@ it.skipIf(!env.OPENROUTER_API_KEY)(
                 await waitForCacheDeadline(Date.now() + 360_000);
             }
             for (let repetition = 0; repetition < repetitions; repetition++) {
-                // Rotate the provider-call order: each variant occupies every position once.
                 const order = [...CACHE_VARIANTS.slice(repetition), ...CACHE_VARIANTS.slice(0, repetition)];
                 for (const variant of order) {
                     const key = `${namespaces[repetition]}:${variant}`;
@@ -251,7 +242,6 @@ it.skipIf(!env.OPENROUTER_API_KEY)(
                 }
             }
         }
-        // A below-threshold control is observed, not asserted by a local cache simulator.
         if (profile === "probe")
             for (let i = 0; i < 2; i++)
                 await call("5m-5m", "short-prompt", [{ role: "user", content: "Reply Ready." }], false, "a", true);

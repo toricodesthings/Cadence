@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router";
 import { buildFocusSearchParams } from "../search/use-route-focus";
 import type { AppNotification } from "../../lib/notifications/notification-model";
 
-/** Both notification surfaces follow the same destination and history behavior. */
 export function useOpenNotification(markRead: (id: string) => void, onClose: () => void) {
     const navigate = useNavigate();
     const location = useLocation();
@@ -24,7 +23,6 @@ export function useOpenNotification(markRead: (id: string) => void, onClose: () 
     };
 }
 
-/** A tap on a reminder shown by the service worker (sw.js) lands on its target in the already-open app. */
 export function useNotificationTapRouting() {
     const navigate = useNavigate();
     useEffect(() => {

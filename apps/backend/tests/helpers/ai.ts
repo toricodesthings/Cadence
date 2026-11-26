@@ -1,7 +1,3 @@
-/**
- * Scripted AI SDK models for tests (`ai/test` mocks, no provider calls). Each mock
- * records what it was sent in `doStreamCalls` / `doGenerateCalls` / `doEmbedCalls`.
- */
 import { ToolLoopAgent, type ToolSet } from "ai";
 import { convertArrayToReadableStream, MockLanguageModelV4 } from "ai/test";
 
@@ -22,16 +18,13 @@ export const textChunks = (text: string) => [
     { type: "text-end", id: "t" },
 ];
 
-/** A `doStream` result from model stream parts (the leading `stream-start` is added). */
 export const streamOf = (...chunks: unknown[]) => ({
     stream: convertArrayToReadableStream([{ type: "stream-start", warnings: [] }, ...chunks] as never[]),
 });
 
-/** A model that answers `text` and stops. */
 export const textModel = (text = "Done.") =>
     new MockLanguageModelV4({ doStream: async () => streamOf(...textChunks(text), finish()) });
 
-/** What a mocked `getAgentInstance` resolves to: a real ToolLoopAgent over `model`. */
 export const agentOf = (model: MockLanguageModelV4, opts: { tools?: ToolSet; turnContext?: string } = {}) => ({
     agent: new ToolLoopAgent({ model, tools: opts.tools ?? {} }) as never,
     modelId: "unused",

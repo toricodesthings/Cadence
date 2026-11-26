@@ -16,12 +16,6 @@ function positionOf(el: HTMLElement): Cell {
     return { row: Number(el.dataset.cellRow), col: Number(el.dataset.cellCol) };
 }
 
-/**
- * One tab stop for a grid of cells marked `data-cell-row` / `data-cell-col`;
- * arrows move between them, skipping gaps. Spread `gridProps` on the container
- * and give each cell `tabIndexFor(row, col)`. `first` is the cell that holds
- * the tab stop before any has had focus.
- */
 export function useRovingGrid(first: Cell | null) {
     const [active, setActive] = useState<Cell | null>(null);
 

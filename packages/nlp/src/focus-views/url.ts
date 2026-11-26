@@ -2,7 +2,6 @@ import { DEFAULT_DEFINITION, type FocusViewDefinition } from "./index.js";
 
 const STATES = ["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"];
 const WINDOWS = ["overdue", "today", "this_week", "this_month"] as const;
-/** Every param a custom view can use; `sortMode` is not here, it lives in `?sort=`. */
 export const DEFINITION_PARAMS = [
     "state",
     "list",
@@ -25,7 +24,6 @@ const num = (v: string | undefined, min: number, max: number) => {
     return v !== undefined && Number.isInteger(n) && n >= min && n <= max ? n : null;
 };
 
-/** A custom view as short readable params. Fields at their default are left out. */
 export function definitionToParams(d: FocusViewDefinition): Record<string, string> {
     const out: Record<string, string> = {};
     if (d.states.join() !== D.states.join()) out.state = d.states.join(",").toLowerCase();
@@ -43,7 +41,6 @@ export function definitionToParams(d: FocusViewDefinition): Record<string, strin
     return out;
 }
 
-/** The view the params describe, or null when none of them is present. Bad values are skipped, never an error. */
 export function definitionFromParams(p: URLSearchParams): FocusViewDefinition | null {
     if (!DEFINITION_PARAMS.some((k) => p.has(k))) return null;
     const get = (k: string) => p.get(k) ?? undefined;

@@ -4,7 +4,6 @@ import { withRls } from "../../src/platform/rls";
 import type { DbClient } from "../../src/platform/db";
 import type { Tx } from "../../src/types/db";
 
-// Match workerd: only a native Promise keeps an automatic span open.
 function recordSpanEnds() {
     const ended: string[] = [];
     type Span = Parameters<Parameters<typeof tracing.enterSpan>[1]>[0];

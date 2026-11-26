@@ -132,11 +132,9 @@ describe("schedule range and grouping rules", () => {
         expect(resolveScheduleDrop(untimed(), "slot-2026-11-02__570", supported)?.patch).toMatchObject({
             scheduledEnd: "2026-11-02T15:15:00.000Z",
         });
-        // A tentative guess sizes nothing: 60 minutes.
         expect(
             resolveScheduleDrop(untimed(), "slot-2026-11-02__570", { ...supported, state: "tentative" })?.patch,
         ).toMatchObject({ scheduledEnd: "2026-11-02T15:30:00.000Z" });
-        // The person's estimate beats the guess, with no floor.
         expect(
             resolveScheduleDrop(untimed({ durationEstimate: 5 }), "slot-2026-11-02__570", supported)?.patch,
         ).toMatchObject({ scheduledEnd: "2026-11-02T14:35:00.000Z" });

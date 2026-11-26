@@ -1,9 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
-/** Shared by `pnpm test` (below) and the live-model evals (vitest.evals.config.ts). */
 export const shared = {
-    // Mirror wrangler's Text rule: prompt markdown imports as its string.
     plugins: [
         {
             name: "md-text",
@@ -11,7 +9,6 @@ export const shared = {
                 id.endsWith(".md") ? `export default ${JSON.stringify(code)};` : undefined,
         },
     ],
-    // Node can't load the Workers runtime module the OAuth provider imports.
     resolve: {
         alias: {
             "cloudflare:workers": fileURLToPath(new URL("./tests/helpers/cloudflare-workers.ts", import.meta.url).href),
@@ -28,12 +25,6 @@ export const shared = {
     },
 };
 
-/**
- * Two projects so nothing waits on a database it doesn't use:
- * - `fast`: unit + security, pure and mocked. No PGlite, no global setup.
- * - `db`: integration + e2e, real routes on PGlite (global-setup.ts builds the migrated snapshot once).
- * Timeouts are tight on purpose: a stuck promise fails in seconds, with the test named, instead of hanging the run.
- */
 export default defineConfig({
     test: {
         teardownTimeout: 5_000,

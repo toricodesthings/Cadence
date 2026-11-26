@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { parse } from "@cadence/nlp";
 import type { NlpClock } from "@cadence/nlp/core";
 
-// 0.29.0 regression corpus: meaning must survive from typed text to parsed fields.
 const CLOCK: NlpClock = { today: "2026-10-06", now: "10:00", weekStart: "Sunday" };
 const context = {
     projects: [{ id: "p-work", name: "Work" }],
@@ -85,7 +84,6 @@ describe("recurrence beside a date", () => {
     });
 });
 
-// 0.30.0 (B01): a negated cue or a cue describing a noun is literal text, not an instruction.
 describe("cues that are not instructions", () => {
     it("keeps negated priority literal", () => {
         const r = run("This is not urgent");
@@ -146,7 +144,6 @@ describe("cues that are not instructions", () => {
     });
 });
 
-// 0.30.0 (B02): a recurrence never silently contradicts its exception.
 describe("recurrence exceptions", () => {
     it("reads 'every day except weekends' as weekdays only", () => {
         const r = run("Take medicine every day except weekends");

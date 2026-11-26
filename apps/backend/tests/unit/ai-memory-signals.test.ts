@@ -34,11 +34,9 @@ const TODAY = "2026-10-12";
 
 describe("slots and times of day", () => {
     it("names a start by weekday and time of day in the person's zone", () => {
-        // 2026-10-13 12:30Z = 08:30 Tuesday in Toronto (EDT).
         expect(slotBucket({ scheduledStart: "2026-10-13T12:30:00Z", dueDate: null }, "America/Toronto")).toBe(
             "tuesday|early",
         );
-        // 01:30Z is still Monday night in Toronto (21:30), not Tuesday.
         expect(slotBucket({ scheduledStart: "2026-10-13T01:30:00Z", dueDate: null }, "America/Toronto")).toBe(
             "monday|late",
         );
@@ -58,7 +56,7 @@ describe("slots and times of day", () => {
             "late",
             "late",
         ]);
-        expect(completionBucket("2026-10-13T00:30:00Z", "America/Toronto")).toBe("evening"); // 20:30
+        expect(completionBucket("2026-10-13T00:30:00Z", "America/Toronto")).toBe("evening");
         expect(completionBucket("2026-10-13T01:30:00Z", "America/Toronto")).toBe("late");
     });
 });
@@ -90,19 +88,19 @@ describe("derivePatterns", () => {
                 }),
             }),
         ]);
-        expect(derivePatterns(six.slice(0, 4), TODAY)).toEqual([]); // too few events
+        expect(derivePatterns(six.slice(0, 4), TODAY)).toEqual([]);
         expect(
             derivePatterns(
                 Array.from({ length: 6 }, () => row("reschedule", "2026-10-01", "tuesday|early")),
                 TODAY,
             ),
-        ).toEqual([]); // one day
+        ).toEqual([]);
         const mixed = [
             ...six.slice(0, 4),
             row("reschedule", "2026-10-09", "friday|late"),
             row("reschedule", "2026-10-09", "monday|day"),
         ];
-        expect(derivePatterns(mixed, TODAY)).toEqual([]); // 4 of 6 is 67%
+        expect(derivePatterns(mixed, TODAY)).toEqual([]);
     });
 
     it("ignores events outside the 28 days", () => {
@@ -151,17 +149,17 @@ describe("deriveDurations", () => {
     });
 
     it.each([
-        ["Lab Report: Titration, week 3!", "lab report"], // cut at ":"
+        ["Lab Report: Titration, week 3!", "lab report"],
         ["Email Sam re: invoice", "email sam"],
         ["Email Sam re: trip", "email sam"],
         ["Read - chapter 4", "read"],
         ["Gym (legs)", "gym"],
-        ["Write the essay for my class", "write essay class"], // filler dropped, first 3 words
+        ["Write the essay for my class", "write essay class"],
         ["Lab 3", "lab"],
-        ["Lab 4", "lab"], // 1-2 digit numbers merge
+        ["Lab 4", "lab"],
         ["STAT 3503 Practice Exam", "stat 3503 practice"],
-        ["STAT 2509 Practice Exam", "stat 2509 practice"], // course codes don't
-        ["(draft) report", "draft report"], // nothing before the cut: its plain words
+        ["STAT 2509 Practice Exam", "stat 2509 practice"],
+        ["(draft) report", "draft report"],
     ])("groups %j as %j", (title, group) => {
         expect(durationGroup(title)).toBe(group);
     });

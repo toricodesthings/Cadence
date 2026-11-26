@@ -15,7 +15,6 @@ import {
 } from "../../platform/desktop-shell";
 
 type DesktopShellOptions = {
-    /** Stable state setters: the commands listener subscribes once. */
     setCommandOpen: (open: boolean) => void;
     setSyncInspectorOpen: (open: boolean) => void;
     sync: () => unknown;
@@ -24,10 +23,6 @@ type DesktopShellOptions = {
     quickCaptureShortcutEnabled: boolean;
 };
 
-/**
- * The desktop app's side of the shell (no-ops on the web): remembers the workspace route and reopens it,
- * runs menu, tray and Jump List commands, follows Quick Capture saves, and sets the global capture shortcut.
- */
 export function useDesktopShell({
     setCommandOpen,
     setSyncInspectorOpen,
@@ -104,7 +99,6 @@ export function useDesktopShell({
 
         void listenForDesktopCommands(handleCommand).then(async (dispose) => {
             unlistenCommands = dispose;
-            // A Jump List launch that started Cadence: its command waited for this listener.
             const pending = await takeLaunchCommand();
             if (pending) handleCommand(pending);
         });

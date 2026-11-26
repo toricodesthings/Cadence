@@ -122,9 +122,7 @@ async function connectRoom(listId: string, entry: RoomEntry) {
                 if (!parsed.success) return;
                 entry.online = new Set(parsed.data.userIds);
                 emit();
-            } catch {
-                // Ignore malformed frames.
-            }
+            } catch {}
         };
 
         ws.onclose = (event) => {
@@ -145,7 +143,6 @@ async function connectRoom(listId: string, entry: RoomEntry) {
                     void connectRoom(listId, entry);
                     return;
                 }
-                // Second consecutive 4401: pause until online/wake rather than looping against Neon Auth.
                 entry.paused = true;
                 return;
             }
@@ -155,9 +152,7 @@ async function connectRoom(listId: string, entry: RoomEntry) {
         ws.onerror = () => {
             try {
                 ws.close();
-            } catch {
-                // Already closing.
-            }
+            } catch {}
         };
     } catch {
         entry.connecting = false;
@@ -196,9 +191,7 @@ function retain(listId: string) {
             clearTimers(current);
             try {
                 current.socket?.close(1000, "left");
-            } catch {
-                // Already closed.
-            }
+            } catch {}
             rooms.delete(listId);
             syncWakeListeners();
             emit();
@@ -206,10 +199,6 @@ function retain(listId: string) {
     };
 }
 
-/**
- * Subscribe to live presence for a shared list (opens a ref-counted WebSocket to `ListPresence`).
- * Returns the set of user ids who currently have the list open.
- */
 export function useListPresence(listId: string | null | undefined, enabled = true): ReadonlySet<string> {
     const { authReady, isAuthenticated } = useAuthState();
     const active = Boolean(listId && enabled && authReady && isAuthenticated && typeof WebSocket !== "undefined");
@@ -222,7 +211,6 @@ export function useListPresence(listId: string | null | undefined, enabled = tru
     return useListOnlineIds(listId);
 }
 
-/** Read-only selector for a list's currently known online user ids without opening a new socket. */
 export function useListOnlineIds(listId: string | null | undefined): ReadonlySet<string> {
     return useSyncExternalStore(
         subscribe,

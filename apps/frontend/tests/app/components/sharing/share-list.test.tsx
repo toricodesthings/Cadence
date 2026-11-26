@@ -60,7 +60,7 @@ describe("the share surface", () => {
         state.invite.mockImplementation((_vars, opts) => opts.onSuccess({ url: "u", copied: true }));
         renderPanel("owner");
         fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
-        expect(screen.getByText("Copied")).toBeTruthy(); // the old label may still be fading out
+        expect(screen.getByText("Copied")).toBeTruthy();
         expect(screen.getByRole("status").textContent).toBe("Link copied. It works for 7 days.");
     });
 

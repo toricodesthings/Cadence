@@ -41,7 +41,6 @@ import { openExternalUrl } from "../../platform/runtime";
 import { cn } from "../../lib/utils";
 import { DeveloperTools } from "./DeveloperTools";
 
-/** Nav item accent color definitions — per-concept wayfinding shades */
 const NAV_LINKS = [
     {
         to: "/",
@@ -91,7 +90,7 @@ const NAV_LINKS = [
         activeBg: "bg-accent-nav-upcoming/15 glow-accent",
         hoverColor: "hover:text-accent-nav-upcoming/70",
         hoverBg: "hover:bg-accent-nav-upcoming/8 hover:glow-accent",
-        notificationFn: () => weekdayOf(today()) === 1, // subtle dot if Monday
+        notificationFn: () => weekdayOf(today()) === 1,
     },
 ] as const;
 
@@ -99,7 +98,6 @@ const PROFILE_SUPPORT_LINKS: Array<{
     label: string;
     icon: typeof Info;
     to?: string;
-    /** Leaves the app: opens in the browser (the legal pages live on the landing site). */
     href?: string;
     settingsTab?: "about";
 }> = [
@@ -110,7 +108,6 @@ const PROFILE_SUPPORT_LINKS: Array<{
     { to: "/help-feedback", icon: LifeBuoy, label: "Help & Feedback" },
 ];
 
-/** The narrow icon rail on the left of the sidebar */
 export function IconRail({
     onSearchOpen,
     onQuickAddOpen,
@@ -137,18 +134,16 @@ export function IconRail({
     return (
         <div
             className={cn(
-                "icon-rail flex h-full w-[60px] flex-col items-center gap-1 border-r border-twilight-border py-3 shrink-0 [&>*]:shrink-0",
+                "icon-rail flex h-full w-[60px] flex-col items-center gap-1 border-r border-twilight-border py-3 shrink-0 overflow-y-auto scrollbar-hide [&>*]:shrink-0",
                 className,
             )}
             role="navigation"
             aria-label="Icon navigation rail"
         >
-            {/* Logo */}
             <RailLogo />
 
             <div className="w-[60%] h-px bg-twilight-border rounded-full my-0.5" aria-hidden="true" />
 
-            {/* Primary nav links */}
             <nav aria-label="Primary navigation" className="flex flex-col items-center gap-1 w-full px-2">
                 {NAV_LINKS.map(
                     ({ to, icon: Icon, label, activeColor, activeBg, hoverColor, hoverBg, notificationFn }) => {
@@ -178,7 +173,6 @@ export function IconRail({
                                                         : "border-accent-primary/20 bg-accent-primary/10 text-accent-primary hover:border-accent-primary/35 hover:bg-accent-primary/15"
                                                 }`}
                                             >
-                                                {/* The dock's sigil, rail-sized: an unread reply morphs its satellite into a bead, as on phone. */}
                                                 <AssistantSigil size={22} notice={replyUnread && !assistantPanelOpen} />
                                             </button>
                                         </Tip>
@@ -187,6 +181,7 @@ export function IconRail({
                                 <Tip label={label} side="right">
                                     <Link
                                         to={to}
+                                        prefetch="intent"
                                         aria-label={
                                             to === "/routines" && count > 0
                                                 ? `${label}, ${count} due today`
@@ -257,7 +252,6 @@ export function IconRail({
 
             {canUseDeveloperTools ? <DeveloperTools /> : null}
 
-            {/* Profile avatar */}
             <div className="w-[40%] h-px bg-twilight-border my-1 rounded-full opacity-50" aria-hidden="true" />
             {!authReady ? (
                 <div className="w-8 h-8 rounded-full border-2 border-accent-primary border-t-transparent animate-spin opacity-50" />
@@ -284,7 +278,6 @@ export function IconRail({
                         align="end"
                         className="w-[300px] bg-twilight-surface/95 backdrop-blur-xl border border-twilight-border rounded-2xl shadow-2xl p-2 z-50 text-twilight-text data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in data-[state=closed]:fade-out data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=open]:slide-in-from-left-2 data-[state=closed]:slide-out-to-left-2 duration-300"
                     >
-                        {/* Profile card header */}
                         <div className="flex flex-col items-center justify-center p-4 pb-3">
                             <div className="w-20 h-20 rounded-full bg-accent-primary/10 ring-1 ring-twilight-border mb-3 overflow-hidden flex items-center justify-center">
                                 {session.user.image ? (
@@ -376,7 +369,6 @@ export function IconRail({
 
 const RAIL_LOGO_SVG = logoSvg.replace(/(id="|href="#|url\(#)lg-/g, "$1rail-lg-");
 
-/** Sidebar logo mark; replays its opening branch-growth animation once when the icon rail is hovered. */
 export function RailLogo() {
     return (
         <div
@@ -386,7 +378,6 @@ export function RailLogo() {
     );
 }
 
-/** Sync button with rotating icon while syncing */
 function SyncButton() {
     const { sync, isSyncing, lastSyncedAt } = useWorkspaceSync();
     const tooltipText = lastSyncedAt ? `Sync · Last synced ${formatTime(lastSyncedAt.toISOString())}` : "Sync";

@@ -40,19 +40,14 @@ import {
 import { scheduleScrub } from "../memory/queue";
 import { atLocal, dayOf, type Zone } from "@cadence/domain/time";
 
-/** Only what a person can say outright: patterns and durations are computed from activity. */
 const SAYABLE_KINDS = MEMORY_KINDS.filter((kind) => kind !== "pattern" && kind !== "duration") as [string, ...string[]];
 
-/** Saves and updates per person per day: each costs an embedding and a chat-model call, and a save is pinned for good. */
 const DAILY_REMEMBERS = 50;
 
-/** The most facts one topic search will name before the model has to ask which one. */
 const TOPIC_MATCHES = 5;
 
-/** What `remember` returns: a receipt, or why nothing changed (with the facts to choose from when a topic matched several). */
 type Outcome = MemoryReceipt | ReturnType<typeof refuse<{ matches?: { id: string; text: string }[] }>>;
 
-// A function: tools/index imports this module, so `refuse` isn't ready at load.
 const off = () =>
     refuse(
         "FORBIDDEN",
@@ -62,7 +57,6 @@ const off = () =>
 
 const nothingChanged = (error: string) => refuse("NOT_FOUND", `${error} Nothing was changed.`, 404);
 
-/** Runs `work` only while memory is learning; otherwise says it's off. */
 async function whileLearning<T>(
     env: Env,
     userId: string,
@@ -73,7 +67,6 @@ async function whileLearning<T>(
     return isLearning(state.mode) ? work(db, state.mode) : off();
 }
 
-/** An embedding, or null when the call fails: words alone still work. */
 async function embedOrNull(env: Env, text: string, onError?: (error: unknown) => void): Promise<number[] | null> {
     try {
         const [embedding] = await embedTexts(env, [text], { inTurn: true });
@@ -131,7 +124,6 @@ const rememberInput = z.object({
 type RememberInput = z.infer<typeof rememberInput>;
 type Written = { result: Outcome; id: string };
 
-/** Forget by id, or by a topic that names exactly one fact. */
 async function forgetOne(tx: Tx, userId: string, input: RememberInput): Promise<Written> {
     let id = input.id;
     if (!id) {
@@ -164,7 +156,6 @@ async function forgetOne(tx: Tx, userId: string, input: RememberInput): Promise<
     return { result: { ok: true, action: "forgot", id: gone.id, text: gone.content }, id: gone.id };
 }
 
-/** Why this save or update can't go ahead as given, if it can't. */
 function factProblem(input: RememberInput, text: string): string | null {
     if (text.length < 3) return "Say what to remember.";
     if (isInstructionShaped(text))
@@ -174,7 +165,6 @@ function factProblem(input: RememberInput, text: string): string | null {
     return null;
 }
 
-/** The fact as it will be written: its words, embedding, and the nearest fact it may repeat. */
 type Fact = {
     text: string;
     embedding: number[] | null;
@@ -183,7 +173,6 @@ type Fact = {
     match: string | null | undefined;
 };
 
-/** What code computes with: a stated time of day, or an offer that doesn't help. Everything else is just words. */
 const valueOf = (input: RememberInput) =>
     input.when
         ? { when: { buckets: input.when.buckets, about: input.when.about ?? null } }
@@ -191,7 +180,6 @@ const valueOf = (input: RememberInput) =>
           ? { avoid: input.avoid }
           : null;
 
-/** Keep a repeat, update the named or matched fact, or insert a new pinned one. */
 async function writeFact(tx: Tx, userId: string, input: RememberInput, today: string, fact: Fact): Promise<Written> {
     const { text, embedding, model, near, match } = fact;
     if (input.action === "update" || match) {
@@ -212,7 +200,6 @@ async function writeFact(tx: Tx, userId: string, input: RememberInput, today: st
         if (!ok) return { result: nothingChanged("That isn't remembered."), id: userId };
         return { result: { ok: true, action: "updated", id, text }, id };
     }
-    // The same thing said again in other words after Forget: it stays forgotten, and the chat can say so.
     const forgotten = await isForgotten(tx, userId, embedding, model, input.kind as never);
     if (forgotten)
         return {
@@ -230,19 +217,17 @@ async function writeFact(tx: Tx, userId: string, input: RememberInput, today: st
         source: "explicit",
         confidence: "stated",
         sensitive: input.sensitive,
-        pinned: true, // an explicit save never decays
+        pinned: true,
     });
     if (!saved)
         return {
             result: nothingChanged("The user asked to forget that earlier; ask before saving it again."),
             id: userId,
         };
-    // An exact repeat was already known: Undo must not delete the older fact.
     return { result: { ok: true, action: saved.created ? "saved" : "kept", id: saved.id, text }, id: saved.id };
 }
 
 export const memoryTools = (env: Env, userId: string, ctx: AgentContext) => {
-    // The person's own words come back as data: fenced in the app (an outside model owns its own defence, as with notes).
     const nonce = ctx.nonce ?? makeFenceNonce();
     const asData = (kind: string, text: string) =>
         ctx.rawNotes ? text : fenceData({ nonce, kind, trust: "untrusted", content: sanitizeUntrusted(text, nonce) });
@@ -338,12 +323,10 @@ export const memoryTools = (env: Env, userId: string, ctx: AgentContext) => {
                         const problem = factProblem(input, text);
                         if (problem) return nothingChanged(problem);
 
-                        // The abuse guard, before any model spend. Memory has no size cap: a day's saves are bounded here and a day's extractions in the job.
                         const userHash = await hashIdentifier(userId);
                         if (!(await withinDailyBudget(env, "remember", userHash, DAILY_REMEMBERS)))
                             return nothingChanged("Too many saves today; try again tomorrow.");
 
-                        // The embedding is an HTTP call: outside any transaction, and best-effort (the fact still saves).
                         const model = getEmbeddingModelId(env);
                         const embedding = await embedOrNull(env, text, (error) =>
                             logger.warn("ai", "memory_embed_failed", { userHash, issues: issuesFromError(error) }),

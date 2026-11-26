@@ -25,7 +25,6 @@ import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 import { createExternalStore } from "../../lib/utils/external-store";
 import { StartupReadyContext } from "../core/use-workspace-startup";
 
-// Keys are `${userId}:${notificationId}`, shared across surfaces and remounts; released with the workspace QueryClient.
 const presentedByClient = new WeakMap<QueryClient, Set<string>>();
 const getPresentedIds = (client: QueryClient) =>
     presentedByClient.get(client) ?? presentedByClient.set(client, new Set()).get(client)!;
@@ -59,13 +58,10 @@ function readPersistedState(): PersistedNotificationState {
     }
 }
 
-/** Forgets the device's dismissed/read/deferred notification state. */
 export function clearPersistedNotificationState() {
     try {
         window.localStorage.removeItem(NOTIFICATION_STATE_STORAGE_KEY);
-    } catch {
-        // Best-effort, like the writes.
-    }
+    } catch {}
 }
 
 function writePersistedState() {
@@ -80,12 +76,9 @@ function writePersistedState() {
                 deferredUntilEntries: Array.from(deferredUntil.entries()),
             } satisfies PersistedNotificationState),
         );
-    } catch {
-        // Persistence is best-effort.
-    }
+    } catch {}
 }
 
-/** The synced state when the person acts on a notification at `now`. */
 function actedOn(
     actionTaken: UpsertNotificationState["actionTaken"],
     now: string,
@@ -118,7 +111,6 @@ function toNotificationRecord(
     };
 }
 
-// ── §11.7: Persistent dismissal/deferral store (session-scoped) ──
 const initialPersistedState = readPersistedState();
 const dismissedIds = new Set<string>(initialPersistedState.dismissedIds);
 const readIds = new Set<string>(initialPersistedState.readIds);
@@ -145,23 +137,16 @@ export function useNotificationCenter() {
     const queryClient = useQueryClient();
     const { data: settings } = useSettings();
     const notif = settings?.notifications;
-    // Every preference the rulebook reads, defaults filled in; one dependency for the derive memo.
     const prefs = useMemo(() => ({ ...SETTINGS_DEFAULTS.notifications, ...notif }), [notif]);
     const { quietHoursEnabled, quietHoursStart, quietHoursEnd } = prefs;
     const bundleMissedHabits = notif?.bundleMissedRoutinePrompts !== false;
-    // Yearly events with their bell on join the reminder candidates.
     const { enabled: eventsEnabled, items: eventItems } = usePersonalEvents(new Date().getFullYear());
     const notifiedEvents = useMemo(() => (eventsEnabled ? eventItems : []), [eventsEnabled, eventItems]);
 
-    // The bell is decoration: its reads start after the workspace reveals (the badge fades in).
     const revealed = useContext(StartupReadyContext);
-    // Reminders skip Done and Trash, so open and waiting tasks are all it needs. These are
-    // the same lists useOfflineWindow warms right after reveal, so they cost no extra request.
     const { data: activeTasks } = useTasks({ state: "ACTIVE", enabled: revealed });
     const { data: waitingTasks } = useTasks({ state: "WAITING", enabled: revealed });
     const tasks = useMemo(() => [...(activeTasks ?? []), ...(waitingTasks ?? [])], [activeTasks, waitingTasks]);
-    // Today's weekly data (shared with the due count): its logs say whether each
-    // routine is due, paused or already checked.
     const today = useToday();
     const { data: habits = [] } = useHabitsRange({ start: today, end: today, enabled: revealed });
     const { authReady, isAuthenticated, session } = useAuthState();
@@ -177,15 +162,13 @@ export function useNotificationCenter() {
         staleTime: STALE_TIMES.NOTIFICATIONS,
     });
 
-    // Track version so we re-derive when read/dismissed/deferred changes
     const version = useSyncExternalStore(versionStore.subscribe, versionStore.get, versionStore.get);
 
-    // Use a ref-based "now" that updates every 60s
     const nowRef = useRef(new Date());
     useEffect(() => {
         const id = setInterval(() => {
             nowRef.current = new Date();
-            emitChange(); // trigger re-derive
+            emitChange();
         }, 60_000);
         return () => clearInterval(id);
     }, []);
@@ -232,32 +215,26 @@ export function useNotificationCenter() {
                         const existing = rows.find(
                             (item) => item.objectId === row.objectId && item.triggerId === row.triggerId,
                         );
-                        // Concurrent actions can return out of order; keep the newer server state.
                         if (existing && existing.updatedAt > row.updatedAt) return rows;
                         return [...rows.filter((item) => item !== existing), row];
                     },
                 );
                 return true;
             } catch {
-                // Best-effort sync; local persistence remains authoritative until next refresh.
                 return false;
             }
         },
         [client, queryClient, authReady, isAuthenticated, userId],
     );
 
-    // §11.7: 3-step pipeline — candidates → behavior filter → presentation rules
     const allNotifications = useMemo(() => {
         const now = nowRef.current;
-        // Step 1: Pure candidate derivation
         const candidates = deriveCandidates(tasks, habits, now, { personalEvents: notifiedEvents, prefs });
-        // Step 2: Behavior filtering (preferences, quiet hours, bundling)
         const filtered = filterByBehavior(candidates, now, {
             ...prefs,
             bundleMissedHabits,
             hidden: getDismissalState(),
         });
-        // Sort: high priority first, then by trigger time
         filtered.sort((a, b) => {
             if (a.priority !== b.priority) return a.priority === "high" ? -1 : 1;
             return new Date(b.triggerAt).getTime() - new Date(a.triggerAt).getTime();
@@ -266,7 +243,6 @@ export function useNotificationCenter() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tasks, habits, notifiedEvents, prefs, bundleMissedHabits, version]);
 
-    // Step 3: Persistence-aware presentation
     const notifications = useMemo(() => {
         const presented = applyPresentationRules(allNotifications, getDismissalState(), nowRef.current);
         return presented.map((n) => ({ ...n, read: readIds.has(n.id) }));
@@ -302,7 +278,6 @@ export function useNotificationCenter() {
         for (const notification of notifications) {
             const claim = `${userId}:${notification.id}`;
             if (presentedIds.has(claim) || persistedIds.has(notification.id)) continue;
-            // Claim synchronously before starting I/O so sibling effects cannot duplicate it.
             presentedIds.add(claim);
             trackUsageEvent("reminder.presented", {
                 object_type:
@@ -372,7 +347,6 @@ export function useNotificationCenter() {
 
     const dismiss = useCallback((id: string) => dismissMany([id]), [dismissMany]);
 
-    /** §11.7: Defer a notification — it will resurface after the chosen delay */
     const defer = useCallback(
         (id: string, choice: DeferChoice) => {
             trackUsageEvent("reminder.deferred", { outcome: choice });
@@ -400,11 +374,8 @@ export function useNotificationCenter() {
         markAllRead,
         dismiss,
         dismissMany,
-        /** §11.7: Defer a notification */
         defer,
-        /** Raw unfiltered notifications for browser notification hook */
         allNotifications,
-        /** Whether quiet hours are currently active */
         quietHoursActive: quietHoursEnabled && !!quietHoursStart && !!quietHoursEnd,
     };
 }

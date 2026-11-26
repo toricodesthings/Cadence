@@ -8,7 +8,7 @@ import { Reveal } from "./Reveal";
 import { ScrollAreaWrapper } from "./ScrollAreaWrapper";
 import { PageContent } from "../layout/PageLayout";
 import { EmptyState, type EmptyStateVariant } from "../tasks/EmptyState";
-import { TaskListSkeleton } from "../tasks/TaskListSkeleton";
+import { BoardSkeleton, TaskListSkeleton } from "../tasks/TaskListSkeleton";
 
 export interface BucketedCollectionSection {
     key: string;
@@ -18,19 +18,13 @@ export interface BucketedCollectionSection {
     count: number;
     description?: ReactNode;
     headerAction?: ReactNode;
-    /** Board view's header action; unset falls back to `headerAction`, `null` shows none. */
     boardHeaderAction?: ReactNode;
-    /** Board column description (list view uses `description`). */
     boardDescription?: ReactNode;
     listSectionClassName?: string;
     boardCollapsed?: boolean;
-    /** Collapsed board rail click: show the column again. */
     onBoardExpand?: () => void;
-    /** Moonlit-style tint for the header's hairline (a CSS colour). */
     lineTint?: string;
-    /** List view: a fold the section owns (shared with its board eye); unset, the row remembers its own. */
     listFold?: { open: boolean; toggle: () => void };
-    /** List view: a quiet line under the header while folded (Further out's next one). */
     foldedPeek?: ReactNode;
     listContent: ReactNode;
     boardContent: ReactNode;
@@ -39,7 +33,6 @@ export interface BucketedCollectionSection {
 interface BucketedCollectionViewProps {
     sections: BucketedCollectionSection[];
     view: "list" | "kanban";
-    /** Board columns share the width evenly. */
     fill?: boolean;
 }
 
@@ -87,7 +80,6 @@ export function BucketedSectionHeader({
     );
     return (
         <div className="flex items-center gap-3">
-            {/* The whole header (chevron, title, count, line) is the fold: the accordion pattern, a button inside the heading. */}
             <h2 className="flex min-w-0 flex-1">
                 {fold ? (
                     <button
@@ -108,17 +100,14 @@ export function BucketedSectionHeader({
     );
 }
 
-/** A row section's minimise/expand state; `id` names the region it hides. */
 export type SectionFold = { open: boolean; toggle: () => void; id: string };
 
-/** Folds a row section, remembered on this device per page and section (`key` must be stable). */
 export function useSectionFold(key: string): SectionFold {
     const { pathname } = useLocation();
     const [folded, setFolded] = useDeviceFlag(`cadence-fold:${pathname}:${key}`);
     return { open: !folded, toggle: () => setFolded(!folded), id: useId() };
 }
 
-/** One list-view section with its own fold (or the section's, when it shares one with the board). */
 function ListSection({ section }: { section: BucketedCollectionSection }) {
     const own = useSectionFold(section.key);
     const fold = section.listFold ? { ...section.listFold, id: own.id } : own;
@@ -177,7 +166,6 @@ export function BucketedCollectionView({ sections, view, fill }: BucketedCollect
     );
 }
 
-/** A bucketed task route's body: a board that scrolls by column, or a scrolling list (`lead` above it); skeleton while loading, `empty` when nothing shows. */
 export function BucketedRouteBody({
     view,
     sections,
@@ -198,10 +186,14 @@ export function BucketedRouteBody({
     if (view === "kanban") {
         return (
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-                {!isLoading && !isEmpty ? (
+                {isLoading ? (
+                    <BoardSkeleton columns={Math.max(2, Math.min(sections.length || 3, 4))} />
+                ) : !isEmpty ? (
                     <BucketedCollectionView view={view} sections={sections} />
                 ) : (
-                    <PageContent width="default">{body(null)}</PageContent>
+                    <PageContent width="default">
+                        <EmptyState variant={empty} />
+                    </PageContent>
                 )}
             </div>
         );

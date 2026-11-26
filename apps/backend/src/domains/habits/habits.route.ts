@@ -52,7 +52,6 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 return { result, access };
             });
             noteSharedRoutine(c, access);
-            // A check-in the person made in the app: a signal for memory (Full), never one from the assistant.
             if (body.status === "COMPLETED") {
                 c.executionCtx.waitUntil(
                     recordPersonActivity(c.env, userId, [{ kind: "routine", habitId: id, day: body.targetDate }]),
@@ -69,7 +68,6 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             createHabit(tx, userId, c.req.valid("json"), idempotencyKey),
         );
 
-        // Fetch tag IDs for the response
         const tags = await withCallerRls(c, async (tx) => {
             return tx.select({ tagId: habitTags.tagId }).from(habitTags).where(eq(habitTags.habitId, habit.id));
         });
@@ -94,7 +92,6 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                 return { updated, access, tagIds: tags.map((t) => t.tagId) };
             }
 
-            // Participant (`edit`): owner-only fields are refused; personal fields go to routine_members.
             if (patch.archived !== undefined || patch.projectId !== undefined || patch.tagIds !== undefined) {
                 requireOwner(access, "routine");
             }
@@ -116,7 +113,6 @@ export const habitRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
         return c.json({ data: { ...updated, tagIds } });
     })
-    // Base list parity: `/` and `/weekly` both use the same `archived` semantics.
     .get("/", apiValidator("query", habitListQuerySchema), async (c) => {
         const { archived } = c.req.valid("query");
 

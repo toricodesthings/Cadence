@@ -1,12 +1,6 @@
-/** Small ProseMirror helpers shared by the note editor and its panels. */
 import type { Editor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 
-/**
- * Make the editor's document equal `next` by replacing only the span that differs, as one
- * transaction marked remote: selection and scroll map through it, it never lands in undo
- * history, and the caller's update handler skips it (no save echo).
- */
 export function applyRemoteDoc(editor: Editor, next: PMNode): boolean {
     const { state } = editor;
     const start = state.doc.content.findDiffStart(next.content);
@@ -27,12 +21,10 @@ export function applyRemoteDoc(editor: Editor, next: PMNode): boolean {
     return true;
 }
 
-/** Document position in the editor under a pointer, or null. */
 export function posAtPoint(editor: Editor, x: number, y: number): number | null {
     return editor.view.posAtCoords({ left: x, top: y })?.pos ?? null;
 }
 
-/** Screen rectangle of the caret (for popovers anchored to it), clamped to something Radix can position. */
 export function caretRect(editor: Editor, pos = editor.state.selection.from): DOMRect {
     try {
         const c = editor.view.coordsAtPos(pos);

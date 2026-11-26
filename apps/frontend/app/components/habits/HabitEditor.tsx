@@ -92,13 +92,11 @@ const PAUSES = [
     ["2 weeks", 14],
 ] as const;
 const FIELD_CAPTION = "flex items-center gap-2 text-[13px] text-twilight-text-muted";
-/** The time field as a borderless value, like the row's other values. */
 const VALUE_TIME =
     "border-transparent! bg-transparent! px-0! transition-colors hover:bg-white/[0.06]! focus-within:bg-white/[0.06]! [&_input]:w-[5.5rem] [&_input]:text-right [&_input]:text-[13px] [&_input]:text-twilight-text-soft";
 const MENU_ITEM =
     "flex min-h-10 w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 text-left text-[13px] text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
-/** Icon tile + title + hint, same face as the panel's other rows. */
 function RowFace({ icon: Icon, title, hint }: { icon: React.ElementType; title: string; hint: string }) {
     return (
         <>
@@ -113,7 +111,6 @@ function RowFace({ icon: Icon, title, hint }: { icon: React.ElementType; title: 
     );
 }
 
-/** "Pause ▾": how long, from today. Sits beside Archive. */
 function PauseMenu({ onPause }: { onPause: (until: LocalDate) => void }) {
     const [open, setOpen] = useState(false);
     const pause = (until: LocalDate) => {
@@ -163,7 +160,6 @@ function shiftMonth(day: LocalDate, delta: number): LocalDate {
     return isoMonthStart(Math.floor(index / 12), index % 12);
 }
 
-/** This routine in the range's data (a week or a month), with its logs. */
 function useRoutineInRange(habit: Habit, range: { start: string; end: string }, enabled = true) {
     const { data } = useHabitsRange({ ...range, archived: habit.archived, enabled });
     return data?.find((entry) => entry.id === habit.id);
@@ -245,9 +241,7 @@ export function HabitEditor({
     onDetailModeChange,
 }: {
     habit: Habit;
-    /** The day whose times/steps the check-in shows (a Schedule click); defaults to today. */
     day?: LocalDate;
-    /** Given outside Routines, so the panel can lead there. */
     onOpenInRoutines?: () => void;
     onClose: () => void;
     detailMode?: "peek" | "focus";
@@ -311,11 +305,10 @@ export function HabitEditor({
               ? `${habit.currentStreak} in a row`
               : `${habit.totalCompletions} check-ins`;
     const tagIds = habit.tagIds ?? [];
-    // Full only: what their own answers say it usually takes, and a "Took" row on any day marked done.
     const full = settings?.assistant?.memoryMode === "full";
     const guessOf = useDurationGuesser();
     const guess = full ? guessOf({ id: habit.id, title: habit.title, projectId: habit.projectId ?? null }) : null;
-    const typical = guess?.state === "supported" ? guess : null; // a tentative guess is not worth saying
+    const typical = guess?.state === "supported" ? guess : null;
     const checkLog = weekLogs.get(checkDay);
     const tookTimes =
         times && checkLog
@@ -572,7 +565,7 @@ export function HabitEditor({
                                             aria-label="Different times on some days"
                                             onCheckedChange={(on) => {
                                                 setDayTimesOpen(on);
-                                                if (!on && habit.targetTimes) update({ targetTimes: null }); // off means one time every day
+                                                if (!on && habit.targetTimes) update({ targetTimes: null });
                                             }}
                                         />
                                     </FieldRow>
@@ -597,7 +590,6 @@ export function HabitEditor({
                                     disabled={Boolean(habit.steps?.length) && !times}
                                     aria-label="Several times a day"
                                     onCheckedChange={(on) => {
-                                        // The usual time and times by day are kept underneath, so turning it off brings them back.
                                         const first = habit.targetTime ?? "09:00";
                                         update(
                                             on

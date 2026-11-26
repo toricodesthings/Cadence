@@ -1,9 +1,3 @@
-/**
- * Connected assistants (MCP): the Settings list, Disconnect, and the consent
- * page's request. Approving or declining returns a URL on the MCP origin that
- * the same browser must open next: the OAuth callback checks the cookie this
- * browser got when the assistant started connecting.
- */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { McpScope } from "@cadence/contracts/connections";
 import { useApiClient } from "../auth/use-api-client";
@@ -48,7 +42,6 @@ export function useConnectRequest(request: string | null) {
     });
 }
 
-/** Approve (with scopes) or decline; resolves to where the browser goes next. */
 export function useAnswerConnectRequest(request: string) {
     const client = useApiClient();
     const queryClient = useQueryClient();

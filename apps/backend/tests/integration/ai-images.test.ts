@@ -14,7 +14,6 @@ import { withRls } from "../../src/platform/rls";
 
 beforeAll(startTestDb);
 
-/** A still VP8L WebP of the given size (distinct sizes → distinct bytes → distinct hashes). */
 function webp(width = 2, height = 2): Uint8Array {
     const bits = ((width - 1) & 0x3fff) | (((height - 1) & 0x3fff) << 14);
     const payload = [0x2f, bits & 0xff, (bits >>> 8) & 0xff, (bits >>> 16) & 0xff, (bits >>> 24) & 0xff, 0, 0, 0];
@@ -23,7 +22,6 @@ function webp(width = 2, height = 2): Uint8Array {
     return new Uint8Array([0x52, 0x49, 0x46, 0x46, size, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, ...chunk]);
 }
 
-/** In-memory stand-in for the R2 binding (only what the routes use). */
 function createBucket() {
     const objects = new Map<string, Uint8Array>();
     return {
@@ -164,7 +162,6 @@ describe("chat images", () => {
         expect(await withRls(db, userId, (tx) => resolveTurnImages(tx, userId, conversationId, ids))).toEqual({
             newCount: 0,
         });
-        // Sent images belong to the thread: they can no longer be removed as a draft.
         expect((await apiAs(userId, "/ai/images", aiImageRoutes, env)("DELETE", `/${body.data.id}`)).status).toBe(404);
     });
 
@@ -186,7 +183,7 @@ describe("chat images", () => {
     it("deleting a conversation deletes its images, storage and rows", async () => {
         await withRls(getTestDb(), userId, (tx) => resolveOrCreateConversation(tx, userId, { conversationId }));
         await upload();
-        await upload(userId, webp(5, 5), crypto.randomUUID()); // another thread's image stays
+        await upload(userId, webp(5, 5), crypto.randomUUID());
 
         const res = await apiAs(userId, "/ai", aiRoutes, env)("DELETE", `/conversations/${conversationId}`);
 
@@ -198,7 +195,7 @@ describe("chat images", () => {
     it("clearing the archive deletes archived threads' images, storage and rows", async () => {
         await withRls(getTestDb(), userId, (tx) => resolveOrCreateConversation(tx, userId, { conversationId }));
         await upload();
-        await upload(userId, webp(5, 5), crypto.randomUUID()); // an active thread's image stays
+        await upload(userId, webp(5, 5), crypto.randomUUID());
         const ai = apiAs(userId, "/ai", aiRoutes, env);
         await ai("PATCH", `/conversations/${conversationId}`, { archived: true });
 

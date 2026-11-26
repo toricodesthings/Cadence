@@ -60,10 +60,8 @@ import { DAY_PILL, DAY_PILL_PLAIN, DAY_PILL_SUGGESTED, placeFields } from "./Cap
 import { toast } from "sonner";
 import { PendingMark } from "../shared/PendingMark";
 
-/** Explicit nulls: the server must not infer a day from the text. */
 const NO_DAY = { dueDate: null, scheduledStart: null, scheduledEnd: null };
 
-/** What the row shows: a capture (with the person's own edits) or the task it became. */
 function rowSubject(item: InboxItem | undefined, task: Task | undefined) {
     const overrides = item ? overridesOf(item) : undefined;
     return {
@@ -76,7 +74,6 @@ function rowSubject(item: InboxItem | undefined, task: Task | undefined) {
     };
 }
 
-/** Where Done puts it, as "List · Section". The chip skips a cue word's list: the words already say it. */
 function usePlacementChip(item: InboxItem | undefined, cueProjectId: string | null | undefined) {
     const placement = item ? placementFor(item, { cue: cueProjectId }) : null;
     const chip = item?.captureStatus !== "kept" && placement?.projectId !== cueProjectId ? placement : null;
@@ -109,7 +106,6 @@ type DayPillProps = {
     onPlace: (day: string) => void;
 };
 
-/** Place on a day, named the way the row says it. */
 function DayPill({ day, suggested = false, className = "", disabled, onPlace }: DayPillProps) {
     return (
         <Tip label={`Place on ${placementLabel(day)}`}>
@@ -137,7 +133,6 @@ type SideDayPillProps = {
     onPlace: (day: string) => void;
 };
 
-/** The day the words name; otherwise, on hover, the lightest day. */
 function SideDayPill({ detected, lightest, offerLightest, disabled, onPlace }: SideDayPillProps) {
     if (detected) return <DayPill day={detected} suggested disabled={disabled} onPlace={onPlace} />;
     if (!offerLightest) return null;
@@ -181,17 +176,11 @@ type RowMenuProps = {
     place: (when?: LocalDate | Instant, complete?: boolean) => void;
     moveToList: (projectId: string | null, sectionId: string | null) => void;
     discard: () => void;
-    /** The row's own capture actions, so a pending change disables the whole row. */
     status: ReturnType<typeof useCaptureActions>;
     subtaskUi: ReturnType<typeof useInlineSubtasks>;
     onToggleSelection?: () => void;
 };
 
-/**
- * The row's actions, for its ⋮ and its right-click menu alike: place it (today, tomorrow, a day, no day), file it in
- * a list, keep it as a note, add a subtask, select, discard. `closeMenu` exists only where the menu can be closed by
- * hand, so only there can a calendar (which isn't a menu item) pick a day.
- */
 function RowMenuItems({
     Menu,
     item,
@@ -291,7 +280,6 @@ function RowMenuItems({
     );
 }
 
-/** The row's ⋮. */
 function RowMenu({ title, ...props }: RowMenuProps) {
     const [menuOpen, setMenuOpen] = useState(false);
     return (
@@ -308,18 +296,13 @@ function RowMenu({ title, ...props }: RowMenuProps) {
                     </Button>
                 </Menu.Trigger>
             </Tip>
-            <Menu.Content
-                align="end"
-                // "Add subtask" focuses its input; handing focus back to ⋮ would blur and close it.
-                onCloseAutoFocus={(e) => props.subtaskUi.adding && e.preventDefault()}
-            >
+            <Menu.Content align="end" onCloseAutoFocus={(e) => props.subtaskUi.adding && e.preventDefault()}>
                 <RowMenuItems Menu={Menu} closeMenu={() => setMenuOpen(false)} {...props} />
             </Menu.Content>
         </Menu.Root>
     );
 }
 
-/** Right-click on a desktop shell opens the same actions; touch keeps long-press for selection. */
 function RowContextMenu({ children, title: _title, ...props }: RowMenuProps & { children: ReactElement }) {
     const shell = useShellMode();
     if (shell.isCompact) return children;
@@ -343,7 +326,6 @@ type CaptureRowProps = {
     onToggleSelection?: () => void;
     tabIndex?: number;
     onFocusRow?: () => void;
-    /** Narrow layouts (phone, board columns): the day pill drops under the title and the age hides. */
     stacked?: boolean;
 };
 
@@ -396,13 +378,10 @@ export function CaptureRow({
         }
         process.mutate(capturePayload(when, complete));
     };
-    /** Its own title, else the words without what they set (once they placed or tagged it). */
     const captureTitle = (when: LocalDate | Instant | undefined) =>
         overrides?.title ?? (when || parse.tagIds.length ? parse.cleanedTitle || title : title);
-    /** The list and section the capture goes to; none unless chosen. */
     const placedIn = () => ({ projectId: placement?.projectId ?? null, sectionId: placement?.sectionId ?? null });
     const dateStyle = settings?.dateTime.dateStyle ?? "mdy";
-    /** The capture as a task: its words read once, placed on `when` or explicitly on no day. */
     const capturePayload = (when: LocalDate | Instant | undefined, complete: boolean) => ({
         inboxItemId: object.id,
         rawText: item!.rawText,
@@ -410,7 +389,6 @@ export function CaptureRow({
         ...(when ? placeFields(when) : NO_DAY),
         ...placedIn(),
         tagIds: overrides?.tagIds ?? parse.tagIds,
-        // The model's reading of their words shows in Clarify, where it can be declined; Sort places only what the parser saw.
         priority: parse.priority,
         durationEstimate: parse.durationMinutes,
         waitingOn: parse.waitingOn,
@@ -421,7 +399,6 @@ export function CaptureRow({
     });
     const { data: lists = [] } = useEditableProjects();
     const { guard: guardSharedMove, dialog: sharedMoveDialog } = useMoveToSharedGuard(task ? "task" : "capture");
-    /** A thought becomes a task with no day in that list; a task just changes list. Either way it leaves Capture. */
     const moveToList = (projectId: string | null, sectionId: string | null) => {
         if (disabled || !projectId) return;
         const dest = lists.find((list) => list.id === projectId);
@@ -431,14 +408,12 @@ export function CaptureRow({
                 return;
             }
             const was = { projectId: task.projectId, sectionId: task.sectionId ?? null };
-            // Toasted now, not on success: the row leaves the feed at once, and a per-call callback dies with it.
             update.mutate({ id: task.id, projectId, sectionId });
             toastUndo(toastName(task.title), () => update.mutate({ id: task.id, ...was }), {
                 description: `In ${dest?.name ?? "a list"}`,
             });
         });
     };
-    /** A task dragged back to New becomes a thought again; the task goes to Trash, so Undo (or Trash) restores it whole. */
     const toThought = () => {
         if (disabled || !task) return;
         const captureId = newRowId();
@@ -513,7 +488,6 @@ export function CaptureRow({
         setTagOver(false);
         addTag(tagId);
     };
-    /** 1/2/3 place today, tomorrow or with no day; x ticks off; arrows and j/k move between rows. */
     const keyDown = (e: React.KeyboardEvent<HTMLElement>) => {
         if ((e.target as HTMLElement).closest("[role=menu]")) return;
         if (e.target !== e.currentTarget && !["1", "2", "3", "x"].includes(e.key)) return;
@@ -589,7 +563,6 @@ export function CaptureRow({
                     }}
                     className={rowClass(selected, tagOver)}
                 >
-                    {/* Side controls centre on the 44px title line, like task cards, so a tag line hangs below. */}
                     <div className="flex min-h-9 items-start gap-2">
                         <div className="flex h-11 shrink-0 items-center">
                             {task ? (
@@ -653,7 +626,6 @@ export function CaptureRow({
                                 />
                             )}
                         </div>
-                        {/* Age only once it means something; fresh rows stay quiet. */}
                         {!quiet && !stacked && ageDays >= 3 && (
                             <time
                                 className="min-w-9 shrink-0 whitespace-nowrap text-right text-xs leading-[2.75rem] tabular-nums text-twilight-text-muted"
@@ -668,15 +640,12 @@ export function CaptureRow({
                         </div>
                     </div>
                     {task && ((subtaskUi.open && subtasks.length > 0) || subtaskUi.adding) && (
-                        // Under the checkbox (w-8 at the px-4/sm:px-5 edge, centred on the 44px title line), down past the subtasks.
                         <span
                             aria-hidden="true"
                             className={`absolute bottom-3.5 left-8 top-[3.25rem] sm:left-9 ${SUBTASK_RAIL}`}
                         />
                     )}
                     {task && (
-                        // Below the whole row so it spans past the day pill and time; indented to the title (checkbox
-                        // w-8 + gap-2, plus the 14px ThoughtMark + gap-2). Stops row drag and row shortcuts in the list.
                         // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- pointer convenience; keyboard path is on the inner controls
                         <div
                             className={task.origin === "thought" ? "pl-[3.875rem]" : "pl-10"}

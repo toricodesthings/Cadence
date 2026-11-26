@@ -1,4 +1,3 @@
-/** find_time and the length hints, run as the assistant runs them: a read-only tool, and projections that omit what is absent. */
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiAs } from "../helpers/app";
 import { asOwner, createUser, startTestDb } from "../helpers/db";
@@ -29,7 +28,6 @@ beforeEach(async () => {
         today: "2026-10-19",
         weekStart: "Monday",
     }) as any;
-    // What the model receives: JSON, where an absent field is no key at all.
     run = async (name, args) =>
         JSON.parse(JSON.stringify(await tools[name].execute(args, { toolCallId: "t", messages: [] })));
 });
@@ -44,7 +42,7 @@ describe("find_time", () => {
             scheduledStart: "2026-10-20T13:00:00.000Z",
             scheduledEnd: "2026-10-20T14:30:00.000Z",
             zone: ZONE,
-        }); // 9:00–10:30 local
+        });
         const before = JSON.stringify((await tasks("GET", `/${target.id}`)).body.data);
 
         const found = await run("find_time", { taskId: target.id, day: "2026-10-20" });
@@ -72,7 +70,6 @@ describe("find_time", () => {
         for (const p of said.proposals) expect(Date.parse(p.end) - Date.parse(p.start)).toBe(45 * 60_000);
         expect(JSON.stringify((await tasks("GET", `/${bare.id}`)).body.data)).toBe(before);
 
-        // The task's own estimate beats what was said.
         const sized = (await tasks("POST", "", { title: "Quiz", orderIndex: 2, durationEstimate: 30 })).body.data;
         const own = await run("find_time", { taskId: sized.id, day: "2026-10-20", minutes: 90 });
         for (const p of own.proposals) expect(Date.parse(p.end) - Date.parse(p.start)).toBe(30 * 60_000);
@@ -97,7 +94,6 @@ describe("find_time", () => {
         const done = (await tasks("POST", "", { title: "Done", orderIndex: 2, state: "COMPLETE" })).body.data;
         expect(await run("find_time", { taskId: done.id, day: "2026-10-20" })).toMatchObject({ ok: false });
         expect(await run("find_time", { taskId: crypto.randomUUID(), day: "2026-10-20" })).toMatchObject({ ok: false });
-        // A day that has passed has no gap to offer.
         expect(await run("find_time", { taskId: target.id, day: "2026-10-18" })).toMatchObject({ ok: false });
     });
 });
@@ -123,11 +119,10 @@ describe("fit_day", () => {
                 scheduledEnd: "2026-10-19T16:00:00.000Z",
                 zone: ZONE,
             })
-        ).body.data; // 11:00–12:00
+        ).body.data;
 
         const fit = await run("fit_day", { day: "2026-10-19" });
         expect(fit.ok).toBe(true);
-        // Now is 10:00 local: the essay can't sit flush against class, so it goes after it.
         expect(fit.placed.map((p: any) => p.id)).toEqual([essay.id, email.id]);
         expect(fit.placed[0].start).toBe("2026-10-19T12:15:00-04:00");
         expect(fit.didntFit).toEqual([{ id: huge.id, title: "Thesis", minutes: 900 }]);
@@ -136,12 +131,35 @@ describe("fit_day", () => {
         expect((await tasks("GET", `/${essay.id}`)).body.data.scheduledStart).toBeNull();
     });
 
+    it("in a shared list, lays out only what's theirs and keeps clear of untaken blocks, not of others' (2.8.0)", async () => {
+        const owner = await createUser({ zone: ZONE });
+        const listId = crypto.randomUUID();
+        await sql("insert into projects (id, user_id, name) values ($1, $2, 'Our House')", [listId, owner]);
+        await sql("insert into list_members (list_id, user_id, role) values ($1, $2, 'edit')", [listId, userId]);
+        const add = async (title: string, takenBy: string | null, extra: Record<string, string> = {}) =>
+            (
+                await sql<{ id: string }>(
+                    `insert into tasks (user_id, project_id, title, order_index, due_on, duration_estimate, taken_by, scheduled_start, scheduled_end, zone)
+                     values ($1, $2, $3, 0, '2026-10-19', 30, $4, $5, $6, $7) returning id`,
+                    [owner, listId, title, takenBy, extra.start ?? null, extra.end ?? null, ZONE],
+                )
+            )[0].id;
+        const mine = await add("Dishes", userId);
+        await add("Laundry", owner);
+        await add("Groceries", null);
+        await add("Clean", null, { start: "2026-10-19T14:15:00.000Z", end: "2026-10-19T16:00:00.000Z" });
+        await add("Ada's call", owner, { start: "2026-10-19T16:00:00.000Z", end: "2026-10-19T18:00:00.000Z" });
+
+        const fit = await run("fit_day", { day: "2026-10-19" });
+        expect(fit.placed).toEqual([expect.objectContaining({ id: mine, start: "2026-10-19T12:15:00-04:00" })]);
+        expect([...fit.didntFit, ...fit.notSized]).toEqual([]);
+    });
+
     it("refuses a day that has passed", async () => {
         expect(await run("fit_day", { day: "2026-10-18" })).toMatchObject({ ok: false });
     });
 
     it("with through: one entry per day, carries what didn't fit (never past its deadline), offers undated tasks, and never goes past day+6", async () => {
-        // Monday is full from 10:15 on, so Tuesday's work and an undated task have to look further.
         await tasks("POST", "", {
             title: "Workshop",
             orderIndex: 1,
@@ -165,9 +183,7 @@ describe("fit_day", () => {
             "2026-10-24",
             "2026-10-25",
         ]);
-        // Due Monday: it stays a Monday "didn't fit", never moved past its deadline.
         expect(fit.days[0].didntFit.map((t: any) => t.id)).toContain(flexible.id);
-        // No deadline: carried to Tuesday and placed there.
         expect(fit.days[1].placed.map((p: any) => p.id)).toContain(loose.id);
         expect((await tasks("GET", `/${loose.id}`)).body.data.scheduledStart).toBeNull();
     });

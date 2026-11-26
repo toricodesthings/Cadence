@@ -16,7 +16,6 @@ import { getUserZone } from "../../lib/utils/user-zone";
 import { placeTagIdsFromCache } from "../../lib/utils/task/place-tags";
 import { useSettings } from "../core/use-settings";
 
-/** The row a new task shows as until the server answers (a create, or a capture placed as a task). */
 export function buildOptimisticTask(id: string, input: CreateTaskInput): Task {
     const {
         projectId = null,
@@ -74,7 +73,6 @@ export function buildOptimisticTask(id: string, input: CreateTaskInput): Task {
     };
 }
 
-/** Create a task with optimistic insertion into all active task caches */
 export function useCreateTask() {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -135,14 +133,12 @@ export function useCreateTask() {
             await taskCache.cancel(queryClient);
             const snapshot = taskCache.snapshot(queryClient);
 
-            // The optimistic row already has the id the server will keep.
             const optimisticTask = buildOptimisticTask(clientIdFor(input), input);
             if (settings?.tasks?.autoTag !== false)
                 optimisticTask.tagIds = [
                     ...new Set([...optimisticTask.tagIds, ...placeTagIdsFromCache(queryClient, optimisticTask)]),
                 ];
 
-            // Lists only (`["tasks", filters]`): seeding an empty detail or note key would leave a copy no server row reconciles.
             queryClient.setQueriesData<Task[]>(
                 { queryKey: queryKeys.tasks.all, predicate: (query) => typeof query.queryKey[1] === "object" },
                 (old) => transformListCache(old, (items) => [...items, optimisticTask], { initialize: true }),
@@ -152,7 +148,7 @@ export function useCreateTask() {
         },
 
         onSuccess: (task, input, context) => {
-            if (!task) return; // Queued offline
+            if (!task) return;
             if (input.effortOrigin) void queryClient.invalidateQueries({ queryKey: queryKeys.effortEvidence });
             if (isRecurringTask(task)) {
                 taskCache.invalidate(queryClient);

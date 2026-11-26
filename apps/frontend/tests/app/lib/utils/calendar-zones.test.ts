@@ -13,7 +13,6 @@ const timed = (id: string, scheduledStart: string, scheduledEnd: string) =>
 
 describe("calendar drops across the 2026-11-01 DST change (America/Toronto)", () => {
     it("an hour-slot drop lands at the slot's wall time on that day", () => {
-        // 09:30 on Nov 2 is EST (UTC-5); on Oct 30 it is EDT (UTC-4).
         expect(getDateFromTimedDropId(buildCalendarTimedDropId("2026-11-02", 9 * 60 + 30)).iso).toBe(
             "2026-11-02T14:30:00.000Z",
         );
@@ -23,14 +22,14 @@ describe("calendar drops across the 2026-11-01 DST change (America/Toronto)", ()
     });
 
     it("a timed block dropped on another day keeps its local time and length", () => {
-        const start = "2026-10-30T18:35:00.000Z"; // 14:35 EDT
+        const start = "2026-10-30T18:35:00.000Z";
         const end = "2026-10-30T19:35:00.000Z";
         const moved = rescheduleToDay(
             { dueDate: null, endDate: null, scheduledStart: start, scheduledEnd: end, zone: getUserZone() },
             "2026-11-02",
             getUserZone(),
         );
-        expect(moved.scheduledStart).toBe("2026-11-02T19:35:00.000Z"); // still 14:35, now EST
+        expect(moved.scheduledStart).toBe("2026-11-02T19:35:00.000Z");
         expect(moved.scheduledEnd).toBe("2026-11-02T20:35:00.000Z");
     });
 
@@ -44,8 +43,8 @@ describe("calendar drops across the 2026-11-01 DST change (America/Toronto)", ()
     });
 
     it("a weekly 14:35 series instance sits in the 14:35 slot before and after the change", () => {
-        const before = timed("a::2026-10-27", "2026-10-27T18:35:00.000Z", "2026-10-27T19:35:00.000Z"); // EDT
-        const after = timed("a::2026-11-03", "2026-11-03T19:35:00.000Z", "2026-11-03T20:35:00.000Z"); // EST
+        const before = timed("a::2026-10-27", "2026-10-27T18:35:00.000Z", "2026-10-27T19:35:00.000Z");
+        const after = timed("a::2026-11-03", "2026-11-03T19:35:00.000Z", "2026-11-03T20:35:00.000Z");
         const [layoutBefore] = buildTimedTaskLayouts([before]);
         const [layoutAfter] = buildTimedTaskLayouts([after]);
         expect(layoutBefore.top).toBe(layoutAfter.top);

@@ -21,7 +21,6 @@ import {
 
 type Notif = UserSettings["notifications"];
 
-/** One choice out of a few numbers, as chips: every option visible, one tap. */
 function ChipRow<T extends number>({
     value,
     options,
@@ -44,7 +43,6 @@ function ChipRow<T extends number>({
     );
 }
 
-/** Several of a few numbers at once, as toggle chips. */
 function MultiChips<T extends number>({
     value,
     options,
@@ -317,7 +315,6 @@ export function NotificationsTab() {
     const set = (patch: Partial<Notif>) => updateSettings.mutate({ notifications: patch });
     const { preferences: desktopPrefs } = useDesktopCommandPreferences();
     const [loginLaunchFailed, setLoginLaunchFailed] = useState(false);
-    // Windows' startup list can drift from the saved setting (turned off in Task Manager, an old registration).
     useEffect(() => {
         if (isWindowsDesktop() && desktopPrefs.backgroundDelivery)
             void syncLoginLaunch(true).then((ok) => setLoginLaunchFailed(!ok));
@@ -364,7 +361,6 @@ export function NotificationsTab() {
                         <span className="text-xs font-medium uppercase tracking-wider text-twilight-text-soft">
                             Upcoming
                         </span>
-                        {/* ponytail: no sender exists yet, so the switch is inert; wire notif.email when the summary ships */}
                         <Switch checked={false} disabled aria-label="Daily summary (upcoming)" />
                     </div>
                 </SettingsRow>

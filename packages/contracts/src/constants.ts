@@ -1,14 +1,8 @@
 import type { TaskPriority } from "./task";
 
-// Tier 2 — shared *semantic* constants (framework-neutral data only). Presentation
-// (Tailwind classes, icon names, CSS var names) stays in the consuming app and is
-// layered on top of these. See packages/AGENTS.md (Contracts › constants).
-
-/** Priority names (settings, typed words) in level order: the index is the `TaskPriority`. */
 export const TASK_PRIORITY_NAMES = ["none", "low", "medium", "high", "urgent"] as const;
 export type TaskPriorityName = (typeof TASK_PRIORITY_NAMES)[number];
 
-/** Human-readable label for each task priority level (0–4). */
 export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
     0: "None",
     1: "Low",
@@ -17,31 +11,26 @@ export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
     4: "Urgent",
 };
 
-/**
- * Canonical tag colour palette. `"default"` is the themeable sentinel; the rest
- * are raw hex values shared across every client.
- */
 export const TAG_PALETTE = [
     "default",
-    "#ff7b72", // red
-    "#d2a8ff", // purple
-    "#79c0ff", // blue
-    "#a5d6ff", // light blue
-    "#7ee787", // green
-    "#f2cc60", // yellow
-    "#ff9800", // orange
-    "#f472b6", // rose
-    "#fb923c", // coral
-    "#2dd4bf", // teal
-    "#22d3ee", // cyan
-    "#818cf8", // indigo
-    "#a3e635", // lime
-    "#e879f9", // fuchsia
-    "#38bdf8", // sky
+    "#ff7b72",
+    "#d2a8ff",
+    "#79c0ff",
+    "#a5d6ff",
+    "#7ee787",
+    "#f2cc60",
+    "#ff9800",
+    "#f472b6",
+    "#fb923c",
+    "#2dd4bf",
+    "#22d3ee",
+    "#818cf8",
+    "#a3e635",
+    "#e879f9",
+    "#38bdf8",
 ] as const;
 export type TagPaletteColor = (typeof TAG_PALETTE)[number];
 
-/** A name for each `TAG_PALETTE` entry, by index: what the assistant says and sends instead of hex. */
 export const TAG_COLOR_NAMES = [
     "default",
     "red",
@@ -62,7 +51,6 @@ export const TAG_COLOR_NAMES = [
 ] as const satisfies { length: (typeof TAG_PALETTE)["length"] };
 export type TagColorName = (typeof TAG_COLOR_NAMES)[number];
 
-/** Accent keys a list, routine or event can take (each client maps a key to its own colour). */
 export const ACCENT_COLORS = [
     "luminous-amber",
     "moonlit-blue",

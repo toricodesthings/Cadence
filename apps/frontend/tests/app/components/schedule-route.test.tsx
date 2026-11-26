@@ -49,6 +49,7 @@ vi.mock("../../../app/hooks/habits/use-virtual-habit-tasks", async (importOrigin
     useVirtualHabitTasks: () => [],
 }));
 vi.mock("../../../app/hooks/habits/use-habits", () => ({ useHabitsRange: () => ({ data: [] }) }));
+vi.mock("../../../app/hooks/sharing/use-load-share", () => ({ useLoadShare: () => () => 1 }));
 vi.mock("../../../app/hooks/core/use-settings", () => ({
     useSettings: () => ({ data: SETTINGS_DEFAULTS }),
     useUpdateSettings: () => ({ mutate: mocks.settings }),

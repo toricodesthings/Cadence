@@ -15,13 +15,11 @@ export const NOTIFICATION_STYLES: Record<AppNotification["kind"], { icon: typeof
     "personal-event": { icon: CalendarHeart, label: "Event" },
     system: { icon: BellRing, label: "Update" },
 };
-/** "5m", "3h", "2d": the distance in its largest whole unit (at least a minute). */
 function amountOf(mins: number) {
     if (mins < 60) return `${Math.max(1, mins)}m`;
     return mins < 1440 ? `${Math.floor(mins / 60)}h` : `${Math.floor(mins / 1440)}d`;
 }
 
-/** "In 5m", "Just now", "3h ago". */
 function relativeText(iso: string) {
     const diff = Date.now() - new Date(iso).getTime();
     const mins = Math.floor(Math.abs(diff) / 60_000);

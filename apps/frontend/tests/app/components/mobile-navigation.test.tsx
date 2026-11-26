@@ -23,7 +23,6 @@ vi.mock("../../../app/hooks/notifications/use-notification-center", () => ({
     useNotificationCenter: () => ({ hasUnread: true, unreadCount: 5 }),
 }));
 vi.mock("sonner", () => ({ toast: { error: state.error } }));
-// Sign-out forgets this device on the server first; a real call here reaches the network (and timed out on CI).
 vi.mock("../../../app/lib/notifications/device-delivery", () => ({ forgetThisDevice: state.forgetDevice }));
 
 beforeEach(() => {
@@ -96,7 +95,6 @@ describe("Compact navigation", () => {
     });
 
     describe("dock lens", () => {
-        // Five slots, 60px each: Capture, Schedule, orb, Routines, Browse.
         const slot = (el: Element, i: number) =>
             Object.assign(el, {
                 getBoundingClientRect: () => ({

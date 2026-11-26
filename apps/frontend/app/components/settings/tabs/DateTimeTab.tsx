@@ -16,19 +16,16 @@ import { formatInZone } from "@cadence/domain/time";
 import { dayHoursOf } from "@cadence/domain/find-time";
 import { formatWallTime } from "../../../lib/utils/date-format";
 
-/** Every IANA zone the runtime knows, "UTC" first (some runtimes leave it out of the list). */
 function listZones(): string[] {
     const all = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
     return ["UTC", ...all.filter((zone) => zone !== "UTC")];
 }
 
-/** "UTC-04:00" etc. for a zone at the given instant. */
 function zoneOffsetLabel(zone: string, atISO: string): string {
     const offset = formatInZone(atISO, zone, { timeZoneName: "shortOffset" }).split(", ").pop() ?? "";
     return offset.replace("GMT", "UTC") || "UTC+0";
 }
 
-/** "device" follows the device; an IANA name pins the zone. The row's description is a live clock in the chosen zone. */
 function TimezoneRow({ value, onChange }: { value: string; onChange: (value: string) => void }) {
     const device = deviceZone();
     const now = useMinuteClock().toISOString(); // time-ok: the current instant, shown in the chosen zone
@@ -85,7 +82,6 @@ const VIEW: ReadonlyArray<SegmentedOption<NonNullable<Calendar["defaultView"]>>>
     { value: "day", label: "Day" },
 ];
 const HOURS = Array.from({ length: 24 }, (_, hour) => String(hour));
-/** 1 AM through midnight (24). */
 const END_HOURS = Array.from({ length: 24 }, (_, hour) => String(hour + 1));
 const hourLabel = (hour: string) => (hour === "24" ? "Midnight" : formatWallTime(`${hour.padStart(2, "0")}:00`));
 
@@ -111,7 +107,6 @@ const segment = <T extends string>(
     onChange: (value: T) => void,
 ) => <SegmentedControl ariaLabel={label} className="max-w-full" value={value} options={options} onChange={onChange} />;
 
-/** Which kinds the calendar shows; each is on unless switched off. */
 function clutterShown(clutter: Partial<Calendar["clutter"]>) {
     return {
         showAllDay: clutter.showAllDay ?? true,
@@ -121,7 +116,6 @@ function clutterShown(clutter: Partial<Calendar["clutter"]>) {
     };
 }
 
-/** "Ontario, Canada · OpenHolidays": the holiday region and where its holidays come from. */
 function regionNoteOf(overlay: { regionLabel?: string | null; source?: keyof typeof HOLIDAY_SOURCE_LABELS | null }) {
     const source = overlay.source ? ` · ${HOLIDAY_SOURCE_LABELS[overlay.source]}` : "";
     return `${overlay.regionLabel ?? "Region unknown"}${source}`;
@@ -148,7 +142,6 @@ export function DateTimeTab() {
     const setCalendar = (patch: DeepPartial<Calendar>) => updateSettings.mutate({ calendar: patch });
     const setClutter = (patch: DeepPartial<Calendar["clutter"]>) => setCalendar({ clutter: patch });
 
-    /** One line: title, an optional note, and a switch (with an extra button beside it). */
     const toggle = (
         title: string,
         checked: boolean,

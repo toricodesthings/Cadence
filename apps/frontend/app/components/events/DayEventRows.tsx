@@ -8,7 +8,6 @@ export interface DayEvent {
     dateLabel?: string | null;
 }
 
-/** A day's events above its tasks (list sections and board columns) as slim all-day rows, with no checkbox so they never read as tasks. */
 export function DayEventRows({ events, className = "" }: { events: DayEvent[]; className?: string }) {
     const navigate = useNavigate();
     if (events.length === 0) return null;

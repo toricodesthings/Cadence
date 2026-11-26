@@ -3,7 +3,6 @@ import { Tip } from "../primitives";
 import { PhonePageHeader } from "../layout/PageHeader";
 import { STEPS, type StepNavProps } from "./WeeklyResetSidebar";
 
-/** Without the sidebar: Back, the step's name and count (Welcome keeps its own hero), the way out, and tappable progress. */
 export function CompactStepHeader({
     currentStep,
     counts,

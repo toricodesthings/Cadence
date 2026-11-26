@@ -23,7 +23,6 @@ import { cn } from "../../lib/utils";
 
 const DAYS_SHOWN = 14;
 
-/** The day as a bar from the calendar's first hour to the day's end: other blocks muted, the proposal as a ghost of the block that would be made. */
 function MiniDay({
     day,
     hours,
@@ -43,7 +42,6 @@ function MiniDay({
         const [h, m] = wallTimeOf(instant, zone).split(":").map(Number);
         return Math.min(Math.max(((h * 60 + m - from) / span) * 100, 0), 100);
     };
-    // A block that crosses midnight or the window's edge is clipped, never drawn outside the bar.
     const bar = (start: string, end: string) => {
         const left = at(start);
         const right =
@@ -79,11 +77,6 @@ function MiniDay({
     );
 }
 
-/**
- * Find a time, in full: for Other day, or when the day has no gap. A strip of the next two weeks, the day's first gap
- * drawn on a small timeline with Place here, and Another time to step through the rest. The sheet on a phone, a dialog
- * with a mouse (the shared Dialog does the switching). Nothing is written until Place here.
- */
 export function FindTimeSheet() {
     const request = useFindTimeStore((s) => s.request);
     const close = useFindTimeStore((s) => s.close);
@@ -135,7 +128,6 @@ function SheetBody({
     const [editingLength, setEditingLength] = useState(false);
     const [before] = useState(() => temporalOf(task));
 
-    // The day's gaps, again whenever the day or the task's own length changes.
     useEffect(() => {
         let current = true;
         setPlan(null);
@@ -191,9 +183,8 @@ function SheetBody({
             );
             onClose();
         } catch (error) {
-            setPlacing(false); // any other failure said why itself
+            setPlacing(false);
             if (statusOf(error) === 409) {
-                // The calendar changed elsewhere: say so and look at the day again.
                 toastError(error, "Couldn't place it");
                 setPlan(await find.planFor(task, day));
                 setIndex(0);

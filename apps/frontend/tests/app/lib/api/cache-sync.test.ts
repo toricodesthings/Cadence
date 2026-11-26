@@ -34,7 +34,6 @@ describe("reconcileTaskInCaches day windows", () => {
         queryClient.setQueryData(week, []);
 
         reconcileTaskInCaches(queryClient, makeTask({ id: "a", dueDate: "2026-03-29" }));
-        // 02:30 UTC on the 30th is still the 29th in Toronto (EDT).
         reconcileTaskInCaches(
             queryClient,
             makeTask({ id: "b", scheduledStart: "2026-03-30T02:30:00.000Z", zone: "America/Toronto" }),

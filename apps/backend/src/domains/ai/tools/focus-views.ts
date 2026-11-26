@@ -38,16 +38,11 @@ const filtersSchema = z.object({
     sortMode: d.sortMode.optional().describe("smart (date first), priority or manual."),
 });
 
-/**
- * A stored definition read leniently: missing keys take the defaults and keys the
- * schema doesn't know (older views) are dropped. Undefined when it still can't be read.
- */
 export function readFocusView(definition: unknown): FocusViewDefinitionInput | undefined {
     const parsed = focusViewDefinitionSchema.safeParse({ ...DEFAULT_DEFINITION, ...(definition as object | null) });
     return parsed.success ? parsed.data : undefined;
 }
 
-/** A view row for the model: its name, pin and only the filters it sets. */
 export function toMinimalFocusView(row: { id: string; name: string; isPinned: boolean; definition: unknown }) {
     const parsed = readFocusView(row.definition);
     const filters = parsed
@@ -74,7 +69,6 @@ export const focusViewTools = (env: Env, userId: string, _ctx: AgentContext) => 
     };
 
     return {
-        // ── R ──────────────────────────────────────────────────────────────────
         get_focus_views: tool({
             description:
                 "The user's saved focus views (named task filters on Today, Upcoming, lists and Capture), pinned first, " +
@@ -104,7 +98,6 @@ export const focusViewTools = (env: Env, userId: string, _ctx: AgentContext) => 
                 }),
         }),
 
-        // ── W ──────────────────────────────────────────────────────────────────
         save_focus_view: tool({
             description:
                 "Saves a focus view. Without focusViewId it makes a new one from a name and the filters it sets (the rest stay open). " +
@@ -163,7 +156,6 @@ export const focusViewTools = (env: Env, userId: string, _ctx: AgentContext) => 
                 ),
         }),
 
-        // ── D ──────────────────────────────────────────────────────────────────
         delete_focus_view: tool({
             description: "Deletes a focus view (a built-in preset is hidden instead); no task changes. Echo the name.",
             inputSchema: z.object({ focusViewId: z.uuid(), name: z.string().max(120) }),

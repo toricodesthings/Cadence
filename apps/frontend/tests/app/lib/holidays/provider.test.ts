@@ -3,7 +3,6 @@ import { fetchHolidays, fetchHolidaySubdivisions } from "../../../../app/lib/hol
 
 const fetchMock = vi.fn();
 
-// The real RPC client, over a fake fetch: the test sees the URL it builds.
 vi.mock("../../../../app/lib/api/client", async () => {
     const { hc } = await import("hono/client");
     const { api } = hc<import("@cadence/backend").AppType>("http://api.test", {

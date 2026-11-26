@@ -28,7 +28,6 @@ interface AddTaskInputProps {
     tasks: Task[];
 }
 
-/** Whether typed words are read, and how dates are written. */
 function wordsSettings(userSettings: ReturnType<typeof useSettings>["data"]) {
     const intelligence = userSettings?.tasks?.intelligence;
     return {
@@ -37,7 +36,6 @@ function wordsSettings(userSettings: ReturnType<typeof useSettings>["data"]) {
     };
 }
 
-/** What the user set by hand beats the words: a key that is present wins, even when it is "none". */
 function manualFields(
     project: string | null | undefined,
     tags: string[] | undefined,
@@ -55,7 +53,6 @@ function manualFields(
     };
 }
 
-/** Input field for quick task creation — submits on Enter, optimistic insert */
 export function AddTaskInput({ projectId, sectionId, tasks, compact = false, placeholder }: AddTaskInputProps) {
     const [value, setValue] = useState("");
     const [isFocused, setIsFocused] = useState(false);
@@ -66,7 +63,6 @@ export function AddTaskInput({ projectId, sectionId, tasks, compact = false, pla
     const choices = useDraftChoices();
     const { dismissed, accepted, literal } = choices;
     const [deadline, setDeadline] = useState<ScheduleUpdates | null>(null);
-    // No Effort control here: the only Effort an inline add sets is a suggestion the person used.
     const [effort, setEffort] = useState<EffortLevel>(null);
     const [effortDismissed, setEffortDismissed] = useState(false);
     const submitting = useRef(false);
@@ -80,7 +76,6 @@ export function AddTaskInput({ projectId, sectionId, tasks, compact = false, pla
     const manual = manualFields(manualProject, manualTags, deadline);
     const parsedInput = useNlpParse({
         input: value,
-        // Inside a list the list is fixed, so list names stay words in the title (as in the task composer).
         projects: projectId ? [] : projects,
         tags,
         dismissedEntityIds: dismissed,
@@ -152,7 +147,6 @@ export function AddTaskInput({ projectId, sectionId, tasks, compact = false, pla
 
     const handleSubmit = async () => {
         if (!value.trim() || submitting.current) return;
-        // Enter saves what is on screen; only a still-loading parser makes it wait (then re-reads the same text).
         if (parsedInput.ready) return save(parsedInput);
         submitting.current = true;
         try {

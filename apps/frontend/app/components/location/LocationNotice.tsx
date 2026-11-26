@@ -2,11 +2,6 @@ import { useNavigate } from "react-router";
 import { LocateFixed, MapPin, X } from "lucide-react";
 import { useUserLocation } from "../../hooks/environment/use-user-location";
 
-/**
- * A one-time, non-blocking note that weather and holidays use an approximate
- * location. Every button here, closing it included, is saved to settings, so it
- * never comes back on this device or any other.
- */
 export function LocationNotice() {
     const location = useUserLocation();
     const navigate = useNavigate();

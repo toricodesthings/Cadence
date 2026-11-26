@@ -69,12 +69,6 @@ function SectionHeading({ label, onAdd, addLabel }: { label: string; onAdd: () =
     );
 }
 
-/**
- * Capture's workspace menu (§4.5). Compact shells have no sidebar, so the
- * places you *filter* work from — Today, Upcoming, Projects, Tags — live behind
- * a leading menu control on Capture instead of being scattered into Browse,
- * which keeps the settings-shaped destinations.
- */
 export function WorkspaceMenuSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
     const navigate = useNavigate();
     const { count: captureCount } = useCaptureFeed();
@@ -181,7 +175,6 @@ export function WorkspaceMenuSheet({ open, onClose }: { open: boolean; onClose: 
             onBack={view === "menu" ? undefined : () => setView("menu")}
             backLabel="Back to workspace"
         >
-            {/* Creating swaps the sheet's page instead of stacking a dialog on it. */}
             <motion.div
                 key={view}
                 initial={{ opacity: 0, x: reduceMotion ? 0 : view === "menu" ? -40 : 40 }}

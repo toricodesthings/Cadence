@@ -44,14 +44,12 @@ export const webRuntime = {
             tag: notification.tag,
             data: { route: notification.route ?? "/" },
         };
-        // Installed apps and phones only notify through the service worker (sw.js routes the tap).
         const registration = await readyRegistration(3_000);
         if (registration) {
             await registration.showNotification(notification.title, options);
             return;
         }
 
-        // No worker (a dev build, a blocked worker): the constructor works on desktop browsers and throws elsewhere.
         const browserNotification = new Notification(notification.title, options);
         browserNotification.onclick = () => window.focus();
         window.setTimeout(() => browserNotification.close(), 8_000);
@@ -86,7 +84,7 @@ export const webRuntime = {
         });
     },
     async platformFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-        return fetch(input, init); // nosemgrep
+        return fetch(input, init);
     },
     checkForAppUpdate(): Promise<AvailableAppUpdate | null> {
         return Promise.resolve(null);
@@ -94,7 +92,5 @@ export const webRuntime = {
     getNativeStore() {
         return Promise.resolve(null);
     },
-    async resizeWindow() {
-        // No-op for web
-    },
+    async resizeWindow() {},
 };

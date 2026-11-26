@@ -3,12 +3,6 @@ import { Check, ChevronLeft, X } from "lucide-react";
 import { ResponsiveOverlayPanel } from "./ResponsiveOverlayPanel";
 import { Tip } from "../primitives/Tooltip";
 
-/**
- * The one compact sheet layout: drag handle + backdrop + focus trap come from
- * `ResponsiveOverlayPanel`, and this adds the header, an optional band under it,
- * the scroll region and a pinned footer. Every mobile panel goes through here so
- * headings, close affordances and spacing stay identical (§4.5).
- */
 export function UtilitySheet({
     title,
     subtitle,
@@ -29,13 +23,9 @@ export function UtilitySheet({
     center,
 }: {
     title: string;
-    /** Secondary line under the heading. */
     subtitle?: ReactNode;
-    /** Replaces the heading row content — used by search, which needs an input there. */
     header?: ReactNode;
-    /** Sits between the header and the scroll region, e.g. a segmented chooser. */
     band?: ReactNode;
-    /** Pinned under the scroll region, e.g. Cancel / submit. */
     footer?: ReactNode;
     open: boolean;
     onClose: () => void;
@@ -43,15 +33,11 @@ export function UtilitySheet({
     backLabel?: string;
     children: ReactNode;
     scrollable?: boolean;
-    /** Drops the body padding and width cap for children that own their own layout. */
     flush?: boolean;
     mode?: "peek" | "focus";
-    /** Short sheets: height follows the content instead of the tall default. */
     fit?: boolean;
     layer?: "route" | "room";
-    /** The sheet's one primary action: a ✓ at the header's right, opposite the X (no bottom Cancel/submit). */
     confirm?: { label: string; onConfirm: () => void; disabled?: boolean };
-    /** Takes the heading's place between X and ✓, e.g. a type switcher (the heading stays for screen readers). */
     center?: ReactNode;
 }) {
     const scroll = useRef<HTMLDivElement>(null);
@@ -64,7 +50,6 @@ export function UtilitySheet({
             });
     }, [title, open, header]);
 
-    // X leads (the back chevron takes its place when there is one); the ✓, if any, sits opposite.
     const closeButton = (
         <Tip label="Close">
             <button
@@ -107,7 +92,6 @@ export function UtilitySheet({
                         closeButton
                     )}
                     {header ?? (
-                        // The heading sits centred between the header's controls, the way iOS does.
                         <div className="min-w-0 flex-1 text-center">
                             <h2
                                 ref={heading}
@@ -128,11 +112,9 @@ export function UtilitySheet({
                         </div>
                     )}
                     {onBack ? closeButton : null}
-                    {/* X alone: an empty twin on the right keeps the heading truly centred. */}
                     {!onBack && !confirm && !header ? <span aria-hidden="true" className="size-11 shrink-0" /> : null}
                     {confirm ? (
                         <Tip label={confirm.label}>
-                            {/* Keeps focus in the field, like the footer: a blur would drop the keyboard mid-tap. */}
                             <button
                                 type="button"
                                 className="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full accent-fill disabled:cursor-not-allowed disabled:opacity-40"
@@ -165,8 +147,6 @@ export function UtilitySheet({
                 )}
             </div>
 
-            {/* A footer button keeps focus in the field: a blur would close the keyboard and move the footer
-            out from under the finger before the tap lands. */}
             {footer ? (
                 // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- pointer convenience; keyboard path is on the inner controls
                 <div

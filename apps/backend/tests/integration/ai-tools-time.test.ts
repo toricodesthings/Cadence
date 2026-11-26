@@ -1,8 +1,3 @@
-/**
- * The assistant's read tools, run against the real database for a user in
- * Toronto at 10:30 PM on Monday 2026-09-21 — when the UTC date is already the
- * 22nd. "Today" must mean the user's day, and times must read as local.
- */
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { asSchema } from "ai";
 import { addDays } from "@cadence/domain/time";
@@ -40,17 +35,14 @@ beforeEach(async () => {
     }) as any;
     run = (name, args) => tools[name].execute(args, { toolCallId: "t", messages: [] });
     snapshot = () => loadSnapshot(tools, clock.today);
-    // Timed, 9:00 PM Monday local (01:00 UTC Tuesday) — today for the user.
     await tasks("POST", "", {
         title: "Late call",
         orderIndex: 1,
         scheduledStart: "2026-09-22T01:00:00.000Z",
         scheduledEnd: "2026-09-22T01:30:00.000Z",
     });
-    // All-day Monday and all-day Tuesday.
     await tasks("POST", "", { title: "Pay rent", orderIndex: 2, dueDate: "2026-09-21" });
     await tasks("POST", "", { title: "Tomorrow thing", orderIndex: 3, dueDate: "2026-09-22" });
-    // Timed, 9:00 AM Tuesday local.
     await tasks("POST", "", {
         title: "Standup",
         orderIndex: 4,
@@ -196,8 +188,6 @@ describe("assistant reads leave out what isn't on the user's plate", () => {
     });
 });
 
-// ── One day on every surface (plan 0.26.3 §6.2) ─────────────────────────────
-
 describe("the same fixtures land on the same day on every surface", () => {
     const ZONE = "America/Toronto";
     let userId: string;
@@ -211,7 +201,6 @@ describe("the same fixtures land on the same day on every surface", () => {
     });
     afterEach(() => vi.useRealTimers());
 
-    /** The assistant's tools for a user whose clock reads `nowIso`, built the way the route builds them (zone from users.time_zone). */
     const assistant = (nowIso: string) => {
         const c = userClock(ZONE, nowIso);
         const tools = buildToolRegistry({} as any, userId, {
@@ -230,7 +219,6 @@ describe("the same fixtures land on the same day on every surface", () => {
     const restDay = async (from: string, to = from) => (await rest("GET", `?from=${from}&to=${to}`)).body.data as any[];
     const names = (rows: { title: string }[]) => [...new Set(rows.map((r) => r.title))].sort();
 
-    /** A one-off all-day task (the COMP3000 case) and a timed block at 11:30 PM local, both on Monday 2026-10-05. */
     const mondayFixtures = async () => {
         await post({ title: "COMP3000 assignment", dueDate: "2026-10-05" });
         await post({
@@ -257,7 +245,6 @@ describe("the same fixtures land on the same day on every surface", () => {
         );
         expect(names((await ai.snapshot()).schedule.tasks)).toEqual(expectedToday);
 
-        // Monday itself reads the same everywhere, whatever the clock says.
         expect(names(await restDay("2026-10-05"))).toEqual(onMonday);
         expect(names((await ai.run("get_tasks", { from: "2026-10-05", to: "2026-10-05", limit: 20 })).tasks)).toEqual(
             onMonday,
@@ -266,7 +253,6 @@ describe("the same fixtures land on the same day on every surface", () => {
             names((await ai.run("get_schedule_window", { start: "2026-10-05", end: "2026-10-05", limit: 50 })).tasks),
         ).toEqual(onMonday);
 
-        // Overdue is "dated before the user's today": the same set REST gives for effectiveOnOrBeforeDate.
         const overdue = today === "2026-10-05" ? [] : onMonday;
         expect(names((await ai.run("get_tasks", { dueWindow: "overdue", limit: 20 })).tasks)).toEqual(overdue);
         const upTo = (await rest("GET", `?effectiveOnOrBeforeDate=${addDays(today, -1)}`)).body.data;
@@ -333,7 +319,6 @@ describe("the same fixtures land on the same day on every surface", () => {
         });
         await post({ title: "Day before", scheduledStart: "2026-10-31T23:30:00-04:00" });
         await post({ title: "Day after", scheduledStart: "2026-11-02T00:30:00-05:00" });
-        // Thursdays 14:35 Toronto, first on Oct 29 (EDT); Nov 5 is EST.
         const lecture = await post({
             title: "COMP3005 lecture",
             scheduledStart: "2026-10-29T14:35:00-04:00",
@@ -353,7 +338,6 @@ describe("the same fixtures land on the same day on every surface", () => {
             "Late",
         ]);
 
-        // The series reads in local time with the offset; the REST instants are covered in tasks.test.
         const window = (
             await ai.run("get_schedule_window", { start: "2026-10-26", end: "2026-11-08", limit: 50 })
         ).tasks.filter((t: any) => t.title === "COMP3005 lecture");
@@ -404,6 +388,6 @@ describe("the same fixtures land on the same day on every surface", () => {
         expect(moved).toMatchObject({
             scheduledStart: "2026-11-02T19:35:00.000Z",
             scheduledEnd: "2026-11-02T20:55:00.000Z",
-        }); // 14:35-15:55 EST
+        });
     });
 });

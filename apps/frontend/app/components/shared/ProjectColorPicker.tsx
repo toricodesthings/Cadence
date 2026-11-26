@@ -2,7 +2,6 @@ import { Tip } from "../primitives/Tooltip";
 import { EmojiPickerPopover } from "./EmojiPickerPopover";
 import { PROJECT_ACCENT_OPTIONS, PROJECT_FALLBACK_COLOR } from "../../lib/constants/colors";
 
-/** A list's colour: the named accents, or any hex through the native picker (a hex value means "custom"). */
 export function ProjectColorPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
     const isCustom = value.startsWith("#");
     return (
@@ -42,7 +41,6 @@ export function ProjectColorPicker({ value, onChange }: { value: string; onChang
     );
 }
 
-/** A list's look and name, as creating and editing a list both ask for it: emoji, name, then colour. */
 export function ListIdentityFields({
     emoji,
     onEmoji,

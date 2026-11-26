@@ -1,28 +1,21 @@
 import type { LinkedAppId } from "@cadence/contracts/app-link";
 import type { AppCategory } from "@cadence/nlp/app-suggestions";
 
-/** Where one tap goes. `opens` is what the tap is allowed to claim: a custom scheme or a website. */
 export interface AppRoute {
     href: string;
     opens: "app" | "website";
-    /** True once the destination is proven: exercised on a device, documented by the vendor, or the app's long-standing scheme. */
     verified: boolean;
 }
 
 export interface AppEntry {
     id: LinkedAppId;
     label: string;
-    /** Fixed, never derived from the label: the tile beside the full name. */
     initials: string;
     category: AppCategory;
-    /** Other names someone types for it. Never a bare word ("mail", "notes") that a title uses for the act itself. */
     aliases: readonly string[];
-    /** Words that describe what it is for, beyond its category. */
     terms: readonly string[];
     routes: {
-        /** iPhone and iPad (installed app or browser tab): the app's own scheme, opening its home screen. */
         ios?: AppRoute;
-        /** Everywhere else, desktop included: the HTTPS destination, never a title or identity in the URL. */
         web?: AppRoute;
     };
 }
@@ -44,17 +37,6 @@ export const CATEGORY_LABEL: Record<AppCategory, { purpose: string; heading: str
 const app = (href: string): AppRoute => ({ href, opens: "app", verified: true });
 const web = (href: string): AppRoute => ({ href, opens: "website", verified: true });
 
-/**
- * The supported destinations, not what is installed. iPhone schemes, by evidence:
- * - exercised on the owner's iPhone PWA: mfp
- * - vendor-documented: comgooglemaps (Google Maps URL scheme), spotify (Spotify iOS content linking),
- *   slack://open (Slack deep linking), zoomus (Zoom Meeting SDK), shortcuts (Apple Shortcuts guide),
- *   obsidian://open (Obsidian URI)
- * - long-standing and widely relied on: googlegmail, ms-outlook, googlecalendar, youtube, notion, whatsapp,
- *   msteams, and Apple's message, calshow, maps, music, mobilenotes, x-apple-health
- * A new candidate goes in with `verified: false` (shown only in dev and VITE_SHOW_UNVERIFIED_APPS builds)
- * until it is proven.
- */
 export const APP_CATALOG: readonly AppEntry[] = [
     {
         id: "apple-calendar",
@@ -240,5 +222,4 @@ export const APP_CATALOG: readonly AppEntry[] = [
 
 const BY_ID = new Map<string, AppEntry>(APP_CATALOG.map((entry) => [entry.id, entry]));
 
-/** The entry for a stored id, or undefined for an id this build doesn't know. */
 export const appEntry = (id: string | null | undefined): AppEntry | undefined => (id ? BY_ID.get(id) : undefined);

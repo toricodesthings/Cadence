@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../../../
 import { Toaster } from "../../../app/components/feedback/Toaster";
 import { ResponsiveOverlayPanel } from "../../../app/components/shared/ResponsiveOverlayPanel";
 
-// jsdom has no pointer capture; Sonner's swipe handling calls it on pointer down.
 Element.prototype.setPointerCapture ??= () => {};
 vi.mock("../../../app/hooks/core/use-settings", () => ({
     useSettings: () => ({ data: { appearance: { motion: "reduced" } } }),
@@ -49,20 +48,16 @@ describe("Toaster over an open dialog", () => {
         const button = await screen.findByRole("button", { name: "Undo" });
         const host = document.querySelector<HTMLElement>("[data-cadence-toaster]")!;
 
-        // Radix sets body to pointer-events: none; the toaster has to opt back in.
         expect(document.body.style.pointerEvents).toBe("none");
         expect(host.style.pointerEvents).toBe("auto");
 
-        // Not hidden from assistive tech.
         expect(host.closest("[aria-hidden='true']")).toBeNull();
 
-        // A tap on the toast is not "outside" the dialog.
         fireEvent.pointerDown(button);
         await new Promise((resolve) => setTimeout(resolve, 20));
         expect(onClose).not.toHaveBeenCalled();
         expect(screen.getByRole("dialog")).toBeTruthy();
 
-        // Keyboard focus moved into the toaster is not pulled back into the dialog.
         act(() => button.focus());
         await new Promise((resolve) => setTimeout(resolve, 20));
         expect(document.activeElement).toBe(button);

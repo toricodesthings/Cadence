@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { formatHex, interpolate, parse, wcagContrast, type Rgb } from "culori/fn";
-import "../../../../app/lib/themes/background-tokens"; // registers culori modes
+import "../../../../app/lib/themes/background-tokens";
 import { ACCENT_PALETTES } from "../../../../app/lib/themes/accent-palettes";
 
 const SURFACES = {
@@ -11,7 +11,6 @@ const SURFACES = {
 };
 const css = readFileSync(join(process.cwd(), "app/app.css"), "utf8");
 
-/** The declarations of the first `[data-palette="id"]` block (or its daylight twin). */
 function block(id: string, theme: "twilight" | "daylight"): string {
     if (id === "lantern") return "";
     const head = theme === "daylight" ? `[data-theme="daylight"][data-palette="${id}"]` : `[data-palette="${id}"]`;
@@ -47,12 +46,10 @@ describe.each(ACCENT_PALETTES)("$id palette", (palette) => {
     }
 });
 
-/** What a theme's floating glass and accent fill sit on: panel-raised, menu text, the worst solid backdrop. */
 const THEMES = {
     twilight: { panel: "#0f1d32", text: "#b8c5d4", opposite: "#ffffff" },
     daylight: { panel: "#ece8e2", text: "#475569", opposite: "#111111" },
 };
-/** A custom property's value in the first rule whose selector is exactly `selector`. */
 function token(selector: string, prop: string): string {
     const re = new RegExp(`(^|\\n)${selector.replace(/[[\]().*"=]/g, "\\$&")} \\{[^}]*--${prop}: ([^;]+);`);
     const match = css.match(re);
@@ -60,7 +57,6 @@ function token(selector: string, prop: string): string {
     return match[2].trim();
 }
 const rgb = (hex: string) => parse(hex) as Rgb;
-/** `top` at `alpha` over `under`, where the backdrop has been through brightness(`k`). */
 function over(top: string, alpha: number, under: string, k: number): string {
     const a = rgb(top);
     const b = rgb(under);
@@ -100,7 +96,6 @@ describe("floating glass legibility", () => {
 });
 
 describe("accent-fill", () => {
-    // The hover lift, the lightest the fill gets.
     const lift = { twilight: 0.2, daylight: 0.12 };
     it("lifts by the amounts this test checks", () => {
         expect(css.replace(/\s+/g, "")).toContain("&:hover{--fill-lift:20%;}");

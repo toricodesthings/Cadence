@@ -19,7 +19,6 @@ export function useWorkspaceSync() {
             setLastSyncedAt(new Date());
             toast.success("Everything is up to date.");
             if (IS_DESKTOP_RUNTIME) {
-                // Same check as startup; a failed check stays quiet since the sync itself worked.
                 void checkForAppUpdate()
                     .then((update) => {
                         publishAvailableDesktopUpdate(update);

@@ -10,13 +10,6 @@ import { rescheduleToDay } from "@cadence/domain/task-temporal";
 import { blockEnd, dayOfInstant, formatShortDate, fromTimeValue, toTimeValue } from "../../lib/utils/date-format";
 import { getUserZone } from "../../lib/utils/user-zone";
 
-/**
- * Direct editor for recurring timetable blocks (Fixed).
- * The generic schedule popover only edits the anchor date and start time —
- * this surface owns the block's start time, end time and repeat weekdays so
- * mistakes (e.g. 3:55 AM instead of PM) are one tap to fix.
- */
-
 const DAY_ORDER = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
 const DAY_LETTERS = ["M", "T", "W", "T", "F", "S", "S"] as const;
 
@@ -33,10 +26,8 @@ function joinRuleParts(parts: RRulePart[]): string {
     return parts.map(([key, value]) => `${key}=${value}`).join(";");
 }
 
-/** The block's end for a chosen end time: on the start's day, rolling to the next day when the block crosses midnight. */
 function alignEndToStart(startIso: Instant, endTime: WallTime): Instant {
     const day = dayOfInstant(startIso);
-    // Same time as the start means a zero-length block, not 24h: push it an hour out.
     if (fromTimeValue(day, endTime) === startIso) return new Date(Date.parse(startIso) + 60 * 60 * 1000).toISOString();
     return blockEnd(day, startIso, endTime);
 }
@@ -131,7 +122,6 @@ function EndControl({
 
 type RuleParts = ReturnType<typeof parseRuleParts>;
 
-/** How often it repeats, and its days: a weekly rule without BYDAY repeats on the anchor's weekday. */
 function repeatDaysOf(ruleParts: RuleParts | null, scheduledStart: Instant | null | undefined) {
     const freq = ruleParts?.find(([key]) => key === "FREQ")?.[1] ?? null;
     const explicitDays =
@@ -139,16 +129,14 @@ function repeatDaysOf(ruleParts: RuleParts | null, scheduledStart: Instant | nul
             ?.find(([key]) => key === "BYDAY")?.[1]
             ?.split(",")
             .filter(Boolean) ?? null;
-    // A weekly rule without BYDAY repeats on the anchor's weekday — show it as the active chip.
     const anchorDay = scheduledStart ? DAY_ORDER[(weekdayOf(dayOfInstant(scheduledStart)) + 6) % 7] : "MO";
     return { freq, activeDays: new Set(explicitDays ?? [anchorDay]) };
 }
 
-/** The rule with `day` switched on or off; null when it would leave no day (a block keeps at least one). */
 function withDayToggled(ruleParts: RuleParts, activeDays: Set<string>, day: string): RuleParts | null {
     const next = new Set(activeDays);
     if (next.has(day)) {
-        if (next.size === 1) return null; // a block must keep at least one day
+        if (next.size === 1) return null;
         next.delete(day);
     } else {
         next.add(day);
@@ -164,9 +152,6 @@ function withDayToggled(ruleParts: RuleParts, activeDays: Set<string>, day: stri
 export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task }) => {
     const updateTask = useUpdateTask();
 
-    // Latest intended times. Props lag by a full mutation round-trip, so both
-    // handlers must chain off this ref — otherwise an end edit made inside the
-    // debounce window would be computed from (and commit) the stale start.
     const latestTimesRef = useRef<{ start: Instant | null; end: Instant | null }>({
         start: task.scheduledStart ?? null,
         end: task.scheduledEnd ?? null,
@@ -177,8 +162,6 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
         latestTimesRef.current = { start: task.scheduledStart ?? null, end: task.scheduledEnd ?? null };
     }, [task.scheduledStart, task.scheduledEnd]);
 
-    // Reads the ref at fire time, so an immediate mutation (add/clear end) that
-    // lands first can't be resurrected by a pending commit carrying the old end.
     const commitTimes = useDebouncedCallback(() => {
         const { start, end } = latestTimesRef.current;
         if (!start) return;
@@ -192,7 +175,6 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
         const current = latestTimesRef.current.start;
         if (!current) return;
         const start = fromTimeValue(dayOfInstant(current), time);
-        // Keep the block's length: re-anchor the end's time-of-day onto the new start.
         const end = latestTimesRef.current.end ? alignEndToStart(start, toTimeValue(latestTimesRef.current.end)) : null;
         latestTimesRef.current = { start, end };
         commitTimes();
@@ -201,8 +183,6 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
     const handleEndChange = (time: WallTime) => {
         const anchor = latestTimesRef.current.start;
         if (!anchor) return;
-        // The end's calendar day is derived, never picked directly: the chosen
-        // time-of-day lands on the start day, rolling over midnight only when needed.
         latestTimesRef.current = { start: anchor, end: alignEndToStart(anchor, time) };
         commitTimes();
     };
@@ -224,7 +204,6 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
         sendImmediate(latestTimesRef.current.start, null);
     };
 
-    /** Re-anchor the series to a new start day, keeping local times and the block length. */
     const handleSeriesStartDate = (day: LocalDate | null) => {
         const current = latestTimesRef.current.start;
         if (!day || !current || day === dayOfInstant(current)) return;
@@ -242,7 +221,6 @@ export const TimetableBlockEditor: React.FC<TimetableBlockEditorProps> = ({ task
         sendImmediate(next.scheduledStart, next.scheduledEnd);
     };
 
-    /** Set or clear the series end date (RRULE UNTIL, inclusive). */
     const handleSeriesEndDate = (day: LocalDate | null) => {
         if (!ruleParts || !task.recurrenceRule) return;
         const parts = ruleParts.filter(([key]) => key !== "UNTIL");

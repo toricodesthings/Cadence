@@ -1,13 +1,3 @@
-/**
- * The assistant's system prompt, as markdown files in src/prompts/assistant: base/ (static,
- * identical for every user and turn), voice/ (one per persona + the high-workload
- * modifier), user/ (per-user and per-turn templates). Git is the only source of
- * truth: edit a file and push — the deploy ships it. The composer interpolates
- * {{placeholders}}; an unknown one throws (caught by the tests).
- *
- * Base order is load-bearing (authority, then cacheable prefix): identity, rules,
- * changes, workflow, replies.
- */
 import type { PromptBlocks } from "./prompt-blocks.schema";
 import identity from "../../../prompts/assistant/base/identity.md";
 import rules from "../../../prompts/assistant/base/rules.md";

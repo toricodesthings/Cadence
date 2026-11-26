@@ -21,7 +21,6 @@ const MIN = 60_000;
 const ROW_BUTTON =
     "touch-target inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-twilight-text-soft hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
-/** `p` moved by `minutes`, kept inside the window and never before now. */
 function shifted(p: FitPlacement, minutes: number, window: { from: number; to: number }): FitPlacement {
     const length = Date.parse(p.end) - Date.parse(p.start);
     const start = Math.min(
@@ -31,10 +30,6 @@ function shifted(p: FitPlacement, minutes: number, window: { from: number; to: n
     return { ...p, start: new Date(start).toISOString(), end: new Date(start + length).toISOString() };
 }
 
-/**
- * The day as one bar: other blocks muted, each placement a ghost of the block it would make. A ghost drags along the
- * bar (snapping to 15 minutes) or moves with the arrow keys; moving one never moves the others.
- */
 function FitTimeline({
     day,
     dayHours,
@@ -144,11 +139,6 @@ function FitTimeline({
     );
 }
 
-/**
- * Fit today's preview, shared by Today (inline on a desktop, a sheet on a phone) and the assistant's card: the day with
- * a ghost for each task placed, the rows to drop (×), what didn't fit, and the tasks with no known length, each with
- * the length chips (choosing one stores it and adds the task). Nothing is written until Place; one Undo puts it back.
- */
 export function FitDayPreview({
     day,
     fit,
@@ -161,13 +151,9 @@ export function FitDayPreview({
     day: LocalDate;
     fit: FitDay;
     initial: FitDayResult | null;
-    /** The tasks to lay out again when the day changed (Today passes its visible order). */
     ordered?: readonly Task[];
-    /** Names to fall back on for tasks the device hasn't read (the assistant's card). */
     titles?: ReadonlyMap<string, string>;
-    /** Said first, e.g. "Your day changed" when a card's plan is for a day that has passed. */
     notice?: string;
-    /** Placed (true), or Cancel (false). */
     onDone: (placed: boolean) => void;
 }) {
     const zone = useUserZone();
@@ -181,7 +167,6 @@ export function FitDayPreview({
     const [placing, setPlacing] = useState(false);
     const [sizing, setSizing] = useState(0);
 
-    // Laid out again from fresh data: when opened without a plan, and after "Your day changed".
     useEffect(() => {
         if (!recompute || !fit.ready) return;
         setDraft(fit.plan(ordered));
@@ -211,7 +196,6 @@ export function FitDayPreview({
     const drop = (id: string) => setDraft({ ...draft, placed: draft.placed.filter((p) => p.taskId !== id) });
     const leaveOut = (id: string) => setDraft({ ...draft, notSized: draft.notSized.filter((x) => x !== id) });
 
-    // The person's tap stores the length; the task then takes the first gap left around what's already laid out.
     const size = async (id: string, minutes: number) => {
         const task = fit.byId.get(id);
         if (!task) return;
@@ -219,11 +203,10 @@ export function FitDayPreview({
         try {
             await updateTask.mutateAsync({ id, durationEstimate: minutes });
         } catch {
-            return; // the write said why itself
+            return;
         } finally {
             setSizing((c) => c - 1);
         }
-        // Laid out around the draft as it is now: another length chosen meanwhile, or a ghost moved, counts.
         setDraft((current) => {
             if (!current) return current;
             const one = fit.plan([{ ...task, durationEstimate: minutes }], current.placed);
@@ -237,7 +220,6 @@ export function FitDayPreview({
 
     const place = async () => {
         if (!n || placing) return;
-        // A task gone or changed, or a time that has passed since (a card read earlier today): lay it out again.
         if (placed.some((p) => !fit.byId.has(p.taskId) || Date.parse(p.start) < Date.now())) return void dayChanged();
         setPlacing(true);
         try {

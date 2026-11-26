@@ -1,12 +1,3 @@
-/**
- * Owner-scoping guards on the DESTRUCTIVE conversation-repo helpers.
- *
- * These three run raw DELETE/UPDATE driven by client-supplied ids (the edit /
- * regenerate flows), so the property that matters is the WHERE clause: every
- * statement must be scoped to the owning user + conversation, and an unknown
- * anchor must be a no-op rather than a broad delete. The helpers run as the
- * table owner (RLS bypassed), so only their own WHERE clauses protect the rows.
- */
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { asOwner, createUser, getTestDb, startTestDb } from "../helpers/db";
 import {
@@ -32,7 +23,6 @@ beforeEach(async () => {
     other = await createUser();
 });
 
-/** A thread holding user turns `${id}-1` … `${id}-n`, in order. */
 async function seedThread(userId: string, turns = 3) {
     return withRls(getTestDb(), userId, async (tx) => {
         const { id } = await resolveOrCreateConversation(tx, userId, {});

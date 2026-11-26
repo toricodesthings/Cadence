@@ -61,7 +61,6 @@ describe("serialized prompt budget", () => {
             })),
         };
         const candidate = composePrompt(PROMPT_BLOCKS, context, "fixture");
-        // Character budgets detect accidental prompt bloat; they are not claimed token counts or prices.
         expect(toolChars).toBeLessThan(50_000);
         expect(candidate.instructions.length).toBeLessThan(22_000);
         expect(candidate.turnContext.length).toBeLessThan(3_500);
@@ -74,7 +73,6 @@ describe("serialized prompt budget", () => {
         expect(candidate.turnContext).toContain(context.snapshot);
         expect(definitions).toHaveLength(48);
         expect(definitions.every((d) => d.schema)).toBe(true);
-        // Measure the actual native-provider serialization, not an estimate of schema bytes.
         const bodies: any[] = [];
         vi.stubGlobal(
             "fetch",

@@ -1,11 +1,5 @@
 import type { SearchNote } from "@cadence/contracts/search";
 import { searchTerms, noteHeadings } from "@cadence/search/terms";
-/**
- * The tab's note sessions, one per account + canonical owner. A session outlives the
- * editor that opened it so closing the room never loses the newest work; it is dropped
- * once nothing uses it and nothing is unsaved. A different account never inherits a
- * previous account's session.
- */
 import type { QueryClient } from "@tanstack/react-query";
 import type { TaskNote } from "@cadence/contracts/note";
 import { NoteSession } from "./note-session";
@@ -27,7 +21,6 @@ const keyOf = (userId: string, owner: string) => `${userId}:${owner}`;
 const LINGER_MS = 30_000;
 
 let watchingPage = false;
-/** Hidden or closing tab: drafts go to the device and pending saves go out, for every note open anywhere in the tab. */
 function watchPage() {
     if (watchingPage || typeof document === "undefined") return;
     watchingPage = true;
@@ -64,7 +57,6 @@ export function acquireNoteSession(
             send: sendTaskNote(ownerId),
             publish: (next) => {
                 const note = queryClient.setQueryData<TaskNote | null>(noteKey, next);
-                // Keep local search current, including a deliberately cleared note and offline saves.
                 if (note)
                     queryClient.setQueryData<SearchNote[]>(
                         queryKeys.notes.search,
@@ -116,7 +108,6 @@ export function releaseNoteSession(userId: string, ownerId: string) {
     entry.timer = setTimeout(retire, LINGER_MS);
 }
 
-/** Keeps the draft on the device but sends nothing: after an account switch, a request would go out as the new account. */
 function drop(key: string, entry: Entry, keepDraft = true) {
     clearTimeout(entry.timer);
     if (keepDraft) void entry.session.persist();
@@ -124,12 +115,10 @@ function drop(key: string, entry: Entry, keepDraft = true) {
     sessions.delete(key);
 }
 
-/** Sign-out that drops unsynced work: close every session without writing anything more. */
 export function discardNoteSessions() {
     for (const [key, entry] of sessions) drop(key, entry, false);
 }
 
-/** Save everything pending in this tab (sign-out, hide). */
 export async function flushNoteSessions(): Promise<boolean> {
     const results = await Promise.all([...sessions.values()].map((e) => e.session.flush()));
     return results.every((r) => r !== "failed");
@@ -139,7 +128,6 @@ export function checkpointNoteSessions() {
     for (const e of sessions.values()) e.session.checkpoint();
 }
 
-/** Notes with text no server holds yet, in this tab. */
 export function unsyncedNoteCount(): number {
     return [...sessions.values()].filter((e) => e.session.hasUnsavedWork).length;
 }

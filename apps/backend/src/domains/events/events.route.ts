@@ -29,7 +29,6 @@ async function isTrackingAllowed(
     return user.settings.privacy?.[setting] !== false;
 }
 
-/** Stores usage events in the background, only for people who opted into diagnostics. */
 async function recordUsage(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     c: Context<{ Bindings: Env; Variables: AuthVariables }, any, any>,
@@ -70,7 +69,6 @@ export const eventRoutes = new Hono<{
         }
         return c.json({ data: { tracked: true } }, 201);
     })
-    // Browser measurements use Workers Logs, not the product-usage table.
     .post("/performance", apiValidator("json", performanceBatchSchema), async (c) => {
         const db = getDbClient(c.env);
         if (!(await isTrackingAllowed(db, c.get("userId")))) {
@@ -87,12 +85,10 @@ export const eventRoutes = new Hono<{
         }
         return c.json({ data: { tracked: true } }, 201);
     })
-    // POST /api/events — record a single event
     .post("/", apiValidator("json", trackEventSchema), async (c) => {
         const { event, metadata } = c.req.valid("json");
         return recordUsage(c, [{ event, metadata }]);
     })
-    // POST /api/events/batch — record multiple events
     .post("/batch", apiValidator("json", trackBatchSchema), async (c) => {
         const { events } = c.req.valid("json");
         return recordUsage(c, events);

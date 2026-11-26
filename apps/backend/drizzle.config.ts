@@ -1,6 +1,5 @@
 import { defineConfig } from "drizzle-kit";
 
-// Load Wrangler's .dev.vars (not .env). DB_TARGET=prod (`db:migrate:prod`) targets production instead of dev.
 process.loadEnvFile(".dev.vars");
 const prod = process.env.DB_TARGET === "prod";
 

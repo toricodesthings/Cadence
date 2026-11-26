@@ -1,6 +1,5 @@
 import { Flame } from "lucide-react";
 
-/** A routine's mark: its emoji when it has one, otherwise the routine flame. */
 export function RoutineMark({
     emoji,
     size = 14,

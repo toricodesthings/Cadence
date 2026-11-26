@@ -26,13 +26,6 @@ import type { Env } from "../../../types/env";
 import { readImageUsage, resolveLimits } from "../safety/rate-limit";
 import { AI_IMAGE_CACHE_CONTROL, aiImageKey, contentHash, countPending, REPORT_KEEP_DAYS } from "./chat-images";
 
-/**
- * Photos and PDFs for the assistant: upload (with per-conversation dedup), report,
- * read back, and remove before sending. Bytes live in the private
- * `USER_ASSETS` bucket and are only served back to their owner here.
- */
-
-/** Multipart overhead on top of the file itself. */
 const UPLOAD_BODY_SLACK = 64 * 1024;
 
 const uploadFormSchema = z.object({ file: z.instanceof(File), conversationId: z.uuid() });
@@ -42,7 +35,6 @@ function tooLarge(kind = "file"): AppError {
 }
 
 export const aiImageRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
-    // ── Create: upload (or reuse) one image ──────────────────────────────
     .post(
         "/",
         bodyLimit({
@@ -80,7 +72,6 @@ export const aiImageRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
                           pages: null,
                       };
             } catch (error) {
-                // Enough to diagnose the class of failure; nothing that leads to the image.
                 logger.warn("ai", "ai_image_rejected", {
                     requestId: getRequestId(c),
                     userHash: userKey,
@@ -99,7 +90,6 @@ export const aiImageRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
                 pages: storedPages,
                 mediaType: storedType,
             } = await withRls(getDbClient(c.env), userId, async (tx) => {
-                // Same bytes in the same conversation → the image we already have.
                 const [existing] = await tx
                     .update(aiImages)
                     .set({ lastUsedAt: sql`now()` })
@@ -129,7 +119,6 @@ export const aiImageRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
 
                 const id = crypto.randomUUID();
                 const key = aiImageKey(userKey, id, mediaType);
-                // No custom metadata and no filename: only the database links a user to an image.
                 await bucket.put(key, bytes, {
                     httpMetadata: { contentType: mediaType, cacheControl: AI_IMAGE_CACHE_CONTROL },
                 });
@@ -168,7 +157,6 @@ export const aiImageRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
             return c.json({ data }, reused ? 200 : 201);
         },
     )
-    // ── Create: share one image with an error report (consent per incident) ──
     .post(
         "/:id/report",
         apiValidator("param", uuidParamSchema),
@@ -183,7 +171,6 @@ export const aiImageRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
                     .update(aiImages)
                     .set({
                         diagnosticsSharedAt: sql`now()`,
-                        // Keep it long enough to look at, never shorter than it already had.
                         lastUsedAt: sql`greatest(${aiImages.lastUsedAt}, now() + ${`${REPORT_KEEP_DAYS} days`}::interval)`,
                     })
                     .where(and(eq(aiImages.id, id), eq(aiImages.userId, userId)))
@@ -191,7 +178,6 @@ export const aiImageRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
             );
             throwIfNotFound(row, "Image");
 
-            // The one log line that joins an incident to a specific image.
             logger.warn("ai", "ai_image_reported", {
                 requestId: requestId ?? getRequestId(c),
                 userHash: await hashIdentifier(userId),
@@ -200,7 +186,6 @@ export const aiImageRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
             return c.json({ data: { id, reported: true } });
         },
     )
-    // ── Read: the owner's image bytes ────────────────────────────────────
     .get("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
@@ -215,16 +200,13 @@ export const aiImageRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         );
         throwIfNotFound(row, "Image");
 
-        // The key is built from the caller's own userKey, so a foreign id can never resolve.
         const object = await bucket.get(aiImageKey(await hashIdentifier(userId), id, row.mediaType), {
             onlyIf: c.req.raw.headers,
         });
         throwIfNotFound(object, "Image");
 
-        // A PDF is only ever downloaded, never rendered on the API origin.
         return webpResponse(object, AI_IMAGE_CACHE_CONTROL, row.mediaType);
     })
-    // ── Delete: take an attached image off before sending ────────────────
     .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
         const { id } = c.req.valid("param");
@@ -232,14 +214,12 @@ export const aiImageRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const userKey = await hashIdentifier(userId);
 
         await withRls(getDbClient(c.env), userId, async (tx) => {
-            // Only while unsent: a sent image belongs to the thread's history.
             const [row] = await tx
                 .select({ id: aiImages.id, mediaType: aiImages.mediaType })
                 .from(aiImages)
                 .where(and(eq(aiImages.id, id), eq(aiImages.userId, userId), isNull(aiImages.sentAt)))
                 .limit(1);
             throwIfNotFound(row, "Image");
-            // Storage first: if it fails, the row stays and the orphan sweep retries.
             await bucket.delete(aiImageKey(userKey, id, row.mediaType));
             await tx.delete(aiImages).where(and(eq(aiImages.id, id), eq(aiImages.userId, userId)));
         });

@@ -1,8 +1,3 @@
-/**
- * Cards that act on a list of existing tasks: `set_task_state`, `delete_tasks`,
- * `reschedule_tasks`, `duplicate_tasks` and `reorder_tasks`. Each lists the tasks
- * as rows the user can untick.
- */
 import { useState } from "react";
 import {
     ArrowUpDown,
@@ -27,11 +22,9 @@ type TaskRowsProps = {
     rows: string[];
     off: ReadonlySet<number>;
     onToggle: (i: number) => (() => void) | undefined;
-    /** Just "N tasks" (the terse persona's long lists). */
     countOnly?: boolean;
 };
 
-/** Up to four rows, then a "+ N more" reveal. */
 function TaskRows({ rows, off, onToggle, countOnly }: TaskRowsProps) {
     const [expanded, setExpanded] = useState(false);
     const visible = expanded ? rows : rows.slice(0, 4);
@@ -92,7 +85,6 @@ const STATE_COPY: Record<
 
 const copyFor = (state: string | undefined) => STATE_COPY[(state ?? "COMPLETE") as TaskState] ?? STATE_COPY.COMPLETE;
 
-/** "Waiting on Sam · check in Mar 8" when the tasks go on hold with either. */
 function waitingLine(input: { state?: string; waitingOn?: string; checkInAt?: string | null }) {
     if (input.state !== "WAITING") return null;
     return (
@@ -105,7 +97,6 @@ function waitingLine(input: { state?: string; waitingOn?: string; checkInAt?: st
     );
 }
 
-/** Card for `set_task_state`: done, Trash (restorable), reopen, or waiting on someone. */
 export function SetStateCard({ ctx }: { ctx: ToolRenderContext<"set_task_state"> }) {
     const persona = useAssistantPersona();
     const lookupTitle = useTaskTitleLookup();
@@ -117,7 +108,6 @@ export function SetStateCard({ ctx }: { ctx: ToolRenderContext<"set_task_state">
     const kept = titles.length - off.size;
     const waiting = waitingLine(input);
     const doneCount = ctx.part?.output?.updated ?? titles.length;
-    // Held: another open task has the same title, so nothing changed and the assistant asks which.
     if (ctx.part?.output?.sameTitle) return null;
 
     return (
@@ -140,10 +130,6 @@ export function SetStateCard({ ctx }: { ctx: ToolRenderContext<"set_task_state">
     );
 }
 
-/**
- * Danger card for `delete_tasks` (design §4.4): permanent, so the exact titles are
- * echoed and the frame is calm but unmistakable. Auto still waits for this tap.
- */
 export function DeleteTasksCard({ ctx }: { ctx: ToolRenderContext<"delete_tasks"> }) {
     const persona = useAssistantPersona();
     const { off, onToggle, removed } = useUnticked(ctx);
@@ -174,10 +160,6 @@ function dayLabel(iso?: string): string {
     return formatInZone(toDay(iso), getUserZone(), { weekday: "long" });
 }
 
-/**
- * Change-set card for `reschedule_tasks` (design §4.2). Load-reducing framing;
- * each task keeps its own time on the new day (the server moves them one by one).
- */
 export function RescheduleCard({ ctx }: { ctx: ToolRenderContext<"reschedule_tasks"> }) {
     const persona = useAssistantPersona();
     const lookupTitle = useTaskTitleLookup();
@@ -198,7 +180,6 @@ export function RescheduleCard({ ctx }: { ctx: ToolRenderContext<"reschedule_tas
             }
             primaryGlyph={Check}
             removed={removed(titles)}
-            // Fixed blocks stay put, so the server's count is the honest one.
             doneText={`Moved ${ctx.part?.output?.moved ?? titles.length} to ${day}.`}
             declinedText="Left them where they were."
         >
@@ -210,7 +191,6 @@ export function RescheduleCard({ ctx }: { ctx: ToolRenderContext<"reschedule_tas
     );
 }
 
-/** Card for `duplicate_tasks`: each copy with its title and, when moved, its day. */
 export function DuplicateTasksCard({ ctx }: { ctx: ToolRenderContext<"duplicate_tasks"> }) {
     const lookupTitle = useTaskTitleLookup();
     const { off, onToggle, removed } = useUnticked(ctx);
@@ -240,7 +220,6 @@ export function DuplicateTasksCard({ ctx }: { ctx: ToolRenderContext<"duplicate_
     );
 }
 
-/** Card for `reorder_tasks`: the tasks in their new order and where they land. */
 export function ReorderTasksCard({ ctx }: { ctx: ToolRenderContext<"reorder_tasks"> }) {
     const lookupTitle = useTaskTitleLookup();
     const input = ctx.part?.input ?? {};

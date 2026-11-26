@@ -1,25 +1,7 @@
-/**
- * Mid-stream error contract (docs/ai_upgrade/09 §4).
- *
- * Once streaming has begun a failure can no longer use the JSON `AppError`
- * envelope — the HTTP status is already sent. Instead the AI SDK `onError`
- * callback returns a STRING that is carried as the `error` part of the UI message
- * stream. The frontend parses that JSON to render an inline error bubble with a
- * Retry control. This module maps any thrown/stream error into a USER-SAFE shape:
- * calming, plain language, never raw provider/SQL text.
- *
- * Pre-stream errors (validation, auth, rate limit before the stream opens) keep
- * using `AppError` + `formatErrorResponse` — that path is unchanged.
- */
-
 import { AI_ERROR_CODES, type AiErrorCode, type StreamError } from "@cadence/contracts/ai";
 import { InvalidToolInputError, NoSuchToolError, RetryError } from "ai";
 import { AppError } from "../../../platform/errors";
 
-/**
- * User-safe, calming wire message per code. The frontend shows its own copy for
- * known codes, so these are the fallback for other clients.
- */
 export const AI_ERROR_MESSAGES: Record<AiErrorCode, string> = {
     INVALID_REQUEST: "That request couldn't be processed. Please adjust it and try again.",
     AI_RATE_LIMITED: "The assistant is busy right now. Give it a moment, then try again.",
@@ -34,7 +16,6 @@ export const AI_ERROR_MESSAGES: Record<AiErrorCode, string> = {
     INTERNAL_ERROR: "Something went wrong on our side. Please try again.",
 };
 
-/** Build a StreamError from a known code. */
 function fromCode(code: AiErrorCode, requestId?: string): StreamError {
     return {
         code,
@@ -44,7 +25,6 @@ function fromCode(code: AiErrorCode, requestId?: string): StreamError {
     };
 }
 
-/** True when an error looks like a timeout or an AbortController-driven cancel. */
 function isTimeoutLike(error: unknown): boolean {
     if (error instanceof Error) {
         const name = error.name.toLowerCase();
@@ -54,7 +34,6 @@ function isTimeoutLike(error: unknown): boolean {
     return text.includes("timeout") || text.includes("timed out") || text.includes("aborted");
 }
 
-/** Extract an HTTP-ish status code from an arbitrary error shape, if present. */
 function statusOf(error: unknown): number | undefined {
     if (error && typeof error === "object") {
         const candidate = (error as { status?: unknown }).status ?? (error as { statusCode?: unknown }).statusCode;
@@ -63,17 +42,12 @@ function statusOf(error: unknown): number | undefined {
     return undefined;
 }
 
-/** Best-effort string view of an unknown error (used only for matching). */
 function describe(error: unknown): string {
     if (error instanceof Error) return `${error.name}: ${error.message}`;
     if (typeof error === "string") return error;
     return "";
 }
 
-/**
- * The SDK wraps exhausted provider attempts. Classify and log the last cause,
- * retaining a bound in case a malformed wrapper points back to itself.
- */
 export function streamErrorCause(error: unknown): unknown {
     for (let depth = 0; depth < 8 && RetryError.isInstance(error); depth++) {
         error = error.lastError;
@@ -81,15 +55,6 @@ export function streamErrorCause(error: unknown): unknown {
     return error;
 }
 
-/**
- * Map an arbitrary thrown/stream error into a user-safe `StreamError`. Detection
- * order:
- *  1. `AppError` → reuse its code/message/isRetryable (it is already user-safe).
- *  2. A tool call the model got wrong → `AI_TOOL_FAILED` (the model sees it and recovers).
- *  3. Timeout / abort → `AI_TIMEOUT`.
- *  4. Upstream 5xx (or 429) → `AI_UPSTREAM_UNAVAILABLE` / `AI_RATE_LIMITED`.
- *  5. Anything else → `INTERNAL_ERROR` (raw text is never reflected).
- */
 export function buildStreamError(error: unknown, requestId?: string): StreamError {
     error = streamErrorCause(error);
     if (error instanceof AppError) {
@@ -120,11 +85,6 @@ export function buildStreamError(error: unknown, requestId?: string): StreamErro
     return fromCode("INTERNAL_ERROR", requestId);
 }
 
-/**
- * Serialize a `StreamError` to the string the AI SDK `onError` callback returns,
- * so it is carried as the `error` part text in the UI message stream. The frontend
- * JSON-parses this to render the Retry control.
- */
 export function streamErrorToText(err: StreamError): string {
     return JSON.stringify(err);
 }

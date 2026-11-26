@@ -45,14 +45,11 @@ import { useAddPersonalEvent } from "./AddPersonalEventDialog";
 import type { TaskInteractionMode, TaskPriority } from "@cadence/contracts/task";
 
 export interface CalendarEventInfo {
-    /** Context creation opens this tab; an ordinary grid click opens Task. */
     tab?: "task" | "event";
-    /** The day the draft sits on */
     date: LocalDate;
     startHour: number;
     startMinute: number;
     isAllDay?: boolean;
-    /** Length of the draft block; an hour when unset. */
     durationMinutes?: number;
     anchorX: number;
     anchorY: number;
@@ -75,7 +72,6 @@ function formatTimeRange(startTime: string, endTime: string) {
     return `${formatWallTime(startTime)} – ${formatWallTime(endTime)}`;
 }
 
-/** The block's start and end instants in the user's zone; an end at or before the start runs into the next day. */
 function blockInstants(day: LocalDate, startTime: string, endTime: string) {
     const zone = getUserZone();
     const start = atLocal(day, startTime, zone);
@@ -89,7 +85,6 @@ function buildWeeklyRule(days: WeekdayCode[], endDate: LocalDate | null) {
     return endDate ? `${base};${untilClause(endDate)}` : base;
 }
 
-/** What a calendar block can store from typed words. */
 const TASK_BLOCK_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>([
     "dueDate",
     "scheduledStart",
@@ -99,7 +94,6 @@ const TASK_BLOCK_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>([
     "recurrenceRule",
 ]);
 
-/** The days of a plain weekly rule ("every Mon and Wed"), which the weekday picker can show; anything richer stays a typed rule. */
 const weeklyDaysOf = (rule: string | null) =>
     (/^FREQ=WEEKLY;BYDAY=([A-Z,]+)$/.exec(rule ?? "")?.[1].split(",") as WeekdayCode[] | undefined) ?? null;
 
@@ -125,7 +119,6 @@ const REPEAT_OPTIONS = [
     { value: "weekly", label: "Weekly" },
 ] as const;
 
-/** The when, as one grouped card: Starts (day + time), Ends, Repeat, and for a weekly series its days, Until and Fixed. */
 function WhenRows({
     mode,
     onMode,
@@ -237,7 +230,6 @@ function NotesField({ value, onChange }: { value: string; onChange: (value: stri
     );
 }
 
-/** "Dinner with Sam Fri 7pm": the title's words, read for a day, time, priority and repeat until a field is touched. */
 function useBlockWords(info: CalendarEventInfo, title: string, priority: TaskPriority, active: boolean) {
     const choices = useDraftChoices();
     const { dismissed, accepted, literal } = choices;
@@ -270,10 +262,6 @@ function useBlockWords(info: CalendarEventInfo, title: string, priority: TaskPri
     return { nlp, nlpOn, typed: typedWhen.bind(nlp), choices };
 }
 
-/**
- * Once or weekly: `null` until the person picks, so typed words ("every Mon and Wed") may choose for them.
- * Once keeps a repeat typed in words ("daily at 7am"); Repeats weekly uses the picked days.
- */
 function useBlockRepeat(day: LocalDate, typedRule: string | null) {
     const [modeChoice, setMode] = useState<ComposerMode | null>(null);
     const [weekdayChoice, setWeekdays] = useState<WeekdayCode[] | null>(null);
@@ -287,11 +275,9 @@ function useBlockRepeat(day: LocalDate, typedRule: string | null) {
     return { mode, setMode, weekdays, setWeekdays, endDate, setEndDate, hasEndDate, setHasEndDate, recurrenceRule };
 }
 
-/** The Task tab as a composer draft: a block on the clicked day, once or weekly. */
 function useTaskBlockComposer(info: CalendarEventInfo, active: boolean, onClose: () => void) {
     const titleRef = useRef<HTMLInputElement>(null);
     const { mutate: createTask, isPending } = useCreateTask();
-    // Phones lead with one line to type; the exact times wait under More.
     const [title, setTitle] = useState("");
     const [notes, setNotes] = useState("");
     const [priority, setPriority] = useState<TaskPriority>(0);
@@ -387,7 +373,6 @@ function useTaskBlockComposer(info: CalendarEventInfo, active: boolean, onClose:
                     mode={mode}
                     onMode={(next) => {
                         repeat.setMode(next);
-                        // "Once" over a typed repeat: set the repeat aside, so its words go back to the title.
                         const typedRepeat = nlp.applied.find((e) => e.type === "recurrence");
                         if (next === "once" && typedRepeat) choices.dismiss(typedRepeat.id);
                     }}

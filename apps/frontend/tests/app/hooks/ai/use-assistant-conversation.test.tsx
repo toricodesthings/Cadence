@@ -110,7 +110,6 @@ describe("assistant conversation lifecycle", () => {
         mocks.history = { data: undefined, error: null, isFetching: true, isLoading: true };
         const { result, rerender } = setup();
         expect(result.current.restoring).toBe(true);
-        // History landed; the chat is seeded on the next pass.
         mocks.history = { data: snapshot(), error: null, isFetching: false, isLoading: false };
         rerender({ online: true });
         expect(result.current.restoring).toBe(true);

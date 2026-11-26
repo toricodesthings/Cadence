@@ -31,7 +31,6 @@ export function SettingsRow({
     description?: string;
     children: React.ReactNode;
     className?: string;
-    /** A small control (a switch, a button): stays beside its title on a phone instead of dropping under it. */
     inline?: boolean;
 }) {
     return (
@@ -58,7 +57,6 @@ export function SettingsRow({
     );
 }
 
-/** Several short rows as one card with hairline dividers, instead of a card each. */
 export function SettingsList({ children }: { children: React.ReactNode }) {
     return (
         <div className="flex flex-col divide-y divide-white/[0.04] rounded-[1.4rem] border border-white/[0.04] bg-white/[0.02] [&>*]:rounded-none [&>*]:border-0 [&>*]:bg-transparent">

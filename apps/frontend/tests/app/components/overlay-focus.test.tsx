@@ -44,7 +44,6 @@ describe("Overlay focus", () => {
         expect(innerClose).toHaveBeenCalledOnce();
         expect(outerClose).not.toHaveBeenCalled();
 
-        // Closing the inner sheet hands the page back to the outer one.
         rerender(<Nested inner={false} />);
         await waitFor(() => expect(screen.queryByRole("dialog", { name: "Schedule task" })).toBeNull());
         act(() => screen.getByRole("button", { name: "Outer action" }).focus());
@@ -61,5 +60,25 @@ describe("Overlay focus", () => {
         const input = await screen.findByLabelText("Rename");
         fireEvent.keyDown(input, { key: "Escape" });
         expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it("gives focus back to the control that opened it", async () => {
+        function Host({ open }: { open: boolean }) {
+            return (
+                <>
+                    <button>Place</button>
+                    <ResponsiveOverlayPanel open={open} onClose={() => {}} ariaLabel="Place">
+                        <button data-initial-focus>Inside</button>
+                    </ResponsiveOverlayPanel>
+                </>
+            );
+        }
+        const { rerender } = render(<Host open={false} />);
+        const trigger = screen.getByRole("button", { name: "Place" });
+        act(() => trigger.focus());
+        rerender(<Host open />);
+        await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Inside" })));
+        rerender(<Host open={false} />);
+        await waitFor(() => expect(document.activeElement).toBe(trigger));
     });
 });

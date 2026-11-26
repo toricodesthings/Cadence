@@ -24,7 +24,6 @@ import { apiValidator } from "../../platform/validation";
 
 type SubtaskContext = Context<{ Bindings: Env; Variables: AuthVariables }>;
 
-/** Subtasks for many tasks at once, keyed by task id (unknown ids map to []). */
 async function subtasksByTask(c: SubtaskContext, taskIds: string[]) {
     const userId = c.get("userId");
     const uniqueTaskIds = [...new Set(taskIds)];
@@ -35,7 +34,6 @@ async function subtasksByTask(c: SubtaskContext, taskIds: string[]) {
         tx
             .select()
             .from(subtasks)
-            // RLS limits this to the caller's own tasks and those of lists shared with them.
             .where(inArray(subtasks.taskId, uniqueTaskIds))
             .orderBy(asc(subtasks.taskId), asc(subtasks.orderIndex)),
     );
@@ -67,7 +65,6 @@ async function updateSubtask(
     return c.json({ data: updated });
 }
 
-/** The access a subtask is governed by (its task's list), and whose row it is. 404 when it isn't visible. */
 async function subtaskAccess(
     tx: Tx,
     userId: string,
@@ -162,7 +159,6 @@ export const subtaskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
     .get("/subtasks", apiValidator("query", subtasksByTaskQuerySchema), (c) =>
         subtasksByTask(c, c.req.valid("query").taskIds),
     )
-    // Desktop builds bundle the frontend, so ones released before the GET still call this.
     .post("/subtasks/bulk", apiValidator("json", bulkSubtasksSchema), (c) =>
         subtasksByTask(c, c.req.valid("json").taskIds),
     )

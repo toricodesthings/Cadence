@@ -4,10 +4,6 @@ import * as ScrollArea from "../primitives/ScrollArea";
 import { UsageMeters } from "./UsageMeters";
 import { useAiUsage } from "../../hooks/ai/use-ai-usage";
 
-/**
- * `/usage`: the assistant's limits, overlaid on the thread inside the panel
- * (same envelope as the Conversations drawer), never over the page.
- */
 export function UsageOverlay({ onClose, onOpenSettings }: { onClose: () => void; onOpenSettings: () => void }) {
     const { data: usage, isLoading } = useAiUsage(true);
 

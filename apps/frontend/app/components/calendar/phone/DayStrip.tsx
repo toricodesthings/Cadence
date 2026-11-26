@@ -13,7 +13,6 @@ interface DayStripProps {
     weekDates: LocalDate[];
     selectedIso: LocalDate;
     loads: Map<LocalDate, number>;
-    /** Days with a holiday, birthday or personal event. */
     markedDays?: Set<LocalDate>;
     onSelect: (iso: LocalDate) => void;
     onShiftWeek: (delta: number) => void;
@@ -34,7 +33,6 @@ function StripDay({
     marked: boolean;
     onSelect: () => void;
 }) {
-    // Long-pressing a task row and dropping it here moves it to this day.
     const { setNodeRef, isOver } = useDroppable({ id: `day-${iso}` });
     const dots = loadDots(load);
     return (
@@ -80,11 +78,6 @@ function StripDay({
     );
 }
 
-/**
- * The week around the selected day. Tap a day to open it; swipe the strip to
- * change week (the day list below swipes day by day). Load reads as dots,
- * never counts.
- */
 export function DayStrip({ weekDates, selectedIso, loads, markedDays, onSelect, onShiftWeek }: DayStripProps) {
     const todayIso = useToday();
     const [direction, setDirection] = useState(0);

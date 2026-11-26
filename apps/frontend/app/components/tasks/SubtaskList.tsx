@@ -23,15 +23,10 @@ interface EditableItem {
 interface EditableSubtaskRowProps<T extends EditableItem> extends SortableSubtaskRenderProps<T> {
     onDelete: (id: string) => void;
     onTitleChange: (id: string, newTitle: string) => void;
-    /** Between the drag handle and the title, e.g. the subtask's checkbox. */
     leading?: ReactNode;
     deleteLabel?: string;
 }
 
-/**
- * A title being edited: trimmed on commit, an empty one restores the old title, and nothing is written when
- * it's unchanged. Cancel drops the draft; the blur that follows must not write it back.
- */
 export function useTitleDraft(title: string, onCommit: (next: string) => void) {
     const [value, setValue] = useState(title);
     const cancelled = useRef(false);
@@ -52,7 +47,6 @@ export function useTitleDraft(title: string, onCommit: (next: string) => void) {
     return { value, setValue, commit, cancel };
 }
 
-/** An editable, draggable title row; subtasks and routine steps share it. */
 export function EditableSubtaskRow<T extends EditableItem>({
     subtask,
     isDragging,

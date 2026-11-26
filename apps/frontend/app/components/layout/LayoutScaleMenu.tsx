@@ -11,14 +11,9 @@ import {
     useDesktopLayoutScale,
 } from "../../hooks/ui/use-desktop-layout-scale";
 
-/**
- * The desktop app's layout scale lives at the foot of every page header's ⋮ (⌘ + / − / 0 do the same).
- * A header ⋮ renders `ClaimHeaderMenu`; while none has, `MainLayout`'s header shows `HeaderScaleMenu`, a ⋮ of its own.
- */
 const HeaderMenuClaim = createContext<(() => () => void) | null>(null);
 export const HeaderMenuClaimProvider = HeaderMenuClaim.Provider;
 
-/** Render beside a header ⋮ (inside `MainLayout`) so the shell doesn't add a second one. */
 export function ClaimHeaderMenu() {
     const claim = useContext(HeaderMenuClaim);
     useLayoutEffect(() => claim?.(), [claim]);
@@ -38,13 +33,8 @@ function useScale() {
 }
 
 const STEP = "w-10 justify-center data-[disabled]:pointer-events-none data-[disabled]:opacity-40";
-/** A panel's step looks exactly like a menu item (`DropdownMenu.Item`'s default row). */
 const PANEL_STEP = `${MENU_ITEM} ${MENU_HOVER} cursor-pointer text-twilight-text-soft hover:text-accent-primary focus:text-accent-primary disabled:pointer-events-none disabled:opacity-40`;
 
-/**
- * The Scale row: − 100% +, the percentage resets. In a ⋮ `DropdownMenu` each step is a menu item that keeps the menu
- * open; in a ⋮ panel (`panel`, Schedule) the same row is drawn with buttons, so the two look identical.
- */
 export function LayoutScaleMenuRow({ separator = true, panel = false }: { separator?: boolean; panel?: boolean }) {
     const scale = useScale();
     if (!IS_DESKTOP_RUNTIME) return null;
@@ -112,7 +102,6 @@ export function LayoutScaleMenuRow({ separator = true, panel = false }: { separa
     );
 }
 
-/** A ⋮ holding only the Scale row, for a page whose header has no ⋮ of its own. */
 export function HeaderScaleMenu() {
     return (
         <DropdownMenu.Root>

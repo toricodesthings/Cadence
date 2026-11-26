@@ -1,19 +1,6 @@
 import { cssVars, n1, rng } from "~/lib/geometry";
 
-/*
- * A section's particle set: a few slow motes in their own layer. Only transform and opacity move, the set is
- * paused with its section offscreen, and it is gone under reduced motion (journey.css). Seeded, so the server
- * and the client place every mote the same.
- */
-
-export type DriftKind =
-    | "lantern" // the valley's sky lanterns, rising past the Prelude
-    | "petal" // spring: ume petals drifting down
-    | "firefly" // summer
-    | "leaf" // autumn: leaves turning as they fall
-    | "snow" // winter
-    | "mote" // Emilie: sparks rising off her light
-    | "fall"; // the finale: petals falling from the crown
+export type DriftKind = "lantern" | "petal" | "firefly" | "leaf" | "snow" | "mote" | "fall";
 
 const SET: Record<DriftKind, { count: number; dur: readonly [number, number]; seed: number; flank?: boolean }> = {
     lantern: { count: 6, dur: [30, 42], seed: 29, flank: true },
@@ -35,7 +22,6 @@ export function Drift({ kind, className }: { kind: DriftKind; className?: string
     const rand = rng(seed);
     const motes = Array.from({ length: count }, (_, i) => {
         const u = (i + 0.15 + rand() * 0.7) / count;
-        // Lanterns keep to the flanks, clear of the words in the middle
         const atEdge = flank || (kind === "fall" && i % 5 === 0);
         const x = atEdge ? (u < 0.5 ? 3 + u * 44 : 75 + (u - 0.5) * 44) : 3 + u * 94;
         const dur = d0 + rand() * (d1 - d0);

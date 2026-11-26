@@ -17,19 +17,8 @@ interface MobileSearchSheetProps {
     onOpenChange: (open: boolean) => void;
 }
 
-/** A couple of example chips so the empty state is never a blank void (§0.2 Law 1). */
 const EXAMPLE_CHIPS = ["Today", "Upcoming", "Routines", "Trash"] as const;
 
-/**
- * Compact-mode search surface (§4.5 Mobile Translation Rule).
- *
- * A draggable bottom sheet (the shared `ResponsiveOverlayPanel`, same as every
- * other compact panel) with one job: find things. It reuses `useUniversalSearch`
- * (same data as the desktop command palette) and `useSearchNavigation` (same
- * destinations) — only the presentation changes: a single large auto-focused
- * input, big tappable grouped rows, recent searches, and calm empty/zero states.
- * No command syntax, no arrow-key-only model.
- */
 export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps) {
     const [rawQuery, setRawQuery] = useState("");
     const [recent, setRecent] = useState<string[]>([]);
@@ -84,8 +73,6 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
             onClose={() => onOpenChange(false)}
             flush
             header={
-                /* The heading row is a search field here; the sheet still owns
-                   the drag handle, backdrop, focus trap, Escape and close. */
                 <form onSubmit={handleSubmit} className="flex min-w-0 flex-1 items-center gap-3">
                     <SearchField
                         ref={inputRef}
@@ -100,7 +87,6 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
                 </form>
             }
         >
-            {/* Body */}
             <div className="safe-bottom px-3 py-3">
                 {hasResults ? (
                     groups.map(({ key, label, items }) => (
@@ -146,7 +132,6 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
                     </div>
                 ) : (
                     <div className="px-2 py-3">
-                        {/* Recent searches */}
                         {recent.length > 0 && (
                             <div className="mb-5">
                                 <div className="px-3 pb-1.5 text-[11px] font-display font-semibold uppercase tracking-[0.14em] text-twilight-text-muted/70">
@@ -178,7 +163,6 @@ export function MobileSearchSheet({ open, onOpenChange }: MobileSearchSheetProps
                             </div>
                         )}
 
-                        {/* Calm zero state */}
                         <div className="px-3 py-6 text-center">
                             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-primary/10 text-accent-primary">
                                 <Search size={22} aria-hidden="true" />

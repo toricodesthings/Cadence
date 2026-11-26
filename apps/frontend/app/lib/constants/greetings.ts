@@ -1,7 +1,6 @@
 import { dayOf, wallTimeOf } from "@cadence/domain/time";
 import { getUserZone } from "../utils/user-zone";
 
-/** [with a name, without one]: each a single gentle clause, never "stay up". */
 export const GREETINGS = {
     morning: [
         ["Good morning, {name}", "Good morning"],
@@ -25,10 +24,8 @@ export const GREETINGS = {
     ],
 } as const;
 
-/** A greeting for the part of the day. It holds all morning (or evening) and changes day to day, so it never reshuffles on a revisit. */
 export type DayPeriod = keyof typeof GREETINGS;
 
-/** The part of the day in the user's zone; it also tints Capture's window. */
 export function dayPeriodOf(now: Date = new Date()): DayPeriod {
     const hour = Number(wallTimeOf(now, getUserZone()).slice(0, 2));
     return hour >= 5 && hour < 12

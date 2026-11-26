@@ -6,11 +6,6 @@ import { appEntry } from "../../lib/app-links/catalog";
 import { resolveAppLaunch, type AppLaunch } from "../../platform/app-links";
 import { IS_DESKTOP_RUNTIME, openExternalUrl } from "../../platform/runtime";
 
-/**
- * A real anchor, so the phone handles the tap itself: no router link, no async work, no `window.open`
- * before a custom scheme. Only the desktop shell hands an HTTPS address to the system; everywhere else
- * a website opens in a new tab.
- */
 export function AppAnchor({
     href,
     opens,
@@ -40,7 +35,6 @@ export function AppAnchor({
 
 export const OPEN_PILL = "shrink-0 gap-1.5 rounded-full px-4 text-[13px]";
 
-/** The "Open" pill for a link already resolved for this device. */
 export function OpenPill({
     href,
     opens,
@@ -62,7 +56,6 @@ export function OpenPill({
     );
 }
 
-/** The one-tap "Open" pill for a saved app. Nothing renders when the id is unknown here or has no route on this device. */
 export function AppLaunchLink({ appId }: { appId: string | null | undefined }) {
     const entry = appEntry(appId);
     const launch = entry ? resolveAppLaunch(entry) : null;

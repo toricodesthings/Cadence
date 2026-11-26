@@ -12,31 +12,69 @@ import { DRAGGING, useSortableRoutine } from "./SortableRoutines";
 
 export interface RoutineDay {
     iso: string;
-    /** "Mon" */
     short: string;
-    /** "M" */
     initial: string;
     dayNum: number;
 }
 
-/** Label column, seven days, and (wide) the week's count. Shared by the header row and every routine row. */
 export function weekGridColumns(showWeekCount: boolean) {
     return showWeekCount
         ? "grid-cols-[minmax(12rem,18rem)_repeat(7,minmax(2.75rem,1fr))_4.5rem]"
         : "grid-cols-[minmax(10rem,16rem)_repeat(7,minmax(2.75rem,1fr))]";
 }
 
-/** Logs keyed by day. */
+export function RoutineWeekHeader({
+    days,
+    today,
+    showWeekCount,
+    role,
+}: {
+    days: RoutineDay[];
+    today: string;
+    showWeekCount: boolean;
+    role?: "row";
+}) {
+    const colRole = role ? "columnheader" : undefined;
+    return (
+        <div
+            role={role}
+            className={`photo-shell-surface layer-shell-base sticky top-0 grid ${weekGridColumns(showWeekCount)} items-end rounded-2xl bg-twilight-deep/75 px-2 py-2 backdrop-blur-xl`}
+        >
+            <span />
+            {days.map((day) => {
+                const isToday = day.iso === today;
+                return (
+                    <span key={day.iso} role={colRole} className="flex flex-col items-center gap-1">
+                        <span
+                            className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${isToday ? "text-accent-primary" : "text-twilight-text-soft"}`}
+                        >
+                            {day.short}
+                        </span>
+                        <span
+                            className={`flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-medium tabular-nums ${isToday ? "bg-accent-primary font-semibold text-[var(--primary-foreground)]" : "text-twilight-text"}`}
+                        >
+                            {day.dayNum}
+                        </span>
+                    </span>
+                );
+            })}
+            {showWeekCount ? (
+                <span role={colRole} className="text-right text-[11px] font-medium text-twilight-text-muted">
+                    This week
+                </span>
+            ) : null}
+        </div>
+    );
+}
+
 export function logsByDay(habit: Habit): Map<string, HabitLog> {
     return new Map((habit.logs ?? []).map((log) => [log.targetDate, log]));
 }
 
-/** A day a check-in can be logged for: scheduled (it has a log) and not in the future. */
 export function isLoggable(log: HabitLog | undefined, date: string, today: string) {
     return Boolean(log) && date <= today;
 }
 
-/** One quiet line: "7:30 AM · 4 in a row", or "Paused until Sep 30". A streak shows only when it's running. */
 export function RoutineMeta({ habit, today, showStreaks }: { habit: Habit; today: string; showStreaks: boolean }) {
     const paused = isRoutinePaused(habit);
     const time = routineTimeOn(habit, today);
@@ -50,11 +88,6 @@ export function RoutineMeta({ habit, today, showStreaks }: { habit: Habit; today
     return text ? <span className="block truncate text-xs text-twilight-text-muted">{text}</span> : null;
 }
 
-/**
- * A click anywhere on a routine's row or card opens it (or closes it when
- * it's already open), except on its own
- * controls (day cells, the ⋯ menu) and anything portalled out of it.
- */
 export function openOnCardClick(onSelect: () => void) {
     return (event: MouseEvent<HTMLElement>) => {
         const target = event.target as HTMLElement;
@@ -63,7 +96,6 @@ export function openOnCardClick(onSelect: () => void) {
     };
 }
 
-/** Mark (emoji, or the repeat glyph, tinted by the routine's colour) + title + meta; opens the routine. */
 export function RoutineIdentity({
     habit,
     today,
@@ -99,11 +131,6 @@ export function RoutineIdentity({
     );
 }
 
-/**
- * One routine across a week. Desktop: a grid row under the shared day header
- * (right-click for the routine menu). `stacked` (phone): a card with the
- * weekday initial above each day.
- */
 export function RoutineWeekRow({
     habit,
     days,
@@ -131,7 +158,6 @@ export function RoutineWeekRow({
 }) {
     const logs = logsByDay(habit);
     const sortable = useSortableRoutine(habit);
-    // Edit (menu, `E`) only opens; clicking the row again closes.
     const edit = () => {
         if (!selected) onSelect();
     };
@@ -192,7 +218,6 @@ export function RoutineWeekRow({
         );
     }
 
-    // Only what was done, never "of N": the denominator would be a list of misses.
     const done = days.filter((day) => logs.get(day.iso)?.status === "COMPLETED").length;
 
     return (

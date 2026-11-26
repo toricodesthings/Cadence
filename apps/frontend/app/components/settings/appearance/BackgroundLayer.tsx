@@ -6,10 +6,8 @@ import { THEME_PRESET_MAP, type ThemePresetId } from "../../../lib/themes/theme-
 import { buildGradientCSS } from "../../../lib/themes/background-tokens";
 import { blurPixels } from "../../../lib/themes/image-palette";
 
-/** The theme's own gradient (theme mode), or the chosen gradient or colour (custom mode); null for none. */
 function backgroundStyle(mode: string, color: string | null, gradient: string | null, themePreset: ThemePresetId) {
     if (mode === "theme") {
-        // Render the current theme preset's default background
         const suggested = THEME_PRESET_MAP[themePreset]?.suggestedGradient;
         return suggested
             ? { background: buildGradientCSS(suggested.color1, suggested.color2, suggested.direction) }
@@ -23,7 +21,6 @@ function backgroundStyle(mode: string, color: string | null, gradient: string | 
 
 type Appearance = NonNullable<ReturnType<typeof useSettings>["data"]>["appearance"];
 
-/** The background the person chose, with defaults: the theme's own, no colour, no gradient, no photo. */
 function backgroundChoice(appearance: Appearance | undefined) {
     const bgMode = appearance?.backgroundMode ?? "theme";
     return {
@@ -37,7 +34,6 @@ function backgroundChoice(appearance: Appearance | undefined) {
 
 type BackgroundPhoto = NonNullable<NonNullable<Appearance>["backgroundImage"]>;
 
-/** The photo, blurred and dimmed, under the contrast scrim. */
 function PhotoBackground({ photo, url }: { photo: BackgroundPhoto; url: string | null | undefined }) {
     const blur = blurPixels(photo.blur);
     return (
@@ -50,7 +46,6 @@ function PhotoBackground({ photo, url }: { photo: BackgroundPhoto; url: string |
                     decoding="async"
                     className="absolute max-w-none object-cover"
                     style={{
-                        // Overhang the viewport so a blurred edge still has pixels to sample.
                         inset: `-${blur * 2}px`,
                         width: `calc(100% + ${blur * 4}px)`,
                         height: `calc(100% + ${blur * 4}px)`,
@@ -63,14 +58,6 @@ function PhotoBackground({ photo, url }: { photo: BackgroundPhoto; url: string |
     );
 }
 
-/**
- * Renders a background layer behind all content.
- * - "theme" mode: renders the current preset's suggestedGradient (if any).
- * - "custom" mode: renders user-chosen solid color or gradient preset.
- * - "image" mode: renders the user's photo, blurred and dimmed to their taste,
- *   under a scrim sized by `useThemeSync` so surfaces keep their contrast.
- * Mounted once by Providers behind route content; navigation preserves the image and object URL.
- */
 export function BackgroundLayer() {
     const { data: settings } = useSettings();
     const { bgMode, bgColor, bgGradient, themePreset, photo } = backgroundChoice(settings?.appearance);

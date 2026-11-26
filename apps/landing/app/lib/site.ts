@@ -1,15 +1,11 @@
-/** Canonical URLs. The landing site links into the app; it never calls the API. */
 export const SITE_URL = "https://cadenceapp.cloud";
 export const APP_URL = "https://dashboard.cadenceapp.cloud";
 export const SIGN_IN_URL = `${APP_URL}/auth/sign-in`;
 export const SIGN_UP_URL = `${APP_URL}/auth/sign-up`;
-/** The legal pages live on this site; the app and its About tab link here. */
 export const PRIVACY_PATH = "/privacy";
 export const TERMS_PATH = "/terms";
-/** Built from the root CHANGELOG.md; the app keeps its own copy at /changelog too. */
 export const CHANGELOG_PATH = "/changelog";
 
-/** Chromium fetches a landing page's document ahead when its link is hovered or touched. Prefetch only: a prerender would run the hero intro unseen. */
 export const SPECULATION_RULES = JSON.stringify({
     prefetch: [{ where: { href_matches: ["/", TERMS_PATH, PRIVACY_PATH, CHANGELOG_PATH] }, eagerness: "moderate" }],
 });
@@ -18,30 +14,22 @@ export const ISSUES_URL = `${REPO_URL}/issues`;
 
 export const SITE_NAME = "Cadence";
 export const SITE_TAGLINE = "A planner for the life you have.";
-/** The hero's poetic promise, beneath the line that names the product. */
 export const HERO_SENTENCE = "Plans that bend with you, through the bright days and the quiet ones.";
 export const SITE_DESCRIPTION =
     "Make room for real life with Cadence: a free planner for tasks, routines and your calendar, with an AI companion to help turn loose thoughts into next steps.";
 export const SIGN_UP_LABEL = "Start free";
 
-/*
- * The journey under the hero: one year on one bough. Every line must be true of the app today; a feature's
- * name appears once, in its eyebrow.
- */
 export type Season = "spring" | "summer" | "autumn" | "winter";
 
 export const PRELUDE = {
     lead: "Some days you plan a whole new chapter. Some days you turn one page.",
-    /** Read as one sentence: line, then the emphasised year (painted in the four seasons), then a full stop. */
     line: "Cadence is made for the",
     year: "whole year",
 };
 
 export type ChapterCopy = {
     id: string;
-    /** The season it wears, and the palette with it; none wears the lantern's light. */
     season?: Season;
-    /** The side the panel takes on wide screens; the words take the other. */
     panel: "left" | "right";
     eyebrow: string;
     title: string;
@@ -102,7 +90,6 @@ export const CHAPTERS = {
             "Streaks show only if they help",
         ],
     },
-    /** The long night before spring: no season, only the lantern's light. */
     today: {
         id: "today",
         panel: "right",
@@ -117,7 +104,6 @@ export const CHAPTERS = {
     },
 } satisfies Record<string, ChapterCopy>;
 
-/** The keystone, between autumn and winter. She wears no season: her light is the lantern's. */
 export const EMILIE = {
     eyebrow: "Emilie · Your AI planning companion",
     title: "Say it as it comes.",
@@ -144,20 +130,16 @@ export const CONSTELLATION = {
 export const FINALE = {
     title: "And then, it's spring again.",
     body: "Start with one thought. Let the rest take shape.",
-    /** The same clear invitation as the hero. */
     invite: SIGN_UP_LABEL,
-    /** The one practical reassurance beside the signup action. */
     reassurance: "Free to use. No subscription.",
 };
 
-/** The 404, framed by the hero's portrait boughs. */
 export const NOT_FOUND = {
     title: "Page not found",
     line: "There's nothing at this address. The bough doesn't reach this far.",
     back: "Back to the beginning",
 };
 
-/** The ground: the name, a sign-off, and links to the app, source and policies. */
 export const FOOTER = {
     line: "Built with care for the beautifully inconsistent.",
     sign: "The lamps stay on. Come back whenever.",

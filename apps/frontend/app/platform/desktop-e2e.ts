@@ -55,7 +55,6 @@ export function installDesktopE2EBridge() {
                 data,
             };
         },
-        // Plain fetch, so it goes through patch-desktop-fetch; the webview's own fetch is CORS-blocked here.
         async authFetchStatus() {
             return (await fetch(`${NEON_AUTH_URL}/get-session`)).status;
         },

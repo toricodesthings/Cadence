@@ -12,17 +12,14 @@ export function useScheduleNavigation({ isPhone, isDesktop }: { isPhone: boolean
     const [searchParams] = useSearchParams();
     const todayIso = useToday();
     const { y: year, m: month } = parseYMD(todayIso);
-    // ── Persisted view mode per device class ────────────────────────────────
     const deviceClass = isPhone ? "phone" : isDesktop ? "desktop" : "tablet";
     const defaultView: CalendarViewMode = isPhone ? "day" : isDesktop ? "month" : "week";
     const [stored, store] = useDeviceValue(`cadence-schedule-view-${deviceClass}`);
-    // A `?view=` link wins until the user picks a view.
     const [linkedView, setLinkedView] = useState(() => {
         const queryView = searchParams.get("view");
         return isCalendarViewModeValue(queryView) ? queryView : null;
     });
     const storedViewMode: CalendarViewMode = linkedView ?? (isCalendarViewModeValue(stored) ? stored : defaultView);
-    // Phones zoom Day → Month → Year; Week's strip lives inside Day there.
     const viewMode: CalendarViewMode = isPhone && storedViewMode === "week" ? "day" : storedViewMode;
     const isPhoneDay = isPhone && viewMode === "day";
     const setViewMode = useCallback(
@@ -38,7 +35,6 @@ export function useScheduleNavigation({ isPhone, isDesktop }: { isPhone: boolean
         return isLocalDate(queryDate) ? queryDate : todayIso;
     });
     const [direction, setDirection] = useState(0);
-    /** 1 = zooming in (Year → Month → Day), -1 = out; phones only. */
     const [zoom, setZoom] = useState(0);
     useEffect(() => {
         const queryDate = searchParams.get("date");
@@ -89,7 +85,6 @@ export function useScheduleNavigation({ isPhone, isDesktop }: { isPhone: boolean
         [setViewMode],
     );
 
-    // ── View mode change ────────────────────────────────────────────────────
     const handleViewMode = useCallback(
         (mode: CalendarViewMode) => {
             const depth: Record<CalendarViewMode, number> = { day: 0, week: 1, month: 2, year: 3 };
@@ -100,7 +95,6 @@ export function useScheduleNavigation({ isPhone, isDesktop }: { isPhone: boolean
         [setViewMode, isPhone, viewMode],
     );
 
-    /** Phone: open a day from Month or Year, zooming in. */
     const openDay = useCallback(
         (iso: LocalDate) => {
             setCurrentDate(iso);

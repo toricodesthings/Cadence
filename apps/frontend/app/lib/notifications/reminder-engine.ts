@@ -7,15 +7,12 @@ import { deriveReminders, reminderKindEnabled, type ReminderPrefs } from "@caden
 import { formatShortDate, formatTime } from "../utils/date-format";
 import { getUserZone } from "../utils/user-zone";
 
-/** A reminder switched on with no time of its own follows the deadline: a block's start, or the due day at "my morning". */
 export function deadlineReminderAt(
     task: Pick<Task, "scheduledStart" | "dueDate">,
     morningTime = "09:00",
 ): string | null {
     return task.scheduledStart ?? (task.dueDate ? atLocal(task.dueDate, morningTime, getUserZone()) : null);
 }
-
-// ── §11.7: Defer choices ──
 
 export type DeferChoice = "10_minutes" | "this_evening" | "tomorrow";
 
@@ -25,7 +22,6 @@ export const DEFER_LABELS: Record<DeferChoice, string> = {
     tomorrow: "Tomorrow",
 };
 
-/** The instant (ISO) a notification should resurface after deferral; "evening" and "tomorrow" are wall times in the user's zone. */
 export function computeDeferUntil(
     choice: DeferChoice,
     now: Date,
@@ -38,7 +34,6 @@ export function computeDeferUntil(
         case "10_minutes":
             return new Date(now.getTime() + 10 * 60_000).toISOString();
         case "this_evening": {
-            // If the evening has passed, push to tomorrow evening
             const evening = atLocal(today, eveningTime, zone);
             return Date.parse(evening) > now.getTime() ? evening : atLocal(addDays(today, 1), eveningTime, zone);
         }
@@ -47,21 +42,11 @@ export function computeDeferUntil(
     }
 }
 
-// ── §11.7: Persisted notification state (mirrors notificationState schema) ──
-
 export interface NotificationDismissalState {
-    /** Notification ids that have been dismissed this session */
     dismissedIds: Set<string>;
-    /** Map of notification id → ISO timestamp when it should resurface */
     deferredUntil: Map<string, string>;
 }
 
-// ── §11.7: Step 1 — Pure candidate derivation ──
-
-/**
- * Derive raw notification candidates from current task and habit data.
- * No filtering, no persistence awareness — just raw candidates (rules live in `@cadence/domain/reminders`).
- */
 export function deriveCandidates(
     tasks: Task[],
     habits: Habit[],
@@ -77,26 +62,17 @@ export function deriveCandidates(
     ).map((reminder) => ({ ...reminder, read: false }));
 }
 
-// ── §11.7: Step 2 — Behavior filtering ──
-
 export interface BehaviorFilterOptions {
-    /** User notification preference toggles */
     taskReminders: boolean;
     habitReminders: boolean;
     dueDateAlerts: boolean;
     followUps?: boolean;
     scheduleAlerts?: boolean;
-    /** Bundle missed habits into a single prompt when > threshold */
     bundleMissedHabits?: boolean;
     missedHabitBundleThreshold?: number;
-    /** Dismissed and deferred ones are dropped before bundling, so they never count toward a bundle. */
     hidden?: NotificationDismissalState;
 }
 
-/**
- * Filter candidates by the user's reminder switches and bundle missed routines. Quiet hours and a
- * pause never hide anything here: they only hold OS alerts (`dueAlert`), so the list is where those wait.
- */
 export function filterByBehavior(
     candidates: AppNotification[],
     now: Date,
@@ -105,14 +81,12 @@ export function filterByBehavior(
     let filtered = candidates.filter((n) => reminderKindEnabled(n.kind, options));
     if (options.hidden) filtered = applyPresentationRules(filtered, options.hidden, now);
 
-    // Bundle missed habit reminders when there are many
     const threshold = options.missedHabitBundleThreshold ?? 3;
     if (options.bundleMissedHabits !== false) {
         const missedHabits = filtered.filter(
             (n) => n.kind === "habit-reminder" && new Date(n.triggerAt).getTime() < now.getTime(),
         );
         if (missedHabits.length >= threshold) {
-            // Remove individual missed habits, replace with single bundled notification
             const missedIds = new Set(missedHabits.map((n) => n.id));
             filtered = filtered.filter((n) => !missedIds.has(n.id));
             filtered.push({
@@ -121,7 +95,7 @@ export function filterByBehavior(
                 title: "Routines today",
                 body: `${missedHabits.length} routines are open today`,
                 triggerAt: now.toISOString(),
-                alertAt: null, // ponytail: a bundle never alerts the OS; its routines were already due
+                alertAt: null,
                 entityId: null,
                 route: "/routines",
                 priority: "normal",
@@ -133,22 +107,13 @@ export function filterByBehavior(
     return filtered;
 }
 
-// ── §11.7: Step 3 — Persistence-aware presentation ──
-
-/**
- * Apply dismissal and deferral state to filter out notifications
- * the user has already acted on. Deferred notifications resurface
- * when their defer-until time has passed.
- */
 export function applyPresentationRules(
     candidates: AppNotification[],
     state: NotificationDismissalState,
     now: Date,
 ): AppNotification[] {
     return candidates.filter((n) => {
-        // Skip permanently dismissed
         if (state.dismissedIds.has(n.id)) return false;
-        // Skip deferred until their time has come
         const deferUntil = state.deferredUntil.get(n.id);
         if (deferUntil && new Date(deferUntil).getTime() > now.getTime()) return false;
         return true;

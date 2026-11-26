@@ -34,7 +34,6 @@ export function DismissButton({ label, onClick }: { label: string; onClick: () =
     );
 }
 
-/** Each kind's words: the value it reads (its raw phrase when missing), after any lead-in. */
 const LABELS: Partial<Record<ParsedEntity["type"], { field: string; prefix?: string }>> = {
     due_date: { field: "humanLabel", prefix: "Deadline " },
     scheduled_start: { field: "humanLabel" },
@@ -46,7 +45,6 @@ const LABELS: Partial<Record<ParsedEntity["type"], { field: string; prefix?: str
     not_before: { field: "humanLabel", prefix: "Hidden until " },
 };
 
-/** What the entity means, in the words the draft will save (never the raw phrase alone). */
 export function entityLabel(e: ParsedEntity): string {
     const v = e.normalizedValue as Record<string, unknown> | undefined;
     if (e.type === "priority") return e.sourceText.toUpperCase();
@@ -56,7 +54,6 @@ export function entityLabel(e: ParsedEntity): string {
     return `${label.prefix ?? ""}${(v?.[label.field] as string) ?? e.sourceText}`;
 }
 
-/** What the person said about the parsed words: meanings removed, suggestions taken, or "keep as written". `row` spreads onto DraftRow. */
 export function useDraftChoices() {
     const [dismissed, setDismissed] = useState<string[]>([]);
     const [accepted, setAccepted] = useState<string[]>([]);
@@ -83,7 +80,6 @@ export function useDraftChoices() {
 }
 
 interface DraftRowProps {
-    /** Applied entities; types in `shownElsewhere` already have their own control. */
     applied: ParsedEntity[];
     suggestions: ParsedEntity[];
     shownElsewhere?: ParsedEntity["type"][];
@@ -97,10 +93,6 @@ const CHIP = "inline-flex min-h-8 items-center gap-1 rounded-full border px-2.5 
 const ACTION =
     "inline-flex min-h-8 cursor-pointer items-center rounded-full px-2 text-[11px] font-medium text-twilight-text-soft transition-colors hover:text-twilight-text";
 
-/**
- * The quiet row under a parsed field: values that apply with no control of their own (each with its own remove),
- * and the few meanings that need a choice. Nothing here repeats what a field already shows.
- */
 export function DraftRow({
     applied,
     suggestions,

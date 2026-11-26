@@ -10,6 +10,7 @@ const state = vi.hoisted(() => ({
     events: [] as { id: string }[],
     habits: [] as { id: string }[],
     join: vi.fn(),
+    toastError: vi.fn(),
 }));
 
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => state.auth }));
@@ -25,6 +26,7 @@ vi.mock("../../../app/hooks/sharing/use-share-list", () => ({
     useInvitePreview: () => state.preview,
     useJoinInvite: () => ({ mutate: state.join, isPending: false }),
 }));
+vi.mock("../../../app/lib/utils/error-toast", () => ({ toastError: state.toastError }));
 vi.mock("../../../app/components/shared/CardPage", () => ({
     CardPage: ({ children }: { children: React.ReactNode }) => <main>{children}</main>,
     rise: {},
@@ -80,6 +82,7 @@ beforeEach(() => {
     state.events = [];
     state.habits = [];
     state.join.mockReset();
+    state.toastError.mockReset();
 });
 
 describe("the join screen", () => {
@@ -164,14 +167,21 @@ describe("the join screen", () => {
         expect(screen.queryByRole("button", { name: "Join list" })).toBeNull();
     });
 
-    it("sends a signed-out visitor to sign in and back", async () => {
+    it("sends a signed-out visitor to make an account, and back to this link", async () => {
         state.auth = { authReady: true, isAuthenticated: false, session: null as never };
         renderJoin();
         await waitFor(() =>
             expect(screen.getByLabelText("Current location").textContent).toBe(
-                `/auth/sign-in?redirectTo=${encodeURIComponent(`/join/${TOKEN}`)}`,
+                `/auth/sign-up?redirectTo=${encodeURIComponent(`/join/${TOKEN}`)}`,
             ),
         );
+    });
+
+    it("a link that died during sign-up lands the new account on the calm dead-link card, no error toast", () => {
+        state.preview = { data: undefined, isPending: false, isError: true };
+        renderJoin();
+        expect(screen.getByText("This link has expired or was reset.")).toBeTruthy();
+        expect(state.toastError).not.toHaveBeenCalled();
     });
 
     it.each([

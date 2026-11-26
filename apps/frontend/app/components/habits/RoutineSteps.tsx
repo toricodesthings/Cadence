@@ -12,17 +12,12 @@ import { useResolveHabit } from "../../hooks/habits/use-resolve-habit";
 import { SortableSubtaskList } from "../tasks/SortableSubtaskList";
 import { EditableSubtaskRow } from "../tasks/SubtaskList";
 
-/** "2/3" once some steps are settled (done or skipped) but not all; null otherwise. */
 export function stepProgress(habit: Pick<Habit, "steps">, log?: HabitLog): string | null {
     const ids = (habit.steps ?? []).map((step) => step.id);
     const settled = Object.keys(stepMarksOn(ids, log)).length;
     return settled > 0 && settled < ids.length ? `${settled}/${ids.length}` : null;
 }
 
-/**
- * A routine's steps, in order: drag to reorder, Enter adds the next one. Built
- * on the subtask rows. `onChange` gets null once the last step is removed.
- */
 export function RoutineStepsEditor({
     steps,
     onChange,
@@ -87,10 +82,6 @@ export function RoutineStepsEditor({
     );
 }
 
-/**
- * One day's steps to tick or skip one by one. The day is done once every step
- * is done or skipped; a partly done day just waits, it's never "incomplete".
- */
 export function RoutineStepChecklist({
     habit,
     date,
@@ -124,11 +115,6 @@ export function RoutineStepChecklist({
 
 type CheckMark = StepStatus[string];
 
-/**
- * A day's steps or times as soft rows under a segmented progress track: the
- * whole row checks it off (tap again to clear), Skip sits quietly at the end.
- * Rows take the routine's tone from `--routine-tone`.
- */
 export function RoutineCheckList({
     label,
     items,

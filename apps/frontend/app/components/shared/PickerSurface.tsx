@@ -4,10 +4,6 @@ import { Tip } from "../primitives/Tooltip";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { UtilitySheet } from "./UtilitySheet";
 
-/**
- * A picker (day, emoji, colour) that floats beside its trigger, except on a touch phone, where it opens in a
- * sheet like every compact panel: a floating panel inside a sheet is a frame in a frame, and hard to reach.
- */
 export function PickerSurface({
     trigger,
     title,
@@ -19,17 +15,12 @@ export function PickerSurface({
     contentProps,
     children,
 }: {
-    /** One element: the trigger. */
     trigger: React.ReactElement<React.HTMLAttributes<HTMLElement>>;
-    /** The sheet's heading on a phone. */
     title: string;
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    /** Tooltip for an icon-only trigger (pointer only). */
     tip?: React.ReactNode;
-    /** `tip` is a card (a profile) shown on hover while the picker is closed. */
     tipCard?: boolean;
-    /** The children own their padding in the sheet. */
     flush?: boolean;
     contentProps?: React.ComponentPropsWithoutRef<typeof Popover.Content>;
     children: React.ReactNode;

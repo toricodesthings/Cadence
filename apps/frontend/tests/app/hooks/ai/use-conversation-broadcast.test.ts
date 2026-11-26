@@ -4,11 +4,6 @@ import { useConversationBroadcast } from "../../../../app/hooks/ai/use-conversat
 
 const CHANNEL = "cadence:ai:chat";
 
-/**
- * Flush the BroadcastChannel delivery queue (async in Node/jsdom). One macrotask
- * is not always enough under parallel load, so drain several turns. Positive
- * assertions use waitFor instead; this is for asserting something did NOT happen.
- */
 const tick = async () => {
     for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
 };
@@ -49,7 +44,6 @@ describe("useConversationBroadcast", () => {
     });
 
     it("ignores echoes carrying this tab's own senderId", async () => {
-        // Sniff what the hook broadcasts to learn this tab's senderId.
         const sniff = open();
         let ownId: string | undefined;
         sniff.onmessage = (e) => {
@@ -59,11 +53,10 @@ describe("useConversationBroadcast", () => {
         const handler = vi.fn();
         const { result } = renderHook(() => useConversationBroadcast(handler));
 
-        result.current("stream-finished", "conv-1"); // hook posts, stamped with its TAB_ID
+        result.current("stream-finished", "conv-1");
         await waitFor(() => expect(ownId).toBeDefined());
-        expect(handler).not.toHaveBeenCalled(); // the hook never reacts to its own post
+        expect(handler).not.toHaveBeenCalled();
 
-        // A different channel replaying a message stamped with our id is still ignored.
         open().postMessage({ type: "stream-started", conversationId: "conv-2", senderId: ownId });
         await tick();
         expect(handler).not.toHaveBeenCalled();

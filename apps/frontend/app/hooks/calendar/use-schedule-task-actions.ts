@@ -23,7 +23,6 @@ export function useScheduleTaskActions(
     const [placeTask, setPlaceTask] = useState<Task | null>(null);
     const [readyOpen, setReadyOpen] = useState(false);
     const [lightenOpen, setLightenOpen] = useState(false);
-    /** Move a task to another day, keeping its time of day and length. One Undo. */
     const moveTaskToDay = useCallback(
         (task: Task, day: LocalDate, { quiet = false } = {}) => {
             const prev = temporalOf(task);
@@ -38,7 +37,6 @@ export function useScheduleTaskActions(
         [updateTask],
     );
 
-    /** One routine day (or one of its times) to a status; the check-off, skip and clear of every surface. */
     const resolveRoutine = useCallback(
         (task: Task, status: "COMPLETED" | "SKIPPED" | "PENDING") => {
             const parts = parseVirtualHabitId(task.id);
@@ -46,17 +44,14 @@ export function useScheduleTaskActions(
             return resolveHabitMutation.mutateAsync({
                 habitId: parts.habitId,
                 targetDate: parts.day,
-                // A block of a routine at set times is one time, not the day.
                 ...(parts.time ? timeAction(parts.time, status) : { status }),
             });
         },
         [resolveHabitMutation],
     );
 
-    // ── Row and chip actions ────────────────────────────────────────────────
     const completeTask = useCallback(
         (task: Task) => {
-            // Same short, cancellable countdown the checkbox shows.
             queueCompletion({ taskId: task.id, onCommit: () => updateTask({ id: task.id, state: "COMPLETE" }) });
         },
         [queueCompletion, updateTask],

@@ -22,19 +22,8 @@ import { mcpOrigin, type McpProps } from "./oauth";
 import { replanReminders } from "../push/reminder-clock";
 import { codeHost, type CodeSession } from "./code-mode";
 
-/**
- * The MCP endpoint: a thin wrapper over the assistant's own tool factories, so an
- * outside assistant can do exactly what Cadence's assistant does (same RLS path,
- * caps and projections). Writes apply at once like any task app's MCP server: the
- * client asks the person before each call, guided by `destructiveHint`.
- * A tool outside the token's scopes is never registered, so calling it by name
- * fails like an unknown tool.
- */
-
-/** Read or write, for the rate limiter. Writes are retry-safe by operationKey. */
 type Effect = "read" | "write";
 
-/** Scope a published tool needs, by kind (`ask_user` isn't published: an MCP client asks in its own chat). The guide needs none. */
 const SCOPE_BY_KIND: Record<Exclude<ToolKind, "ask">, McpScope> = {
     read: "cadence:read",
     capture: "cadence:capture",
@@ -43,7 +32,6 @@ const SCOPE_BY_KIND: Record<Exclude<ToolKind, "ask">, McpScope> = {
 const scopeFor = (name: ToolName, kind: Exclude<ToolKind, "ask">): McpScope | null =>
     name === "get_cadence_help" ? null : SCOPE_BY_KIND[kind];
 
-/** MCP descriptions where the internal one assumes Cadence's own prompt. */
 const DESCRIPTIONS: Partial<Record<ToolName, string>> = {
     get_cadence_help:
         "The Cadence guide: how a feature works and where it lives in the app, with links that open it. " +
@@ -56,10 +44,6 @@ const DESCRIPTIONS: Partial<Record<ToolName, string>> = {
         "Saves a thought to the user's Cadence Capture list, to sort later in the app. Additive: it never changes existing data.",
 };
 
-/**
- * Writes that go through `once`, so a dry run (`dryRun: true`) runs them and rolls back. The creates with their
- * own idempotency (`create_project`, `create_tag`, `create_habit`, `capture_to_inbox`) and `remember` (it embeds first) can't.
- */
 export const DRY_RUN_TOOLS = new Set<ToolName>([
     "create_tasks",
     "duplicate_tasks",
@@ -96,11 +80,9 @@ const RETRY_NOTE =
     "Ids come from a read; never guess one.";
 const DRY_NOTE = "dryRun:true tries it without saving.";
 
-/** Help-guide links are app paths; outside the app they need the origin. */
 const absoluteLinks = (text: string, app: string) =>
     text.replace(/\]\((\/|\?)/g, (_, first) => `](${app}${first === "?" ? "/?" : "/"}`);
 
-/** `/mcp` = every direct tool (+ Code Mode); `/mcp/code` = only `search` + `execute`. */
 type Surface = "all" | "code";
 const START: Record<Surface, string> = {
     all: "Start with get_today.",
@@ -134,10 +116,6 @@ const EXECUTE_DESCRIPTION =
     'tell the user what would be deleted, then call execute with {executionId, decision:"approve"} or "reject". ' +
     '{executionId, decision:"undo"} removes what a run created (new tasks go to Trash); edits stay. Methods: ';
 
-/**
- * The brief an outside model gets at connect: under 2KB (Claude Code's reported cutoff), essentials in the
- * first 512 characters (OpenAI's guidance). Rules for one tool live in its description, where every client reads them.
- */
 export function instructions(ctx: AgentContext, app: string, surface: Surface = "all") {
     const weekday = formatInZone(ctx.today, ctx.timezone, { weekday: "long" });
     return [
@@ -164,10 +142,6 @@ export function instructions(ctx: AgentContext, app: string, surface: Surface = 
     ].join("\n");
 }
 
-/**
- * Publish a zod schema without its regex `pattern`s (as the in-app registry does). The SDK's own validation is a
- * pass-through: `callPublishedTool` validates against the full schema, so a failure comes back as our error body.
- */
 function withoutPatterns(schema: z.ZodObject) {
     const std = schema["~standard"];
     const lean = (io: "input" | "output") => (options: Parameters<typeof std.jsonSchema.input>[0]) =>
@@ -183,7 +157,6 @@ function withoutPatterns(schema: z.ZodObject) {
 
 export const ok = (value: unknown): CallToolResult => ({ content: [{ type: "text", text: JSON.stringify(value) }] });
 
-/** A refusal or failure as the REST error body (`createErrorBody`), plus the result's own extra keys (e.g. `matches`). */
 type Failure = {
     error: string;
     code?: ErrorCode;
@@ -204,7 +177,6 @@ export function fail(result: Failure): CallToolResult {
     return { isError: true, content: [{ type: "text", text: JSON.stringify({ error: { ...body.error, ...extra } }) }] };
 }
 
-/** A zod failure as `VALIDATION_ERROR`, one issue per problem (path joined by "."). */
 const invalid = (error: z.ZodError) =>
     fail({
         error: "The call doesn't match the tool's input schema. Nothing was changed.",
@@ -217,15 +189,10 @@ const invalid = (error: z.ZodError) =>
         })),
     });
 
-/** Every tool an MCP client can see: the catalog minus `ask_user`, plus `get_today`. */
 export type PublishedTool = Exclude<ToolName, "ask_user"> | "get_today";
 
 const TODAY_SCHEMA = z.object({ limit: z.number().int().min(1).max(50).optional() });
 
-/**
- * A tool's MCP input: the shared schema plus `operationKey` on writes, `dryRun` where it rolls back, `confirm` on
- * deletes. A dry run saves nothing, so it needs neither the key nor the user's go-ahead.
- */
 export function mcpInputSchema(name: PublishedTool, schema: z.ZodObject, write: boolean): z.ZodObject {
     if (name === "get_today") return TODAY_SCHEMA;
     if (!write) return schema;
@@ -260,7 +227,6 @@ export function mcpInputSchema(name: PublishedTool, schema: z.ZodObject, write: 
 const example = (name: PublishedTool) =>
     `Example (ids come from a read): ${EXAMPLES[name].map((args) => JSON.stringify(args)).join(" or ")}`;
 
-/** The factories' tools; the catalog picks from these. Full zod schemas (patterns included). */
 const allTools = coreTools;
 
 type AnyTool = {
@@ -270,12 +236,6 @@ type AnyTool = {
     execute?: (input: unknown, options: object) => Promise<any>;
 };
 
-// ── Utility ─────────────────────────────────────────────────────────────────
-
-/**
- * The durable half of the grant: an active connection row, touched on use. Also
- * loads the zone "today" means: `users.time_zone`, the one zone every surface uses.
- */
 async function openConnection(env: Env, userId: string, connectionId: string) {
     return withRls(getDbClient(env), userId, async (tx) => {
         const [row] = await tx
@@ -296,7 +256,6 @@ async function openConnection(env: Env, userId: string, connectionId: string) {
             scopes: row.scopes,
             zone: await userZone(tx, userId),
             weekStart: dateTime?.weekStart,
-            // Memory tools are published only while the person has memory on.
             memoryOn: memoryIsOn(user?.settings),
         };
     });
@@ -316,27 +275,17 @@ function invalidToken(env: Env): Response {
     );
 }
 
-/** One published tool, ready to register on `/mcp` or to map into the Code Mode SDK. */
 export type PublishedEntry = {
     name: PublishedTool;
     write: boolean;
     destructive: boolean;
-    /** The shared schema (the factory's `inputSchema`; `TODAY_SCHEMA` for get_today). */
     schema: z.ZodObject;
-    /** What the tool does (no example: Code Mode indexes it for search). */
     summary: string;
-    /** `summary` as the direct tools publish it: with the dry-run and retry notes. */
     description: string;
-    /** `schema` plus the MCP-only keys (`mcpInputSchema`). */
     inputSchema: z.ZodObject;
     call: (args: unknown) => Promise<CallToolResult>;
 };
 
-/**
- * Every tool the scopes allow, each with its one call path: budget → validate (full zod) → strip MCP-only keys →
- * call key → execute → error body or result → reminders. The direct tools and Code Mode both call it, so they can't drift.
- * `onWrite` runs after each applied write (default: replan reminders); Code Mode batches it once per run.
- */
 export function publishedTools(
     env: Env,
     userId: string,
@@ -349,8 +298,6 @@ export function publishedTools(
     const app = appOrigin(env);
     const tools = allTools(env, userId, ctx) as unknown as Record<string, AnyTool>;
 
-    // Every call spends the user's app budget, by effect: an all-POST transport
-    // can't dodge the read/write limits the REST API applies by HTTP verb.
     const withinBudget = async (effect: Effect) => {
         const limiter = effect === "read" ? env.RATE_LIMITER_READ : env.RATE_LIMITER_WRITE;
         return !limiter || (await limiter.limit({ key: userId })).success;
@@ -366,8 +313,6 @@ export function publishedTools(
         const parsed = await tool.inputSchema.safeParseAsync(args ?? {});
         if (!parsed.success) return invalid(parsed.error);
         const { operationKey, dryRun, confirm: _confirm, ...input } = parsed.data as Record<string, unknown>;
-        // Write keys are namespaced per connection (JSON-RPC ids restart per session) and bind the input,
-        // so a reused key with other input is a new change, never a silent "already done".
         const toolCallId = write
             ? `${dryRun ? DRY_RUN_PREFIX : ""}mcp:${connectionId}:${operationKey ?? crypto.randomUUID()}:${await hashIdentifier(JSON.stringify(input))}`
             : "mcp";
@@ -384,7 +329,7 @@ export function publishedTools(
         if (scope && !scopes.has(scope)) continue;
         const tool = tools[name];
         const write = spec.kind !== "read";
-        const published = name as PublishedTool; // ask_user was skipped above
+        const published = name as PublishedTool;
         const schema = tool.inputSchema as z.ZodObject;
         const inputSchema = mcpInputSchema(published, schema, write);
         const base = DESCRIPTIONS[name] ?? tool.description;
@@ -438,7 +383,6 @@ const busy = fail({
     isRetryable: true,
 });
 
-/** The direct tools register on `/mcp` (surface "all"); `search` + `execute` (Code Mode) on both surfaces. */
 function buildServer(
     env: Env,
     userId: string,
@@ -457,7 +401,6 @@ function buildServer(
             websiteUrl: app,
             icons: [{ src: `${app}/icon-512.png`, mimeType: "image/png", sizes: ["512x512"] }],
         },
-        // Stateless: no session to push a list change to; clients re-list on their next connect.
         { instructions: instructions(ctx, app, surface), capabilities: { tools: { listChanged: false } } },
     );
 
@@ -531,12 +474,8 @@ function buildServer(
     return server;
 }
 
-// ── Read ────────────────────────────────────────────────────────────────────
-
-/** `/mcp`, after the OAuth provider verified the token (audience, expiry) and decrypted its props. */
 export async function serveMcp(request: Request, env: Env, ctx: OAuthResourceContext<McpProps>): Promise<Response> {
     const { userId, connectionId } = ctx.props;
-    // Before any Postgres work: `initialize` and `tools/list` spend this too. Its own key, so MCP can't starve the app's reads.
     if (env.RATE_LIMITER_READ && !(await env.RATE_LIMITER_READ.limit({ key: `mcp:${userId}` })).success) {
         return Response.json(
             { error: "rate_limited", error_description: "Too many requests. Try again in a minute." },
@@ -547,7 +486,7 @@ export async function serveMcp(request: Request, env: Env, ctx: OAuthResourceCon
     if (!connection) return invalidToken(env);
 
     const scopes = new Set(ctx.auth.scope.filter((s) => connection.scopes.includes(s)));
-    if (scopes.has("cadence:write")) scopes.add("cadence:capture"); // changing anything includes adding a capture
+    if (scopes.has("cadence:write")) scopes.add("cadence:capture");
     const clock = userClock(connection.zone, new Date().toISOString());
     const agentCtx: AgentContext = {
         timezone: clock.timezone,
@@ -564,7 +503,6 @@ export async function serveMcp(request: Request, env: Env, ctx: OAuthResourceCon
         { responseMode: "json" },
     );
     const response = await handler.fetch(request);
-    // Tenant data: never cached by anything between us and the client.
     const headers = new Headers(response.headers);
     headers.set("Cache-Control", "no-store");
     return new Response(response.body, { status: response.status, statusText: response.statusText, headers });

@@ -15,7 +15,6 @@ describe("date-format shared helpers", () => {
     beforeEach(() => setUserZone("America/Toronto"));
 
     it("builds month grids for Monday- and Sunday-first weeks", () => {
-        // 1 Sep 2026 is a Tuesday.
         expect(getDaysInMonth(2026, 1)).toBe(28);
         expect(getFirstDayOfWeek(2026, 8)).toBe(1);
         expect(getFirstDayOfWeek(2026, 8, 0)).toBe(2);
@@ -33,7 +32,7 @@ describe("date-format shared helpers", () => {
 
     it("round-trips TimePicker values on a day or an instant, in the user's zone", () => {
         const onDay = fromTimeValue("2026-09-21", "07:30");
-        expect(onDay).toBe("2026-09-21T11:30:00.000Z"); // 07:30 EDT
+        expect(onDay).toBe("2026-09-21T11:30:00.000Z");
         expect(toTimeValue(onDay)).toBe("07:30");
         expect(toTimeValue(fromTimeValue(onDay, "22:05"))).toBe("22:05");
         expect(fromTimeValue(fromTimeValue(onDay, "22:05"), "08:00")).toBe(fromTimeValue("2026-09-21", "08:00"));

@@ -13,7 +13,7 @@ describe("timestamps", () => {
     it.each([
         ["2026-03-01T12:00:00.000Z", true],
         ["2026-03-01T12:00:00-05:00", true],
-        ["2026-03-01T12:00:00", false], // no zone: ambiguous on the wire
+        ["2026-03-01T12:00:00", false],
         ["2026-03-01", false],
     ])("instantSchema(%s) → %s", (value, ok) => {
         expect(instantSchema.safeParse(value).success).toBe(ok);
@@ -49,7 +49,6 @@ describe("timestamps", () => {
     });
 
     it("flexibleDateTimeSchema is gone from the contracts source", () => {
-        // Vite's glob (no node types in this package).
         const files = (import.meta as unknown as { glob: (p: string, o: object) => Record<string, string> }).glob(
             "../../contracts/src/**/*.ts",
             { query: "?raw", import: "default", eager: true },

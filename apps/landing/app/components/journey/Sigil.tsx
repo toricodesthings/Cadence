@@ -3,28 +3,20 @@ import { useId, type CSSProperties, type ReactNode } from "react";
 import { StaticSvg } from "~/components/StaticSvg";
 import { cssVars } from "~/lib/geometry";
 
-/** A four-point star centred on (x, y): the crest's star, drawn as four concave arms. */
 const star = (x: number, y: number, r: number) =>
     `M${x},${y - r}Q${x},${y} ${x + r},${y}Q${x},${y} ${x},${y + r}Q${x},${y} ${x - r},${y}Q${x},${y} ${x},${y - r}Z`;
 
 const QUARTERS = [0, 90, 180, 270];
 const TICKS = [30, 60, 120, 150, 210, 240, 300, 330];
-/** The blossom's five petals, from the top. */
 const PETALS = [0, 72, 144, 216, 288];
 
-/**
- * The umebachi, the plum-blossom crest: five overlapping petals, outer arc to outer arc, notching where
- * they meet. Computed once (petal centres 60 out, radius 38, so the notches fall at 62.7 and the tips at 98).
- */
 const UMEBACHI =
     "M-36.8,-50.7A38,38 0 1,1 36.8,-50.7A38,38 0 1,1 59.6,19.4A38,38 0 1,1 0,62.7A38,38 0 1,1 -59.6,19.4A38,38 0 1,1 -36.8,-50.7Z";
 
-/** The petal outline as a CSS mask, from the same path, so light can travel along it (`.blossom-aura`). */
 const UMEBACHI_MASK = `url("data:image/svg+xml,${encodeURIComponent(
     `<svg xmlns='http://www.w3.org/2000/svg' viewBox='-100 -100 200 200'><path d='${UMEBACHI}' fill='none' stroke='#000' stroke-width='1.6' stroke-linejoin='round'/></svg>`,
 )}")`;
 
-/** Rings of light for Emilie; a plum-blossom seal for the finale's invitation: inked on arrival, with light travelling its petals. */
 export function Sigil({
     className,
     style,
@@ -36,7 +28,6 @@ export function Sigil({
     blossom?: boolean;
     children?: ReactNode;
 }) {
-    // One ink per sigil (two are on the page), with an id safe inside url(#…)
     const ink = `sigil-ink-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
     return (
         <div
@@ -44,7 +35,6 @@ export function Sigil({
             style={{ ...style, ...cssVars({ "--sigil-ink": `url(#${ink})` }) }}
         >
             <span className="sigil-glow" aria-hidden="true" />
-            {/* The animated ring turns on a box around its SVG; the blossom's petals hold still and its light moves. */}
             <span className="sigil-ring sigil-ring-outer" aria-hidden="true">
                 <StaticSvg viewBox="-100 -100 200 200" focusable="false">
                     {import.meta.env.SSR ? <OuterBody ink={ink} blossom={blossom} /> : null}

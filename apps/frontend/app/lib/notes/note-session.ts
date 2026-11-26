@@ -1,18 +1,9 @@
-/**
- * One note session per account + canonical note owner, per tab. It owns the text's
- * generations, the acknowledged revision, durability and the one in-flight save, so the
- * writing room and the task panel see one truth. Editors only own their selection.
- *
- * Plain TypeScript with injected dependencies (React and the network live elsewhere),
- * so every save and sync rule here is unit-testable with fake timers.
- */
 import { NOTE_MAX_CHARS, type TaskNote } from "@cadence/contracts/note";
 import type { NoteSavePayload, WalEntry } from "../api/offline-wal";
 import { ApiErrorResponse, isNetworkFailure } from "../../types/api";
 import { keepRecoveryCopy, type DraftRecord, type NoteJournal } from "./note-journal";
 import { reconcileNote } from "./note-merge";
 
-/** Initial tuning targets (0.28.0 plan §4): local checkpoint, idle save, longest wait while typing. */
 export const JOURNAL_MS = 150;
 export const IDLE_SAVE_MS = 600;
 export const MAX_WAIT_MS = 2_000;
@@ -34,33 +25,25 @@ export interface NoteSessionState {
     loaded: boolean;
     loadFailed: boolean;
     body: string;
-    /** Last text/revision the server acknowledged (0 = no note yet). */
     baseBody: string;
     baseVersion: number;
-    /** Counts local edits; `ackedGen` is the newest one the server (or the queue's reconcile) holds. */
     gen: number;
     ackedGen: number;
-    /** Newest generation written to this device's journal. */
     durableGen: number;
     journalFailed: boolean;
     sending: boolean;
-    /** The latest text sits in the offline queue. */
     queued: boolean;
     problem: NoteProblem;
-    /** Both versions, when edits overlap and nothing was guessed. */
     conflict: { remote: string; remoteVersion: number } | null;
-    /** A version set aside by a choice, kept until discarded. */
     recovery: { body: string; at: number } | null;
     online: boolean;
 }
 
-/** The one status the user sees (the table in the plan §4), derived, never stored. */
 export function noteStatus(s: NoteSessionState): NoteStatus {
     if (!s.loaded) return "loading";
     if (s.conflict) return "review";
     if (s.gen === s.ackedGen) return "saved";
     const device = s.durableGen === s.gen && !s.journalFailed;
-    // Any problem: kept on this device it is a sync failure; otherwise the save itself failed.
     if (s.problem) return device ? "sync-failed" : "save-failed";
     if (s.queued) return device ? (s.online ? "device-syncing" : "device-offline") : "save-failed";
     if (!s.online && device) return "device-offline";
@@ -70,24 +53,18 @@ export function noteStatus(s: NoteSessionState): NoteStatus {
 export interface SessionDeps {
     userId: string;
     ownerId: string;
-    /** Fresh from the server. */
     fetchNote: () => Promise<TaskNote | null>;
-    /** What the query cache holds, for editing offline; `undefined` = never loaded. */
     cachedNote: () => TaskNote | null | undefined;
-    /** Offline-aware save: `undefined` means it was queued for later. */
     send: (payload: NoteSavePayload) => Promise<TaskNote | undefined>;
     publish: (note: TaskNote | null | ((old: TaskNote | null | undefined) => TaskNote | null | undefined)) => void;
     announce: (message: { owner: string; version: number; opId?: string }) => void;
     journal: NoteJournal;
     walEntries: () => WalEntry[];
     subscribeWal: (cb: () => void) => () => void;
-    /** Remove this branch's entry from the offline queue (the user chose a version, so the queued copy is stale). */
     discardQueued: (branch: string) => void;
     isOnline: () => boolean;
-    /** Holds a lock for as long as this tab lives; resolves `true` while another tab's branch is still alive. */
     branchAlive: (branch: string) => Promise<boolean>;
     holdBranch: (branch: string) => () => void;
-    /** Legacy `task.content`, used only when the server has no dedicated note. */
     legacySeed?: () => string;
     newId?: () => string;
 }
@@ -110,7 +87,6 @@ export class NoteSession {
     private driveAgain = false;
     private journalRun: Promise<void> | null = null;
     private retries = 0;
-    /** The text this branch last handed to the offline queue, so its delivery reads as ours, not as someone else's edit. */
     private queuedSnapshot: { body: string; gen: number } | null = null;
     private releaseBranch: () => void = () => {};
     private unsubscribeWal: () => void = () => {};
@@ -138,8 +114,6 @@ export class NoteSession {
         };
     }
 
-    // ── subscription ──
-
     subscribe = (cb: Listener) => {
         this.listeners.add(cb);
         return () => this.listeners.delete(cb);
@@ -163,19 +137,16 @@ export class NoteSession {
         for (const l of this.listeners) l();
     }
 
-    /** An editor view registers to receive text that changed outside it (other tab, merge, choice). */
     attachView(id: string, onExternal: ExternalListener, serialize: () => string | null) {
         this.views.set(id, onExternal);
         this.serializers.set(id, serialize);
         return () => {
-            // Unmounting must not lose the newest keystrokes.
             this.pullFromViews();
             this.views.delete(id);
             this.serializers.delete(id);
         };
     }
 
-    /** Ask editors for text they haven't reported yet (serialization is debounced in the editor). */
     private pullFromViews() {
         for (const [id, serialize] of this.serializers) {
             const text = serialize();
@@ -186,8 +157,6 @@ export class NoteSession {
     private tellViews(body: string, except?: string) {
         for (const [id, cb] of this.views) if (id !== except) cb(body);
     }
-
-    // ── loading ──
 
     load(): Promise<void> {
         return (this.loading ??= this.doLoad());
@@ -204,7 +173,7 @@ export class NoteSession {
         }
         if (this.disposed) return;
         if (note === undefined) {
-            this.loading = null; // Retry loads again
+            this.loading = null;
             return this.set({ loadFailed: true });
         }
 
@@ -224,7 +193,6 @@ export class NoteSession {
         if (this.state.gen !== this.state.ackedGen) this.scheduleSave();
     }
 
-    /** Drafts a closed or crashed tab left behind (or a recovery copy): fold them in by the same rules as a remote edit. */
     private async recoverEarlierDrafts() {
         let records: DraftRecord[] = [];
         try {
@@ -239,7 +207,6 @@ export class NoteSession {
                 continue;
             }
             if (await this.deps.branchAlive(record.branch)) continue;
-            // A draft already in the offline queue is the queue's to deliver.
             if (
                 this.deps
                     .walEntries()
@@ -253,7 +220,6 @@ export class NoteSession {
                 continue;
             if (record.body !== this.state.body || record.baseVersion !== this.state.baseVersion) {
                 this.adoptDraft(record);
-                // On the device under this branch first: the closed tab's copy is about to go.
                 await this.writeJournal();
                 if (this.state.journalFailed) continue;
             }
@@ -269,7 +235,6 @@ export class NoteSession {
                 ? reconcileNote(record.baseBody, record.body, s.body)
                 : reconcileNote(s.baseBody, s.body, record.body);
         if (record.baseVersion === s.baseVersion && s.gen === s.ackedGen) {
-            // Nothing newer on the server: the draft simply continues.
             this.state = { ...this.state, body: record.body, gen: s.gen + 1 };
         } else if (outcome.kind === "merged") {
             this.state = { ...this.state, body: outcome.body, gen: s.gen + 1 };
@@ -283,9 +248,6 @@ export class NoteSession {
         }
     }
 
-    // ── editing ──
-
-    /** A local edit from an editor view. */
     edit(body: string, view?: string) {
         if (!this.state.loaded || body === this.state.body) return;
         if (!this.firstDirtyAt) this.firstDirtyAt = Date.now();
@@ -307,7 +269,6 @@ export class NoteSession {
         }, JOURNAL_MS);
     }
 
-    /** One journal write at a time; it loops until the newest generation is down, so a caller can await "everything so far". */
     private writeJournal(): Promise<void> {
         return (this.journalRun ??= (async () => {
             try {
@@ -343,12 +304,6 @@ export class NoteSession {
         this.saveTimer = setTimeout(() => void this.drive(), Math.max(0, Math.min(IDLE_SAVE_MS, MAX_WAIT_MS - waited)));
     }
 
-    // ── saving (one request at a time) ──
-
-    /**
-     * Save now, skipping the idle wait. "saved": the server has the latest text.
-     * "held": it's safe on this device and queued. "failed": neither (stay and recover).
-     */
     async flush(): Promise<FlushResult> {
         this.pullFromViews();
         clearTimeout(this.saveTimer);
@@ -384,7 +339,7 @@ export class NoteSession {
         for (;;) {
             const s = this.state;
             if (!s.loaded || s.gen === s.ackedGen || s.conflict) return;
-            if (s.body.length > NOTE_MAX_CHARS) return; // never truncated, never sent; the user reduces or exports it
+            if (s.body.length > NOTE_MAX_CHARS) return;
             if (s.problem === "deleted" || s.problem === "invalid" || s.problem === "auth") return;
             if (this.waitsForQueue()) return this.set({ queued: true });
 
@@ -432,7 +387,6 @@ export class NoteSession {
         }
     }
 
-    /** True to go around again immediately (merged), false to stop. */
     private async onSaveError(error: unknown): Promise<boolean> {
         if (error instanceof ApiErrorResponse) {
             if (error.status === 409) return this.onConflict();
@@ -464,7 +418,6 @@ export class NoteSession {
         return false;
     }
 
-    /** Another edit landed first: settle it by fetching the truth (never by guessing). */
     private async onConflict(): Promise<boolean> {
         let remote: TaskNote | null;
         try {
@@ -501,7 +454,6 @@ export class NoteSession {
         return false;
     }
 
-    /** While the queue holds an earlier request for this branch that may already have reached the server, wait for it. */
     private waitsForQueue(): boolean {
         return this.deps
             .walEntries()
@@ -513,8 +465,6 @@ export class NoteSession {
                     (e.attempted || e.status === "replaying" || e.conflict),
             );
     }
-
-    // ── the offline queue ──
 
     private async onWalChange() {
         const mine = this.deps
@@ -534,7 +484,6 @@ export class NoteSession {
         }
         if (ours?.status === "failed" && !ours.conflict) return this.set({ queued: true, problem: "network" });
         if (!ours && s.queued) {
-            // The queue delivered it (or dropped a deleted parent): learn the server's truth.
             let remote: TaskNote | null;
             try {
                 remote = await this.deps.fetchNote();
@@ -546,7 +495,6 @@ export class NoteSession {
             const delivered = this.queuedSnapshot;
             this.queuedSnapshot = null;
             if (delivered && remote.version > this.state.baseVersion) {
-                // Our queued text reached the server: it is the base for anything typed since, not a rival edit.
                 if (remote.body === delivered.body) this.acknowledge(remote, delivered.gen);
                 else this.set({ baseBody: delivered.body });
             }
@@ -557,14 +505,11 @@ export class NoteSession {
         }
     }
 
-    // ── changes from elsewhere ──
-
-    /** Fresh server data (poll, focus, reconnect, another tab's announcement). Never triggers a save echo. */
     receiveRemote(note: TaskNote | null) {
-        if (note && note.version > this.state.baseVersion) this.pullFromViews(); // text typed a moment ago counts as local
+        if (note && note.version > this.state.baseVersion) this.pullFromViews();
         const s = this.state;
         if (!s.loaded || !note || note.version <= s.baseVersion) return;
-        if (s.sending) return; // the response (or its 409) settles it
+        if (s.sending) return;
         if (s.gen === s.ackedGen) {
             this.set({
                 body: note.body,
@@ -577,7 +522,7 @@ export class NoteSession {
             if (note.body !== s.body) this.tellViews(note.body);
             return;
         }
-        if (s.queued) return; // our queued save will meet this as a conflict and reconcile there
+        if (s.queued) return;
         if (this.settleAgainst(note)) this.scheduleSave();
     }
 
@@ -590,14 +535,11 @@ export class NoteSession {
         }
     }
 
-    // ── conflict choices ──
-
-    /** Keep my text: it saves on top of the latest version. The latest stays recoverable. */
     async useMine() {
         const c = this.state.conflict;
         if (!c) return;
         await this.keepRecovery(c.remote);
-        this.deps.discardQueued(this.branch); // the queued copy would repeat the old base
+        this.deps.discardQueued(this.branch);
         this.set({
             conflict: null,
             baseBody: c.remote,
@@ -608,7 +550,6 @@ export class NoteSession {
         void this.flush();
     }
 
-    /** Use the latest: my text is set aside as a recovery copy until discarded. */
     async useLatest() {
         const c = this.state.conflict;
         if (!c) return;
@@ -646,7 +587,6 @@ export class NoteSession {
                 await this.deps.journal.remove(this.deps.userId, this.deps.ownerId, r.branch).catch(() => {});
     }
 
-    /** Put the recovery copy back as an edit. */
     restoreRecovery() {
         const r = this.state.recovery;
         if (!r) return;
@@ -655,7 +595,6 @@ export class NoteSession {
         void this.discardRecovery();
     }
 
-    /** Write the latest text to this device now. `true` once nothing newer than the server or the journal is missing. */
     async persist(): Promise<boolean> {
         this.pullFromViews();
         clearTimeout(this.journalTimer);
@@ -665,7 +604,6 @@ export class NoteSession {
         return s.gen === s.ackedGen || (s.durableGen === s.gen && !s.journalFailed);
     }
 
-    /** Persist and send what's pending (room closed, tab hidden). Never awaits the network. */
     checkpoint() {
         this.pullFromViews();
         clearTimeout(this.journalTimer);

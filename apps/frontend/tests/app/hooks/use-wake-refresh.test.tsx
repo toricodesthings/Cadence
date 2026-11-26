@@ -23,7 +23,6 @@ it("refreshes only when a tick arrives far later than scheduled (the computer sl
     vi.advanceTimersByTime(30_000 * 4);
     expect(refetch).not.toHaveBeenCalled();
 
-    // Sleep: the clock jumps ten minutes while no timer ran.
     vi.setSystemTime(Date.now() + 10 * 60_000);
     vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
     vi.advanceTimersByTime(30_000);

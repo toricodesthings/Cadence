@@ -34,7 +34,6 @@ async function create(body: Record<string, unknown>, client = tasks) {
     return res.body.data;
 }
 
-/** The caller's zone is the account's (`users.time_zone`). */
 const setZone = (zone: string, id = userId) =>
     asOwner((pg) => pg.query("UPDATE users SET time_zone = $2 WHERE id = $1", [id, zone]));
 
@@ -47,7 +46,6 @@ describe("creating tasks", () => {
         const task = await create({ ...unsafe, recurrenceRule: "FREQ=DAILY" });
         expect((await tasks("PATCH", `/${task.id}`, { recurrenceRule: "FREQ=DAILY;BYSECOND=0,1" })).status).toBe(400);
 
-        // Model a row persisted before the write guard existed.
         await asOwner((pg) =>
             pg.query("UPDATE tasks SET recurrence_rule = $2 WHERE id = $1", [task.id, unsafe.recurrenceRule]),
         );
@@ -56,7 +54,6 @@ describe("creating tasks", () => {
         expect(read.body.error.code).toBe("INVALID_RECURRENCE_RULE");
         expect((await tasks("POST", `/${task.id}/duplicate`)).status).toBe(400);
 
-        // The owner can repair the rule and read the same calendar normally.
         expect((await tasks("PATCH", `/${task.id}`, { recurrenceRule: "FREQ=DAILY" })).status).toBe(200);
         expect((await tasks("GET", "?from=2026-10-07&to=2026-10-09")).body.data).toHaveLength(3);
     });
@@ -395,7 +392,6 @@ describe("updating tasks", () => {
     it("reorders the whole list in one call, spacing indexes apart", async () => {
         const [a, b, c] = [await create({ title: "A" }), await create({ title: "B" }), await create({ title: "C" })];
 
-        // Regression: this path returned 500 in production (untyped CASE branches resolved to text).
         const { status } = await tasks("PATCH", `/${b.id}/reorder`, {
             orderIndex: 0,
             orderedTaskIds: [c.id, a.id, b.id],
@@ -428,7 +424,6 @@ describe("batch operations", () => {
         expect(counts).toEqual([{ reschedule_count: 1 }, { reschedule_count: 1 }]);
         expect((await otherTasks("GET", `/${theirs.id}`)).body.data.dueDate).toBe("2026-01-01");
 
-        // Later writes update each task's one metrics row instead of adding another.
         await tasks("POST", "/batch/reschedule", { taskIds: [a.id, b.id], date: "2026-03-11" });
         await tasks("PATCH", "/batch/state", { taskIds: [a.id], state: "COMPLETE" });
         const rows = await asOwner(
@@ -448,7 +443,6 @@ describe("batch operations", () => {
 
     it("moves tasks to a local date keeping each one's time: timed stays 2 PM local, all-day stays all-day", async () => {
         await setZone("America/Toronto");
-        // 2:00 PM Friday in Toronto, an all-day Friday task, and a Fixed class.
         const call = await create({
             title: "Call",
             scheduledStart: "2026-09-25T18:00:00.000Z",
@@ -472,7 +466,7 @@ describe("batch operations", () => {
             scheduledEnd: "2026-09-28T18:30:00.000Z",
         });
         expect(byTitle.Rent).toMatchObject({ dueDate: "2026-09-28", scheduledStart: null });
-        expect(byTitle.Lecture).toBeUndefined(); // Fixed blocks stay put alongside other tasks
+        expect(byTitle.Lecture).toBeUndefined();
         expect(
             (await tasks("POST", "/batch/reschedule", { taskIds: [lecture.id], date: "2026-09-28" })).body.data[0]
                 .scheduledStart,
@@ -695,7 +689,7 @@ describe("one time model", () => {
 
     it("a timed task near midnight in Kiritimati (+14) sits on its local day", async () => {
         await setZone("Pacific/Kiritimati");
-        await create({ title: "Early", scheduledStart: "2026-10-05T00:15:00+14:00" }); // 2026-10-04T10:15Z
+        await create({ title: "Early", scheduledStart: "2026-10-05T00:15:00+14:00" });
 
         expect(await onDay("2026-10-05")).toEqual(["Early"]);
         expect(await onDay("2026-10-04")).toEqual([]);
@@ -722,7 +716,6 @@ describe("one time model", () => {
             "14:35",
             "14:35",
         ]);
-        // The UTC hour moves by one: that is the DST change, not drift.
         expect(body.data.map((t: any) => t.scheduledStart.slice(11, 16))).toEqual(["18:35", "19:35", "19:35"]);
     });
 

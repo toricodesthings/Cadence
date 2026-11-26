@@ -1,5 +1,3 @@
-// The time-model guard (root AGENTS.md "Time"). Fails on code that can read a calendar day as a different day.
-// Scans apps/*/app, apps/*/src and packages/*/src (not tests), except packages/domain/src/time.ts.
 // A deliberate exception needs `// time-ok: <reason>` on the same line; each one is a review question.
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, relative } from "node:path";

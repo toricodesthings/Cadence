@@ -3,9 +3,9 @@ import type { InboxItem } from "@cadence/contracts/inbox";
 import type { Habit } from "@cadence/contracts/habit";
 import type { LocalDate } from "@cadence/domain/time";
 import type { PersonalEvent, SharedEvent } from "@cadence/contracts/personal-event";
+import { DetailPanelSkeleton } from "./DetailPanelSkeleton";
 import { StartupSuspense } from "./StartupSuspense";
 
-// Editors load on first selection, never with the first screen (a deep link still waits for its editor).
 const ClarifySheet = lazy(() => import("../holding/ClarifySheet").then((m) => ({ default: m.ClarifySheet })));
 const TaskEditor = lazy(() => import("../tasks/TaskEditor").then((m) => ({ default: m.TaskEditor })));
 const HabitEditor = lazy(() => import("../habits/HabitEditor").then((m) => ({ default: m.HabitEditor })));
@@ -24,7 +24,7 @@ type EditorProps = {
     | {
           kind: "habit";
           habit: Habit;
-          /** The day a Schedule click was on; the check-in shows that day. */ day?: LocalDate;
+          day?: LocalDate;
           onOpenInRoutines?: () => void;
       }
     | {
@@ -37,10 +37,9 @@ type EditorProps = {
       }
 );
 
-/** The shared entry point for inspecting and editing app entities. */
 export function EditSidePanel(props: EditorProps) {
     return (
-        <StartupSuspense fallback={null}>
+        <StartupSuspense fallback={<DetailPanelSkeleton kind={props.kind} />}>
             <Editor {...props} />
         </StartupSuspense>
     );

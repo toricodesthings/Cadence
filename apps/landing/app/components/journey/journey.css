@@ -1,23 +1,3 @@
-/*
- * The journey: one year on one weeping bough (components/journey). Scene colours are the --hero-* tokens in
- * app.css, scoped to .journey and re-resolved on each [data-season], so a chapter's accent re-tints its
- * ember, blossoms, glints and particles but never its wood.
- *
- * Each section (.jsec, and the finale) is a view timeline named --seg. Where the browser has scroll timelines,
- * the bough grows and the words rise on it; the base rules are the final pose, so reduced motion and browsers
- * without scroll timelines see the finished page (the latter also get a one-shot growth from Journey.tsx).
- *
- * Scroll ranges: `--front` is how far past the viewport's bottom edge the growth front rides (30vh puts it
- * 70% down the screen). A point `t` of the way down a section of height H is at the front when the cover
- * range has run `--front + t·H`, and H is `100% − 100vh` of that range; `--t0`/`--t1` come from the markup.
- * Words use the same arithmetic: an element `--reveal-at` of the way down its section starts to rise when it
- * is 88% of the way down the screen.
- *
- * Depth, back to front: the sky (its veil, stars and tints) and the mist; the bough; the particles; the
- * panels; the words. The bough never crosses over UI, and the words carry a soft halo of the void, so a limb
- * passing behind them never lowers their contrast.
- */
-
 .journey {
     --words-halo: color-mix(in srgb, var(--color-twilight-void) 82%, transparent);
     position: relative;
@@ -28,7 +8,6 @@
     container-type: inline-size;
 }
 
-/* ── Sky: the hero's night, pinned to the screen (sticky, never background-attachment: fixed) ── */
 .journey-sky {
     position: sticky;
     top: 0;
@@ -36,7 +15,6 @@
     height: 100dvh;
     margin-bottom: -100dvh;
     pointer-events: none;
-    /* A faint echo of the hero's mauve and copper light, kept low beneath the seasonal washes. */
     background:
         radial-gradient(
             ellipse 70% 45% at 30% 100%,
@@ -57,8 +35,6 @@
         );
 }
 
-/* The night deepens as you leave the hero: a veil of the void over the sky, risen by the first chapter.
-   Under the stars and tints, so they stay lit as the sky darkens */
 .journey-sky::before {
     content: "";
     position: absolute;
@@ -91,7 +67,6 @@
     );
 }
 
-/* A season is a faint wash at the horizon while its chapter is on screen, never a new sky */
 .journey-tint {
     position: absolute;
     inset: 0;
@@ -112,7 +87,6 @@
     --tint: var(--palette-frost);
 }
 
-/* The seam: the hero ends in the void under its hills, so the sky rises out of the same void */
 .journey-fade {
     position: absolute;
     inset: 0 0 auto;
@@ -122,7 +96,6 @@
     background: linear-gradient(180deg, var(--color-twilight-void) 12%, transparent);
 }
 
-/* Valley mist lying over the join (it reaches up over the hero's ground), drifting slowly */
 .journey-mist {
     --mist: color-mix(in srgb, var(--hero-land-haze) 20%, transparent);
     position: absolute;
@@ -152,11 +125,9 @@
     animation-direction: alternate-reverse;
 }
 
-/* ── Sections ── */
 .jsec {
     --front: 30vh;
     --reveal-at: 0.24;
-    /* The ember colour of the section above (its halo blends from it); the lantern unless a season came before */
     --ember-prev: var(--hero-light);
     position: relative;
     width: min(78rem, 100% - 3rem);
@@ -178,11 +149,6 @@
     --ember-prev: color-mix(in srgb, var(--palette-frost) 65%, var(--hero-light));
 }
 
-/* First paint styles and lays out only what is near the screen: a section more than half a screen away is skipped
-   (no JS involved) until the reader nears it, which cuts the first style pass by three quarters. A section's drawing
-   overhangs its box (limbs to the screen's edges, strands past its joints), so the clip that comes with skipping is
-   pushed out of reach, and engines that can't push it keep every section drawn. Skipped, a section keeps its aspect's
-   height on desktop or the estimate here, then remembers its real one */
 @supports (overflow-clip-margin: 1px) {
     .journey > .jsec,
     .finale {
@@ -208,7 +174,6 @@
     view-timeline-name: --seg, --t-winter;
 }
 
-/* Words, the bough's gutter (11.2%, where every segment runs), the panel; they swap sides chapter by chapter */
 .chapter {
     display: grid;
     grid-template-columns: 1fr 11.2% 1fr;
@@ -234,7 +199,6 @@
     grid-column: 1;
 }
 
-/* Words sit in front of everything, each line in a soft dark of its own */
 .chapter-words,
 .prelude-words,
 .emilie-words,
@@ -286,7 +250,6 @@
     color: var(--color-twilight-text);
 }
 
-/* The crest's star, small: a sharp cross of light in the chapter's accent */
 .glint-star {
     flex: none;
     width: 0.75rem;
@@ -295,7 +258,6 @@
     background: radial-gradient(circle closest-side, white 0 14%, var(--accent-primary) 55%, transparent);
 }
 
-/* ── Panel frame: dense lit glass (the bough passes behind it), the buttons' 1px gradient rim, two gems ── */
 .panel {
     position: relative;
     aspect-ratio: 4 / 3;
@@ -348,7 +310,6 @@
     box-shadow: 0 0 8px color-mix(in srgb, var(--accent-primary) 60%, transparent);
 }
 
-/* The clip fills the glass; the rim is drawn over it */
 .panel::before {
     z-index: 1;
 }
@@ -371,7 +332,6 @@
     bottom: 0;
 }
 
-/* ── The bough: behind the panels and the words ── */
 .bough {
     position: absolute;
     inset: 0;
@@ -427,7 +387,6 @@
     display: none;
 }
 
-/* ── Particles: one set per section, in the air between the bough and the panels ── */
 .drift {
     position: absolute;
     inset: 0;
@@ -443,7 +402,6 @@
     opacity: 0;
 }
 
-/* Falling things sway as they fall (the sine between stops) and tumble on their own channel */
 .drift-petal > span,
 .drift-fall > span {
     width: calc(0.5rem * var(--s));
@@ -501,7 +459,6 @@
     );
 }
 
-/* The valley's sky lanterns, let go below the fold and rising past the Prelude */
 .drift-lantern > span {
     top: 100%;
     width: calc(9px * var(--s));
@@ -523,7 +480,6 @@
     );
 }
 
-/* Sparks rising off Emilie's light */
 .drift-mote > span {
     --o: 0.5;
     top: calc(45% + var(--y) * 45%);
@@ -542,7 +498,6 @@
     );
 }
 
-/* Alternate a few coral lights through the gold sets; keep each season's main tint. */
 .drift-lantern > span:nth-child(2n),
 .drift-firefly > span:nth-child(3n) {
     --hero-lamp: color-mix(in srgb, var(--accent-ember) 72%, white);
@@ -560,7 +515,6 @@
     );
 }
 
-/* ── Prelude: the threshold ── */
 .prelude {
     --reveal-at: 0.2;
 }
@@ -617,8 +571,6 @@
     color: color-mix(in srgb, var(--color-twilight-text) 70%, var(--accent-primary));
 }
 
-/* "Whole year": the lantern's gold, brightening to a warm white at its heart, a size and a weight up; a gold
-   swash is drawn under it as it is read, and three sparkles kindle round it. One hue, so it stays sleek */
 .prelude-year {
     position: relative;
     display: inline-block;
@@ -637,7 +589,6 @@
     background-clip: text;
 }
 
-/* Its halo, painted once behind it (a text-shadow would cover a background-clipped fill) */
 .prelude-year::before {
     content: "";
     position: absolute;
@@ -685,9 +636,6 @@
     );
 }
 
-/* ── Constellation: the chart is the list. Each item is a zero-size anchor at its star: the glyph is centred on
-   the point, the name set off to its side (away from the figure's lines). Portrait screens fold the same
-   figure into a tall chart, with alternating labels and faint companion stars ── */
 .constellation-chart {
     position: relative;
     align-self: center;
@@ -706,7 +654,6 @@
     display: none;
 }
 
-/* The drawing is in the chart's own units (100 wide), so a quarter unit is a hairline at any width */
 .constellation-line {
     fill: none;
     stroke: var(--hero-crest-line);
@@ -756,7 +703,6 @@
     );
 }
 
-/* The figure's bright stars are a magnitude up */
 .constellation-stars li[data-bright] .glint-star {
     width: 1rem;
 }
@@ -791,7 +737,6 @@
     color: var(--color-twilight-text-soft);
 }
 
-/* Wide star atlas: a shorter section, finer facets and still orbital traces. Portrait rules stay independent. */
 @media (min-width: 1024px) and (aspect-ratio > 4/5) {
     .constellation-chart {
         aspect-ratio: 100 / 88;
@@ -855,7 +800,6 @@
     }
 }
 
-/* ── The sigil: rings of light in the crest's gold (Emilie's presence, the finale's invitation) ── */
 .sigil {
     position: relative;
     display: grid;
@@ -868,7 +812,6 @@
     grid-area: 1 / 1;
 }
 
-/* A ring's box turns, with its <svg> inside: Chrome composites no transform on an <svg> element */
 .sigil-ring {
     width: 100%;
     height: 100%;
@@ -878,7 +821,6 @@
     pointer-events: none;
 }
 
-/* The ink's soft light: a glow painted with the ring's drawing into its own layer, which then only turns */
 .sigil-ring > svg {
     display: block;
     width: 100%;
@@ -931,7 +873,6 @@
     animation: var(--hero-still, hero-breath 3.8s var(--ease-sine) infinite alternate both var(--hero-loop, running));
 }
 
-/* ── Emilie: the keystone, full width ── */
 .emilie {
     --reveal-at: 0.06;
     display: flex;
@@ -939,8 +880,6 @@
     align-items: center;
 }
 
-/* Room above her words for the bough to part round them, in the section's own units (a % padding would
-   follow the page's width, and the words would drift off the bough's course) */
 .emilie::before {
     content: "";
     flex: none;
@@ -968,7 +907,6 @@
 }
 
 .emilie-stage {
-    /* In the section's own units (≈ 244 of its 1000), so the twin's curl stays on the ring at any width */
     --sigil: min(19rem, 24.4cqw);
     display: grid;
     grid-template-columns: 2fr 3fr;
@@ -989,17 +927,11 @@
     --reveal-at: 0.36;
 }
 
-/* A chapter panel by vocabulary, but it sits in the stage's own grid, not the chapter's third column */
 .emilie-panel {
     grid-row: auto;
     grid-column: auto;
 }
 
-/*
- * A glowing cable from the sigil's ring to the panel: straight out, then bending up and down to run along the
- * panel's left edge. The stage is 2fr | 3rem | 3fr, so from the panel's width (100%) the sigil column is
- * two thirds of it and its ring (95% of the sigil) ends a third + 3rem − 0.475·sigil away.
- */
 .emilie-wire {
     --wire: 3px;
     position: absolute;
@@ -1037,7 +969,6 @@
     border-top-right-radius: 2.5rem;
 }
 
-/* Her light: the app's mark (a star and its small companion, as in her clip) lit over a soft orb, breathing */
 .emilie-core {
     display: grid;
     place-items: center;
@@ -1078,9 +1009,7 @@
         center / contain no-repeat;
 }
 
-/* ── Finale: the crown, the scene, one invitation ── */
 .finale {
-    /* The valley's height: its band, and what the moon is measured up from */
     --land-height: clamp(10rem, 18vw, 19rem);
     --front: 30vh;
     --reveal-at: 0.36;
@@ -1089,7 +1018,6 @@
     view-timeline: --seg block;
 }
 
-/* A night deeper than the chapters', rising out of theirs, with first light low behind the valley */
 .finale-sky {
     position: absolute;
     inset: 0;
@@ -1118,14 +1046,10 @@
             color-mix(in srgb, var(--color-twilight-void) 75%, transparent) 24%,
             var(--color-twilight-void) 52%,
             color-mix(in srgb, var(--color-twilight-void) 82%, var(--hero-dusk-mid)) 88%,
-            /* The void at the very bottom: the valley's band sits on a fractional pixel, and a lighter last row
-         showed through as a hairline over the footer */ var(--color-twilight-void) 100%
+            var(--color-twilight-void) 100%
         );
 }
 
-/* The last moon: the hero's, hours later and on the other side of the sky, standing over the valley beside the
-   invitation (measured up from the land, so it keeps its place whatever the crown's height). Painted, never
-   moved: a soft disc in a wide halo, with two faint maria */
 .finale-moon {
     position: absolute;
     bottom: calc(var(--land-height) + clamp(15rem, 21vw, 22rem));
@@ -1161,7 +1085,6 @@
     box-shadow: 0 0 3rem color-mix(in srgb, var(--hero-moon) 18%, transparent);
 }
 
-/* Maria: two faint shadows on its face, the hero's moon's own markings */
 .finale-moon::after {
     background:
         radial-gradient(closest-side circle at 38% 34%, var(--color-twilight-void) 0 42%, transparent 60%),
@@ -1182,7 +1105,6 @@
     opacity: 0.72;
 }
 
-/* A dozen stars that blink: mostly faint, then one flare each, out of step */
 .blink {
     position: absolute;
     left: var(--x);
@@ -1207,7 +1129,6 @@
     inset: 10% 0 8%;
 }
 
-/* Keep every particle. A fixed, feathered mask softens the air around the words as each mote passes. */
 .finale > .drift,
 .finale-starlight {
     mask-image: radial-gradient(ellipse 30rem 22rem at 50% 62%, rgb(0 0 0 / 0.18) 0 35%, #000 100%);
@@ -1243,7 +1164,6 @@
     );
 }
 
-/* Lanterns keep their original count and flank positions, with gentler light and longer drift. */
 .finale-lanterns {
     z-index: 0;
     opacity: 0.55;
@@ -1258,7 +1178,6 @@
     align-items: center;
     position: relative;
     z-index: 2;
-    /* Clear of the crown's lowest clusters */
     margin-top: 1.5rem;
     padding-inline: 1.5rem;
     text-align: center;
@@ -1281,7 +1200,6 @@
     color: var(--color-twilight-text-soft);
 }
 
-/* One lantern action, held by the page's flower */
 .finale-invitation {
     position: relative;
     isolation: isolate;
@@ -1294,7 +1212,6 @@
     padding-bottom: 1rem;
 }
 
-/* The seal: wider than the stage's padding on a phone, so the flower keeps its size and the button its room */
 .finale-blossom {
     --sigil: min(24rem, 100cqw - 2rem);
     --blossom-light: color-mix(in srgb, var(--accent-ember) 45%, white);
@@ -1302,12 +1219,10 @@
     view-timeline: --blossom block;
 }
 
-/* The petals hold still around the button; the light is what moves */
 .finale-blossom .sigil-ring {
     animation: none;
 }
 
-/* A warm pool behind the glass, breathing (the base rule's hero-breath) */
 .finale-blossom .sigil-glow {
     width: 86%;
     background: radial-gradient(
@@ -1318,8 +1233,6 @@
     );
 }
 
-/* Light travelling the petals: the buttons' aura, on the flower. The outline is a mask on this box; inside it a
-   conic square only rotates, so the circling is composited */
 .blossom-aura {
     position: relative;
     width: 100%;
@@ -1350,7 +1263,6 @@
     animation: var(--hero-still, button-aura 22s linear infinite var(--hero-loop, running));
 }
 
-/* Reaching for the button brightens the light; it never speeds up */
 .finale-blossom:has(.finale-action:is(:hover, :focus-visible)) .blossom-aura {
     opacity: 1;
 }
@@ -1362,7 +1274,6 @@
     stroke-linejoin: round;
 }
 
-/* The hero's lantern button, a size up, held inside the flower: 54% of the seal keeps its corners inside the petals' cusps */
 .finale-action.button {
     width: 54%;
     min-width: fit-content;
@@ -1387,7 +1298,6 @@
     color: var(--color-twilight-text-soft);
 }
 
-/* The second valley: the ground the footer stands on */
 .finale-land {
     position: relative;
     height: var(--land-height);
@@ -1396,7 +1306,6 @@
     view-timeline: --land block;
 }
 
-/* One coordinate system for the painting, smoke and lights, including the closer mobile crop. */
 .finale-land-scene {
     position: absolute;
     left: 50%;
@@ -1426,8 +1335,6 @@
     );
 }
 
-/* The lane's bulbs, each on its own clock, so the string breathes rather than blinks together. Placed like the
-   smoke (from the band's anchors) and centred on their point */
 .fl-bulbs > span {
     position: absolute;
     left: calc(50% + var(--dx));
@@ -1449,7 +1356,6 @@
     );
 }
 
-/* Each boat drifts in a box of its own, carrying its lamp and its streak: one composited layer per boat */
 .fl-boat {
     will-change: transform;
     animation: var(
@@ -1467,8 +1373,6 @@
     --delay: -19s;
 }
 
-/* Chimney smoke: a puff is a share of the band's width, and rises by multiples of itself, so it scales with
-   the valley. Anchored like the band (out from the centre, up from the bottom edge) */
 .fl-smoke > span {
     position: absolute;
     left: calc(50% + var(--dx));
@@ -1476,7 +1380,6 @@
     width: 1%;
     aspect-ratio: 1;
     border-radius: 50%;
-    /* Lit from below by the lane it rises from, so it reads against the valley's own haze */
     background: radial-gradient(
         circle,
         color-mix(in srgb, var(--hero-land-haze) 70%, var(--hero-lamp)),
@@ -1489,7 +1392,6 @@
     );
 }
 
-/* ── Narrow and portrait: words then panel, alternating gutters joined below each feature ── */
 @media (max-width: 1023px), (max-aspect-ratio: 4/5) {
     .jsec {
         --reveal-at: 0;
@@ -1604,7 +1506,6 @@
         padding-top: 0;
     }
 
-    /* A full-width reading pause, then a separate side entrance into the first chapter. */
     .prelude {
         width: 100%;
         padding: clamp(6rem, 14svh, 9rem) 2rem 0;
@@ -1728,7 +1629,6 @@
         display: none;
     }
 
-    /* The strand ends 2.25rem from the viewport edge: continue at that exact joint, then sweep right. */
     .finale-crown {
         width: 100%;
         aspect-ratio: 1000 / var(--h);
@@ -1754,13 +1654,11 @@
     .finale-land-scene {
         translate: -58% 0;
     }
-    /* No room beside the blossom here: the moon stands low over the valley's east side, clear of the words */
     .finale-moon {
         bottom: calc(var(--land-height) + 0.5rem);
         right: 2%;
     }
 
-    /* Skipped sections' stand-in heights here, where content sets them (measured at 360–1024 px wide) */
     .journey > .jsec {
         contain-intrinsic-size: auto 1050px;
     }
@@ -1773,7 +1671,6 @@
     .journey > .constellation {
         contain-intrinsic-size: auto 1300px;
     }
-    /* The last strand has no crossing: it runs straight down into the crown */
     .journey > .constellation {
         --bough-crossing: 0px;
     }
@@ -1782,7 +1679,6 @@
     }
 }
 
-/* Phones: the blossom spans the screen, so the moon tucks into the corner under its last petal */
 @media (max-width: 480px) {
     .finale-moon {
         bottom: calc(var(--land-height) - 0.75rem);
@@ -1790,7 +1686,6 @@
     }
 }
 
-/* ── Scroll-bound motion ── */
 @supports (animation-timeline: view()) {
     .journey-sky::before {
         animation: var(--hero-still, journey-dim linear both);
@@ -1819,7 +1714,6 @@
             calc(var(--front) + var(--t1) * (100% - 100vh));
     }
 
-    /* It rides the front and goes out at the joint, where the next section's ember takes over */
     @supports (offset-path: path("M0 0")) {
         .seg-ember {
             display: inline;
@@ -1834,7 +1728,6 @@
         }
     }
 
-    /* On the gutter strand the growth is a reveal from the top: cheap, and it keeps the strokes' width */
     .bough-strand {
         animation: var(--hero-still, journey-reach linear both);
         animation-timeline: --seg;
@@ -1848,7 +1741,6 @@
             calc(12vh + (var(--reveal-at) + 0.12 + var(--i) * 0.025) * (100% - 100vh));
     }
 
-    /* The panel is set down a step after the words, not slid in */
     .reveal-panel {
         animation: var(--hero-still, journey-set linear both);
         animation-timeline: --seg;
@@ -1856,7 +1748,6 @@
             calc(12vh + (var(--reveal-at) + 0.22) * (100% - 100vh));
     }
 
-    /* The Prelude is read, a word at a time, while it rises into the upper half of the screen */
     .prelude-word {
         animation: var(--hero-still, journey-lit linear both);
         animation-timeline: --seg;
@@ -1870,7 +1761,6 @@
             calc(12vh + (var(--reveal-at) + 0.2) * (100% - 100vh));
     }
 
-    /* The year's swash is drawn once the line has risen */
     .prelude-swash-ink {
         animation: var(--hero-still, hero-grow linear both);
         animation-timeline: --seg;
@@ -1878,14 +1768,12 @@
             calc(12vh + (var(--reveal-at) + 0.26) * (100% - 100vh));
     }
 
-    /* The figure is drawn line by line as the section is read, each line in its own slice of the scroll */
     .constellation-line {
         animation: var(--hero-still, hero-grow linear both);
         animation-timeline: --seg;
         animation-range: cover calc(12vh + var(--d0) * (100% - 100vh)) cover calc(12vh + var(--d1) * (100% - 100vh));
     }
 
-    /* A sigil is inked in as it arrives, the inner diamond last */
     .sigil-ink {
         animation: var(--hero-still, hero-grow linear both);
         animation-timeline: --seg;
@@ -1898,13 +1786,11 @@
             calc(12vh + (var(--reveal-at) + 0.26) * (100% - 100vh));
     }
 
-    /* The blossom is inked as it comes into view, on its own timeline: it sits far below the finale's top */
     .finale-blossom .sigil-ink {
         animation-timeline: --blossom;
         animation-range: entry 25% cover 38%;
     }
 
-    /* The valley's lamps wake one by one as it comes into view */
     .fl-lamp {
         animation: var(--hero-still, hero-fade linear both);
         animation-timeline: --land;
@@ -1930,7 +1816,6 @@
     }
 }
 
-/* No scroll timelines: once Journey.tsx is live, each section's bough grows on a clock when it comes into view */
 @supports not (animation-timeline: view()) {
     .journey.is-live :is(.seg-grow, .seg-grows) {
         animation: var(
@@ -1952,32 +1837,24 @@
     }
 }
 
-/* Out of view: whatever loops holds its frame */
 :is(.jsec, .finale, .journey-mist).is-offscreen *,
 :is(.jsec, .finale, .journey-mist).is-offscreen *::before,
 :is(.jsec, .finale, .journey-mist).is-offscreen *::after {
     animation-play-state: paused;
 }
 
-/* ...and where the bough scrubs on scroll, a far section's segment and particles leave the page: an animated SVG off
-   screen still costs every scroll frame its style and its layers (measured: half the long frames from autumn down).
-   Nothing is lost: a segment is drawn from its section's scroll position, particles restart before they show, and
-   Journey.tsx keeps a section until it is a quarter screen away (`is-far`). The clock fallback keeps them, so each
-   bough grows once */
 @supports (animation-timeline: view()) {
     :is(.jsec, .finale).is-far :is(.bough, .drift) {
         display: none;
     }
 }
 
-/* Particles and blinking have no still pose worth keeping: reduced motion leaves the painting */
 @media (prefers-reduced-motion: reduce) {
     .drift {
         display: none;
     }
 }
 
-/* ── Keyframes (the base rule is the end frame) ── */
 @keyframes journey-rise {
     from {
         opacity: 0;
@@ -2197,7 +2074,6 @@
     }
 }
 
-/* A boat's length of drift is a fraction of the valley's width, so it reads as slow at any size */
 @keyframes fl-drift {
     from {
         translate: -0.7% 0;

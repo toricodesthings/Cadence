@@ -19,7 +19,6 @@ describe("chatRequestSchema", () => {
         expect(parsed.timezone).toBeUndefined();
     });
 
-    // Security: a crafted request must never persist an elevated role into history.
     it.each(["assistant", "system"])("rejects an incoming %s turn", (role) => {
         expect(chatRequestSchema.safeParse(chat({ id: "m1", role, parts: [text("hi")] })).success).toBe(false);
     });
@@ -83,7 +82,7 @@ describe("conversationPatchSchema", () => {
     it.each([
         [{ title: "Plan" }, true],
         [{ archived: true }, true],
-        [{}, false], // must change something
+        [{}, false],
         [{ title: "x".repeat(201) }, false],
     ])("%j → %s", (patch, ok) => {
         expect(conversationPatchSchema.safeParse(patch).success).toBe(ok);

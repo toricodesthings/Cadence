@@ -16,8 +16,6 @@ import type { Task } from "@cadence/contracts/task";
 import type { FocusViewDefinition } from "@cadence/nlp/focus-views";
 import type { FocusKind } from "./use-route-focus";
 
-// ── Result model ──────────────────────────────────────────────────
-
 export type SearchResultKind = "task" | "habit" | "inbox" | "project" | "focus-view" | "page";
 
 export interface SearchResult {
@@ -29,17 +27,13 @@ export interface SearchResult {
     route: string;
     focusScope?: string;
     score: number;
-    /** If set, opening this result should open the note room instead of navigating */
     noteAction?: {
         taskId: string;
         taskTitle: string;
         scrollToHeading?: string;
     };
-    /** Present on task results so shared tasks can render the SharedMark. */
     task?: Pick<Task, "projectId" | "createdBy" | "takenBy">;
 }
-
-// ── Route aliases ─────────────────────────────────────────────────
 
 const ALIAS_MAP: Record<string, string[]> = {
     holding: ["/"],
@@ -64,8 +58,6 @@ const ALIAS_MAP: Record<string, string[]> = {
     completed: ["/completed"],
     trash: ["/trash"],
 };
-
-// ── Static pages ──────────────────────────────────────────────────
 
 const STATIC_PAGES: SearchResult[] = [
     {
@@ -172,8 +164,6 @@ function describeFocusView(definition: FocusViewDefinition): string {
     return parts.length > 0 ? parts.join(" · ") : "Saved focus view";
 }
 
-// ── Route resolution ──────────────────────────────────────────────
-
 function resolveTaskRoute(task: Task): { route: string; context: string; scope?: string } {
     if (task.state === "COMPLETE") return { route: "/completed", context: "Completed" };
     if (task.state === "ARCHIVED") return { route: "/trash", context: "Trash" };
@@ -193,8 +183,6 @@ function resolveTaskRoute(task: Task): { route: string; context: string; scope?:
     return { route: "/", context: "Capture", scope: "holding-unmanaged" };
 }
 
-// ── Match explanation ─────────────────────────────────────────────
-
 interface TaskDetail {
     id: string;
     headings: string[];
@@ -202,7 +190,6 @@ interface TaskDetail {
     sectionName?: string;
 }
 
-/** The title in `titles` that best matches the query, if any. */
 function bestMatch(titles: string[], query: string): string | undefined {
     if (!titles.length) return undefined;
     const [hit] = createSearchIndex(titles.map((title, i) => ({ id: String(i), title }))).search(query, {
@@ -212,7 +199,6 @@ function bestMatch(titles: string[], query: string): string | undefined {
     return hit ? titles[Number(hit.id)] : undefined;
 }
 
-/** When a task matched on something other than its title, say where (and open a matched note at its heading). */
 function explainTaskMatch(result: SearchResult, fields: string[], detail: TaskDetail, query: string) {
     if (fields.includes("title")) return;
     if (fields.includes("subtasks")) {
@@ -233,9 +219,6 @@ function explainTaskMatch(result: SearchResult, fields: string[], detail: TaskDe
     }
 }
 
-// ── Index entries ─────────────────────────────────────────────────
-
-/** One search result and what the index matches it on (`title` when it differs from the shown one). */
 interface Entry {
     result: SearchResult;
     fields?: Omit<SearchDocument, "id" | "title">;
@@ -251,10 +234,8 @@ interface TaskLookups {
     subtasks: typeof EMPTY_SUBTASKS;
 }
 
-/** Open tasks rank first; Done and Trash sink. */
 const TASK_STATE_SCORE: Partial<Record<Task["state"], number>> = { ACTIVE: 5, COMPLETE: -15, ARCHIVED: -15 };
 
-/** A note still kept in the task's own content (series notes live on the series). */
 function legacyNote(task: Task, owner: string, lookups: TaskLookups) {
     return lookups.tasks.get(owner)?.content ?? task.content ?? "";
 }
@@ -285,7 +266,6 @@ function taskEntry(task: Task, lookups: TaskLookups): Entry & { detail: TaskDeta
             subtasks: subtaskTitles.join(" "),
             tags: task.tagIds.map((id) => lookups.tags.get(id) ?? "").join(" "),
         },
-        // Retain the original heading text for navigation; compact note tokens aren't display text.
         detail: { id: task.id, headings: dedicated?.headings ?? noteHeadings(legacy), subtaskTitles, sectionName },
     };
 }
@@ -354,8 +334,6 @@ function focusViewEntry(view: ReturnType<typeof useFocusViewStore.getState>["sav
         fields: { notes: `${description} ${view.source === "preset" ? "Preset view" : "Custom view"}` },
     };
 }
-
-// ── Main hook ─────────────────────────────────────────────────────
 
 const MAX_RESULTS_PER_GROUP = 8;
 const EMPTY_TASKS: Task[] = [];

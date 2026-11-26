@@ -21,7 +21,6 @@ let tasks: ReturnType<typeof apiAs>;
 let search: ReturnType<typeof apiAs>;
 let sent: any[];
 
-/** The model "picks" the option whose description contains `pick` (or abstains), with probability `p`. */
 function modelPicks(pick: string | null, p = 0.97) {
     vi.stubGlobal(
         "fetch",
@@ -201,12 +200,11 @@ describe("S2: did you mean", () => {
             (_, i) => `word${String.fromCharCode(97 + (i % 26))}${String.fromCharCode(97 + Math.floor(i / 26))}`,
         ).join(" ");
         expect((await search("POST", "/did-you-mean", { query: long.slice(0, 200) })).status).toBe(200);
-        // "re" must not prefix-match "Renew": no spelling hit, so only the model-confirmed fallback may answer (here: null).
         sent = [];
         const short = await search("POST", "/did-you-mean", { query: "re" });
         expect(short.status).toBe(200);
         expect(short.body.data).toEqual({ task: null });
-        expect(sent).toHaveLength(1); // consulted as a confirmation, not skipped by a lone spelling hit
+        expect(sent).toHaveLength(1);
     });
 
     it("answers null when the switch is off", async () => {
@@ -276,7 +274,6 @@ describe("S2: did you mean", () => {
             { toolCallId: "t", messages: [] },
         );
         expect(result).toMatchObject({ tasks: [], count: 0, possibleMatch: { title: "Implement 0.31.0 Uni" } });
-        // Shared spelling matching needs no model call and still respects every original filter.
         expect(sent).toHaveLength(0);
     });
 
@@ -333,7 +330,6 @@ describe("S2: did you mean", () => {
 });
 
 describe("Weekly Reset guesses (reset_disposition)", () => {
-    /** Every row's question answered with the option whose label contains `pick`. */
     function modelAnswers(pick: string, p = 0.97) {
         vi.stubGlobal(
             "fetch",
@@ -371,7 +367,6 @@ describe("Weekly Reset guesses (reset_disposition)", () => {
         modelAnswers("Next week");
         const { status, body } = await reset()("POST", "/reset", { step: "loose_ends", ids: [mine.id, theirs.id] });
         expect(status).toBe(200);
-        // Uncalibrated threshold 0.9: 0.97 clears it.
         expect(body.data.suggestions).toEqual({ [mine.id]: "next_week" });
         expect(sent).toHaveLength(1);
         const wire = JSON.stringify(sent[0]);

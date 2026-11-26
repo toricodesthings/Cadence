@@ -72,14 +72,11 @@ export const sectionRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         if (access) noteChange(c, { type: "list", listId: access.listId });
         return c.json({ data: updated });
     })
-    // GET /api/sections?projectId=... — list sections for a project (or unscoped if no projectId)
     .get("/", apiValidator("query", sectionQuerySchema), async (c) => {
         const { projectId } = c.req.valid("query");
         const projectIdValue = projectId ?? null;
 
         const rows = await withCallerRls(c, async (tx, callerId) => {
-            // A shared list's sections are the owner's rows.
-            // A list that isn't visible has no sections to show (as before): the owner filter finds nothing.
             const [list] = projectId
                 ? await tx.select({ ownerId: projects.userId }).from(projects).where(eq(projects.id, projectId))
                 : [];

@@ -6,10 +6,6 @@ import { Reveal } from "../shared/Reveal";
 import { useOnlineStatus } from "../../hooks/core/use-online-status";
 import { isWanted, type SuggestSteps } from "../../hooks/ai/use-suggest-steps";
 
-/**
- * The "Suggest steps" text button beside a subtask field. It never takes focus from the field (a failure leaves the
- * manual path where it was), and is disabled offline. `iconOnly` shrinks it to ✨ while someone is typing a subtask.
- */
 export function SuggestStepsButton({ s, iconOnly = false }: { s: SuggestSteps; iconOnly?: boolean }) {
     const online = useOnlineStatus();
     const label = s.status === "drafting" ? "Drafting…" : "Suggest steps";
@@ -40,7 +36,6 @@ export function SuggestStepsButton({ s, iconOnly = false }: { s: SuggestSteps; i
     return iconOnly ? <Tip label={label}>{button}</Tip> : button;
 }
 
-/** The draft: ghost steps, all ticked, each editable; Keep steps, Smaller (once) and ×. */
 export function SuggestedSteps({ s }: { s: SuggestSteps }) {
     const ticked = s.draft?.filter(isWanted).length ?? 0;
     return (

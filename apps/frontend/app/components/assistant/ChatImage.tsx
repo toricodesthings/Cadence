@@ -10,17 +10,8 @@ import { queryKeys } from "../../lib/api/query-keys";
 import type { ApiErrorResponse } from "../../types/api";
 import { ImageViewer } from "../shared/ImageViewer";
 
-/** Filenames never leave the device, so a sent photo has no name of its own. */
 const SENT_TITLE = "Photo you sent";
 
-/**
- * The photos a user sent, in their bubble. Chat images live in private storage,
- * so they're fetched through the authenticated API as blobs (a just-sent image
- * is seeded into the same cache entry, so it never downloads). Ids never change,
- * so a fetched blob never goes stale. Expired images show a quiet tile.
- * Tapping one opens the message's photos in the shared `ImageViewer`. A PDF shows
- * as a chip that opens the file in a new tab (it has no name, like a photo).
- */
 export function ChatImages({ files }: { files: ChatFileRef[] }) {
     const ids = files.map((f) => f.id);
     const client = useApiClient();
@@ -28,7 +19,6 @@ export function ChatImages({ files }: { files: ChatFileRef[] }) {
         queries: ids.map((id) => ({
             queryKey: queryKeys.ai.image(id),
             staleTime: Infinity,
-            // A Blob can't be dehydrated into the persisted cache.
             meta: { persist: false },
             retry: (count: number, err: Error) => (err as unknown as ApiErrorResponse).status !== 404 && count < 2,
             queryFn: async ({ signal }: { signal: AbortSignal }) => {

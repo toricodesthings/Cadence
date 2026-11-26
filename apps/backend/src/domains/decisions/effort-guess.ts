@@ -1,10 +1,3 @@
-/**
- * E3: score a new task's Effort from this person's own earlier choices, in the background.
- *
- * Runs only when `suggestEffort` found no single level, the person has enough of their own `manual` choices (no cold-start
- * guess for a new account), and both switches are on. The answer is stored beside the task as a guess (`effort_guess`),
- * never as its Effort. Only the person's own task titles reach the provider.
- */
 import { openTaskStateSchema } from "@cadence/contracts/task";
 import { and, eq, isNull } from "drizzle-orm";
 import { toEvidence } from "@cadence/domain/effort-evidence";
@@ -43,10 +36,6 @@ export interface EffortAsk {
     question: DecisionQuestion;
 }
 
-/**
- * The `effort` question for a title, or null when E3 doesn't apply: a switch is off, a similar choice already
- * guesses it, or the person has too few of their own choices (no cold-start guess).
- */
 export async function effortQuestion(
     tx: Tx,
     userId: string,
@@ -72,7 +61,6 @@ export async function effortQuestion(
 
 type GuessTask = { title: string; projectId: string | null };
 
-/** Their `manual` choices of the last 365 days when E3 applies (≥ 8 covering ≥ 2 levels, no similar-match guess), else null. Pure. */
 export function effortChoices(task: GuessTask, evidence: EffortEvidence[], today: LocalDate): EffortEvidence[] | null {
     const manual = evidence.filter((e) => e.origin === "manual" && daysBetween(e.day, today) <= 365);
     if (manual.length < MIN_CHOICES || new Set(manual.map((e) => e.level)).size < 2) return null;
@@ -80,7 +68,6 @@ export function effortChoices(task: GuessTask, evidence: EffortEvidence[], today
     return manual;
 }
 
-/** The question over their 20 nearest choices. Pure. */
 export function effortAsk(task: GuessTask, manual: EffortEvidence[], names: Map<string, string>): EffortAsk {
     const own = meaningOf(task.title);
     const their_choices = manual
@@ -99,7 +86,6 @@ export function effortAsk(task: GuessTask, manual: EffortEvidence[], names: Map<
     };
 }
 
-/** The level a `score` answer chose (1–3), or null. */
 export const levelOf = (answer: DecisionResult | null | undefined) =>
     answer?.id == null ? null : Number(answer.id) + 1;
 
@@ -134,7 +120,6 @@ export async function suggestEffortGuess(env: Env, userId: string, taskId: strin
         const level = levelOf(answers.effort);
         if (!level) return;
 
-        // Only if nothing changed during the call: still unset, same title and list, no guess or "no thanks" yet.
         const updated = await withRls(db, userId, (tx) =>
             tx
                 .update(tasks)
@@ -151,7 +136,6 @@ export async function suggestEffortGuess(env: Env, userId: string, taskId: strin
                 )
                 .returning({ id: tasks.id }),
         );
-        // Written after the response (and its ping): tell the person's devices, the one that made the task too.
         if (updated.length > 0) await pingLive(env, userId);
     } catch (error) {
         logger.warn("ai", "effort_guess_failed", {

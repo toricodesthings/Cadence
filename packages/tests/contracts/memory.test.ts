@@ -24,7 +24,6 @@ describe("memory contracts", () => {
         expect(at(0)).toBe(false);
         expect(at(1441)).toBe(false);
         expect(at(12.5)).toBe(false);
-        // The pre-0.36.0 shape (no completion, bare minutes) is gone.
         expect(durationReportSchema.safeParse({ taskId, minutes: 45 }).success).toBe(false);
     });
 

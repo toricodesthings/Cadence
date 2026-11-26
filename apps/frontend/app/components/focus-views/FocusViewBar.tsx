@@ -37,20 +37,13 @@ import { SegmentedControl } from "../primitives/SegmentedControl";
 import { FocusPresetList, type PresetActions } from "./FocusPresetList";
 import { FocusViewEditor, type FocusViewLook } from "./FocusViewEditor";
 
-/**
- * Focus: one header button opening a dialog (a sheet on a touch phone). What's showing comes first, then every
- * preset (built-in or saved, searchable, each with its own menu), then the folded ways to make a new view or
- * change Capture's order. Picking a view closes it.
- */
 const ORDER_LABELS: Record<CaptureOrder, string> = { newest: "Newest", oldest: "Oldest", priority: "Priority" };
 
-/** A wash of the text colour: visible over any room, lightening at night and darkening by day. */
 const HOVER = "hover:bg-[color-mix(in_srgb,var(--color-twilight-text)_8%,transparent)]";
 
 const presetFor = (view: SavedFocusView) =>
     view.presetKey ? FOCUS_VIEW_PRESETS.find((p) => p.id === view.presetKey) : undefined;
 
-/** A human-readable label for the active filter: the view's own (maybe renamed) name, else Custom. */
 function activeLabelFor(
     presetId: string | null,
     savedViewId: string | null,
@@ -70,19 +63,15 @@ function activeLabelFor(
 type FoldSectionProps = {
     id: string;
     title: string;
-    /** Shown on the phone sheet's grouped tile. */
     icon: LucideIcon;
-    /** What's inside, said while folded (the current order). */
     summary?: string;
     open: boolean;
     onToggle: () => void;
     children: React.ReactNode;
 };
 
-/** One accordion step: the whole header folds it, with the chevron turning to show which way. */
 function FoldSection({ id, title, icon: Icon, summary, open, onToggle, children }: FoldSectionProps) {
     const shell = useShellMode();
-    // Phone sheet: the composers' grouped tile (header row, hairline, content), like `ComposerMore`.
     if (shell.isPhone && shell.isTouch)
         return (
             <section className={TILE}>
@@ -139,7 +128,6 @@ function FoldSection({ id, title, icon: Icon, summary, open, onToggle, children 
 
 type ComposerFieldProps = { value: string; onChange: (value: string) => void; onSubmit: () => void; chips: string[] };
 
-/** "Describe what you want to see": typed words become a filter, with the rules they matched as chips. */
 function ComposerField({ value, onChange, onSubmit, chips }: ComposerFieldProps) {
     const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter") onSubmit();
@@ -199,7 +187,6 @@ function ComposerField({ value, onChange, onSubmit, chips }: ComposerFieldProps)
 
 type ActiveViewBarProps = { label: string | null; onSave: (() => void) | null; onClear: () => void };
 
-/** "Showing …" with Save (unless it is already a saved view) and Clear. */
 function ActiveViewBar({ label, onSave, onClear }: ActiveViewBarProps) {
     return (
         <div className="flex min-h-12 items-center gap-1 rounded-full bg-accent-primary/10 py-1.5 pl-4 pr-1.5">
@@ -228,7 +215,6 @@ function ActiveViewBar({ label, onSave, onClear }: ActiveViewBarProps) {
     );
 }
 
-/** The trigger's words: the capture order when it isn't Newest, then the active view; "Focus" with neither. */
 function triggerLabels(capture: boolean, captureOrder: CaptureOrder, activeLabel: string | null) {
     const orderLabel = capture && captureOrder !== "newest" ? ORDER_LABELS[captureOrder] : null;
     return { orderLabel, triggerLabel: [orderLabel, activeLabel].filter(Boolean).join(" · ") || "Focus" };
@@ -261,7 +247,6 @@ type FocusTriggerProps = {
     setOpen: (open: boolean) => void;
 };
 
-/** Compact headers: an icon button (with the order when it isn't Newest). */
 function CompactFocusTrigger({ label, orderLabel, active, open, setOpen }: FocusTriggerProps) {
     const name = label === "Focus" ? "Focus" : `Focus: ${label}`;
     return (
@@ -282,7 +267,6 @@ function CompactFocusTrigger({ label, orderLabel, active, open, setOpen }: Focus
     );
 }
 
-/** Wider headers: a labelled button naming the active view. */
 function FocusTrigger({ label, active, open, setOpen }: FocusTriggerProps) {
     return (
         <Tip label="Show only what matters now" side="bottom">
@@ -302,7 +286,6 @@ function FocusTrigger({ label, active, open, setOpen }: FocusTriggerProps) {
 
 type FocusSurfaceProps = { open: boolean; setOpen: (open: boolean) => void; children: React.ReactNode };
 
-/** Like Share: a dialog with a mouse, a sheet on a touch phone (its ✓ closes it). */
 function FocusSurface({ open, setOpen, children }: FocusSurfaceProps) {
     const { isPhone, isTouch } = useShellMode();
     if (isPhone && isTouch)
@@ -397,7 +380,6 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
     );
 
     const actions: PresetActions = {
-        // A built-in applies as its preset, so `?focus=quick-wins` links keep working; picking the active one clears.
         onSelect: (view) => {
             const preset = presetFor(view);
             if (isActive(view)) clear();
@@ -424,13 +406,11 @@ export function FocusViewBar({ capture = false }: { capture?: boolean }) {
         setOpen(false);
     }, [clear]);
 
-    /** Derive a human-readable label for the active filter */
     const activeLabel = useMemo(
         () => activeLabelFor(activePresetId, activeSavedViewId, activeDefinition, savedViews),
         [activePresetId, activeSavedViewId, activeDefinition, savedViews],
     );
 
-    // Saving goes through the same name/icon/colour dialog; the new preset lands above the others and becomes the view.
     const handleSaveCurrent = () => {
         if (!activeDefinition) return;
         const definition = activeDefinition;

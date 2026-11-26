@@ -24,7 +24,6 @@ import { PasswordModal } from "../PasswordModal";
 import { SETTINGS_DEFAULTS } from "../../../types/settings";
 import { ProfileBanner } from "../../shared/ProfileBanner";
 
-/** One profile value in a small dialog: `field` draws its input from the draft; Save is live once it changes, and `onClear` adds Clear. */
 function EditorModal({
     title,
     triggerText = "Edit",
@@ -152,7 +151,6 @@ function OAuthConnectionsBlock() {
 
     return (
         <div className="bg-black/20 rounded-2xl p-5 flex flex-col gap-4 border border-twilight-border mt-2 overflow-hidden relative">
-            {/* Subtle background glow */}
             <div className="absolute -top-10 -right-10 w-32 h-32 bg-accent-primary/5 blur-3xl pointer-events-none" />
 
             {isPending ? (
@@ -240,11 +238,6 @@ function OAuthConnectionsBlock() {
     );
 }
 
-/**
- * Better Auth only lists sessions for a "fresh" sign-in (freshAge, 1 day by default;
- * Managed Neon Auth doesn't expose it). Past that, /list-sessions answers 403
- * SESSION_NOT_FRESH, so we skip it and offer revokeOtherSessions, which has no freshness rule.
- */
 const SESSION_LIST_FRESH_MS = 24 * 60 * 60 * 1000;
 
 function SessionsBlock() {
@@ -253,7 +246,6 @@ function SessionsBlock() {
     const [loading, startAction] = useTransition();
     const signedInAt = new Date(String(currentSession?.session.createdAt ?? "")).getTime();
     const canList = !(Date.now() - signedInAt >= SESSION_LIST_FRESH_MS);
-    // Session rows carry tokens: memory only, never the persisted cache.
     const {
         data: sessions,
         isPending: queryPending,
@@ -368,7 +360,6 @@ function AvatarEditModal({ onProfileUpdated }: { onProfileUpdated: () => Promise
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Reset the input so they can select the same file again if they cancel
         e.target.value = "";
 
         if (file.size > 5 * 1024 * 1024) {
@@ -377,7 +368,6 @@ function AvatarEditModal({ onProfileUpdated }: { onProfileUpdated: () => Promise
         }
 
         try {
-            // Let the UI know something is happening if we want, but compression is fast
             const base64Avatar = await compressImageToBase64(file);
             setPreviewImage(base64Avatar);
             setOpen(true);
@@ -492,7 +482,7 @@ export function AccountTab() {
         if (error) {
             toast.error(error.message || `Failed to update ${field}`);
         } else {
-            await refetchSession(); // Force UI update
+            await refetchSession();
         }
     };
 
@@ -503,7 +493,6 @@ export function AccountTab() {
         <div className="flex flex-col gap-10">
             <h2 className="text-2xl font-bold text-twilight-text mb-2">Profile & Security</h2>
 
-            {/* Account Card */}
             <div className="profile-card-bg rounded-2xl border border-twilight-border overflow-hidden">
                 <ProfileBanner>
                     <div className="absolute -bottom-10 left-6 group/avatar z-10">
@@ -571,7 +560,6 @@ export function AccountTab() {
                                     {!authReady ? "..." : user?.email || "No email provided"}
                                 </p>
                             </div>
-                            {/* Neon Auth doesn't support email changes yet (changeEmail is disabled server-side). */}
                         </div>
                         <div className="flex justify-between items-center gap-3 group [&>div:first-child]:min-w-0 [&>div:first-child]:break-words">
                             <div>

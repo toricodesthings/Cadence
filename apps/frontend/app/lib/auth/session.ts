@@ -1,6 +1,5 @@
 import { authClient } from "../auth-client";
 
-/** Bypass Neon's session cache, except during its deduplicated one-time verifier exchange. */
 export function readFreshSession() {
     const exchanging =
         typeof window !== "undefined" && new URLSearchParams(window.location.search).has("neon_auth_session_verifier");
@@ -13,7 +12,6 @@ export function readFreshSession() {
     );
 }
 
-/** Expiry is a local lock, not an explicit sign-out: keep unsynced work on this device. */
 const expiryListeners = new Set<() => void>();
 export function subscribeSessionExpiry(listener: () => void) {
     expiryListeners.add(listener);
@@ -25,7 +23,6 @@ export function publishSessionExpiry() {
     expiryListeners.forEach((listener) => listener());
 }
 
-/** Only a still-live JWT can be used as a persisted/session fallback. Signature verification stays server-side. */
 export function jwtExpiry(token: unknown, userId?: string): number {
     if (typeof token !== "string" || token.split(".").length !== 3) return 0;
     try {

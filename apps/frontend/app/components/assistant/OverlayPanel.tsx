@@ -5,20 +5,16 @@ import { Tip } from "../primitives";
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 
 interface OverlayPanelProps {
-    /** Accessible name of the dialog. */
     label: string;
     title: string;
     onClose: () => void;
-    /** Pinned to the header's right edge (e.g. "New chat"). */
     action?: ReactNode;
     backRef?: Ref<HTMLButtonElement>;
-    /** Focus the back button on open, for overlays with no field to land in. */
     autoFocusBack?: boolean;
     className?: string;
     children: ReactNode;
 }
 
-/** The assistant panel's slide-in layer (Conversations, Usage, Memory): one header with a Back button over the thread, never over the page. */
 export function OverlayPanel({
     label,
     title,

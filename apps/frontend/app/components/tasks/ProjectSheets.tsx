@@ -12,7 +12,6 @@ import type { Task } from "@cadence/contracts/task";
 
 export { UNSECTIONED_ID };
 
-/** Compact entry to the sections sheet: a chip pinned beside the board chooser, or a full-width row under the list. */
 export function ManageSectionsButton({ onClick, wide = false }: { onClick: () => void; wide?: boolean }) {
     return (
         <button
@@ -30,7 +29,6 @@ export function ManageSectionsButton({ onClick, wide = false }: { onClick: () =>
     );
 }
 
-/** Compact direct add: the orb opens the task composer straight into this project. */
 export function ProjectTaskSheet({
     open,
     onClose,
@@ -156,7 +154,6 @@ function SectionRow({
     );
 }
 
-/** Mounts fresh per edit so the field always starts from the current name. */
 function SectionNameForm({ section, onDone }: { section: TaskSection; onDone: (name: string) => void }) {
     const [name, setName] = useState(section.name);
     return (
@@ -185,10 +182,6 @@ function SectionNameForm({ section, onDone }: { section: TaskSection; onDone: (n
     );
 }
 
-/**
- * Compact section management: add, rename and delete a project's sections.
- * `focus` opens straight into renaming that section id.
- */
 export function ProjectSectionsSheet({
     open,
     onClose,

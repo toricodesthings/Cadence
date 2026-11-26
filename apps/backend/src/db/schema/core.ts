@@ -31,10 +31,8 @@ import {
     memberRoutineEdit,
 } from "./columns";
 
-// Settings schema is defined once in the settings domain and imported here.
 export { userSettingsSchema as UserSettingsSchema, type UserSettings };
 
-// === ENUMS ===
 export const taskStateEnum = pgEnum("task_state", ["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"]);
 export const taskInteractionModeEnum = pgEnum("task_interaction_mode", ["task", "timetable"]);
 export const memoryKindEnum = pgEnum("memory_kind", [
@@ -49,7 +47,6 @@ export const memoryKindEnum = pgEnum("memory_kind", [
 export const memorySourceEnum = pgEnum("memory_source", ["explicit", "chat", "note", "activity", "backfill"]);
 export const memoryConfidenceEnum = pgEnum("memory_confidence", ["stated", "observed", "inferred"]);
 export const memoryStatusEnum = pgEnum("memory_status", ["active", "forgotten"]);
-// `duration` is unused since 0023 (reports live in duration_reports); Postgres can't cheaply drop an enum value.
 export const memorySignalKindEnum = pgEnum("memory_signal_kind", ["reschedule", "complete", "routine", "duration"]);
 export const habitStatusEnum = pgEnum("habit_status", ["COMPLETED", "SKIPPED", "PENDING"]);
 export const captureKindEnum = pgEnum("capture_kind", ["task", "thought", "reference", "unknown"]);
@@ -68,24 +65,17 @@ export const sourceSurfaceEnum = pgEnum("source_surface", [
     "inbox_card",
     "inbox",
 ]);
-// Ordered: each check compares `role >= min_role`, so a new role goes in ascending order
-// (`ALTER TYPE share_role ADD VALUE 'comment' BEFORE 'edit'`).
 export const shareRoleEnum = pgEnum("share_role", ["view", "edit"]);
 export const routineShareModeEnum = pgEnum("routine_share_mode", ["together", "turns"]);
 export const focusViewSourceEnum = pgEnum("focus_view_source", ["preset", "composed", "manual"]);
 
-// AI assistant enums (see docs/ai_upgrade 08 — persistence)
 export const aiMessageRoleEnum = pgEnum("ai_message_role", ["user", "assistant", "system"]);
-// 'streaming' is never written (saveAssistantMessage takes complete | failed | aborted); a Postgres enum value can't be dropped cheaply.
 export const aiMessageStatusEnum = pgEnum("ai_message_status", ["streaming", "complete", "failed", "aborted"]);
 
-// === TABLES ===
-
-// 1. Users (Syncs via Neon Auth Id)
 export const users = pgTable(
     "users",
     {
-        id: uuid("id").primaryKey(), // We pass the Neon Auth Sub UUID here
+        id: uuid("id").primaryKey(),
         settings: jsonb("settings")
             .$type<UserSettings>()
             .default({
@@ -119,9 +109,7 @@ export const users = pgTable(
                 },
                 shortcuts: {},
             })
-            .notNull(), // User preferences (view mode, theme, etc.)
-        // The user's IANA zone: the only source every server path reads (`userZone`). The client keeps it
-        // equal to the device's zone unless settings pin one. 'UTC' until the first client sync.
+            .notNull(),
         timeZone: text("time_zone").default("UTC").notNull(),
         createdAt: createdAt(),
     },
@@ -135,34 +123,29 @@ export const users = pgTable(
     }),
 ).enableRLS();
 
-/** The owning user; their rows go when the account does. */
 export const ownerId = () =>
     uuid("user_id")
         .references(() => users.id, { onDelete: "cascade" })
         .notNull();
 
-/** Who made the row. NULL = the owner (system inserts, rows from before sharing) or a deleted account. */
 export const createdBy = () =>
     uuid("created_by")
         .references(() => users.id, { onDelete: "set null" })
-        // A column default can't hold a sub-select, so this reads the claim directly.
         .default(sql`(NULLIF(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')::uuid`);
 
-/** Who last changed the row; set by the `cadence_set_updated_by` trigger. */
 export const updatedBy = () => uuid("updated_by").references(() => users.id, { onDelete: "set null" });
 
-// 2. The Adaptive State Engine (Burnout/Stress Tracker)
 export const userMetrics = pgTable(
     "user_metrics",
     {
         id: id(),
         userId: ownerId(),
-        rescheduleVelocity: real("reschedule_velocity").default(0).notNull(), // Averages how often tasks are pushed back
-        currentBurnoutIndex: integer("current_burnout_index"), // 1-100 score indicating cognitive load; NULL = not enough evidence to say
-        completionRatio: real("completion_ratio").default(0).notNull(), // completed / (completed + overdue) over rolling window
-        overdueCarryLoad: integer("overdue_carry_load").default(0).notNull(), // number of tasks currently overdue
-        habitAdherenceRate: real("habit_adherence_rate").default(0).notNull(), // completed / (completed + skipped) rolling 14 days
-        scheduleDensity: real("schedule_density").default(0).notNull(), // avg scheduled minutes per day over 7 days
+        rescheduleVelocity: real("reschedule_velocity").default(0).notNull(),
+        currentBurnoutIndex: integer("current_burnout_index"),
+        completionRatio: real("completion_ratio").default(0).notNull(),
+        overdueCarryLoad: integer("overdue_carry_load").default(0).notNull(),
+        habitAdherenceRate: real("habit_adherence_rate").default(0).notNull(),
+        scheduleDensity: real("schedule_density").default(0).notNull(),
         lastCalculatedAt: timestamptz("last_calculated_at")
             .default(sql`now()`)
             .notNull(),
@@ -180,14 +163,8 @@ export const userMetrics = pgTable(
     },
 ).enableRLS();
 
-/** A member writes a row only into a list they can edit, and it stays the list owner's row. */
 const memberOwned = sql`(project_id IN ${memberEdit} AND user_id = (SELECT p.user_id FROM projects p WHERE p.id = project_id))`;
 
-/**
- * A row's owner must be the owner of the list (or task) it sits in. Permissive policies OR together, so without
- * this a collaborator could pass the owner policy's `user_id = me` check by writing a row as themselves into someone
- * else's list, or by re-owning one. Restrictive policies AND with them, and an invisible list or task never matches.
- */
 const sameOwnerAs = (name: string, owner: ReturnType<typeof sql>) => ({
     [`${name}SameOwnerInsert`]: pgPolicy(`${name}_same_owner_insert`, {
         as: "restrictive",
@@ -204,8 +181,6 @@ const sameOwnerAs = (name: string, owner: ReturnType<typeof sql>) => ({
 const sameOwnerAsList = sql`(project_id IS NULL OR user_id = (SELECT p.user_id FROM projects p WHERE p.id = project_id))`;
 const sameOwnerAsTask = sql`(user_id = (SELECT t.user_id FROM tasks t WHERE t.id = task_id))`;
 
-// 4a. Task Sections (User-defined grouping headers, scoped to a project)
-// In kanban view each section becomes a column.
 export const taskSections = pgTable(
     "task_sections",
     {
@@ -246,14 +221,13 @@ export const taskSections = pgTable(
     }),
 ).enableRLS();
 
-// 5. Projects (Task Containers)
 export const projects = pgTable(
     "projects",
     {
         id: id(),
         userId: ownerId(),
         name: text("name").notNull(),
-        colorAccent: text("color_accent").default("luminous-amber"), // Ties strictly to Tailwind CSS Variables
+        colorAccent: text("color_accent").default("luminous-amber"),
         emoji: text("emoji"),
         createdAt: createdAt(),
     },
@@ -273,8 +247,6 @@ export const projects = pgTable(
     }),
 ).enableRLS();
 
-// 5a. List members (who a list is shared with). The owner is `projects.user_id`, never a row here.
-// One membership table per shareable thing, with real foreign keys, so cascades and plain indexes work.
 export const listMembers = pgTable(
     "list_members",
     {
@@ -307,18 +279,16 @@ export const listMembers = pgTable(
             for: "delete",
             using: sql`(user_id = ${rlsUserId} OR list_id IN (SELECT id FROM projects WHERE user_id = ${rlsUserId}))`,
         }),
-        // No INSERT policy: only `cadence_join_list` inserts.
     }),
 ).enableRLS();
 
-// 5b. Yearly personal events (birthdays, anniversaries). `calendar.personalEvents.enabled` stays in settings.
 export const personalEvents = pgTable(
     "personal_events",
     {
         id: id(),
         userId: ownerId(),
         label: text("label").notNull(),
-        monthDay: text("month_day").notNull(), // "MM-DD"
+        monthDay: text("month_day").notNull(),
         emoji: text("emoji"),
         notify: boolean("notify").notNull().default(true),
         startedOn: date("started_on", { mode: "string" }),
@@ -356,7 +326,6 @@ export const personalEvents = pgTable(
     }),
 ).enableRLS();
 
-// 5c. Event members (who a yearly event is shared with). The owner is `personal_events.user_id`, never a row here.
 export const eventMembers = pgTable(
     "event_members",
     {
@@ -392,11 +361,9 @@ export const eventMembers = pgTable(
             for: "delete",
             using: sql`(user_id = ${rlsUserId} OR event_id IN (SELECT id FROM personal_events WHERE user_id = ${rlsUserId}))`,
         }),
-        // No INSERT policy: only `cadence_join_event` inserts.
     }),
 ).enableRLS();
 
-// 5d. Invite links. Each target is a nullable foreign key; sharing a new kind of thing adds a column and widens the check.
 export const shareInvites = pgTable(
     "share_invites",
     {
@@ -426,7 +393,6 @@ export const shareInvites = pgTable(
     }),
 ).enableRLS();
 
-// 5. Tasks (Unified Events & To-Dos)
 export const tasks = pgTable(
     "tasks",
     {
@@ -436,59 +402,43 @@ export const tasks = pgTable(
         projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
         sectionId: uuid("section_id").references(() => taskSections.id, { onDelete: "set null" }),
 
-        // Core Data
         title: text("title").notNull(),
-        content: text("content"), // rich text / notes
+        content: text("content"),
         state: taskStateEnum("state").default("ACTIVE").notNull(),
 
-        // High-Performance Drag & Drop
-        orderIndex: doublePrecision("order_index").notNull(), // Fractional index (1.5, 2.75) for rapid reordering without collision
+        orderIndex: doublePrecision("order_index").notNull(),
 
-        // The Calendar Unified Layer: a day (LocalDate) or a timed block (Instants + the zone it was planned in).
-        // All-day = no scheduled_start.
-        dueDate: date("due_on", { mode: "string" }), // The day an all-day task sits on, or its deadline
-        endDate: date("end_on", { mode: "string" }), // Inclusive last day of an all-day multi-day task
-        scheduledStart: timestamptz("scheduled_start"), // Timed only, e.g. Tuesday at 2 PM
-        scheduledEnd: timestamptz("scheduled_end"), // Timed only, e.g. Tuesday at 3 PM
-        zone: text("zone"), // The zone a timed task was planned in; repeating series expand in it
-        durationEstimate: integer("duration_estimate"), // If unscheduled, how big should the block be when dragged to the calendar? (in minutes)
-        timezoneLocked: boolean("timezone_locked").default(false).notNull(), // If TRUE, scheduledStart stays strictly at "3 PM" regardless of user traveling timezones
+        dueDate: date("due_on", { mode: "string" }),
+        endDate: date("end_on", { mode: "string" }),
+        scheduledStart: timestamptz("scheduled_start"),
+        scheduledEnd: timestamptz("scheduled_end"),
+        zone: text("zone"),
+        durationEstimate: integer("duration_estimate"),
+        timezoneLocked: boolean("timezone_locked").default(false).notNull(),
 
-        // ── Priority System ──
         priority: integer("priority").default(0).notNull(),
 
-        // ── Pin to Top ──
         isPinned: boolean("is_pinned").default(false).notNull(),
 
-        // ── Reminder System ──
         reminderAt: timestamptz("reminder_at"),
         reminderSilenced: boolean("reminder_silenced").default(false).notNull(),
 
-        // ── Recurrence (iCalendar RRULE) ──
         recurrenceRule: text("recurrence_rule"),
         interactionMode: taskInteractionModeEnum("interaction_mode").default("task").notNull(),
 
-        // ── Additional Task States & Tracking ──
         waitingOn: text("waiting_on"),
         waitingReminder: timestamptz("waiting_reminder"),
-        effort: integer("effort"), // 1=Low, 2=Medium, 3=High, NULL=unset
-        // Who chose `effort`: only a person's own choice ('manual'), or a suggestion they accepted ('accepted'), can inform
-        // later suggestions. NULL = unknown (the assistant, an import, a copy, or a value from before this was recorded).
+        effort: integer("effort"),
         effortOrigin: text("effort_origin"),
         effortChosenAt: timestamptz("effort_chosen_at"),
-        // A guess is never `effort`. 'model' = the decision model's score from this person's own choices (`effort_guess` set);
-        // 'dismissed' = they said no, kept until the title or list changes. Cleared when `effort` is set or the title/list changes.
         effortGuess: integer("effort_guess"),
         effortGuessSource: text("effort_guess_source"),
         effortGuessAt: timestamptz("effort_guess_at"),
-        notBefore: date("hidden_until", { mode: "string" }), // Hidden until this day
-        linkedAppId: text("linked_app_id"), // The one app this task opens (a frontend catalogue id); never a URL
-        linkedUrl: text("linked_url"), // Or the one website it opens: a normalised https URL (contracts `parseWebsite`)
-        // The moment the task entered Done: set by a trigger with the state, kept while Done, NULL otherwise. With the task id it
-        // names one completion, which is what a "how long did it take?" answer belongs to.
+        notBefore: date("hidden_until", { mode: "string" }),
+        linkedAppId: text("linked_app_id"),
+        linkedUrl: text("linked_url"),
         completedAt: timestamptz("completed_at"),
 
-        /** Who volunteered to do this shared task ("I'll do it"), and when. NULL = nobody has taken it. */
         takenBy: uuid("taken_by").references(() => users.id, { onDelete: "set null" }),
         takenAt: timestamptz("taken_at"),
 
@@ -501,7 +451,6 @@ export const tasks = pgTable(
     },
     (table) => {
         return {
-            // Every read is one user's: lists in manual order, Done/Trash newest first, date windows.
             userListIdx: index("tasks_user_list_idx").on(
                 table.userId,
                 table.state,
@@ -514,7 +463,6 @@ export const tasks = pgTable(
             userSeriesIdx: index("tasks_user_series_idx")
                 .on(table.userId)
                 .where(sql`${table.recurrenceRule} IS NOT NULL`),
-            // The cron's overdue sweep across all users.
             overdueIdx: index("tasks_overdue_idx")
                 .on(table.dueDate)
                 .where(sql`${table.state} = 'ACTIVE'`),
@@ -538,7 +486,6 @@ export const tasks = pgTable(
                 "tasks_effort_guess_source_check",
                 sql`effort_guess_source IS NULL OR effort_guess_source IN ('model', 'dismissed')`,
             ),
-            // The evidence read: one account's own recorded choices, newest first.
             userEffortIdx: index("tasks_user_effort_idx")
                 .on(table.userId, table.effortChosenAt.desc())
                 .where(sql`${table.effortOrigin} IS NOT NULL`),
@@ -556,7 +503,6 @@ export const tasks = pgTable(
                 withCheck: rlsUsing,
             }),
             ...sameOwnerAs("tasks", sameOwnerAsList),
-            // Members reach a shared list's tasks; they never delete (trashing is a state change).
             memberRead: pgPolicy("tasks_member_read", {
                 as: "permissive",
                 for: "select",
@@ -577,7 +523,6 @@ export const tasks = pgTable(
     },
 ).enableRLS();
 
-// 5c. Per-person data on a shared task (collaborators' reminders; the owner keeps `tasks.reminder_at`).
 export const taskPersonal = pgTable(
     "task_personal",
     {
@@ -601,7 +546,6 @@ export const taskPersonal = pgTable(
     }),
 ).enableRLS();
 
-// 6. Tags (User-defined labels)
 export const tags = pgTable(
     "tags",
     {
@@ -609,12 +553,10 @@ export const tags = pgTable(
         userId: ownerId(),
         name: text("name").notNull(),
         color: text("color").default("default"),
-        /** The person's own order of their tags (sidebar, pickers); new tags go last. */
         sortOrder: doublePrecision("sort_order").notNull().default(0),
         createdAt: createdAt(),
     },
     (table) => ({
-        // One name, one tag (any case); also serves every by-user lookup.
         userNameUnique: uniqueIndex("tags_user_name_unique").on(table.userId, sql`lower(${table.name})`),
         rlsPolicy: pgPolicy("tags_owner_access", {
             as: "permissive",
@@ -625,7 +567,6 @@ export const tags = pgTable(
     }),
 ).enableRLS();
 
-// 7. Task–Tag associations (many-to-many)
 export const taskTags = pgTable(
     "task_tags",
     {
@@ -670,7 +611,6 @@ export const taskTagsRelations = relations(taskTags, ({ one }) => ({
     }),
 }));
 
-// 8. Asynchronous Inbox Dumps (Webhooks, Siri, Background processing)
 export const inboxSections = pgTable(
     "inbox_sections",
     {
@@ -698,24 +638,21 @@ export const inboxItems = pgTable(
         userId: ownerId(),
         sectionId: uuid("section_id").references(() => inboxSections.id, { onDelete: "set null" }),
         orderIndex: integer("order_index").notNull().default(0),
-        rawText: text("raw_text").notNull(), // The messy input "Call mom tmrw at 4"
-        processed: boolean("processed").default(false).notNull(), // Always equals capture_status = 'placed' (processCapture sets it); reads use capture_status.
+        rawText: text("raw_text").notNull(),
+        processed: boolean("processed").default(false).notNull(),
         captureKind: captureKindEnum("capture_kind").default("unknown").notNull(),
         captureStatus: captureStatusEnum("capture_status").default("clarifying").notNull(),
-        placedTaskId: uuid("placed_task_id").references(() => tasks.id, { onDelete: "set null" }), // Link to task created from this capture
-        aiSuggestion: text("ai_suggestion"), // JSON string — AI-suggested classification, scheduling, etc.
-        // NLP analysis columns
+        placedTaskId: uuid("placed_task_id").references(() => tasks.id, { onDelete: "set null" }),
+        aiSuggestion: text("ai_suggestion"),
         analysisStatus: analysisStatusEnum("analysis_status").default("pending"),
-        analysisVersion: text("analysis_version"), // parser version at analysis time
-        analysisSummary: text("analysis_summary"), // "Cadence understood: ..." human-readable summary
-        analysis: jsonb("analysis").$type<Record<string, unknown>>(), // full ParseResult JSON
+        analysisVersion: text("analysis_version"),
+        analysisSummary: text("analysis_summary"),
+        analysis: jsonb("analysis").$type<Record<string, unknown>>(),
         sourceSurface: sourceSurfaceEnum("source_surface").default("inbox"),
-        // ── Analysis lifecycle (§11.3) ──
         analysisConfidenceTier: confidenceTierEnum("analysis_confidence_tier"),
         analysisNeedsReview: boolean("analysis_needs_review").default(false).notNull(),
         analysisReviewReason: text("analysis_review_reason"),
         analysisEntityCount: integer("analysis_entity_count").default(0).notNull(),
-        // clarified_at and applied_at are never written (the settings reset only nulls them).
         clarifiedAt: timestamptz("clarified_at"),
         appliedAt: timestamptz("applied_at"),
         createdAt: createdAt(),
@@ -735,65 +672,47 @@ export const inboxItems = pgTable(
     }),
 ).enableRLS();
 
-// 9. Habits
 export const habits = pgTable(
     "habits",
     {
         id: id(),
         userId: ownerId(),
 
-        // Core Data
         title: text("title").notNull(),
-        description: text("description"), // Optional
+        description: text("description"),
 
-        // Recurrence & Scheduling
-        // Use RRULE standard natively to support "Every Weekday", "Every 3 Days", etc.
         recurrenceRule: text("recurrence_rule").notNull(),
-        targetTime: text("target_time"), // e.g., "19:00" string for time-specific habits, null for all-day
-        // Per-weekday overrides of targetTime, keyed by RRULE day ("MO".."SU") → "HH:mm"
+        targetTime: text("target_time"),
         targetTimes: jsonb("target_times").$type<Record<string, string>>(),
 
         emoji: text("emoji"),
 
-        // Reminders
         reminderEnabled: boolean("reminder_enabled").default(false).notNull(),
 
-        // Project linkage (optional)
         projectId: uuid("project_id").references(() => projects.id, { onDelete: "set null" }),
 
-        // Ordering
         sortOrder: doublePrecision("sort_order").default(0).notNull(),
 
-        // Pause support
         pausedUntil: date("paused_until", { mode: "string" }),
 
-        // Tracking Metrics (Calculated server-side iteratively to avoid expensive COUNT(*) queries)
         totalCompletions: integer("total_completions").default(0).notNull(),
         totalSkips: integer("total_skips").default(0).notNull(),
         currentStreak: integer("current_streak").default(0).notNull(),
         longestStreak: integer("longest_streak").default(0).notNull(),
 
-        // UI Identity
-        colorAccent: text("color_accent").default("lantern").notNull(), // Ties to Tailwind: text-lantern, ext.
+        colorAccent: text("color_accent").default("lantern").notNull(),
 
-        // Archiving
         archived: boolean("archived").default(false).notNull(),
 
-        // User-authored notes for this habit
         notes: text("notes"),
 
-        // Ordered steps ("water → stretch → journal"); null for a single-act routine
         steps: jsonb("steps").$type<Array<{ id: string; title: string }>>(),
 
-        // A routine at set times: its daily "HH:mm" times, ascending; null = the usual targetTime
         times: jsonb("times").$type<string[]>(),
 
-        // The one app this routine opens (a frontend catalogue id); never a URL
         linkedAppId: text("linked_app_id"),
-        // Or the one website it opens: a normalised https URL (contracts `parseWebsite`)
         linkedUrl: text("linked_url"),
 
-        // Shared routine state (R1, R6)
         shareMode: routineShareModeEnum("share_mode"),
         turnOrder: uuid("turn_order").array(),
         turnsFrom: date("turns_from", { mode: "string" }),
@@ -832,7 +751,6 @@ export const habits = pgTable(
     },
 ).enableRLS();
 
-// 9a. Routine members (participants and supporters). The owner is `habits.user_id`, never a row here.
 export const routineMembers = pgTable(
     "routine_members",
     {
@@ -874,11 +792,9 @@ export const routineMembers = pgTable(
             for: "delete",
             using: sql`(user_id = ${rlsUserId} OR habit_id IN (SELECT id FROM habits WHERE user_id = ${rlsUserId}))`,
         }),
-        // No INSERT policy: only `cadence_join_routine` inserts.
     }),
 ).enableRLS();
 
-// 9c. Routine cheers (one quiet in-app gesture per sender, recipient, routine, and day).
 export const routineCheers = pgTable(
     "routine_cheers",
     {
@@ -911,7 +827,6 @@ export const routineCheers = pgTable(
     }),
 ).enableRLS();
 
-// 9b. Habit–Tag associations (many-to-many)
 export const habitTags = pgTable(
     "habit_tags",
     {
@@ -937,8 +852,6 @@ export const habitTags = pgTable(
     }),
 ).enableRLS();
 
-// 10. Habit Logs
-// Explicitly tracks the historical interaction with a habit on a given target date.
 export const habitLogs = pgTable(
     "habit_logs",
     {
@@ -948,20 +861,15 @@ export const habitLogs = pgTable(
             .notNull(),
         userId: ownerId(),
 
-        // PENDING is stored only for a partly marked day (steps or set times); a fully open day has no row.
         status: habitStatusEnum("status").default("PENDING").notNull(),
 
-        // The localized day/date the action was due, stored as YYYY-MM-DD
         targetDate: date("target_date", { mode: "string" }).notNull(),
         completedAt: timestamptz("completed_at"),
 
-        // Timestamp of last explicit resolution action (complete/skip/clear)
         resolvedAt: timestamptz("resolved_at"),
 
-        // Step id → COMPLETED/SKIPPED for routines with steps; a partial day stays PENDING
         stepStatus: jsonb("step_status").$type<Record<string, "COMPLETED" | "SKIPPED">>(),
 
-        // "HH:mm" → { status, at } for a routine at set times; the day's status follows from these
         timeMarks: jsonb("time_marks").$type<Record<string, { status: "COMPLETED" | "SKIPPED"; at: string | null }>>(),
 
         createdAt: createdAt(),
@@ -1005,12 +913,10 @@ export const habitLogs = pgTable(
     },
 ).enableRLS();
 
-// Child rows (subtasks, notes) follow their task's list; `user_id` must stay the task's owner.
 const taskInView = sql`task_id IN (SELECT id FROM tasks WHERE project_id IN ${memberView})`;
 const taskInEdit = sql`task_id IN (SELECT id FROM tasks WHERE project_id IN ${memberEdit})`;
 const taskOwnedEdit = sql`(task_id IN (SELECT id FROM tasks WHERE project_id IN ${memberEdit}) AND user_id = (SELECT t.user_id FROM tasks t WHERE t.id = task_id))`;
 
-// 11. Subtasks
 export const subtasks = pgTable(
     "subtasks",
     {
@@ -1059,7 +965,6 @@ export const subtasks = pgTable(
     }),
 ).enableRLS();
 
-// 11b. Task Notes (Dedicated note storage — separate from tasks.content for lazy loading)
 export const taskNotes = pgTable(
     "task_notes",
     {
@@ -1069,7 +974,7 @@ export const taskNotes = pgTable(
             .notNull(),
         userId: ownerId(),
         body: text("body").default("").notNull(),
-        excerpt: text("excerpt").default("").notNull(), // First ~120 chars for list previews
+        excerpt: text("excerpt").default("").notNull(),
         wordCount: integer("word_count").default(0).notNull(),
         headingCount: integer("heading_count").default(0).notNull(),
         version: integer("version").default(1).notNull(),
@@ -1108,7 +1013,6 @@ export const taskNotes = pgTable(
     }),
 ).enableRLS();
 
-// 12. Task Metrics (Silent Tracking)
 export const taskMetrics = pgTable(
     "task_metrics",
     {
@@ -1120,15 +1024,13 @@ export const taskMetrics = pgTable(
         rescheduleCount: integer("reschedule_count").default(0).notNull(),
         delayCount: integer("delay_count").default(0).notNull(),
         createdToDone: integer("created_to_done"),
-        firstScheduled: date("first_scheduled", { mode: "string" }), // the day the task was first rescheduled to
+        firstScheduled: date("first_scheduled", { mode: "string" }),
         completedAt: timestamptz("completed_at"),
-        // When it was last rescheduled: the workload window reads this, not the row's creation time.
         lastRescheduledAt: timestamptz("last_rescheduled_at"),
         createdAt: createdAt(),
     },
     (table) => ({
         userIdIdx: index("task_metrics_user_id_idx").on(table.userId),
-        // One metrics row per task, so metric writes are single upserts.
         taskIdUnique: uniqueIndex("task_metrics_task_id_unique").on(table.taskId),
         rlsPolicy: pgPolicy("task_metrics_owner_access", {
             as: "permissive",

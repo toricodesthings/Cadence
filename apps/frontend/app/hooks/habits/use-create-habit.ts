@@ -11,7 +11,6 @@ import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { toastError } from "../../lib/utils/error-toast";
 import { clientIdFor } from "../../lib/api/optimistic-id";
 
-/** The new routine as the caches show it until the server answers. */
 function optimisticHabitFrom(input: InsertHabit): Habit {
     const {
         description = null,
@@ -49,15 +48,13 @@ function optimisticHabitFrom(input: InsertHabit): Habit {
         times,
         emoji,
         projectId,
-        // Last in a Custom order until the server picks its real place (also last).
         sortOrder,
         pausedUntil,
         tagIds,
-        logs: [], // Will be empty until hydrated by weekly query
+        logs: [],
     };
 }
 
-/** Adds the routine to every cached active-routines week that holds today. */
 function addToWeeks(queryClient: QueryClient, habit: Habit, today: string) {
     queryClient.getQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll }).forEach(([key, old]) => {
         const filters = key[2] as { start?: string; end?: string } | undefined;
@@ -122,7 +119,7 @@ export function useCreateHabit() {
         },
 
         onSuccess: (habit, _input, context) => {
-            if (!habit) return; // Queued offline
+            if (!habit) return;
             reconcileHabitInCaches(queryClient, habit, context?.optimisticId);
         },
 

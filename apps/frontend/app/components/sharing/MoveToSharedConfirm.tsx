@@ -18,7 +18,6 @@ const usePendingSharedMove = create<{ pending: PendingMove | null; setPending: (
     }),
 );
 
-/** Imperative confirm for menus that unmount on item select (e.g. context menus). */
 export function guardMoveToShared(
     destProject: Project | undefined,
     alreadyShared: boolean,
@@ -49,17 +48,12 @@ function renderPending(pending: PendingMove | null, clear: () => void) {
     );
 }
 
-/** Mounted once in `providers.tsx` to host confirms triggered from unmounting menus. */
 export function SharedMoveConfirmHost() {
     const pending = usePendingSharedMove((s) => s.pending);
     const setPending = usePendingSharedMove((s) => s.setPending);
     return renderPending(pending, () => setPending(null));
 }
 
-/**
- * Confirmation before moving a personal task or capture into a shared list.
- * Explains plainly that everyone in the list will see it while personal reminders and tags stay private.
- */
 export function MoveToSharedConfirm({
     open,
     onOpenChange,
@@ -99,7 +93,6 @@ export function MoveToSharedConfirm({
     );
 }
 
-/** Wraps a move/place action so moving an unshared item into a shared list confirms first. */
 export function useMoveToSharedGuard(itemLabel = "task") {
     const [pending, setPending] = useState<PendingMove | null>(null);
     const guard = (destProject: Project | undefined, alreadyShared: boolean, run: () => void) => {

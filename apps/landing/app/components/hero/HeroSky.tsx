@@ -2,7 +2,6 @@ import { StaticSvg } from "~/components/StaticSvg";
 
 import { HeroSkyStage } from "./HeroSkyStage";
 
-/** The night sky: two gradient layers, then the stage (moon, stars, twinkles, comets), which is drawn once at build time. */
 export function HeroSky() {
     return (
         <>

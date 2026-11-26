@@ -17,7 +17,6 @@ import type { Env } from "../../src/types/env";
 
 const USER_KEY = "deadbeefdeadbeef";
 
-// Small, easy-to-breach limits so each cap can be driven independently.
 const limits: AiLimits = {
     requests5h: 5,
     tokens5h: 10_000,
@@ -117,7 +116,6 @@ describe("readMeteredTokens", () => {
             totalTokens: 20_300,
             inputTokenDetails: { noCacheTokens: 2_000, cacheReadTokens: 17_000, cacheWriteTokens: 1_000 },
         };
-        // 2,000 plain + 1,700 read + 1,250 written + 300 out
         expect(readMeteredTokens({ metadata: { totalUsage } })).toBe(5_250);
     });
 
@@ -197,14 +195,13 @@ describe("admit — under cap", () => {
     it("is a single billed command / round-trip — one atomic EVAL (§15.3)", async () => {
         const before = redis.requests;
         await admit(asRedis(redis), USER_KEY, limits.reserve, limits);
-        expect(redis.requests - before).toBe(1); // one EVAL; no rollback round-trip
+        expect(redis.requests - before).toBe(1);
         expect(redis.commandLog.filter((c) => c === "eval").length).toBe(1);
     });
 });
 
 describe("admit — over each cap rejects", () => {
     it.each([
-        // Seeded keys carry no TTL, so retry-after falls back to the full window.
         ["5h request", () => k.req5h, limits.requests5h, "5h", "req", WINDOW_5H_S],
         ["5h token", () => k.tok5h, limits.tokens5h, "5h", "tok", WINDOW_5H_S],
         ["7d request", () => k.req7d, limits.requests7d, "7d", "req", WINDOW_7D_S],
@@ -228,7 +225,7 @@ describe("admit — image quota", () => {
     it("counts new image sends and anchors the 24h window on the first one only", async () => {
         const a = await admit(asRedis(redis), USER_KEY, limits.reserve, limits, 0);
         expect(a.ok).toBe(true);
-        expect(redis.strings.has(k.img24h)).toBe(false); // n = 0 never touches the quota
+        expect(redis.strings.has(k.img24h)).toBe(false);
 
         await admit(asRedis(redis), USER_KEY, limits.reserve, limits, 2);
         expect(redis.strings.get(k.img24h)).toBe("2");
@@ -261,10 +258,8 @@ describe("admit — anchor-on-first-write window TTL", () => {
     it("does not extend the window TTL on a later admit (EXPIRE … NX)", async () => {
         const redis = new FakeRedis();
         await admit(asRedis(redis), USER_KEY, limits.reserve, limits);
-        // Simulate the window having mostly elapsed.
         redis.ttls.set(k.req5h, Date.now() + 1_234);
         await admit(asRedis(redis), USER_KEY, limits.reserve, limits);
-        // NX kept the original (short) TTL — it was NOT reset back up to the full window.
         expect(await redis.pttl(k.req5h)).toBeLessThanOrEqual(1_234);
     });
 });
@@ -278,7 +273,7 @@ describe("settle — reconcile to actual + release concurrency", () => {
         const before = redis.requests;
         await settle(asRedis(redis), USER_KEY, limits.reserve, 1_500);
         expect(redis.requests - before).toBe(1);
-        expect(redis.commandLog.filter((c) => c === "eval").length).toBe(2); // admit + settle
+        expect(redis.commandLog.filter((c) => c === "eval").length).toBe(2);
     });
 
     it("tops up when actual exceeds the reserve (under-estimate)", async () => {
@@ -297,7 +292,6 @@ describe("settle — reconcile to actual + release concurrency", () => {
     });
 
     it("floors inflight at 0 — a stray release can never drive concurrency negative", async () => {
-        // No prior admit, so inflight starts at 0; settle's DECR must not go to -1.
         await settle(asRedis(redis), USER_KEY, limits.reserve, 200);
         expect(redis.strings.get(k.inflight)).toBe("0");
     });
@@ -343,7 +337,6 @@ describe("concurrency cap end-to-end", () => {
         expect([a.ok, b.ok, c.ok]).toEqual([true, true, false]);
         if (!c.ok) expect(c.dimension).toBe("concurrency");
 
-        // Releasing one in-flight turn frees a slot for the next admit.
         await settle(asRedis(redis), USER_KEY, small.reserve, 100);
         const d = await admit(asRedis(redis), USER_KEY, small.reserve, small);
         expect(d.ok).toBe(true);

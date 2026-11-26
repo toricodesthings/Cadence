@@ -124,7 +124,6 @@ describe("a shared event under row-level security", () => {
         expect(row.notify).toBe(false);
         expect(row.role).toBe("edit");
 
-        // Direct self-update on event_members is blocked by RLS.
         expect(
             await as(member, (tx) =>
                 tx.update(eventMembers).set({ role: "view" }).where(eq(eventMembers.eventId, eventId)).returning(),

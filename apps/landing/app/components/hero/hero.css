@@ -1,18 +1,7 @@
-/*
- * The Twilight Bough: hero layout and motion. Scene colours are the --hero-*
- * tokens in app.css.
- *
- * Every entrance is `animation: var(--hero-still, …) … both` with its duration
- * and delay multiplied by --hero-dur-scale, and every base rule is the final
- * pose. Reduced motion (--hero-still: none) and .is-settled (scale 0) both land
- * on that pose. Idle loops are never scaled, so settling never makes them jump.
- */
-
 .hero {
     --hero-land: block;
     --hero-port: none;
     --hero-s: none;
-    /* The wordmark's size, and how far a landscape bough may reach from its edge: to the wordmark's outer rule, less a breath */
     --wm: clamp(2.75rem, 6.5vw, 6.25rem);
     --reach: calc(50vw - 4.3 * var(--wm) - clamp(2rem, 4vw, 4.5rem) - 2.25rem);
     position: relative;
@@ -22,7 +11,6 @@
     overflow: hidden;
     isolation: isolate;
     background: var(--hero-sky-mid);
-    /* The moon sets on this as the hero scrolls away */
     view-timeline: --hero block;
 }
 
@@ -32,7 +20,6 @@
     }
 }
 
-/* Portrait screens get their own authored pair of boughs (phones held sideways keep the landscape pair) */
 @media (max-aspect-ratio: 4/5), (max-width: 767px) and (orientation: portrait) {
     .hero {
         --hero-land: none;
@@ -46,14 +33,12 @@
     --hero-dur-scale: 0;
 }
 
-/* Scrolled out of view: every loop holds its frame and resumes where it left off */
 .hero.is-offscreen,
 .hero.is-offscreen *,
 .hero.is-offscreen *::after {
     animation-play-state: paused !important;
 }
 
-/* Held at the first frame while the page loads (lib/intro.ts), so the intro's clock starts when it can have every frame */
 :root[data-hero-hold] .hero,
 :root[data-hero-hold] .hero *,
 :root[data-hero-hold] .hero *::after,
@@ -67,8 +52,6 @@
     pointer-events: none;
 }
 
-/* ── Sky ── */
-/* Light from below the horizon, like a town behind hills: a wide lantern wash plus a warmer core */
 .hero-sky {
     background:
         radial-gradient(ellipse 48% 30% at 76% 104%, var(--hero-warm-glow, transparent), transparent 75%),
@@ -77,7 +60,6 @@
         linear-gradient(180deg, var(--hero-sky-zenith) 0%, var(--hero-sky-mid) 55%, var(--hero-sky-horizon) 100%);
 }
 
-/* Sits under the stars, so they dim naturally as the sky lifts */
 .hero-dusk {
     background:
         radial-gradient(ellipse 48% 30% at 76% 104%, var(--hero-warm-glow, transparent), transparent 75%),
@@ -99,7 +81,6 @@
     background: radial-gradient(ellipse at center, transparent 55%, var(--hero-vignette));
 }
 
-/* ── Landscape: the ground the sky rests on. The near hills end in the page ground, so there is no seam ── */
 .hero-land {
     position: absolute;
     left: -8px;
@@ -109,13 +90,11 @@
     pointer-events: none;
 }
 
-/* The ground and its lights stack on the same band, so the flicker is a composited fade over static hills */
 .hero-land > svg {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
-    /* The fills run just past the band's bottom edge (HeroLandscape); the hero's own box clips them */
     overflow: visible;
 }
 
@@ -127,7 +106,6 @@
     );
 }
 
-/* Lights wake one by one after the name ignites */
 .hero-lamp {
     animation: var(
         --hero-still,
@@ -142,14 +120,12 @@
     );
 }
 
-/* Desktop parallax writes `translate` on each [data-depth] layer (Hero.tsx); promoted up front, so a move never repaints */
 @media (pointer: fine) and (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
     .hero [data-depth] {
         will-change: transform, translate;
     }
 }
 
-/* ── Stars: the 1920×1080 stage, overscanned to cover ── */
 .hero-stage {
     --hs-w: max(100vw, 177.78dvh);
     --hs-h: max(100dvh, 56.25vw);
@@ -189,13 +165,6 @@
     );
 }
 
-/*
- * Moonset: as the hero scrolls away, the moon sinks (westward, to the right) behind the ridges faster than
- * the page lifts them, dimming as it nears them, so the sky itself moves while the words leave. The base
- * rule is the risen moon (reduced motion and browsers without scroll timelines keep it); transform and
- * opacity on its own <svg> only.
- */
-/* The moon's own box (HeroSky): it sets by transform, and Chrome composites no transform on an <svg> element */
 .hero-moon {
     position: absolute;
     inset: 0;
@@ -209,7 +178,6 @@
     }
 }
 
-/* 70% of the stage takes it from its height to below the ridge under it, just as the lifting hills reach it */
 @keyframes hero-moonset {
     45% {
         opacity: 1;
@@ -220,8 +188,6 @@
     }
 }
 
-/* As it sets, night deepens over the scene: a veil of the void, on the moon's own timeline and range, under
-   the words (the promoted .hero-copy paints above it). Clearly felt, and it hands over to the journey's darker sky */
 .hero-dim {
     position: absolute;
     inset: 0;
@@ -238,7 +204,6 @@
     }
 }
 
-/* Felt from the first scroll (most of the fall comes early), and deep by the time the moon is down */
 @keyframes hero-dim {
     40% {
         opacity: 0.4;
@@ -276,11 +241,6 @@
     );
 }
 
-/*
- * Comets: two, rare and soft, each crossing its own empty patch of sky (stage units), then
- * resting for most of its cycle. The head sits at (--x, --y), the tail is half an ellipse fading
- * back from it, and the travel is a composited translate along the comet's own heading.
- */
 .hero-comet {
     position: absolute;
     left: calc(var(--x) * var(--su));
@@ -319,8 +279,6 @@
     );
 }
 
-/* Upper sky between the moon and the right bough, under the header even where the stage crops its top;
-   lower right, above the hills and clear of the copy */
 .hero-comet-a {
     --x: 1300;
     --y: 190;
@@ -340,7 +298,6 @@
     --delay: 13s;
 }
 
-/* ── Boughs: anchored to the viewport edges, not the stage ── */
 .hero-boughs {
     position: absolute;
     inset: 0;
@@ -350,10 +307,7 @@
 .hero-bough {
     position: absolute;
     display: var(--hero-land);
-    /* The wind runs for good, so the layer stays promoted */
     will-change: transform;
-    /* Wind: one irregular cycle per bough. Every bough shares the period, so each gust keeps
-     crossing the scene left to right (the right-hand boughs lag); --wd flips the lean per anchor. */
     --wind: 16s;
     animation: var(
         --hero-still,
@@ -361,7 +315,6 @@
     );
 }
 
-/* Wood, buds and blossoms stack on the same box */
 .hero-bough > svg {
     position: absolute;
     inset: 0;
@@ -370,9 +323,6 @@
     overflow: visible;
 }
 
-/* `translate` belongs to the parallax, so offsets that depend on the bough's own size go through --bw.
-   Sized so its farthest tips (72% across its box) stop at --reach, and placed so the main limb's tip
-   (viewBox y 300, 0.333 of the width down) sits on the wordmark's line, a steady 5.75rem above centre */
 .hero-bough-l {
     --bw: clamp(200px, min(var(--reach) / 0.72, 110vh), 1100px);
     left: 0;
@@ -384,8 +334,6 @@
     --wind-delay: -4s;
 }
 
-/* Emerges from the right edge just below the header, so it never reaches the header's links */
-/* Its farthest tips sit 64% in from the right edge of its box */
 .hero-bough-r {
     --bw: clamp(190px, min(var(--reach) / 0.64, 100vh), 1000px);
     right: 0;
@@ -400,7 +348,6 @@
 .hero-bough-s {
     display: var(--hero-s);
     right: 0;
-    /* Lifted clear of the ground fade so the limb stays lit */
     bottom: 7%;
     --bw: clamp(200px, min(26vw, 40vh), 520px);
     width: var(--bw);
@@ -418,7 +365,6 @@
     aspect-ratio: 600 / 640;
 }
 
-/* The trunk (17.2% down the box, 0.172 × 640/600 of the width) sits on the 18% line */
 .hero-bough-pl {
     left: 0;
     top: calc(18% - var(--bw) * 0.1835);
@@ -427,7 +373,6 @@
     --wind-delay: -4s;
 }
 
-/* A low band: the trunk (viewBox y 600 of 640) sits on the `bottom` line, well under the buttons */
 .hero-bough-pr {
     right: 0;
     bottom: calc(9% - var(--bw) * 0.0667);
@@ -436,10 +381,6 @@
     --wind-delay: -2.7s;
 }
 
-/*
- * The 404 (components/NotFound.tsx): the hero's night with the portrait pair framing one line. The pair is
- * authored for portrait, so it is turned on at every width here, and the copy column stays clear of both.
- */
 .lost {
     --hero-land: none;
     --hero-port: block;
@@ -482,13 +423,10 @@
     color: var(--color-twilight-text-soft);
 }
 
-/* Growth mask: a stroked copy of the spine, drawn along its length. Alpha masks skip the luminance pass */
 .hero-bough mask {
     mask-type: alpha;
 }
 
-/* Growth: a dash drawn along the spine. A twig's tapered strokes share one clock on their group and
-   inherit its dash, so the browser runs one animation per limb instead of one per stroke */
 .hero-grow,
 .hero-grows {
     stroke-dasharray: 1 2;
@@ -504,8 +442,6 @@
     animation-timing-function: var(--ease-out-expo);
 }
 
-/* Soft light, blurred in proportion to the bough. Painted into the bough's layer (not composited),
-   so after the intro the wind moves a finished texture. Ignition lights the halo and kindles the heart. */
 .hero-bough-halo {
     opacity: 0.28;
     filter: blur(calc(var(--bw) * 0.012));
@@ -570,7 +506,6 @@
     }
 }
 
-/* ── Ignition flare: the name lights the sky, once. Hidden outright afterwards, so the blend costs nothing ── */
 .hero-flare {
     position: absolute;
     left: 50%;
@@ -597,7 +532,6 @@
     );
 }
 
-/* ── Sparks: the page's only particles, after the dusk crossfade ── */
 .hero-sparks {
     animation: var(
         --hero-still,
@@ -625,7 +559,6 @@
     );
 }
 
-/* ── Copy ── */
 .hero-copy {
     position: relative;
     z-index: 1;
@@ -648,7 +581,6 @@
     font-size: var(--wm);
     line-height: 1.1;
     letter-spacing: 0.28em;
-    /* The tracking adds a trailing space after the last letter; this leading one balances it */
     text-indent: 0.28em;
     color: var(--hero-text);
     text-shadow: var(--hero-text-glow);
@@ -662,7 +594,6 @@
     position: relative;
 }
 
-/* Breathing glow: a duplicate glyph layer (generated, so it is neither selected nor announced) */
 .hero-wordmark-text::after {
     content: attr(data-text);
     content: attr(data-text) / "";
@@ -680,7 +611,6 @@
     );
 }
 
-/* Keeps the wordmark ≥ 7:1 over the dusk sky */
 .hero-wordmark-halo {
     position: absolute;
     inset: -6rem -10rem;
@@ -711,11 +641,7 @@
     transform-origin: 0 50%;
 }
 
-/* ── Divider: a filigree crest between the name and the lines under it, drawn in like ink while the name
-   ignites: the diamond is traced, stems and curls run out of it, the hairlines follow a spark out to the
-   sky, and the star kindles last. After that only the star moves, now and then ── */
 .hero-divider {
-    /* Its clock: when the drawing starts, and its speed (the intro's scale, so settling finishes it) */
     --dt0: 1720ms;
     --dk: var(--hero-dur-scale);
     display: flex;
@@ -724,9 +650,6 @@
     margin-top: 1.1rem;
 }
 
-/* Arms: each hairline is revealed in place from the crest outward (never stretched), behind a spark riding
-   its leading edge like a nib. The spark travels the arm's own width in container units, on the same
-   curve as the reveal, so it stays on the edge; it fades as the line fades into the sky */
 .hero-divider-arm {
     position: relative;
     flex: 1;
@@ -737,7 +660,6 @@
     display: block;
     height: 1px;
     box-shadow: 0 0 6px var(--accent-glow);
-    /* The rest pose is an inset() too, so the reveal interpolates instead of flipping */
     clip-path: inset(-6px);
 }
 
@@ -790,13 +712,11 @@
     position: relative;
     isolation: isolate;
     flex: none;
-    /* Grows with the name, so it keeps its weight under a large wordmark */
     width: clamp(5.25rem, 1.15 * var(--wm), 7.25rem);
     aspect-ratio: 92 / 26;
     margin-inline: -1px;
 }
 
-/* A pool of lantern light behind the crest */
 .hero-divider-crest::before {
     content: "";
     position: absolute;
@@ -817,7 +737,6 @@
     overflow: visible;
 }
 
-/* Ink: each stroke of the crest is drawn along its length (pathLength 1), in order from the diamond out */
 .hero-ink {
     stroke-dasharray: 1 2;
     stroke-dashoffset: 0;
@@ -827,8 +746,6 @@
     );
 }
 
-/* The diamond is traced down both sides from its top point; each stem leaves a side point as the trace
-   passes it, gathering speed into its hairline; the curls unroll from the stems */
 .hero-ink-diamond {
     --at: 0ms;
     --dur: 450ms;
@@ -845,7 +762,6 @@
     --ease: var(--ease-out-quart);
 }
 
-/* A bead sets as its stem runs over it; the diamond's heart fills as the hairlines leave */
 .hero-crest-bead {
     transform-box: fill-box;
     transform-origin: center;
@@ -862,7 +778,6 @@
     );
 }
 
-/* Once the crest is drawn the star kindles: a brief swell of light, then it settles. No spin */
 .hero-divider-kindle {
     position: absolute;
     inset: 0;
@@ -872,7 +787,6 @@
     );
 }
 
-/* The star at the heart of the diamond: a soft glow with a sharp cross of light (the buttons' sparkle) */
 .hero-divider-star {
     position: absolute;
     left: 50%;
@@ -919,12 +833,10 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    /* Wide enough that the gems on facing rims don't crowd each other */
     gap: 1rem 1.5rem;
     margin-top: 2.25rem;
 }
 
-/* A size up from the header's buttons (unlayered, so it wins over the Tailwind sizing) */
 .hero-action {
     min-height: 3.25rem;
     padding-inline: 1.75rem;
@@ -936,7 +848,6 @@
     );
 }
 
-/* Where the pair would wrap, stack it as two equal buttons */
 @media (max-width: 27.5rem) {
     .hero-actions {
         flex-direction: column;
@@ -947,9 +858,6 @@
     }
 }
 
-/* The main call to action is never quite still: its halo breathes like the lamps, its aura circles faintly,
-   and a star flares on its rim every few seconds. Hover brings the aura to full strength and the quick
-   twinkle (app.css). Unscaled idle loops that start once the copy is in */
 .hero-action.button-lantern .button-glow::after {
     animation: var(
         --hero-still,
@@ -976,7 +884,6 @@
     );
 }
 
-/* Header: in the DOM and focusable from first paint, visually enters with the copy */
 .hero-header {
     position: absolute;
     inset-inline: 0;
@@ -994,11 +901,6 @@
     animation: none;
 }
 
-/*
- * ── Return visit: this tab has seen the intro (root.tsx flags <html> before first paint) ──
- * The scene starts in its final pose: no regrowth, no waiting for ignition. Only the words
- * arrive, in a short soft cascade: the name clears from a light blur, the lines rise after it.
- */
 :root[data-hero-return] {
     --hero-dur-scale: 0;
 }
@@ -1011,7 +913,6 @@
     animation: var(--hero-still, hero-draw 600ms var(--ease-out-expo) 260ms both);
 }
 
-/* The divider draws again, starting at once on its own clock (the settled intro's is zero) */
 :root[data-hero-return] .hero-divider {
     --dt0: 100ms;
     --dk: 1;
@@ -1033,14 +934,12 @@
     animation: var(--hero-still, hero-fade 500ms var(--ease-out-quart) 0ms both);
 }
 
-/* Narrow phones: a tighter gutter keeps the logo and both header links on one line without overflow */
 @media (max-width: 400px) {
     .hero-header {
         padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
     }
 }
 
-/* ── Scroll cue: one spark drifting down ── */
 .hero-cue {
     position: absolute;
     left: 50%;
@@ -1053,12 +952,9 @@
     box-shadow: 0 0 8px 2px var(--accent-glow);
     pointer-events: none;
     opacity: 0.8;
-    /* One animation on opacity only: a finished entrance fade held on the same property would keep the loop off the
-     compositor (a main-thread frame every vsync). The loop sets opacity at every keyframe, so it always showed alone */
     animation: var(--hero-still, hero-cue 2.4s var(--ease-sine) infinite both var(--hero-loop, running));
 }
 
-/* ── Devices ── */
 @media (max-width: 480px) {
     .hero-rule {
         display: none;
@@ -1072,7 +968,6 @@
     }
 }
 
-/* Portrait: the copy sits a little low in the middle third, leaving the upper bough its own sky */
 @media (max-aspect-ratio: 4/5), (max-width: 767px) and (orientation: portrait) {
     .hero-copy {
         padding-block: 8rem 3.5rem;
@@ -1080,11 +975,9 @@
     .hero-land {
         height: clamp(110px, 26dvh, 380px);
     }
-    /* The lower bough hangs where the hamlet stands on a wide screen, so here it sits a little down its slope */
     .hero-hamlet {
         transform: translateY(22px);
     }
-    /* The stage's centre strip is all a portrait screen shows: one comet, in the sky right of the upper bough */
     .hero-comet-a {
         --x: 1185;
         --y: 185;
@@ -1096,8 +989,6 @@
     }
 }
 
-/* Narrow phones: the stacked buttons sit low, so the land stays under them. The copy is tallest here
-   (stacked buttons, wrapped lines), so its gaps tighten to keep both boughs clear of it */
 @media (max-width: 430px) and (orientation: portrait) {
     .hero-land {
         height: clamp(100px, 22dvh, 380px);
@@ -1108,7 +999,6 @@
     .hero-divider-crest {
         width: 4.875rem;
     }
-    /* ...and the copy sits a little lower, where the lower bough leaves more room than the upper one */
     .hero-copy {
         padding-block: 9rem 3.5rem;
     }
@@ -1121,7 +1011,6 @@
     }
 }
 
-/* Short portrait phones: the copy fills most of the height, so both boughs shrink with it */
 @media (max-aspect-ratio: 4/5) and (max-height: 700px) {
     .hero-bough-pl {
         --bw: clamp(180px, min(70vw, 29vh), 520px);
@@ -1137,7 +1026,6 @@
     }
 }
 
-/* Short landscape (phones held sideways): smaller boughs, tagline only */
 @media (max-height: 520px) {
     .hero-sentence,
     .hero-rule,
@@ -1159,7 +1047,6 @@
     .hero-actions {
         margin-top: 1.25rem;
     }
-    /* The copy fills the height here, so the left bough drops below the header line and the right one sits lower */
     .hero-bough-l {
         --bw: clamp(110px, min(var(--reach) / 0.72, 60vh), 880px);
         top: calc(50% - var(--bw) * 0.15);
@@ -1179,7 +1066,6 @@
     }
 }
 
-/* ── Keyframes (entrances are `from` only: the base rule is the end frame) ── */
 @keyframes hero-fade {
     from {
         opacity: 0;
@@ -1289,7 +1175,6 @@
     }
 }
 
-/* Mostly still; one flare late in the cycle. A four-point star looks the same a quarter turn on, so the loop is seamless */
 @keyframes hero-crest-twinkle {
     0%,
     72% {
@@ -1306,7 +1191,6 @@
     }
 }
 
-/* One flare in the first seventh of the cycle, dark for the rest */
 @keyframes hero-cta-twinkle {
     0% {
         opacity: 0;
@@ -1331,7 +1215,6 @@
     }
 }
 
-/* The return entrance: the ignition's gesture, lighter and shorter */
 @keyframes hero-return {
     from {
         opacity: 0;
@@ -1372,7 +1255,6 @@
     }
 }
 
-/* Crosses in the first ~11% of its cycle, then rests out of sight */
 @keyframes hero-comet {
     0% {
         transform: translateX(0);
@@ -1394,8 +1276,6 @@
     }
 }
 
-/* A lull, two gusts of different strength, and a back-swing. The skew bends the tips more than the trunk,
-   so the limb flexes like wood instead of turning like a board. */
 @keyframes hero-wind {
     0%,
     100% {

@@ -1,24 +1,3 @@
-/**
- * Tenant Isolation Tripwire (static analysis)
- *
- * The backend isolates tenants with TWO layers: Postgres RLS policies AND an
- * explicit `eq(<table>.userId, userId)` predicate on every user-scoped query.
- * Every path, cron included, runs per user under RLS; the explicit `userId`
- * predicate keeps a write scoped even if a policy or a missing `withRls` lets
- * RLS miss it.
- *
- * This test fails when an UPDATE or DELETE against a user-scoped table anywhere
- * in `src/` is missing a `userId` predicate. UPDATE/DELETE are the catastrophic
- * vectors (cross-tenant tampering / deletion); reads carry less blast radius
- * and are additionally covered by RLS.
- *
- * A small allowlist covers operations that are safe by construction. Each entry
- * says WHY. Adding a new userId-less write means consciously adding it here
- * (with a justification) — that is the ratchet.
- *
- * Raw `tx.execute(sql`...`)` statements are out of scope; the one such write
- * (tasks reorder) is reviewed to include `AND user_id = ${userId}`.
- */
 import { expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -26,7 +5,6 @@ import { fileURLToPath } from "node:url";
 
 const SRC_DIR = join(fileURLToPath(import.meta.url), "../../../src");
 
-/** Tables that carry per-user data and must be scoped by `userId`. */
 const USER_SCOPED_TABLES = [
     "users",
     "userMetrics",
@@ -69,10 +47,6 @@ const USER_SCOPED_TABLES = [
     "taskPersonal",
 ];
 
-/**
- * Statement fragments that are safe despite lacking a direct `userId`
- * predicate. Each must stay justified.
- */
 const ALLOWED_WITHOUT_USERID: Array<{ fragment: string; reason: string }> = [
     {
         fragment: "eq(taskTags.taskId",
@@ -130,11 +104,8 @@ function collectSourceFiles(dir: string): string[] {
     });
 }
 
-/** The chained statement text from an UPDATE/DELETE call to its terminator. */
 function statementFrom(source: string, opIndex: number): string {
     const rest = source.slice(opIndex);
-    // End at the first terminator so long `.set({...})` blocks never hide the
-    // trailing `.where()`; fall back to a generous window when there is none.
     const ends = [rest.indexOf(".returning("), rest.indexOf(";")].filter((i) => i >= 0);
     return rest.slice(0, ends.length > 0 ? Math.min(...ends) : 1500);
 }
@@ -161,7 +132,6 @@ function findUnscopedWrites() {
 it("every UPDATE/DELETE on a user-scoped table in src/ filters by userId", () => {
     const { writes, violations } = findUnscopedWrites();
 
-    // Guards the scanner itself: a broken regex or path would otherwise pass vacuously.
     expect(writes.length).toBeGreaterThan(50);
     expect(
         violations,

@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { BucketedCollectionView, BucketedSectionHeader, useSectionFold } from "../shared/BucketedCollectionView";
 import { useId, useMemo, useState, useTransition } from "react";
 import { applyFocusView } from "@cadence/nlp/focus-views/apply";
+import { cueEffortOf } from "@cadence/nlp/day-pulse";
 import type { InboxItem } from "@cadence/contracts/inbox";
 import { useCaptureFeed } from "../../hooks/inbox/use-capture-feed";
 import { useFocusViewStore } from "../../stores/focus-view-store";
@@ -22,29 +23,20 @@ import { CaptureDayChips } from "./CaptureDayChips";
 import type { LocalDate, WallTime } from "@cadence/domain/time";
 import { dayOfInstant, fromTimeValue, nlpClock, toDay } from "../../lib/utils/date-format";
 import { today } from "../../lib/utils/user-zone";
-import { useWeekLoad, usePlaceTask, CaptureColumnDrop } from "./PlaceSheet";
+import { useWeekLoad, usePlaceTask, useThoughtAsTask, CaptureColumnDrop } from "./PlaceSheet";
 import { toast } from "sonner";
 import { toastUndo } from "../../lib/utils/undo-toast";
 import { useUnprocessInbox } from "../../hooks/inbox/use-unprocess-inbox";
-import { overridesOf, placementFor } from "../../lib/utils/task/suggested-placement";
-import { useEditableProjects } from "../../hooks/projects/use-own-projects";
+import { placementFor } from "../../lib/utils/task/suggested-placement";
 import { Reveal } from "../shared/Reveal";
 import { EmptyState } from "../tasks/EmptyState";
 import { PageContent } from "../layout/PageLayout";
-import { computeNlp, loadParse, TASK_FIELDS, useParseModule, type ParseFn } from "../../hooks/use-nlp-parse";
+import { loadParse, useParseModule } from "../../hooks/use-nlp-parse";
 
-/** Explicit nulls: the server must not infer a day from a thought's words. */
 const NO_DAY = { dueDate: null, scheduledStart: null, scheduledEnd: null };
 
 type ParsedDay = { date?: LocalDate; time?: WallTime | null };
 
-/** "deep work" reads as high effort, "quick call" as low; most words say nothing. */
-function effortOf(rawText: string) {
-    if (/\b(deep|hard|demanding)\b/i.test(rawText)) return 3;
-    return /\b(quick|easy|light)\b/i.test(rawText) ? 1 : null;
-}
-
-/** A typed time is a timed start; a bare day is the due day. */
 function dayFields(day: ParsedDay | undefined) {
     return {
         dueDate: day?.time ? null : (day?.date ?? null),
@@ -60,9 +52,7 @@ export function HoldingFeed({
 }: {
     onSelectTask: (id: string) => void;
     onClarifyInboxItem: (id: string) => void;
-    /** Desktop Rows / Board; compact shells always get rows. */
     view?: "list" | "kanban";
-    /** Touch rows: Capture's window tops the feed, or fills New when it's empty. */
     greet?: boolean;
 }) {
     const feed = useCaptureFeed();
@@ -74,14 +64,12 @@ export function HoldingFeed({
     const [focusedId, setFocusedId] = useState<string | null>(null);
     const [busy, startBusy] = useTransition();
     const process = useProcessInboxToTask();
-    const { data: projects = [] } = useEditableProjects();
     const unprocess = useUnprocessInbox();
     const status = useCaptureActions();
     const updateTask = useUpdateTask();
     const placeTask = usePlaceTask();
     const openAssistant = useAssistantStore((s) => s.requestMessage);
     const definition = settings?.tasks.intelligence?.focusViewsEnabled === false ? null : activeDefinition;
-    // Only priority order and focus views read what a thought says; chronological order never parses.
     const parse = useParseModule(captureOrder === "priority" || Boolean(definition));
     const ordered = useMemo(() => {
         const rank = (item: InboxItem) => {
@@ -107,7 +95,7 @@ export function HoldingFeed({
             return {
                 item,
                 priority: priority ?? 0,
-                effort: effortOf(item.rawText),
+                effort: cueEffortOf(item.rawText),
                 state: "ACTIVE",
                 projectId: null,
                 ...dayFields(day),
@@ -145,39 +133,7 @@ export function HoldingFeed({
             else next.add(id);
             return next;
         });
-    /** A thought as a task, read the way its row's Done reads it: the user's edits, then its words, then the suggested list. */
-    const asTask = (item: InboxItem, parseText: ParseFn) => {
-        const overrides = overridesOf(item);
-        const dismissedEntityIds = (item.analysis?.dismissedEntityIds ?? []) as string[];
-        const dateStyle = settings?.dateTime.dateStyle ?? "mdy";
-        const draft = computeNlp(parseText, {
-            input: item.rawText,
-            projects,
-            tags: [],
-            dismissedEntityIds,
-            sourceSurface: "inbox",
-            dateStyle,
-            capabilities: TASK_FIELDS,
-        });
-        const where = placementFor(item, { cue: draft.projectId });
-        return {
-            inboxItemId: item.id,
-            rawText: item.rawText,
-            title: overrides.title ?? draft.cleanedTitle,
-            projectId: where?.projectId ?? null,
-            sectionId: where?.sectionId ?? null,
-            tagIds: overrides.tagIds,
-            reminderAt: draft.fields.reminderAt,
-            notBefore: draft.fields.notBefore,
-            nlp: {
-                rawInput: item.rawText,
-                sourceSurface: "inbox" as const,
-                dateStyle,
-                dismissedEntityIds,
-                userOverrides: overrides,
-            },
-        };
-    };
+    const asTask = useThoughtAsTask();
     const bulk = (date?: LocalDate, discard = false) => {
         if (busy) return;
         startBusy(async () => {
@@ -217,7 +173,6 @@ export function HoldingFeed({
             }
         });
     };
-    // Thoughts that already carry a list (and section): the user's pick, or the server's suggestion.
     const sortable = [...feed.thoughts, ...feed.older].filter((item) => placementFor(item));
     const sortAll = () => {
         if (busy || sortable.length === 0) return;
@@ -226,7 +181,6 @@ export function HoldingFeed({
             try {
                 const parseText = await loadParse();
                 for (const item of sortable) {
-                    // Sorting never picks a day.
                     const task = await process.mutateAsync({ ...asTask(item, parseText), ...NO_DAY, silent: true });
                     if (task) placed.push({ item, taskId: task.id });
                 }
@@ -271,7 +225,6 @@ export function HoldingFeed({
             <span className="flex h-9 items-center rounded-full bg-accent-primary/20 px-3 text-xs font-semibold tabular-nums text-accent-primary">
                 {selected.size} selected
             </span>
-            {/* Phone: count and actions share the top line, the day pills get their own below. */}
             <div className="order-last basis-full sm:order-none sm:basis-auto">
                 <CaptureDayChips lightest={lightest} onPlace={(day) => bulk(toDay(day))} disabled={busy} />
             </div>
@@ -494,7 +447,6 @@ const SHORTCUTS = [
     ["Space", "Select"],
 ] as const;
 
-/** A folded group styled like the section headers above it. */
 function Fold({
     title,
     icon: Icon,

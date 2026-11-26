@@ -5,23 +5,16 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Reveal } from "../shared/Reveal";
 import { EASE_OUT_EXPO, SPRINGS } from "../../lib/constants/motion";
 
-/** A short spring used for icons popping in on settle (purposeful, not bouncy). */
 const SETTLE_POP = SPRINGS.SNAP;
 
-/** One read call inside a grouped chip. */
 export interface ToolCall {
-    /** Registry `label` (plain-language). */
     label: string;
-    /** Raw tool name, shown to power users when expanded. */
     tool?: string;
-    /** Tool arguments as the model sent them. */
     input?: unknown;
     pending?: boolean;
-    /** Ran and failed: a red mark instead of the check. */
     failed?: boolean;
 }
 
-/** `{ status: "overdue", limit: 20 }` → `status: "overdue", limit: 20`. */
 function formatInput(input: unknown): string {
     if (input == null) return "";
     if (typeof input !== "object") return JSON.stringify(input);
@@ -31,30 +24,15 @@ function formatInput(input: unknown): string {
         .join(", ");
 }
 
-/**
- * Read-tool activity chip (design §5). Read tools execute server-side and feed
- * the model; the user needs transparency, not a card. A single low-noise chip,
- * with multiple reads in one turn collapsing into a "Looked a few things up · N"
- * chip. Clicking it expands the exact calls (tool + arguments + status).
- */
-export function ToolActivityChip({
-    calls,
-    pending,
-}: {
-    calls: ToolCall[];
-    /** True while any read is in-flight. */ pending?: boolean;
-}) {
+export function ToolActivityChip({ calls, pending }: { calls: ToolCall[]; pending?: boolean }) {
     const reduceMotion = useReducedMotion();
     const [open, setOpen] = useState(false);
-    // Three task lookups in a row still read as one "Checked your tasks".
     const labels = [...new Set(calls.map((c) => c.label))];
     const count = labels.length;
     const summary = count <= 1 ? (labels[0] ?? "Looked something up") : `Looked a few things up`;
     const expandable = calls.some((c) => c.tool);
     const failed = !pending && calls.some((c) => c.failed);
 
-    // Pending reads carry the accent tint + a shimmering label so they read as
-    // "Cadence is working", settling to a calm neutral chip with a green check.
     return (
         <div className="flex flex-col items-start gap-1.5" role="status" aria-live="polite">
             <motion.button
@@ -72,7 +50,6 @@ export function ToolActivityChip({
                         : "border-twilight-border bg-twilight-surface text-twilight-text-muted"
                 }`}
             >
-                {/* Attribution: a faint sigil marks this as something Cadence ran. */}
                 <AssistantSigil size={12} className={pending ? "text-accent-primary" : "text-accent-primary/60"} />
                 {pending ? (
                     <LoaderCircle size={11} className="animate-spin text-accent-primary" />
@@ -127,11 +104,6 @@ export function ToolActivityChip({
     );
 }
 
-/**
- * Write-confirmation chip for `capture_to_inbox` (design §6). The write already
- * happened server-side; this just confirms it survived, distinct from a read
- * chip by its success accent + verb.
- */
 export function WriteConfirmChip({ label }: { label: string }) {
     const reduceMotion = useReducedMotion();
     return (

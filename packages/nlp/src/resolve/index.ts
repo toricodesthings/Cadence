@@ -7,13 +7,6 @@ const FUSE_OPTIONS = {
     keys: ["name"],
 };
 
-/**
- * Fuzzy-resolve project and tag mentions from natural language.
- * Only resolves phrases NOT already consumed by other parsers.
- *
- * Per Section 9: only exact/near-exact matches are high-confidence.
- * Fuzzy matches are medium-confidence max.
- */
 export function resolveProjectsAndTags(
     input: string,
     context: ResolutionContext,
@@ -27,7 +20,6 @@ export function resolveProjectsAndTags(
     const projectFuse = new Fuse(context.projects, FUSE_OPTIONS);
     const tagFuse = new Fuse(context.tags, FUSE_OPTIONS);
 
-    // A name only counts after a placement/tagging cue ("in Work", "tag it errands"): plain words never match.
     for (const match of input.matchAll(CUE_RE)) {
         const entity = resolveCue(input, match, { words, consumedRanges, dismissed, entities, projectFuse, tagFuse });
         if (entity) entities.push(entity);
@@ -45,7 +37,6 @@ type CueScope = {
     tagFuse: Fuse<ResolutionContext["tags"][number]>;
 };
 
-/** The list or tag named right after one cue, longest name first ("Work Admin" beats "Work"); null for none. */
 function resolveCue(input: string, match: RegExpMatchArray, scope: CueScope): ParsedEntity | null {
     const { words, consumedRanges, dismissed, entities, projectFuse, tagFuse } = scope;
     const cueStart = match.index ?? 0;
@@ -75,7 +66,6 @@ function resolveCue(input: string, match: RegExpMatchArray, scope: CueScope): Pa
     return null;
 }
 
-/** High confidence only for an exact or near-exact name. */
 function cueEntity(
     input: string,
     found: {
@@ -105,7 +95,6 @@ function cueEntity(
     };
 }
 
-/** "in", "under", "to", "into", "put this in", "tag it", "tagged as", "tag with" */
 const CUE_RE =
     /\b(?:(?:put|move|add)\s+(?:this|it)\s+(?:in|into|to|under)|(tag(?:ged)?(?:\s+(?:it|this))?(?:\s+(?:as|with))?)|in|into|under)\s+(?=\S)/gi;
 
@@ -124,11 +113,9 @@ function extractUnconsumedWords(input: string, consumedRanges: Array<{ start: nu
         const start = match.index;
         const end = start + match[0].length;
 
-        // Skip if this word overlaps with any consumed range
         const overlaps = consumedRanges.some((r) => start < r.end && end > r.start);
         if (overlaps) continue;
 
-        // Skip shorthand tokens (#tag, /project, p1-p4)
         if (/^[#/]/.test(match[0])) continue;
         if (/^p[1-4]$/i.test(match[0])) continue;
 

@@ -1,8 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { UIMessage } from "ai";
 
-// The real RPC client over a fake fetch, so we can inspect the exact request the
-// stop helper issues (endpoint / method / body) without hitting the network.
 const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response(null, { status: 200 }));
 vi.mock("../../../../app/lib/api/client", async () => {
     const { hc } = await import("hono/client");
@@ -35,10 +33,8 @@ describe("stopServerStream", () => {
         await stopServerStream(CONVO, SID, assistant);
 
         const { url, init, body } = lastArgs();
-        // Exact backend path/method (prefix /api/v1/ai, :id = conversationId).
         expect(url).toBe(`http://api.test/api/v1/ai/chat/${CONVO}/stop`);
         expect(init.method).toBe("POST");
-        // matches stopStreamSchema: { activeStreamId?, assistantMessage? }
         expect(body.activeStreamId).toBe(SID);
         expect(body.assistantMessage).toEqual(assistant);
     });

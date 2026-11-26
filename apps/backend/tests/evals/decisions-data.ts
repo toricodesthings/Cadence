@@ -1,15 +1,9 @@
-/**
- * Synthetic rosters and cases for decisions.eval.ts. `expected` is the option id that is right, or null
- * where no option fits (the model must abstain). Categories: similar list names, the same section name
- * under two lists, course codes, misspellings, synonyms, negation, venting, nothing fits; formal to texting registers.
- * ponytail: ~60 placement, ~25 search, ~105 priority and 5 Effort personas; the plan's 200 / 100 is the target before a model ships.
- */
 export const ROSTER = [
     { id: "work", label: "Work" },
     { id: "work-standup", label: "Work › Standup notes" },
     { id: "work-clients", label: "Work › Clients" },
     { id: "home", label: "Home" },
-    { id: "home-clients", label: "Home › Clients" }, // same section name under another list
+    { id: "home-clients", label: "Home › Clients" },
     { id: "uni-comp2000", label: "Uni › COMP2000" },
     { id: "uni-comp3005", label: "Uni › COMP3005" },
     { id: "uni", label: "Uni" },
@@ -21,7 +15,6 @@ export const ROSTER = [
     { id: "gifts", label: "Gifts" },
 ];
 
-/** `also`: a second list a careful person could pick too. */
 export const PLACEMENT_CASES: { text: string; expected: string | null; also?: string }[] = [
     { text: "Finish the COMP2000 assignment", expected: "uni-comp2000" },
     { text: "comp3005 lab report due soon", expected: "uni-comp3005" },
@@ -31,7 +24,7 @@ export const PLACEMENT_CASES: { text: string; expected: string | null; also?: st
     { text: "send Priya the quarterly numbers", expected: "work" },
     { text: "call the landscaper about the quote for the garden", expected: "garden" },
     { text: "pull weeds from the back bed", expected: "garden" },
-    { text: "refil prescription", expected: "health-meds" }, // misspelling
+    { text: "refil prescription", expected: "health-meds" },
     { text: "take vitamin D tablets", expected: "health-meds" },
     { text: "book a dentist appointment", expected: "health" },
     { text: "pay the hydro bill", expected: "money-bills" },
@@ -45,7 +38,7 @@ export const PLACEMENT_CASES: { text: string; expected: string | null; also?: st
     { text: "ugh everything", expected: null },
     { text: "I'm so tired", expected: null },
     { text: "maybe", expected: null },
-    { text: "this is not for work, it's about my sister's wedding", expected: null }, // negation
+    { text: "this is not for work, it's about my sister's wedding", expected: null },
     { text: "not a uni thing: renew passport", expected: null },
     { text: "random idea: app that sorts socks", expected: null },
     { text: "Tuesday?", expected: null },
@@ -68,7 +61,6 @@ export const PLACEMENT_CASES: { text: string; expected: string | null; also?: st
     { text: "think about what to cook", expected: null },
     { text: "submit timesheet", expected: "work" },
     { text: "revise for the comp3005 midterm", expected: "uni-comp3005" },
-    // Professional to casual registers.
     { text: "Per our call, circulate the meeting minutes to stakeholders", expected: "work" },
     { text: "fyi need to chase the Henderson account re: overdue payment", expected: "work-clients" },
     { text: "invoice client #4021", expected: "work-clients" },
@@ -86,12 +78,7 @@ export const PLACEMENT_CASES: { text: string; expected: string | null; also?: st
     { text: "brain dump: groceries, the thing for jo, idk", expected: null },
 ];
 
-/**
- * priority_said: the level the writer's own words state (1 low … 4 urgent), or 0 when they state none. `ok` lists every
- * acceptable answer: an ambiguous case accepts 0 too, since a missed priority costs nothing and an invented one costs trust.
- */
 export const PRIORITY_CASES: { text: string; ok: number[]; trap?: string }[] = [
-    // Stated, in every register.
     { text: "Please treat the vendor contract review as a top priority.", ok: [3, 4] },
     { text: "This one really matters: finish the grant application", ok: [3] },
     { text: "critical: renew the SSL certificate", ok: [3, 4] },
@@ -137,7 +124,6 @@ export const PRIORITY_CASES: { text: string; ok: number[]; trap?: string }[] = [
     { text: "meh, whenever: clean the car", ok: [0, 1] },
     { text: "fr this is urgent text the landlord", ok: [4] },
     { text: "needed immediately: the signed NDA for legal", ok: [4] },
-    // Traps: none stated.
     { text: "submit taxes by April 30", ok: [0], trap: "deadline" },
     { text: "report due tomorrow 9am", ok: [0], trap: "deadline" },
     { text: "rent due friday", ok: [0], trap: "deadline" },
@@ -197,12 +183,10 @@ export const PRIORITY_CASES: { text: string; ok: number[]; trap?: string }[] = [
     { text: "super urgent lol (not) — return the hoodie", ok: [0, 1], trap: "sarcasm" },
 ];
 
-/** E3 personas: list names and their own `manual` choices (1 Low … 3 High), plus held-out titles with the level they'd pick, or 0 where their choices don't show it (no guess is right). */
 export interface EffortPersona {
     name: string;
     lists: Record<string, string>;
     choices: [title: string, list: string, level: 1 | 2 | 3][];
-    /** `unsure`: their choices only hint at it, so no guess is right too. */
     held: [title: string, list: string, level: 0 | 1 | 2 | 3, unsure?: true][];
 }
 
@@ -373,7 +357,6 @@ export const EFFORT_PERSONAS: EffortPersona[] = [
         ],
     },
     {
-        // Below the 8-choice floor: never asked.
         name: "sparse",
         lists: { h: "Home" },
         choices: [
@@ -435,8 +418,6 @@ export const SEARCH_CASES: { text: string; expected: string | null }[] = [
     { text: "garage", expected: null },
 ];
 
-// ── reset_disposition: Weekly Reset rows (synthetic until owner-labelled real resets replace or join them) ──
-// `ok` lists every acceptable answer; ["none"] means a guess there is wrong. Today in the state is Sunday 2026-10-25.
 type ResetKind = "captures" | "unscheduled" | "waiting";
 export const RESET_WEEK = [
     { day: "2026-10-25", openMinutes: 420 },
@@ -448,7 +429,6 @@ export const RESET_WEEK = [
     { day: "2026-10-31", openMinutes: 720 },
 ];
 export const RESET_CASES: { kind: ResetKind; facts: Record<string, unknown>; ok: string[] }[] = [
-    // Deadlines decide: due today or tomorrow → today; due mid-week → this week; due after next week starts → next week.
     {
         kind: "unscheduled",
         facts: { title: "Submit expense report", ageDays: 3, movesLast28Days: 0, dueInDays: 0 },
@@ -503,7 +483,6 @@ export const RESET_CASES: { kind: ResetKind; facts: Record<string, unknown>; ok:
         facts: { title: "Return library books", ageDays: 4, movesLast28Days: 0, dueInDays: 5 },
         ok: ["this_week"],
     },
-    // Moved a lot with no deadline → later is the relief; never "today".
     {
         kind: "unscheduled",
         facts: { title: "Clean out garage", ageDays: 60, movesLast28Days: 6 },
@@ -520,7 +499,6 @@ export const RESET_CASES: { kind: ResetKind; facts: Record<string, unknown>; ok:
         facts: { title: "Write blog post", ageDays: 30, movesLast28Days: 3, minutes: 180 },
         ok: ["later", "next_week", "none"],
     },
-    // Nothing points anywhere → none.
     { kind: "unscheduled", facts: { title: "Call grandma", ageDays: 2, movesLast28Days: 0 }, ok: ["none"] },
     { kind: "unscheduled", facts: { title: "Look into new laptop", ageDays: 7, movesLast28Days: 0 }, ok: ["none"] },
     {
@@ -569,7 +547,6 @@ export const RESET_CASES: { kind: ResetKind; facts: Record<string, unknown>; ok:
         facts: { title: "Car service", ageDays: 25, movesLast28Days: 2, dueInDays: 12 },
         ok: ["next_week", "none"],
     },
-    // Captures: words carry no date here (the device handles those); age and effort guess only.
     { kind: "captures", facts: { text: "pick up dry cleaning", ageDays: 0 }, ok: ["none", "today", "this_week"] },
     { kind: "captures", facts: { text: "maybe start journaling", ageDays: 14 }, ok: ["later", "none"] },
     { kind: "captures", facts: { text: "idea: app for tracking plants", ageDays: 9 }, ok: ["later", "none"] },
@@ -618,7 +595,6 @@ export const RESET_CASES: { kind: ResetKind; facts: Record<string, unknown>; ok:
     { kind: "captures", facts: { text: "feeling overwhelmed about work", ageDays: 1 }, ok: ["none"] },
     { kind: "captures", facts: { text: "call the plumber", ageDays: 0 }, ok: ["none", "today", "this_week"] },
     { kind: "captures", facts: { text: "watch new documentary", ageDays: 4 }, ok: ["none", "later"] },
-    // Waiting: check-in day passed or long waits → activate; fresh waits or a future check-in → keep waiting.
     {
         kind: "waiting",
         facts: {

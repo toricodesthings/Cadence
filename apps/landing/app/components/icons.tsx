@@ -1,5 +1,3 @@
-/** Decorative inline icons (sized and coloured by the surrounding text). */
-
 interface IconProps {
     className?: string;
 }

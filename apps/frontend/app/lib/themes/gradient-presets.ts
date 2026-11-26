@@ -1,7 +1,3 @@
-/**
- * Curated gradient preset definitions for custom backgrounds.
- */
-
 export interface GradientPreset {
     id: string;
     name: string;

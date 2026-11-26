@@ -1,9 +1,3 @@
-/**
- * "How long did it take?": the server's half. It decides whether a question may be asked
- * (`@cadence/domain/duration-ask`), reserves the day when it does, and keeps one confirmed report per completion
- * (`duration_reports`, keyed by the task and the instant it entered Done). Reports are the person's own words, so
- * they live outside the signals' 90-day prune.
- */
 import { and, desc, eq, gt, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import type {
     DurationEvidenceRow,
@@ -32,13 +26,10 @@ const askStateOf = (settings: unknown): DurationAskState | null => {
         : null;
 };
 
-/** Reports kept after Forget hides them are not read: a forgotten group is as good as gone until Undo. */
 const visible = (userId: string) => and(eq(durationReports.userId, userId), isNull(durationReports.forgottenAt));
 
-/** The midpoint a range stands for when asking whether a group is settled. */
 const centre = (low: number, high: number) => (low === high ? low : Math.round(Math.sqrt(low * high)));
 
-/** What the group already holds: its answers' minutes and how old the newest is. */
 async function historyOf(tx: Tx, userId: string, group: string, today: LocalDate): Promise<GroupHistory> {
     const rows = await tx
         .select({ low: durationReports.lowMinutes, high: durationReports.highMinutes, saidOn: durationReports.saidOn })
@@ -61,7 +52,6 @@ const writeAsk = (tx: Tx, userId: string, settings: Record<string, any>, value: 
         .set({ settings: { ...settings, assistant: { ...settings.assistant, durationAsk: value } } })
         .where(eq(users.id, userId));
 
-/** The user row, locked: two devices can't interleave their budget edits. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 async function lockedSettings(tx: Tx, userId: string): Promise<Record<string, any>> {
     const [row] = await tx
@@ -74,10 +64,6 @@ async function lockedSettings(tx: Tx, userId: string): Promise<Record<string, an
     return (row?.settings ?? {}) as Record<string, any>;
 }
 
-/**
- * Should the question be asked for this just-completed task? Never says why: asking must not reveal the mode.
- * An ask spends the day right here (D4), under the user-row lock, so a second device gets `ask: false`.
- */
 export async function askDuration(
     tx: Tx,
     userId: string,
@@ -116,7 +102,6 @@ export async function askDuration(
     };
 }
 
-/** The question rendered: one miss per token, however often this is retried. An answer carrying the token resets it. */
 export async function spendDuration(tx: Tx, userId: string, token: string): Promise<void> {
     if ((await readMemoryState(tx, userId)).mode !== "full") return;
     const settings = await lockedSettings(tx, userId);
@@ -127,7 +112,6 @@ export async function spendDuration(tx: Tx, userId: string, token: string): Prom
 
 const sameInstant = (a: string, b: string) => new Date(a).getTime() === new Date(b).getTime();
 
-/** A task report row: the subject check guarantees both columns. */
 const viewOf = (row: {
     taskId: string | null;
     completedAt: string | null;
@@ -145,10 +129,6 @@ const viewOf = (row: {
 const boundsOf = (value: DurationValue): [number, number] =>
     value.kind === "point" ? [value.minutes, value.minutes] : [value.lowMinutes, value.highMinutes];
 
-/**
- * Stores one answer for one completion and returns what was stored. A completion that is gone (undone, or undone and
- * done again) is a 409 the client closes quietly. Basic and Off store nothing and say nothing about why (null).
- */
 export async function reportDuration(
     tx: Tx,
     userId: string,
@@ -185,7 +165,6 @@ export async function reportDuration(
         })
         .returning();
 
-    // Answering the question itself ends the back-off; editing a Took row later does not.
     if (body.token) {
         const settings = await lockedSettings(tx, userId);
         const state = askStateOf(settings);
@@ -195,7 +174,6 @@ export async function reportDuration(
     return viewOf(row);
 }
 
-/** One completion's report (the task's current completion when none is named), or null. */
 export async function getReport(
     tx: Tx,
     userId: string,
@@ -218,7 +196,6 @@ export async function getReport(
     return row ? viewOf(row.duration_reports) : null;
 }
 
-/** Deletes one completion's report (the task's current one when none is named). Deleting a missing one is fine. */
 export async function deleteReport(tx: Tx, userId: string, taskId: string, completedAt?: string): Promise<void> {
     const [task] = await tx
         .select({ completedAt: tasks.completedAt })
@@ -237,7 +214,6 @@ export async function deleteReport(tx: Tx, userId: string, taskId: string, compl
         );
 }
 
-/** The estimator's input: the newest 1,000 answers of the last year, tasks and routines together (Full only, else nothing). A routine's id stands where a task's would, as a repeating thing. */
 export async function durationEvidence(tx: Tx, userId: string, now = new Date()): Promise<DurationEvidenceRow[]> {
     if ((await readMemoryState(tx, userId)).mode !== "full") return [];
     const since = addDays(todayIn(await userZone(tx, userId), now), -365);
@@ -283,8 +259,6 @@ export async function durationEvidence(tx: Tx, userId: string, now = new Date())
         }));
 }
 
-// ── Routines: "Took 30 min" on a marked day ──
-
 const routineViewOf = (row: {
     habitId: string | null;
     targetDate: string | null;
@@ -309,7 +283,6 @@ const routineKey = (userId: string, key: RoutineDurationKey) =>
         key.time ? eq(durationReports.wallTime, key.time) : isNull(durationReports.wallTime),
     );
 
-/** Is this routine day (or marked time) done? Only a marked occurrence can have an answer. */
 async function routineDone(tx: Tx, userId: string, key: RoutineDurationKey): Promise<boolean> {
     const [log] = await tx
         .select({ status: habitLogs.status, timeMarks: habitLogs.timeMarks })
@@ -321,7 +294,6 @@ async function routineDone(tx: Tx, userId: string, key: RoutineDurationKey): Pro
     return key.time ? log.timeMarks?.[key.time]?.status === "COMPLETED" : log.status === "COMPLETED";
 }
 
-/** Stores how long a routine took on one marked day. Not marked done is a 409 the app closes quietly; Basic and Off store nothing (null). */
 export async function reportRoutine(
     tx: Tx,
     userId: string,
@@ -348,8 +320,6 @@ export async function reportRoutine(
         groupKey: `series:${habit.id}`,
         saidOn: todayIn(await userZone(tx, userId), now),
     };
-    // Insert first, so two first answers at once can't both insert: the second waits on the occurrence's unique index
-    // (an expression, so no ON CONFLICT target), inserts nothing, and updates the row the first made.
     const [inserted] = await tx
         .insert(durationReports)
         .values({ userId, habitId: habit.id, targetDate: key.day, wallTime: key.time, ...values })
@@ -381,10 +351,6 @@ export async function deleteRoutineReport(tx: Tx, userId: string, key: RoutineDu
     await tx.delete(durationReports).where(routineKey(userId, key));
 }
 
-/**
- * A routine's log changed: any answer for an occurrence that is no longer marked done goes with it (Clear, Skip, an
- * undone time). Called from the one service that writes logs, so routes, the assistant and MCP all agree.
- */
 export async function pruneRoutineReports(
     tx: Tx,
     userId: string,
@@ -417,7 +383,6 @@ export async function pruneRoutineReports(
         );
 }
 
-/** Forget a duration fact: its group's answers are hidden at once (Undo brings them back; the scrub deletes them). */
 export async function hideGroupReports(tx: Tx, userId: string, group: string): Promise<void> {
     await tx
         .update(durationReports)
@@ -431,7 +396,6 @@ export async function hideGroupReports(tx: Tx, userId: string, group: string): P
         );
 }
 
-/** Undo of Forget. */
 export async function showGroupReports(tx: Tx, userId: string, group: string): Promise<void> {
     await tx
         .update(durationReports)
@@ -445,12 +409,10 @@ export async function showGroupReports(tx: Tx, userId: string, group: string): P
         );
 }
 
-/** Clear all: every answer, now. */
 export async function clearReports(tx: Tx, userId: string): Promise<void> {
     await tx.delete(durationReports).where(eq(durationReports.userId, userId));
 }
 
-/** The answers the nightly pass turns into facts: every visible one of the last year, with the group it belongs to. */
 export async function readReports(tx: Tx, userId: string, today: LocalDate): Promise<ReportRow[]> {
     const rows = await tx
         .select({
@@ -471,17 +433,11 @@ export async function readReports(tx: Tx, userId: string, today: LocalDate): Pro
     return rows;
 }
 
-/** What the assistant may know about a task's length: the guess Cadence is sure of, and what a finished one took. */
 export interface DurationHint {
     takesAbout?: number;
     took?: number | string;
 }
 
-/**
- * For the tasks the assistant is about to read (Full only, else nothing): `takesAbout` on an open untimed task with no
- * length of its own when the estimator is `supported`, `took` on a done one with an answer ("45", or "30–60" for a range).
- * Both are left out when absent, like every default in a projection.
- */
 export async function durationHints(
     tx: Tx,
     userId: string,

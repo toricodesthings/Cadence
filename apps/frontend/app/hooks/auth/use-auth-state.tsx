@@ -34,9 +34,7 @@ import { useOnlineStatus } from "../core/use-online-status";
 type AuthStatus =
     | "bootstrapping"
     | "authenticated"
-    /** No connection to check the session; running on the last signed-in identity and cached data. */
     | "offline"
-    /** Warm start: the last signed-in identity's saved workspace shows while the session is checked. API calls wait for it. */
     | "provisional"
     | "anonymous"
     | "refreshing"
@@ -67,8 +65,6 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
     const [recovery, setRecovery] = useState<{ data: SessionData; sdk: SessionData } | null>(null);
     const sdkSessionRef = useRef(session);
     sdkSessionRef.current = session;
-    // A recovered answer wins over the subscriber snapshot it superseded, only
-    // until the SDK publishes its next answer (including sign-out/account switch).
     const recoveredSession = recovery && recovery.sdk === session ? recovery.data : null;
     const [desktopSessionLoaded, setDesktopSessionLoaded] = useState(!IS_DESKTOP_RUNTIME);
     const recoveryPromise = useRef<Promise<boolean> | null>(null);
@@ -78,8 +74,6 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
     const sdkSession =
         rejectedToken.current !== undefined && session?.session.token === rejectedToken.current ? null : session;
     const liveSession = sessionRejected ? null : (recoveredSession ?? sdkSession ?? desktopSession?.data ?? null);
-    // The session request failed (or can't be sent): open the last account's
-    // cached workspace. A request that answers "no session" has no error.
     const [identity, setIdentity] = useState(readIdentity);
     const offlineSession = useMemo<DesktopAuthSessionData | null>(
         () =>
@@ -91,8 +85,6 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
                 : null,
         [identity, isPending, liveSession, online, sessionError, sessionRejected],
     );
-    // Same exposure as offline mode: data already stored on this device, no tokens.
-    // Workspace paths only (never /connect or auth pages).
     const provisionalSession = useMemo<DesktopAuthSessionData | null>(
         () =>
             !IS_DESKTOP_RUNTIME &&
@@ -109,7 +101,6 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
     const resolvedSession = liveSession ?? offlineSession ?? provisionalSession;
     const previousAccount = useRef<string | null>(null);
 
-    // The head script started get-session before the bundle loaded: take its answer.
     useEffect(() => {
         let active = true;
         void takePrefetchedSession()?.then((early) => {
@@ -121,7 +112,6 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
         };
     }, []);
 
-    // Invalidate/seed before descendant passive effects start their API reads.
     useLayoutEffect(() => {
         const userId = resolvedSession?.user.id ?? null;
         if (previousAccount.current !== userId) {
@@ -141,8 +131,6 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
             startupMark("session.ready");
             seedAuthJwtCache(liveSession?.session?.token ?? desktopSession?.jwt, userId);
         }
-        // The session check answered (signed in, offline or anonymous): held calls go on, or
-        // were already aborted above if the account changed.
         releaseSessionHold();
     }, [resolvedSession?.user.id, liveSession?.session?.token, desktopSession?.jwt, provisionalSession]);
 
@@ -152,7 +140,6 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
         setIdentity(readIdentity());
     }, [liveSession?.user]);
 
-    // Check the session again as soon as the connection is back.
     useEffect(() => {
         if (offlineSession && online) void refetch?.();
     }, [offlineSession, online, refetch]);
@@ -189,13 +176,10 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        void clearDesktopAuthSession().catch(() => {
-            // Ignore desktop fallback cleanup failures; the live SDK session wins.
-        });
+        void clearDesktopAuthSession().catch(() => {});
     }, [desktopSession, sdkSession]);
 
     useEffect(() => {
-        // An SDK notification carrying the rejected token must not reopen the workspace.
         if (session?.session.token && session.session.token !== rejectedToken.current) {
             setSessionRejected(false);
         }
@@ -219,8 +203,6 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
         [session],
     );
 
-    // Use a ref to read latest status inside the effect without adding it as a
-    // dependency (which would cause re-fire loops when status changed).
     const statusRef = useRef(status);
     statusRef.current = status;
 
@@ -268,8 +250,6 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
     }, [location.pathname, navigate, status]);
 
     const beginAuthRecovery = useCallback(async () => {
-        // Coalesce concurrent callers onto the same recovery work so one screen
-        // cannot render a failure while another caller completes successfully.
         if (recoveryPromise.current) {
             return recoveryPromise.current;
         }
@@ -282,8 +262,6 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
                 const result = await readFreshSession();
                 if (revision !== authRevision.current) return false;
                 if (result?.data) {
-                    // Keep the returned session while the SDK subscriber catches up;
-                    // no second session request is needed.
                     setSessionRejected(false);
                     setRecovery({ data: result.data, sdk: sdkSessionRef.current });
                     setStatus("authenticated");
@@ -313,11 +291,8 @@ export function AuthStateProvider({ children }: { children: ReactNode }) {
         setIdentity(null);
         clearAllDeviceLocationData();
         await clearCachedBackgroundImages();
-        await clearDesktopAuthSession().catch(() => {
-            // Ignore desktop fallback cleanup failures during sign out.
-        });
+        await clearDesktopAuthSession().catch(() => {});
         await authClient.signOut().catch((err: unknown) => {
-            // Desktop OAuth fallback may not have an SDK-backed session to revoke.
             log.error("sign-out", "Couldn't end your session on the server.", err);
         });
         rejectedToken.current = session?.session.token;

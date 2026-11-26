@@ -2,10 +2,6 @@ import { X } from "lucide-react";
 import type { PlanningOffer } from "@cadence/contracts/planning";
 import { OFFER_LABEL } from "../../hooks/ai/use-planning-offers";
 
-/**
- * One quiet question under a row: "Break into steps?" or "Leave for later?", and an × for Not now. No sound, no
- * badge, no count; it appears only at a planning moment and goes the moment it is answered.
- */
 export function PlanningOfferChip({
     kind,
     onAccept,

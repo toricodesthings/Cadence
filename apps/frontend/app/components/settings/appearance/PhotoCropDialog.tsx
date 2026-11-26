@@ -14,18 +14,14 @@ import { Button } from "../../primitives/Button";
 import { cropImage, loadCropSource, releaseCropSource, type CropSource } from "../../../lib/utils/image";
 import { RangeSlider } from "./RangeSlider";
 
-/** Backgrounds are cropped wide; the viewport crops further on very tall screens. */
 const CROP_ASPECT = 16 / 9;
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
-/** The crop area is the whole frame, so it only needs a moonlit edge and today's faint thirds; the package's own colours stay hidden. */
 const CROP_AREA = { border: "1px solid var(--color-moonlit-soft)", boxShadow: "none", color: "transparent" } as const;
 const CROP_AREA_CLASS = "before:!border-white/15 after:!border-white/15 opacity-40";
 
 interface PhotoCropDialogProps {
-    /** The file someone just picked, or null when the dialog is closed. */
     file: File | null;
-    /** True while the confirmed crop is being compressed and uploaded. */
     isUploading: boolean;
     onCancel: () => void;
     onConfirm: (cropped: File) => Promise<void>;
@@ -46,12 +42,6 @@ function StageNotice({ failed }: { failed: boolean }) {
     );
 }
 
-/**
- * Preview, pan and zoom a picked photo before anything is uploaded.
- *
- * Nothing leaves the device until "Set background" is pressed: the file is
- * decoded locally, and the confirmed crop is what gets compressed and sent.
- */
 export function PhotoCropDialog({ file, isUploading, onCancel, onConfirm }: PhotoCropDialogProps) {
     const [source, setSource] = useState<CropSource | null>(null);
     const [failed, setFailed] = useState(false);
@@ -65,7 +55,6 @@ export function PhotoCropDialog({ file, isUploading, onCancel, onConfirm }: Phot
     const confirming = useRef(false);
     const busy = cropping || isUploading;
 
-    // Decode the picked file once, and release it when the dialog closes.
     useEffect(() => {
         if (!file) return;
         let active = true;
@@ -109,7 +98,6 @@ export function PhotoCropDialog({ file, isUploading, onCancel, onConfirm }: Phot
         }
     };
 
-    // How far the photo can slide on each axis before the frame would show an edge.
     const extentOf = (axis: "x" | "y") =>
         media && cropSize
             ? Math.max(

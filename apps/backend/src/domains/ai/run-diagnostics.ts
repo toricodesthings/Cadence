@@ -10,7 +10,6 @@ import type {
 } from "ai";
 import { version } from "../../../../../package.json";
 
-/** Server-only, content-free observations. Not a billing ledger or upstream routing trace. */
 type Span = { startMs: number; endMs?: number };
 type Phase =
     | "admission"
@@ -54,7 +53,6 @@ type ToolExecution = Span & {
 };
 type Step = Span & { ordinal: number; toolCalls: number | null; finishReason: string | null };
 
-// Independent caps: even retries, malformed providers and parallel tools stay bounded.
 const MAX_ENTRIES = 64;
 const identifier = (value: unknown): string | null =>
     typeof value === "string" && /^[\w./:@+-]{1,128}$/.test(value) ? value : null;
@@ -67,7 +65,6 @@ function usageFields(usage: LanguageModelUsage): Usage {
         write = numeric(usage.inputTokenDetails?.cacheWriteTokens);
     return {
         inputTokens: input,
-        // Some provider noCache counters include cache writes. Keep the categories disjoint.
         ordinaryInputTokens:
             input !== null && read !== null && write !== null && input >= read + write ? input - read - write : null,
         cacheReadTokens: read,
@@ -77,7 +74,6 @@ function usageFields(usage: LanguageModelUsage): Usage {
     };
 }
 
-/** Only the exact OpenRouter charge is accepted. Never copy provider metadata. */
 function exactCost(metadata: unknown): number | null {
     return numeric((metadata as { openrouter?: { usage?: { cost?: unknown } } } | undefined)?.openrouter?.usage?.cost);
 }
@@ -132,8 +128,6 @@ export function createRunDiagnostics(clock: () => number) {
             activeStep.finishReason = identifier(event.finishReason);
         },
         onLanguageModelCallStart(event: LanguageModelCallStartEvent) {
-            // The SDK's callId identifies the generation, not an individual retry.
-            // A start without an end remains incomplete; no invented usage or failure time.
             activeModelCall = undefined;
             if (modelCalls.length >= MAX_ENTRIES) {
                 droppedEntries++;
@@ -162,7 +156,6 @@ export function createRunDiagnostics(clock: () => number) {
             activeModelCall.finishReason = identifier(event.finishReason);
             activeModelCall.usage = usageFields(event.usage);
             activeModelCall.costUsd = exactCost(event.providerMetadata);
-            // SDK-visible response model; OpenRouter's internal provider remains unknown.
             const first = numeric(event.performance.timeToFirstOutputMs);
             activeModelCall.firstOutputMs = first === null ? null : activeModelCall.startMs + first;
         },

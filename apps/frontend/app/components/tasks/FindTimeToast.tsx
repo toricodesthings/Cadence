@@ -13,12 +13,6 @@ const BUTTON =
 const QUIET =
     "min-h-9 pointer-coarse:min-h-11 cursor-pointer rounded-full px-3 text-[13px] text-twilight-text-muted hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
-/**
- * "Lab report · Tue 2:00 – 2:45pm" with Another time · Other day · Undo: the message Find a time leaves after it has
- * already put the task in the first gap that fits. Another time steps to the next gap, which never overlaps the last;
- * after the final one it says that's every gap and keeps Other day and Undo. Like every Undo toast it waits while
- * hovered or focused, and is announced politely with the whole sentence.
- */
 export function FindTimeToast({
     id,
     title,
@@ -33,9 +27,7 @@ export function FindTimeToast({
     title: string;
     zone: Zone;
     proposals: readonly Proposal[];
-    /** "Your calendar changed" when this is a second try. */
     prefix?: string;
-    /** Writes the proposal at `index`; rejects when it couldn't. */
     onApply: (index: number) => Promise<void>;
     onOtherDay: () => void;
     onUndo: () => void;
@@ -54,7 +46,6 @@ export function FindTimeToast({
             await onApply(index + 1);
             setIndex(index + 1);
         } catch {
-            // The write said why itself; the block stays where it was.
         } finally {
             setBusy(false);
         }
@@ -121,10 +112,6 @@ export function FindTimeToast({
     );
 }
 
-/**
- * "Lab report · Moved to Tue" with Undo, and "2:00 PM?" when that day has a gap: one tap puts the task in it. The offer
- * is a quiet question, never an obligation: leaving it keeps the day-only placement.
- */
 export function PlaceReceiptToast({
     id,
     title,
@@ -136,7 +123,6 @@ export function PlaceReceiptToast({
     id: string | number;
     title: string;
     description: string;
-    /** The first gap's start time, as the person reads it, or null when there is none. */
     offer: string | null;
     onOffer: () => void;
     onUndo: () => void;

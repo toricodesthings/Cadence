@@ -70,7 +70,6 @@ function make(extra: Partial<SessionDeps> = {}) {
     return new NoteSession(deps);
 }
 
-/** A server that applies saves like the real route: version check, then bump. */
 const applyToServer = async (p: NoteSavePayload) => {
     if ((p.expectedVersion ?? 0) !== (server?.version ?? 0)) throw conflict();
     server = note(p.body, (server?.version ?? 0) + 1);
@@ -328,11 +327,10 @@ describe("offline and failures", () => {
         await s.load();
         s.edit("base A");
         await settle();
-        s.edit("base AB"); // the queued request is already out, so this waits on the device
+        s.edit("base AB");
         await settle();
         expect(sent).toHaveLength(1);
 
-        // The queue delivers the older text.
         sendImpl = applyToServer;
         server = note("base A", 2);
         wal = [];
@@ -411,7 +409,6 @@ describe("other tabs, devices and conflicts", () => {
         const s = make();
         await s.load();
         s.edit("ONE\n\ntwo\n\nthree");
-        // The other tab saves first.
         server = note("one\n\ntwo\n\nTHREE", 2);
         await settle();
         expect(server.body).toBe("ONE\n\ntwo\n\nTHREE");

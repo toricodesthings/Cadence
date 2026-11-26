@@ -13,7 +13,6 @@ import {
 import { useUserLocation } from "./use-user-location";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 
-/** Where the holiday region came from, shown next to it in settings. */
 export type HolidayRegionSource = "precise" | "approximate" | "manual" | "timezone" | "locale";
 
 export const HOLIDAY_SOURCE_LABELS: Record<HolidayRegionSource, string> = {
@@ -32,17 +31,12 @@ function getBrowserTimeZone() {
 
 type Place = ReturnType<typeof useUserLocation>["place"];
 
-/**
- * The holiday country and where it came from. The resolved location wins. Without one, the device
- * time zone says more about where someone is than their language setting does.
- */
 function holidayCountry(place: Place, timeZoneCountryCode: string | null, localeCountryCode: string | null) {
     if (place?.countryCode) return { countryCode: place.countryCode, source: place.source as HolidayRegionSource };
     if (timeZoneCountryCode) return { countryCode: timeZoneCountryCode, source: "timezone" as const };
     return { countryCode: localeCountryCode, source: localeCountryCode ? ("locale" as const) : null };
 }
 
-/** A region the person chose is used as is; a located one is matched to the provider's subdivisions. */
 function subdivisionNeed(place: Place) {
     return {
         manualSubdivisionCode: place?.source === "manual" ? place.subdivisionCode : null,
@@ -61,10 +55,6 @@ function subdivisionLabelOf(
     return subdivisions?.find((subdivision) => subdivision.code === code)?.label ?? place?.subdivisionName ?? code;
 }
 
-/**
- * Public holidays for a date range. The region comes from the app-wide location
- * (`useUserLocation`); this hook never asks for a location itself.
- */
 export function useHolidayOverlay({
     start,
     end,
@@ -86,8 +76,6 @@ export function useHolidayOverlay({
     const timeZoneCountryCode = useMemo(() => inferCountryFromTimezone(getBrowserTimeZone()), []);
     const localeCountryCode = useMemo(() => getLocaleRegion(locale), [locale]);
 
-    // The resolved location wins. Without one, the device time zone says more
-    // about where someone is than their language setting does.
     const { countryCode, source } = holidayCountry(place, timeZoneCountryCode, localeCountryCode);
     const { manualSubdivisionCode, needsSubdivisionMatch } = subdivisionNeed(place);
 
@@ -105,8 +93,6 @@ export function useHolidayOverlay({
 
     const lastYear = Number.parseInt(end.slice(0, 4), 10);
     const years = Array.from({ length: Math.max(0, lastYear - year + 1) }, (_, index) => year + index);
-    // A week/month can straddle New Year. Each year has its own cache entry so
-    // changing the visible range or view reuses the same regional holiday dates.
     const holidayYears = useQueries({
         queries: years.map((holidayYear) => ({
             queryKey: queryKeys.holidays.year(holidayYear, countryCode, subdivisionCode, locale),
@@ -118,7 +104,6 @@ export function useHolidayOverlay({
                     subdivisionCode,
                     locale,
                 }),
-            // Resolve the region first, avoiding national-then-regional reads.
             enabled:
                 fetchOverlay &&
                 enabled &&

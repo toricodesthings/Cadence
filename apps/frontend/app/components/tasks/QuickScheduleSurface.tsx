@@ -8,10 +8,6 @@ import { blockEnd, dayOfInstant, fromTimeValue, toTimeValue } from "../../lib/ut
 import { daysIn } from "../../lib/utils/calendar/calendar-math";
 import { today } from "../../lib/utils/user-zone";
 
-/**
- * What the picker writes. All-day: `dueDate` (a deadline is a day, never a time), plus `endDate`
- * (inclusive) for a multi-day span. Timed block: `scheduledStart`/`scheduledEnd` instants only.
- */
 export interface ScheduleUpdates {
     dueDate: LocalDate | null;
     endDate: LocalDate | null;
@@ -29,13 +25,11 @@ interface QuickScheduleSurfaceProps {
     isOpen?: boolean;
     onChange: (updates: ScheduleUpdates) => void;
     onRequestClose?: () => void;
-    /** "moment": one date and time (a reminder) — no span, end time or repeat. */
     variant?: "schedule" | "moment";
 }
 
 type PickerMode = "deadline" | "duration";
 
-/** The Monday after `day` (the day itself when it is a Sunday's next day, never `day`). */
 function getNextMonday(day: LocalDate): LocalDate {
     const weekday = weekdayOf(day);
     return addDays(day, weekday === 0 ? 1 : 8 - weekday);
@@ -49,7 +43,6 @@ const QUICK_ACTIONS = [
 
 const DEFAULT_TIME: WallTime = "09:00";
 
-/** "HH:mm" + 1 hour (wraps past midnight). */
 function plusOneHour(time: string): string {
     const [h, m] = time.split(":").map(Number);
     return `${String((h + 1) % 24).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
@@ -95,7 +88,6 @@ export function QuickScheduleSurface({
 
     const startTimeValue = scheduledStart ? toTimeValue(scheduledStart) : DEFAULT_TIME;
 
-    /** A deadline day, or a timed block on `day`. */
     const dayUpdates = (
         day: LocalDate,
         timed: boolean,
@@ -124,7 +116,6 @@ export function QuickScheduleSurface({
 
     const handleSelectDate = (day: LocalDate) => {
         if (mode === "duration") {
-            // Duration is always an all-day span: times live on Deadline.
             if (rangeClickStep === "start") {
                 setSelectedDate(day);
                 setRangeEndDate(null);
@@ -163,14 +154,11 @@ export function QuickScheduleSurface({
         return "";
     };
 
-    // The TimePicker commits on Enter/blur/pick: no debounce needed.
     const handleStartTimeChange = (time: WallTime) => {
         const startIso = fromTimeValue(selectedDate, time);
         let endIso: Instant | null = null;
         if (endTimeValue) {
             const sameDayEnd = fromTimeValue(selectedDate, endTimeValue);
-            // Keep a positive block: when the end would land at or before the
-            // new start, bump it to start + 1 hour.
             endIso =
                 Date.parse(sameDayEnd) > Date.parse(startIso)
                     ? sameDayEnd
@@ -181,7 +169,6 @@ export function QuickScheduleSurface({
     };
 
     const handleEndTimeChange = (picked: WallTime) => {
-        // End = start would roll over into a 24h block; push it an hour out instead.
         const time = picked === startTimeValue ? plusOneHour(picked) : picked;
         setEndTimeValue(time);
         onChange(dayUpdates(selectedDate, true, startTimeValue, time));
@@ -253,7 +240,6 @@ export function QuickScheduleSurface({
                         onClick={() => {
                             setMode("duration");
                             setRangeClickStep("start");
-                            // Duration is all-day: drop any time the Deadline tab had.
                             if (showTime || scheduledStart) {
                                 setShowTime(false);
                                 setEndTimeValue(null);

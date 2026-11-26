@@ -1,10 +1,6 @@
-/**
- * Note outline and counts, derived from the editor document (not from Markdown line estimates).
- */
 import type { Node as PMNode } from "@tiptap/pm/model";
 
 export interface NoteHeading {
-    /** Stable while the text is: level + label + which repeat of it this is. */
     id: string;
     level: number;
     text: string;
@@ -28,13 +24,11 @@ export function extractNoteOutline(doc: PMNode): NoteHeading[] {
     return out;
 }
 
-/** The heading a search result names: the first with that exact text (deterministic when labels repeat). */
 export function findHeading(outline: NoteHeading[], label: string): NoteHeading | undefined {
     const wanted = label.trim();
     return outline.find((h) => h.text === wanted);
 }
 
-/** The heading the caret is under, for the outline's quiet current marker. */
 export function currentHeadingId(outline: NoteHeading[], caret: number): string | null {
     let id: string | null = null;
     for (const h of outline) {

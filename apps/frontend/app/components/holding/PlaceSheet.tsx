@@ -6,13 +6,14 @@ import { MouseSensor } from "../../lib/utils/dnd";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Task } from "@cadence/contracts/task";
+import type { InboxItem } from "@cadence/contracts/inbox";
 import { UtilitySheet } from "../shared/UtilitySheet";
 import { DatePicker } from "../shared/DatePicker";
 import { TaskCard } from "../tasks/TaskCard";
+import { EmptyState } from "../tasks/EmptyState";
 import { Button } from "../primitives/Button";
 import { useTasks } from "../../hooks/tasks/use-tasks";
 import { useUpdateTask } from "../../hooks/tasks/use-update-task";
-import { useVirtualHabitTasks } from "../../hooks/habits/use-virtual-habit-tasks";
 import { addDays, type LocalDate } from "@cadence/domain/time";
 import { taskDay } from "@cadence/domain/task-recurrence";
 import {
@@ -28,41 +29,41 @@ import { getUserZone, useToday } from "../../lib/utils/user-zone";
 import { dayLoads, dayMinutes, formatDayMinutes, lightestDay, loadWord } from "../../lib/utils/task/day-load";
 import { useDurationGuesser } from "../../hooks/ai/use-duration-guess";
 import { useEffortGuess } from "../../hooks/tasks/use-effort-guess";
+import { useLoadShare } from "../../hooks/sharing/use-load-share";
 import { FindTimeDayContext, useFindTime } from "../../hooks/tasks/use-find-time";
 import { PlanningOfferProvider, usePlanningOffers } from "../../hooks/ai/use-planning-offers";
 import { PlanningOfferChip } from "../tasks/PlanningOfferChip";
 import { PlaceReceiptToast } from "../tasks/FindTimeToast";
+import { useSettings } from "../../hooks/core/use-settings";
+import { useEditableProjects } from "../../hooks/projects/use-own-projects";
+import { useProcessInboxToTask } from "../../hooks/inbox/use-process-inbox-to-task";
+import { overridesOf, placementFor } from "../../lib/utils/task/suggested-placement";
+import { computeNlp, loadParse, TASK_FIELDS, type ParseFn } from "../../hooks/use-nlp-parse";
 
 export const dayLabel = (day: LocalDate) => formatShortDateLabel(day);
 
-/**
- * Active dated tasks for `days` days from `start`, their effort-weighted loads (routines included), and the lightest
- * of the first week. Routines weigh on a day but aren't listed in `tasks`: they aren't placed or opened from here.
- */
 export function useWeekLoad(start: LocalDate, enabled = true, days = 7) {
     const end = addDays(start, days - 1);
     const { data: tasks = [] } = useTasks({ state: "ACTIVE", range: { from: start, to: end }, enabled });
-    const routines = useVirtualHabitTasks({ start, end, enabled });
     const guessOf = useEffortGuess();
+    const shareOf = useLoadShare();
     const loads = dayLoads(
-        [...tasks, ...routines.filter((r) => r.state !== "COMPLETE")],
+        tasks.filter((t) => !t.isHabit),
         start,
         days,
         (task) => guessOf(task)?.level,
+        shareOf,
     );
-    return { tasks, routines, loads, lightest: lightestDay(new Map([...loads].slice(0, 7)))! };
+    return { tasks, loads, lightest: lightestDay(new Map([...loads].slice(0, 7)))! };
 }
 
-/** Drop-target id prefix for a placement day: `place:YYYY-MM-DD`. */
 export const PLACE_DROP = "place:";
 
-/** Drop-target id prefix for Capture's own groups: `capture-column:new` or `capture-column:no-day`. */
 export const CAPTURE_COLUMN_DROP = "capture-column:";
 export type CaptureColumn = "new" | "no-day";
 
 type PlaceDragData = { title: string; onPlace: (day: LocalDate) => void; onColumn?: (column: CaptureColumn) => void };
 
-/** A Capture group that takes a dragged row: a thought dropped on No day yet becomes a task, a task dropped on New a thought. */
 export function CaptureColumnDrop({
     column,
     className = "",
@@ -83,7 +84,6 @@ export function CaptureColumnDrop({
     );
 }
 
-/** Desktop Capture: lets captures and Ready tasks be dragged onto the Place rail's days. */
 export function PlaceDndProvider({ children }: { children: ReactNode }) {
     const [active, setActive] = useState<string | null>(null);
     const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 6 } }));
@@ -137,10 +137,6 @@ export function PlaceDraggable({
     );
 }
 
-/**
- * Gives a task a deadline day, with Undo — placing should never feel final. The same message offers that day's first
- * gap ("2:00 PM?") when there is one: one tap gives the task that block, ignoring it keeps the day, which is a valid plan.
- */
 export function usePlaceTask() {
     const updateTask = useUpdateTask();
     const find = useFindTime();
@@ -155,7 +151,6 @@ export function usePlaceTask() {
                 scheduledStart: task.scheduledStart,
                 scheduledEnd: task.scheduledEnd,
             });
-        // In a list it stays in that list; otherwise it moves to the view that shows its day.
         const description = task.projectId ? placementLabel(day) : placementReceipt(day);
         const show = (offerFor: string | null) =>
             toast.custom(
@@ -172,25 +167,60 @@ export function usePlaceTask() {
                 { id: `place-${task.id}`, duration: CADENCE_UNDO_DURATION },
             );
         show(null);
-        // The gap is looked up after the receipt is on screen; the receipt gains the time when there is one.
         try {
             const plan = await find.planFor({ ...task, ...placed }, day);
             if (plan.proposals[0]) show(proposalTime(plan.proposals[0].start));
-        } catch {
-            // No offer is fine.
-        }
+        } catch {}
     };
 }
 
-const CHIP =
-    "touch-target inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium";
-const CHIP_IDLE = "border-twilight-border/40 bg-white/[0.03] text-twilight-text-soft";
+export function useThoughtAsTask() {
+    const { data: settings } = useSettings();
+    const { data: projects = [] } = useEditableProjects();
+    return (item: InboxItem, parseText: ParseFn) => {
+        const overrides = overridesOf(item);
+        const dismissedEntityIds = (item.analysis?.dismissedEntityIds ?? []) as string[];
+        const dateStyle = settings?.dateTime.dateStyle ?? "mdy";
+        const draft = computeNlp(parseText, {
+            input: item.rawText,
+            projects,
+            tags: [],
+            dismissedEntityIds,
+            sourceSurface: "inbox",
+            dateStyle,
+            capabilities: TASK_FIELDS,
+        });
+        const where = placementFor(item, { cue: draft.projectId });
+        return {
+            inboxItemId: item.id,
+            rawText: item.rawText,
+            title: overrides.title ?? draft.cleanedTitle,
+            projectId: where?.projectId ?? null,
+            sectionId: where?.sectionId ?? null,
+            tagIds: overrides.tagIds,
+            reminderAt: draft.fields.reminderAt,
+            notBefore: draft.fields.notBefore,
+            nlp: {
+                rawInput: item.rawText,
+                sourceSurface: "inbox" as const,
+                dateStyle,
+                dismissedEntityIds,
+                userOverrides: overrides,
+            },
+        };
+    };
+}
 
-/**
- * "Pick a day" sheet (a bottom sheet on compact, a side panel on desktop). With a task it places that task; without one it
- * browses days and hands off to Schedule. Busy-ness is shown as bars and words,
- * never counts, so a full week doesn't read as a wall of numbers.
- */
+export function usePlaceThought() {
+    const asTask = useThoughtAsTask();
+    const process = useProcessInboxToTask();
+    return async (item: InboxItem, day: LocalDate) =>
+        process.mutateAsync({ ...asTask(item, await loadParse()), scheduledDay: day });
+}
+
+const CHIP = "touch-target inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-medium";
+const CHIP_IDLE = "surface-control text-twilight-text-soft";
+
 export function PlaceSheet({
     open,
     task,
@@ -202,7 +232,6 @@ export function PlaceSheet({
     task: Task | null;
     onClose: () => void;
     onOpenTask: (taskId: string) => void;
-    /** Replaces the default placement (a deadline day), e.g. to keep a scheduled time. */
     onPlace?: (task: Task, day: LocalDate) => void;
 }) {
     const navigate = useNavigate();
@@ -211,14 +240,12 @@ export function PlaceSheet({
     const todayIso = useToday();
     const [stripStart, setStripStart] = useState<LocalDate>(todayIso);
     const [picked, setPicked] = useState<LocalDate | null>(null);
-    const { tasks, routines, loads, lightest } = useWeekLoad(stripStart, open);
+    const { tasks, loads, lightest } = useWeekLoad(stripStart, open);
     const selected = picked ?? (task && stripStart === todayIso ? lightest : stripStart);
     const dayTasks = tasks.filter((t) => taskDay(t, getUserZone()) === selected);
     const offers = usePlanningOffers(open ? dayTasks : []);
     const guessOf = useDurationGuesser();
-    // A routine counts by its typical length when its own answers support one (and it isn't done yet that day).
-    const dueRoutines = routines.filter((r) => r.state !== "COMPLETE" && taskDay(r, getUserZone()) === selected);
-    const { minutes, unsized } = dayMinutes([...dayTasks, ...dueRoutines], guessOf);
+    const { minutes, unsized } = dayMinutes(dayTasks, guessOf);
     const sizedNote =
         minutes > 0 ? ` · about ${formatDayMinutes(minutes)}${unsized ? ` · ${unsized} not sized` : ""}` : "";
 
@@ -309,7 +336,7 @@ export function PlaceSheet({
                                         ? "bg-accent-primary text-twilight-void hover:bg-accent-primary hover:text-twilight-void"
                                         : iso === todayIso
                                           ? "ring-1 ring-accent-primary/50 hover:text-twilight-text"
-                                          : "hover:bg-white/[0.05] hover:text-twilight-text"
+                                          : "hover:surface-item hover:text-twilight-text"
                                 }`}
                             >
                                 <span
@@ -411,7 +438,7 @@ export function PlaceSheet({
                         </PlanningOfferProvider>
                     </FindTimeDayContext.Provider>
                 ) : (
-                    <p className="px-1 py-6 text-sm text-twilight-text-soft">Nothing here yet — room to breathe.</p>
+                    <EmptyState variant="place" size="inline" title="Wide open." description="Room to breathe." />
                 )}
             </section>
         </UtilitySheet>

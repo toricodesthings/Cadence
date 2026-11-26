@@ -7,25 +7,21 @@ import { useUpdateTag } from "../../hooks/tags/use-update-tag";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { resolveTagColor } from "../../lib/utils/color-resolver";
 
-/** Drag payload for a tag chip; capture rows accept it to add the tag. */
 export const TAG_DRAG_TYPE = "application/x-cadence-tag";
 
 interface TagBubbleProps {
     tag: Tag;
     isActive: boolean;
     onClick: () => void;
-    /** Reordering (desktop): dragging starts it (the cloud moves the others), the menu moves one step. */
     reorder?: {
         first: boolean;
         last: boolean;
         onMove: (by: -1 | 1) => void;
         onDragStart: () => void;
-        /** This chip is the one being dragged: it stays as the slot it will land in. */
         dragging: boolean;
     };
 }
 
-/** A tag chip. Desktop filters by it (right-click recolours or deletes, drag onto a capture row tags it); compact opens its tag page, which owns delete. */
 export function TagBubble({ tag, isActive, onClick, reorder }: TagBubbleProps) {
     const tint = !tag.color || tag.color === "default" ? "rgba(255,255,255,0.06)" : `${tag.color}15`;
     const textColor = resolveTagColor(tag.color, "var(--color-twilight-text-soft)");
@@ -56,7 +52,6 @@ export function TagBubble({ tag, isActive, onClick, reorder }: TagBubbleProps) {
                 }
             `}
             style={{
-                // An image layer, so photo mode can lay a panel base under the tint.
                 backgroundImage: `linear-gradient(${tint}, ${tint})`,
                 color: textColor,
             }}

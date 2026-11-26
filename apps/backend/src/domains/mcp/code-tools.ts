@@ -4,22 +4,12 @@ import { z } from "zod";
 import { dropPatterns } from "../ai/tools/index";
 import type { PublishedEntry, PublishedTool } from "./server";
 
-/**
- * Code Mode's SDK, derived from the published tools. Pure (only types from the package), so node tests load it.
- * Every method goes through the entry's own `call`, the same path as a direct call.
- */
-
-/** A published call's result as the value the sandbox gets: the parsed body, or a thrown Error whose message is the REST error body. */
 export function unwrap(result: CallToolResult): unknown {
     const text = (result.content[0] as { text: string }).text;
     if (result.isError) throw new Error(text);
     return JSON.parse(text);
 }
 
-/**
- * What `undo` calls for each creation: `[tool, input]` pairs, each a normal published call. Only creations have one:
- * no tool keeps a before-image of an edit. New tasks go to Trash (restorable); the rest have no Trash.
- */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const REVERTS: Partial<Record<PublishedTool, (args: any, result: any) => [PublishedTool, object][]>> = {
     create_tasks: (_a, r) =>
@@ -40,15 +30,9 @@ export const REVERTS: Partial<Record<PublishedTool, (args: any, result: any) => 
 
 const isDelete = (name: string) => name.startsWith("delete_");
 
-/**
- * A call key that traces back to the run and fits `operationKey`'s 100 characters: execution ids are
- * `exec_<16 digits>_<uuid>` (58), so only their uuid tail goes in. The durable log already guarantees an
- * applied call never runs twice, so the key only has to satisfy the schema.
- */
 export const callKey = (executionId: string, revert = false) =>
     `cm:${executionId.slice(-36)}:${revert ? "r:" : ""}${crypto.randomUUID()}`;
 
-/** The run's outcome as the model sees it: no `calls` log (it repeats every call's args and results), the last 20 log lines. */
 export function publicOutcome<T extends object>(outcome: T): T {
     const { calls: _calls, ...rest } = outcome as T & { calls?: unknown; logs?: string[] };
     return (rest.logs ? { ...rest, logs: rest.logs.slice(-20) } : rest) as T;
@@ -63,7 +47,6 @@ export function codeTools(entries: PublishedEntry[]): ConnectorTools {
         tools[entry.name] = {
             description: entry.summary,
             inputSchema: dropPatterns(z.toJSONSchema(entry.schema, { io: "input", unrepresentable: "any" })) as never,
-            // Every delete_* is a delete for good, so approval replaces `confirm`.
             requiresApproval: del,
             execute: async (args, c) =>
                 unwrap(

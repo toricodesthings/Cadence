@@ -4,14 +4,6 @@ import { FieldRow, ValueSelect } from "../shared/DetailPanelSections";
 import { ComposerTabs, ComposerToggle, WeekdayPicker, WEEKDAY_ORDER, type WeekdayCode } from "../shared/Composer";
 import { RRULE_WEEKDAYS } from "../../lib/constants/repeat";
 
-/**
- * Which days a routine runs: Daily (every N days), Mon–Fri, Sat–Sun, or
- * Custom with Mon–Sun toggles and "every other week". Built from the
- * composer's segmented control and weekday picker so it matches schedule
- * creation; `select` swaps the segmented control for a Repeats row with a
- * dropdown, for narrow panels. Produces "FREQ=DAILY[;INTERVAL=N]" or "FREQ=WEEKLY[;INTERVAL=2];BYDAY=…".
- */
-
 type CadenceMode = "daily" | "weekdays" | "weekends" | "custom";
 
 const PRESETS: Record<"weekdays" | "weekends", string> = {
@@ -26,7 +18,6 @@ const OPTIONS = [
     { id: "custom", label: "Custom" },
 ] as const;
 
-/** The dropdown has room to say it in full. */
 const SELECT_OPTIONS = [
     { value: "daily", label: "Daily" },
     { value: "weekdays", label: "Weekdays (Mon–Fri)" },

@@ -1,10 +1,3 @@
-/**
- * Typed-fast and dictated date words, rewritten to what chrono reads before the date pass ("tmrw" → "tomorrow",
- * "five pm" → "5 pm"), with a map back to the person's own characters. A date read through a shortcut counts,
- * at one step less confidence (never "high"); a dictated time is full words, so it keeps its confidence.
- * "tom" is left alone on purpose: it is also a name ("Email tom the notes").
- */
-
 const WORDS: Record<string, number> = {
     one: 1,
     two: 2,
@@ -28,7 +21,6 @@ const MINUTES: Record<string, string> = {
     "forty-five": "45",
     fortyfive: "45",
 };
-/** An hour word with optional spoken minutes: "seven", "seven thirty", "ten forty-five". */
 const SPOKEN = `(${Object.keys(WORDS).join("|")})(?:\\s+(fifteen|thirty|forty[\\s-]?five))?`;
 const spokenTime = (m: RegExpExecArray) => {
     const minutes = m[2] ? MINUTES[m[2].toLowerCase().replace(/\s+/, " ")] : null;
@@ -42,24 +34,20 @@ interface Rule {
 }
 
 const RULES: Rule[] = [
-    // Tomorrow, abbreviated or misspelled.
     {
         re: /\b(?:tmrw?|tmw|tmro|2moro+w?|2morrow|2mrw|tommorr?ow|tomorow|tomoro)\b/gi,
         to: () => "tomorrow",
         shortcut: true,
     },
-    // Weekday shortcuts chrono doesn't know ("tues", "weds", "thurs").
     { re: /\btues\b/gi, to: () => "tuesday", shortcut: true },
     { re: /\bweds\b/gi, to: () => "wednesday", shortcut: true },
     { re: /\bthurs?\b/gi, to: () => "thursday", shortcut: true },
     { re: /\btdy\b/gi, to: () => "today", shortcut: true },
-    // "by eod": the end of today is a day; "eom": the end of this month.
     { re: /\beod\b/gi, to: () => "today", shortcut: true },
     { re: /\beom\b/gi, to: () => "end of this month", shortcut: true },
     { re: /\bnxt\b/gi, to: () => "next", shortcut: true },
     { re: /\bwks?\b/gi, to: (m) => (m[0].length > 2 ? "weeks" : "week"), shortcut: true },
     { re: /\bwknd\b/gi, to: () => "weekend", shortcut: true },
-    // Dictated times: "half past three", "quarter to four", "five pm", "at five", "five o'clock".
     { re: new RegExp(`\\bhalf\\s+past\\s+${HOUR}\\b`, "gi"), to: (m) => `${hourOf(m[1])}:30`, shortcut: false },
     { re: new RegExp(`\\bquarter\\s+past\\s+${HOUR}\\b`, "gi"), to: (m) => `${hourOf(m[1])}:15`, shortcut: false },
     {
@@ -68,12 +56,10 @@ const RULES: Rule[] = [
         shortcut: false,
     },
     { re: new RegExp(`\\b${HOUR}\\s+o'?clock\\b`, "gi"), to: (m) => `${hourOf(m[1])}:00`, shortcut: false },
-    // "five pm", "seven thirty pm", "at five", "at ten fifteen".
     { re: new RegExp(`\\b${SPOKEN}(?=\\s*(?:a\\.?m\\.?|p\\.?m\\.?)(?:\\W|$))`, "gi"), to: spokenTime, shortcut: false },
     { re: new RegExp(`(?<=\\bat\\s+)${SPOKEN}\\b`, "gi"), to: spokenTime, shortcut: false },
 ];
 
-/** Abbreviated weekdays chrono reads itself ("fri", "next tues"): a shortcut too. */
 const WEEKDAY_SHORT = /\b(?:mon|tues?|weds?|thur?s?|fri|sat|sun)\b/i;
 
 interface Swap {
@@ -84,11 +70,8 @@ interface Swap {
 
 export interface Expanded {
     text: string;
-    /** Original start of an expanded position (a rewritten word maps to its own start). */
     start: (at: number) => number;
-    /** Original end of an expanded position (a rewritten word maps to its own end). */
     end: (at: number) => number;
-    /** Whether an original span was read through a shortcut. */
     shortcut: (span: { start: number; end: number }, text: string) => boolean;
 }
 
@@ -119,7 +102,6 @@ export function expandShortcuts(input: string): Expanded {
     }
     text += input.slice(at);
 
-    /** Shift by every swap before `pos`; a position inside a swap snaps to that swap's edge. */
     const map = (pos: number, edge: "start" | "end") => {
         let delta = 0;
         for (const s of swaps) {

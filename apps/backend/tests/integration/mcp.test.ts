@@ -15,7 +15,6 @@ import { noteRoutes } from "../../src/domains/notes/notes.route";
 
 beforeAll(startTestDb);
 
-/** A connection row as the OAuth callback writes it. */
 async function connect(userId: string, scopes: string[]): Promise<string> {
     const id = crypto.randomUUID();
     await asOwner((pg) =>
@@ -27,7 +26,6 @@ async function connect(userId: string, scopes: string[]): Promise<string> {
     return id;
 }
 
-/** One JSON-RPC call to /mcp as a verified token for (userId, connectionId, scopes). */
 function mcpAs(
     userId: string,
     connectionId: string,
@@ -52,7 +50,6 @@ function mcpAs(
             ctx as never,
         );
         await Promise.all(pending);
-        // The 2025-era stateless path answers over SSE: one `data:` line per message.
         const raw = response.status === 200 ? await response.text() : "";
         const json = raw.startsWith("{")
             ? raw
@@ -91,7 +88,6 @@ describe("per-person limit", () => {
     it("refuses before any database work once the person's MCP budget is spent", async () => {
         const userId = await createUser();
         const limit = vi.fn(async () => ({ success: false }));
-        // A connection id with no row: reaching the database would answer 401, not 429.
         const { status, headers } = await mcpAs(userId, crypto.randomUUID(), ["cadence:read"], {
             RATE_LIMITER_READ: { limit },
         })("tools/list");
@@ -143,7 +139,6 @@ describe("catalog and scopes", () => {
                 weekStart: "Monday",
             }),
         );
-        // ask_user stays in the app: an MCP client asks in its own chat. the memory tools are published only while memory is on.
         expect(names.sort()).toEqual(
             [...internal.filter((name) => name !== "ask_user" && !isMemoryTool(name)), "get_today"].sort(),
         );
@@ -157,7 +152,7 @@ describe("catalog and scopes", () => {
                 (t: any) => t.name,
             );
 
-        expect(await listed()).toEqual(expect.arrayContaining(["remember", "recall", "search_past_chats"])); // not chosen yet: Basic
+        expect(await listed()).toEqual(expect.arrayContaining(["remember", "recall", "search_past_chats"]));
         await setMemoryMode(userId, "off");
         expect(await listed()).not.toContain("remember");
         await setMemoryMode(userId, "basic");
@@ -284,7 +279,6 @@ describe("reads", () => {
         expect(timezone).toBe("Pacific/Kiritimati");
         expect(today).toBe(new Intl.DateTimeFormat("en-CA", { timeZone: "Pacific/Kiritimati" }).format(new Date()));
 
-        // A move of the device zone reaches MCP on its next call: the one stored zone.
         await asOwner((pg) => pg.query("UPDATE users SET time_zone = 'Pacific/Pago_Pago' WHERE id = $1", [userId]));
         expect((await call(mcp, "get_today")).data.timezone).toBe("Pacific/Pago_Pago");
     });
@@ -454,7 +448,6 @@ describe("writes", () => {
     });
 });
 
-/** An in-memory KV with the calls the OAuth provider and our routes make (no expiry). */
 const kvStore = () => {
     const map = new Map<string, string>();
     return {
@@ -547,7 +540,7 @@ describe("connections API", () => {
         const before = await zoneOf();
 
         expect((await api("POST", `/requests/${state}/approve`, { ...body, timezone: "Asia/Tokyo" })).status).toBe(404);
-        expect(await zoneOf()).toEqual(before); // a dead request must not move the user's zone
+        expect(await zoneOf()).toEqual(before);
 
         const { hashIdentifier } = await import("../../src/platform/log");
         kv.map.set(`cadence:mcp-request:${await hashIdentifier(state)}`, JSON.stringify({ clientName: "Claude" }));
@@ -562,7 +555,6 @@ describe("connections API", () => {
         expect(url.searchParams.get("state")).toBe(state);
         const stored = kv.map.get(`cadence:mcp-approval:${url.searchParams.get("approval")}`)!;
         expect(JSON.parse(stored)).toEqual({ userId, requestHash: expect.any(String), scopes: ["cadence:read"] });
-        // The browser's zone becomes the user's one stored zone (the rejected zone above changed nothing).
         expect(
             (await asOwner((pg) => pg.query("SELECT time_zone FROM users WHERE id = $1", [userId]))).rows[0],
         ).toEqual({ time_zone: "America/Toronto" });
@@ -658,7 +650,6 @@ describe("2.2.1: errors, dry runs, confirm, examples", () => {
         mcp = mcpAs(userId, await connect(userId, ALL), ALL);
     });
 
-    /** Every row the user owns, to prove a dry run saved nothing. */
     const snapshot = () =>
         asOwner(async (pg) => {
             const out: Record<string, unknown> = {};
@@ -898,7 +889,7 @@ describe("2.2.1: errors, dry runs, confirm, examples", () => {
         await fixture();
         const tools = (await mcp("tools/list")).body.result.tools as { name: PublishedTool }[];
         for (const { name } of tools) {
-            if (name === "remember") continue; // embeds first: needs a real model
+            if (name === "remember") continue;
             for (const example of EXAMPLES[name]) {
                 const args = {
                     ...example,
@@ -916,7 +907,6 @@ describe("2.2.1: errors, dry runs, confirm, examples", () => {
 describe("2.2.2 Code Mode", () => {
     const ALL = ["cadence:read", "cadence:capture", "cadence:write"];
     const outcome = { status: "completed", executionId: "e1", result: 42 };
-    /** A CODE_MODE namespace whose host is three spies, and a counting RATE_LIMITER_CODE. */
     const stub = (allowed = true) => {
         const host = {
             search: vi.fn(async () => [{ path: "cadence.get_tasks" }]),

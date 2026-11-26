@@ -1,156 +1,81 @@
-/**
- * Deployment stage determines which security policies are active.
- * - "production": strictest CORS, no debug routes, full JWT validation
- * - "staging": production-like but may allow staging origins
- * - "development": localhost origins permitted, debug routes opt-in
- */
 export type DeploymentStage = "production" | "staging" | "development";
 
 export interface Env {
-    // ── Connection ──
     HYPERDRIVE: Hyperdrive;
 
-    // ── Auth / JWT trust contract ──
-    /** Plain var in wrangler.jsonc (public URL, one per stage). */
     NEON_AUTH_JWKS_URL: string;
-    /** Optional JWT issuer claim — when set, tokens with a different `iss` are rejected. */
     JWT_ISSUER?: string;
 
-    // ── Deployment boundary ──
-    /** Explicit deployment stage. Defaults to "production" if absent. */
     DEPLOYMENT_STAGE?: string;
-    /** Oldest desktop version allowed before the app prompts a required update (from GET /health). */
     MIN_DESKTOP_VERSION?: string;
-    /** Comma-separated allowed CORS origins beyond the default production origin. */
     ALLOWED_ORIGINS?: string;
 
-    // ── Admin surface ──
-    /** Explicitly opt into admin debug routes (only honored in non-production stages). */
     ENABLE_DEBUG_ROUTES?: string;
     ADMIN_USER_IDS?: string;
     ADMIN_EMAILS?: string;
 
-    // ── User file storage ──
-    /** Private R2 bucket for photo backgrounds and chat images. When absent, their upload routes answer 503. */
     USER_ASSETS?: R2Bucket;
 
-    // ── Account deletion ──
-    // Neon Auth has no self-service delete, so the backend removes the identity through the Neon API.
-    // All three are needed; without them POST /account/delete answers 503 and nothing is deleted.
-    /** Neon API key allowed to delete auth users on the project below (a project-scoped key is best). */
     NEON_API_KEY?: string;
     NEON_PROJECT_ID?: string;
-    /** The branch that holds Neon Auth (the production branch). */
     NEON_BRANCH_ID?: string;
 
-    // ── Data export ──
-    /** Email Sending binding (`send_email`) that mails people their data export. When absent, POST /account/export answers 503. */
     EMAIL?: SendEmail;
 
-    // ── Web Push (reminders on devices) ──
-    // A VAPID key pair (base64url: 65-byte public point, 32-byte private scalar). Without both, push stays off: /push/config answers no key and nothing is sent.
     VAPID_PUBLIC_KEY?: string;
     VAPID_PRIVATE_KEY?: string;
-    /** `mailto:` or https contact the push services can reach. Defaults to the support address. */
     VAPID_SUBJECT?: string;
-    /** One `ReminderClock` per person: sends their reminders from a plan, without polling Postgres. When absent, nothing is pushed. */
     REMINDER_CLOCK?: DurableObjectNamespace<import("../domains/push/reminder-clock").ReminderClock>;
 
-    // ── Shared lists: live presence & collaborative notes ──
-    /** One `ListPresence` per shared list: tracks who has the list open right now without touching Postgres. */
     LIST_PRESENCE?: DurableObjectNamespace<import("../domains/sharing/list-presence").ListPresence>;
-    /** One `NoteCollab` per shared task note: Yjs (`y-partyserver`) live co-editing with snapshots to `task_notes`. */
     NOTE_COLLAB?: DurableObjectNamespace<import("../domains/notes/note-collab").NoteCollab>;
 
-    // ── Code Mode (MCP `/mcp/code`) ──
-    /** Dynamic Worker loader the Code Mode sandbox runs in. When absent (or `CODE_MODE`), `search`/`execute` aren't published. */
     LOADER?: WorkerLoader;
-    /** One `CodeModeHost` per person: runs sandboxed code with a durable log of its calls. */
     CODE_MODE?: DurableObjectNamespace<import("../domains/mcp/code-mode").CodeModeHost>;
 
-    // ── Memory work ──
-    /** Queue the crons fan memory's per-person work onto. When absent, the crons run it in-process. */
     MEMORY_QUEUE?: Queue<import("../domains/ai/memory/queue").MemoryMessage>;
 
-    // ── MCP (outside assistants) ──
-    /** OAuth provider storage (clients, grants, token hashes). When absent, MCP answers 503. */
     OAUTH_KV?: KVNamespace;
-    /** Public origin of the MCP server and its OAuth endpoints. Defaults to https://mcp.cadenceapp.cloud. */
     MCP_ORIGIN?: string;
-    /** Origin of the web app (the consent page, links in pushed reminders). Defaults to the production dashboard. */
     APP_ORIGIN?: string;
 
-    // ── Rate limiting ──
     RATE_LIMITER: RateLimit;
     RATE_LIMITER_READ: RateLimit;
     RATE_LIMITER_WRITE: RateLimit;
     RATE_LIMITER_ADMIN: RateLimit;
-    /** Chat's stand-in while the Upstash budget is unreachable (optional: absence leaves only the write limiter). */
     RATE_LIMITER_AI?: RateLimit;
-    /** Code Mode `execute`: each pass loads a Dynamic Worker, so it has its own small budget. */
     RATE_LIMITER_CODE?: RateLimit;
 
-    // ── AI ──
     OPENROUTER_API_KEY?: string;
-    /** Standard chat model id (via OpenRouter): every turn the router doesn't rate basic. */
     AI_CHAT_MODEL?: string;
-    /** Cheap chat model for basic turns (`pickChatModel`). Unset = no routing, every turn uses AI_CHAT_MODEL. */
     AI_CHAT_MODEL_BASIC?: string;
-    /** HMAC key that signs tool approval requests (AI SDK `experimental_toolApprovalSecret`). Required in production. */
     TOOL_APPROVAL_SECRET?: string;
-    /** Conversation auto-title model id. Defaults to google/gemini-2.5-flash-lite (cheaper/faster). */
     AI_TITLE_MODEL?: string;
-    /**
-     * Decision model (OpenRouter Decisions API) that suggests where captures go and what a failed search meant.
-     * A dated ID from the Decisions list. Unset or empty = both features off.
-     */
     AI_DECISION_MODEL?: string;
-    /** OpenRouter embedding model id — must support `dimensions` (requested at 512 for ai_memories.embedding). */
     AI_EMBEDDING_MODEL?: string;
 
-    // ── AI stream resumption (Upstash Redis, REST) ──
-    /** Upstash Redis REST endpoint. When absent, resumption is disabled (streaming still works). */
     UPSTASH_REDIS_REST_URL?: string;
-    /** Upstash Redis REST token. */
     UPSTASH_REDIS_REST_TOKEN?: string;
 
-    // ── AI usage budget / rate limiting (reuses the Upstash REST client) ──
-    // Always-on guardrail — there is NO enable flag. The 5-hour + 1-week × requests
-    // + tokens budget is enforced whenever Upstash is reachable. All limits are
-    // env-tunable so policy can be retuned per model cost without a code deploy
-    // (docs/Update 4/06-16-2026_ai-rate-limiting-and-abuse-protection-plan.md §6).
-    /** Max chat turns per 5h window. Default 150. */
     AI_RL_REQUESTS_5H?: string;
-    /** Max tokens (reserved+settled) per 5h window. Default 750000. */
     AI_RL_TOKENS_5H?: string;
-    /** Max chat turns per 1-week window. Default 1500. */
     AI_RL_REQUESTS_7D?: string;
-    /** Max tokens per 1-week window. Default 6000000. */
     AI_RL_TOKENS_7D?: string;
-    /** Max simultaneous open streams per user. Default 3. */
     AI_RL_MAX_CONCURRENT?: string;
-    /** Per-turn token hold at admission, reconciled to actual on finish. Default 6000. */
     AI_RL_RESERVE_TOKENS?: string;
-    /** Images sent per 24h window (sent, not uploaded; re-sends are free). Default 20. */
     AI_RL_IMAGES_24H?: string;
-    /** Images per chat message. Default 4. */
     AI_IMAGES_PER_MESSAGE?: string;
-    /** Attached-but-unsent image uploads a user may have waiting. Default 8. */
     AI_IMAGES_MAX_PENDING?: string;
-    /** "open" (allow on Redis outage) | "closed" (reject when the store is down). Default closed in production, open elsewhere. */
     AI_RATE_LIMIT_FAIL_MODE?: string;
-    /** Global assistant spend per UTC day, in USD, across everyone. Default 10; reaching it rests the assistant until midnight UTC. */
     AI_DAILY_SPEND_CAP_USD?: string;
 }
 
-/** Parse DEPLOYMENT_STAGE with safe fallback to "production". */
 export function getDeploymentStage(env: Env): DeploymentStage {
     const raw = env.DEPLOYMENT_STAGE?.trim().toLowerCase();
     if (raw === "development" || raw === "staging") return raw;
     return "production";
 }
 
-/** Parse comma-separated origin allowlist from env. */
 export function getAllowedOrigins(env: Env): string[] {
     if (!env.ALLOWED_ORIGINS) return [];
     return env.ALLOWED_ORIGINS.split(",")
@@ -158,5 +83,4 @@ export function getAllowedOrigins(env: Env): string[] {
         .filter(Boolean);
 }
 
-/** The web app's origin, without a trailing slash. */
 export const appOrigin = (env: Env) => (env.APP_ORIGIN ?? "https://dashboard.cadenceapp.cloud").replace(/\/$/, "");

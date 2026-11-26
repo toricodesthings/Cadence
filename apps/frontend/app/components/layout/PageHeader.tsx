@@ -3,26 +3,21 @@ import { ChevronLeft, EllipsisVertical } from "lucide-react";
 import * as Popover from "../primitives/Popover";
 import { Tip } from "../primitives";
 
-/** Surface shared by every page header (desktop bar and compact variants). */
 export const PAGE_HEADER_SURFACE =
     "surface-shell photo-shell-surface layer-shell-header shrink-0 border-b border-twilight-border";
 
-/** The view picker (Day/Week/…) in a desktop page header; add the page's focus ring colour. */
 export const HEADER_SELECT_TRIGGER =
     "surface-control h-11 w-auto min-w-[7.5rem] gap-2 rounded-xl border-twilight-border/30 px-3.5 text-sm font-medium text-twilight-text shadow-none";
 
 const HEADER_TILE =
     "surface-control inline-flex h-11 shrink-0 items-center justify-center rounded-2xl border border-twilight-border/35 text-twilight-text-soft transition-colors hover:border-twilight-border/60 hover:text-twilight-text cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
-/** A header's icon-only control (sort, display options, Place, Share, notifications, gear): one family at one size. */
 export const HEADER_ICON_BUTTON = `${HEADER_TILE} w-11`;
 
-/** The same tile with a word beside its icon (Focus, Details). */
 export const HEADER_LABEL_BUTTON = `${HEADER_TILE} gap-2 px-3.5 text-sm font-medium`;
 
 export interface PageHeaderIdentityProps {
     icon?: ReactNode;
-    /** Only where the title isn't the page's name (a date on Schedule and Routines). */
     pageName?: ReactNode;
     title: ReactNode;
     meta?: ReactNode;
@@ -78,7 +73,6 @@ function PageNameLabel({ children }: { children: ReactNode }) {
     );
 }
 
-/** Single-row desktop page header, sized to the shared shell-header height so it lines up with side-panel headers. */
 export function PageHeader({
     leading,
     actions,
@@ -95,7 +89,6 @@ export function PageHeader({
     );
 }
 
-/** Phone header type: the zoom-out label or page name (when the title isn't it), a large display title, and a quiet meta line. */
 export function PhoneHeaderIdentity({
     pageName,
     title,
@@ -125,7 +118,6 @@ export function PhoneHeaderIdentity({
     );
 }
 
-/** Phone page header: one row. With `backLabel` + `onZoomOut`, a back arrow left of the title zooms out; `options` open under ⋮. */
 export function PhonePageHeader({
     pageName,
     title,
@@ -139,14 +131,12 @@ export function PhonePageHeader({
 }: {
     pageName?: ReactNode;
     title: ReactNode;
-    /** Quiet line under the title, e.g. "Today · light". */
     meta?: string | null;
     backLabel?: string | null;
     onZoomOut?: () => void;
     leading?: ReactNode;
     actions?: ReactNode;
     options?: ReactNode;
-    /** A row under the title (e.g. page controls). */
     children?: ReactNode;
 }) {
     const back = backLabel && onZoomOut ? `Back to ${backLabel}` : null;
@@ -170,7 +160,6 @@ export function PhonePageHeader({
                     </div>
                 ) : null}
                 <h1 className="min-w-0 flex-1">
-                    {/* The back arrow says where it goes; the page name would be a third line. */}
                     <PhoneHeaderIdentity pageName={back ? null : pageName} title={title} meta={meta} />
                 </h1>
                 <div className="header-glass flex shrink-0 items-center gap-2">
@@ -198,7 +187,6 @@ export function PhonePageHeader({
     );
 }
 
-/** The view choice at the top of a phone header's options; picking one closes the popover. */
 export function PhoneViewPicker<T extends string>({
     value,
     options,

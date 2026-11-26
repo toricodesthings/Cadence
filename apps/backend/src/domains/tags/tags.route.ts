@@ -14,7 +14,6 @@ import { createTag, deleteTag, updateTag } from "./tags.service";
 
 export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
-    // ── Create ──
     .post("/", apiValidator("json", insertTagSchema), async (c) => {
         const body = c.req.valid("json");
         const idempotencyKey = getIdempotencyKey(c);
@@ -24,7 +23,6 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         return c.json({ data: tag }, 201);
     })
 
-    // ── Update ──
     .patch("/:id", apiValidator("param", uuidParamSchema), apiValidator("json", updateTagSchema), async (c) => {
         const { id } = c.req.valid("param");
         const body = c.req.valid("json");
@@ -34,7 +32,6 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         return c.json({ data: updated });
     })
 
-    // ── Read (List) ──
     .get("/", async (c) => {
         const userTags = await withCallerRls(c, (tx, userId) =>
             tx.select().from(tags).where(eq(tags.userId, userId)).orderBy(asc(tags.sortOrder), asc(tags.name)),
@@ -43,7 +40,6 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         return c.json({ data: userTags });
     })
 
-    // ── Auto-tag: open tasks in places named like this tag, and bulk link/unlink ──
     .get("/:id/place-matches", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
         const data = await withCallerRls(c, (tx, userId) => placeMatches(tx, userId, id));
@@ -56,7 +52,6 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         return c.json({ data: { taskIds: changed } });
     })
 
-    // ── Read (Single) ──
     .get("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
 
@@ -72,7 +67,6 @@ export const tagRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         return c.json({ data: tag });
     })
 
-    // ── Delete ──
     .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
 

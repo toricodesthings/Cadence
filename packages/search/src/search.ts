@@ -1,7 +1,6 @@
 import MiniSearch from "minisearch";
 import { canApproximate, indexTerms, isVersion, processTerm, searchTerms } from "./terms";
 
-/** Pure searchable data; apps own loading, permissions, routes and display wording. */
 export interface SearchDocument {
     id: string;
     title: string;
@@ -20,12 +19,10 @@ export interface SearchHit {
 }
 const FIELDS: SearchField[] = ["title", "list", "section", "notes", "subtasks", "tags"];
 
-/** Construct when documents change, reuse across keystrokes. Every query term is required. */
 export function createSearchIndex(documents: readonly SearchDocument[]) {
     const engine = new MiniSearch<SearchDocument>({
         fields: FIELDS,
         tokenize: indexTerms,
-        // Keep originals alongside word forms so a typo in an inflected word remains one edit.
         processTerm: (term) => [...new Set([term, processTerm(term)])],
         searchOptions: {
             combineWith: "AND",
@@ -69,7 +66,6 @@ export function createSearchIndex(documents: readonly SearchDocument[]) {
                     return {
                         id,
                         approximate,
-                        // Exact terms always outrank spelling guesses, even in a longer title.
                         score: (approximate ? 0 : 1000) + (titleExact ? 500 : 0) + (100 * hit.score) / (1 + hit.score),
                         fields: [...new Set(Object.values(hit.match).flat())] as SearchField[],
                     };

@@ -98,10 +98,8 @@ describe("a menu opened by touch covers its trigger", () => {
         );
         fireEvent.pointerDown(screen.getByText("Actions"), { pointerType: "touch", button: 0 });
         const item = screen.getByRole("menuitem", { name: "Today" });
-        // The finger lifts where the trigger was, now an item.
         fireEvent.pointerUp(item, { pointerType: "touch" });
         fireEvent.click(item, { detail: 1 });
-        // Chrome's tap click can carry detail 0; its pointerType still says touch.
         act(() => {
             item.dispatchEvent(
                 new PointerEvent("click", { bubbles: true, cancelable: true, detail: 0, pointerType: "touch" }),

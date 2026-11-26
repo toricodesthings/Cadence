@@ -36,8 +36,6 @@ describe.each([
             let inspected = 0;
             Object.defineProperty(rule.options, "bymonth", {
                 get() {
-                    // Deterministic guard: without the patch this search continues to
-                    // year 9999. Fail promptly instead of running a CPU-exhaustion PoC.
                     if (++inspected > 1000) throw new Error("Search escaped its year boundary");
                     return [2];
                 },

@@ -30,7 +30,6 @@ function ThemePresetCard({ preset, selected, onSelect }: ThemePresetCardProps) {
                     : "border-twilight-border-light bg-white/[0.02] hover:bg-white/[0.04]",
             )}
         >
-            {/* Mini preview */}
             <div
                 className="relative flex h-20 w-full flex-col justify-between overflow-hidden rounded-[5px] p-2"
                 style={{
@@ -57,7 +56,6 @@ function ThemePresetCard({ preset, selected, onSelect }: ThemePresetCardProps) {
                 )}
             </div>
 
-            {/* Label */}
             <div className="flex items-center gap-1.5 px-0.5">
                 <span className="text-sm">{preset.icon}</span>
                 <span className="truncate text-[12px] font-medium text-twilight-text">{preset.name}</span>
@@ -70,7 +68,6 @@ function ThemePresetCard({ preset, selected, onSelect }: ThemePresetCardProps) {
 }
 
 interface ThemeCarouselProps {
-    /** null while something else (a photo background) owns the look. */
     value: ThemePresetId | null;
     onChange: (preset: ThemePresetId) => void;
 }
@@ -87,7 +84,6 @@ export function ThemeCarousel({ value, onChange }: ThemeCarouselProps) {
 
     return (
         <div className="relative">
-            {/* Scroll buttons */}
             <button
                 type="button"
                 onClick={() => scroll("left")}
@@ -105,7 +101,6 @@ export function ThemeCarousel({ value, onChange }: ThemeCarouselProps) {
                 <ChevronRight size={14} />
             </button>
 
-            {/* Carousel track */}
             <div
                 ref={scrollRef}
                 className="flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 py-1 scrollbar-hide"

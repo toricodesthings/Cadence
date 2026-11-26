@@ -17,7 +17,6 @@ const expired = () => new AppError(410, "LINK_EXPIRED", "This link has expired o
 
 const full = (message: string) => new AppError(413, "SHARE_LIMIT", message);
 
-/** 32 random bytes as base64url (43 characters). */
 export function newInviteToken(): string {
     const bytes = crypto.getRandomValues(new Uint8Array(32));
     return btoa(String.fromCharCode(...bytes))
@@ -26,16 +25,11 @@ export function newInviteToken(): string {
         .replace(/=+$/, "");
 }
 
-/** Only this is stored, so a database read never yields a working link. */
 export async function hashToken(token: string): Promise<string> {
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
     return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-/**
- * Mint a link that works for 7 days; whoever joins with it gets `role`. Earlier links keep working until they expire; expired rows are pruned here.
- * Returns the token (shown once, never stored) and when it stops working.
- */
 export async function createInvite(tx: Tx, userId: string, target: InviteTarget, role: ShareRole = "view") {
     const scope = targetWhere(target);
     await tx
@@ -63,12 +57,10 @@ export async function createInvite(tx: Tx, userId: string, target: InviteTarget,
     return { token, expiresAt: row.expiresAt };
 }
 
-/** Reset links: every link stops working. */
 export async function resetInvites(tx: Tx, userId: string, target: InviteTarget) {
     await tx.delete(shareInvites).where(and(targetWhere(target), eq(shareInvites.createdBy, userId)));
 }
 
-/** What a link opens, for the preview screen. 410 when it is unknown, expired or reset. */
 export async function previewInvite(tx: Tx, token: string): Promise<InvitePreview> {
     const hash = await hashToken(token);
     const [listRow] = await tx
@@ -139,10 +131,6 @@ export async function previewInvite(tx: Tx, token: string): Promise<InvitePrevie
     throw expired();
 }
 
-/**
- * Join the list or event a link opens. Joining twice, or as the owner, changes nothing.
- * The ceilings are checked first; the insert itself is SECURITY DEFINER (`cadence_join_list` / `cadence_join_event`).
- */
 async function assertJoinCapacity(
     tx: Tx,
     countsQuery: ReturnType<typeof sql>,
@@ -150,21 +138,16 @@ async function assertJoinCapacity(
     peopleMessage: string,
     joinedMessage: string,
 ) {
-    // Counted by a definer function: row-level security shows a non-member none of the resource.
     const [{ people, joined }] = await tx
         .select({
             people: sql<number>`r.people`.mapWith(Number),
             joined: sql<number>`r.joined`.mapWith(Number),
         })
         .from(countsQuery);
-    // The owner counts as a person.
     if (people + 1 >= SHARE_CEILINGS.people) throw full(peopleMessage);
     if (joined >= maxJoined) throw full(joinedMessage);
 }
 
-/**
- * Join a list, event, or routine from an invite link.
- */
 export async function joinInvite(tx: Tx, userId: string, token: string): Promise<Joined> {
     const preview = await previewInvite(tx, token);
     const hash = await hashToken(token);
@@ -270,7 +253,6 @@ export async function removeMember(tx: Tx, access: ListAccess, memberId: string)
     if (!rows.length) throw new AppError(404, "NOT_FOUND", "Person not found in this list");
 }
 
-/** Stop sharing: everyone is removed, all takes are cleared, and every link dies. */
 export async function stopSharing(tx: Tx, userId: string, access: ListAccess) {
     await clearTakes(tx, userId, access.listId);
     await tx.delete(listMembers).where(eq(listMembers.listId, access.listId));
@@ -285,7 +267,6 @@ export async function removeEventMember(tx: Tx, access: EventAccess, memberId: s
     if (!rows.length) throw new AppError(404, "NOT_FOUND", "Person not found on this event");
 }
 
-/** Stop sharing an event: everyone is removed and every link dies. */
 export async function stopSharingEvent(tx: Tx, userId: string, access: EventAccess) {
     await tx.delete(eventMembers).where(eq(eventMembers.eventId, access.eventId));
     await resetInvites(tx, userId, { eventId: access.eventId });
@@ -299,7 +280,6 @@ export async function removeRoutineMember(tx: Tx, access: RoutineAccess, memberI
     if (!rows.length) throw new AppError(404, "NOT_FOUND", "Person not found on this routine");
 }
 
-/** Stop sharing a routine: everyone is removed, links die, and mode/turns reset to null. */
 export async function stopSharingRoutine(tx: Tx, userId: string, access: RoutineAccess) {
     await tx.delete(routineMembers).where(eq(routineMembers.habitId, access.habitId));
     await resetInvites(tx, userId, { routineId: access.habitId });
@@ -309,7 +289,6 @@ export async function stopSharingRoutine(tx: Tx, userId: string, access: Routine
         .where(and(eq(habits.id, access.habitId), eq(habits.userId, userId)));
 }
 
-/** Transfer ownership of a list to a current member via `cadence_transfer_list`. */
 export async function transferList(tx: Tx, listId: string, toUserId: string) {
     const [row] = await tx
         .select({ ok: sql<boolean>`r.ok` })
@@ -333,17 +312,14 @@ export {
     stopSharingResponse,
 } from "./sharing-route-helpers";
 
-/** The owner and every member, as the people in the list see each other. Never email or birthday. */
 export async function listPeople(tx: Tx, listId: string): Promise<ListPerson[]> {
     return tx.select(peopleColumns).from(sql`cadence_list_people(${listId}::uuid) AS r`);
 }
 
-/** The owner and every member of a shared event. Never email or birthday. */
 export async function eventPeople(tx: Tx, eventId: string): Promise<ListPerson[]> {
     return tx.select(peopleColumns).from(sql`cadence_event_people(${eventId}::uuid) AS r`);
 }
 
-/** The owner and every member of a shared routine. Never email or birthday. */
 export async function routinePeople(tx: Tx, habitId: string): Promise<ListPerson[]> {
     return tx.select(peopleColumns).from(sql`cadence_routine_people(${habitId}::uuid) AS r`);
 }
@@ -357,7 +333,6 @@ const uuidArray = (ids: string[]) =>
 const nameMap = (rows: Array<{ id: string; name: string | null }>) =>
     new Map(rows.filter((r): r is { id: string; name: string } => Boolean(r.name)).map((r) => [r.id, r.name]));
 
-/** Batch owner display names for events the caller belongs to (`eventId -> ownerName`). */
 export async function eventOwnerNames(tx: Tx, eventIds: string[]): Promise<Map<string, string>> {
     if (eventIds.length === 0) return new Map();
     const rows = await tx
@@ -366,7 +341,6 @@ export async function eventOwnerNames(tx: Tx, eventIds: string[]): Promise<Map<s
     return nameMap(rows);
 }
 
-/** Batch display names for people who share a routine with the caller (`userId -> name`). */
 export async function routinePersonNames(tx: Tx, userIds: string[]): Promise<Map<string, string>> {
     if (userIds.length === 0) return new Map();
     const rows = await tx

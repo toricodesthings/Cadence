@@ -4,7 +4,6 @@ import { createExternalStore } from "../../lib/utils/external-store";
 
 interface DesktopCommandPreferences {
     quickCaptureShortcutEnabled: boolean;
-    /** Windows only: read once by Rust at launch (`mod background`), so a change applies next launch. */
     backgroundDelivery: boolean;
 }
 
@@ -111,19 +110,11 @@ async function updateDesktopCommandPreferences(patch: Partial<DesktopCommandPref
     await persistPreferences(next);
 }
 
-/**
- * Windows only: keep Cadence in the tray after the window closes, and relaunch it at login so
- * reminders keep arriving. The tray (the only way back in) appears from the next launch on.
- */
 export async function setBackgroundDelivery(enabled: boolean) {
     await updateDesktopCommandPreferences({ backgroundDelivery: enabled });
     return syncLoginLaunch(enabled);
 }
 
-/**
- * Makes Windows' login item match the setting (re-registering also refreshes its launch flag).
- * Resolves false when Windows refused, so the setting can say so instead of claiming success.
- */
 export async function syncLoginLaunch(enabled: boolean): Promise<boolean> {
     try {
         // oxlint-disable-next-line eslint/no-restricted-imports -- desktop-only hook

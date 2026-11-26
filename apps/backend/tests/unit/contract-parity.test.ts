@@ -33,12 +33,6 @@ import type { aiConversationRowSchema, aiImageRowSchema, aiMessageRowSchema } fr
 import type { dataExportRowSchema } from "@cadence/contracts/account";
 import type { mcpConnectionRowSchema } from "@cadence/contracts/connections";
 
-// Compile-time guardrails, enforced by `tsc --noEmit` (vitest itself cannot fail
-// them): every contract Row schema must be structurally identical to its Drizzle
-// `$inferSelect` row. A column rename/add/nullability change fails typecheck on
-// the exact line below instead of silently breaking a client. This is the only
-// legitimate place a test depends on Drizzle.
-
 test("every contract row schema matches its Drizzle table", () => {
     expectTypeOf<z.infer<typeof taskRowSchema>>().toEqualTypeOf<typeof tasks.$inferSelect>();
     expectTypeOf<z.infer<typeof projectRowSchema>>().toEqualTypeOf<typeof projects.$inferSelect>();

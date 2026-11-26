@@ -2,7 +2,6 @@ import { useState } from "react";
 import { PickerSurface } from "./PickerSurface";
 import { Swatches, type SwatchOption } from "./Swatches";
 
-/** A composer's compact colour pick: a dot beside the title mark that opens the swatches. */
 export function ColourDot({
     options,
     value,

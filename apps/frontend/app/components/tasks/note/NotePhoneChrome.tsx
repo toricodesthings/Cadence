@@ -28,7 +28,6 @@ import { BLOCK_LABEL, markPressed, useNoteToolbarState, type ToolbarState } from
 import type { CSSProperties } from "react";
 
 const TONE = { "--segment-tone": "var(--accent-primary)" } as CSSProperties;
-/** Buttons here must never take focus: the editor keeps its caret, selection and keyboard. */
 const keep = {
     onMouseDown: (e: { preventDefault: () => void }) => e.preventDefault(),
     onPointerDown: (e: { preventDefault: () => void }) => e.preventDefault(),
@@ -73,7 +72,6 @@ const MARKS = [
     ["code", "Code", Code2],
 ] as const;
 
-/** Bold, italic and strikethrough (plus inline code with `code`), pressed when the selection carries them. */
 function MarkButtons({
     state,
     run,
@@ -88,7 +86,6 @@ function MarkButtons({
     ));
 }
 
-/** Outdent and indent, live only inside a list. */
 function IndentButtons({ state, run }: { state: ToolbarState; run: (id: NoteCommandId) => void }) {
     return (
         <>
@@ -105,10 +102,6 @@ function IndentButtons({ state, run }: { state: ToolbarState; run: (id: NoteComm
 
 const Divider = () => <span aria-hidden="true" className="mx-0.5 h-6 w-px shrink-0 bg-twilight-border" />;
 
-/**
- * The quick-action strip riding the keyboard: one glass capsule in a fixed order so muscle memory
- * holds. It scrolls sideways past what fits; the edge fade says there's more.
- */
 export function NoteQuickStrip({
     editor,
     bottom,
@@ -173,10 +166,6 @@ function PanelRow({
     );
 }
 
-/**
- * Aa / + panels take the keyboard's place at its last height (no scrim, no handle): the document stays live
- * above, so a change shows on the selection at once. The keyboard button (or tapping the text) goes back.
- */
 export function NotePhonePanel({
     kind,
     height,

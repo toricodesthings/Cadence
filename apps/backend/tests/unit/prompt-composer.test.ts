@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-// Stub the safety module so fencing/sanitizing is visible in the output.
 vi.mock("../../src/domains/ai/safety/injection-policy", () => ({
     fenceData: (args: { nonce: string; kind: string; trust: string; content: string }) =>
         `<<<FENCE_${args.nonce} kind="${args.kind}" trust="${args.trust}">>>\n${args.content}\n<<<END_${args.nonce}>>>`,
@@ -54,7 +53,6 @@ function ctx(
 }
 
 const parts = (c: PromptRuntimeContext) => composePrompt(PROMPT_BLOCKS, c, "N");
-/** The whole prompt the model sees: static instructions, then the turn context. */
 const compose = (c: PromptRuntimeContext) => {
     const { instructions, turnContext } = parts(c);
     return `${instructions}\n\n${turnContext}`;
@@ -67,7 +65,6 @@ describe("isWorkloadHigh", () => {
         expect(isWorkloadHigh(95, false)).toBe(false);
     });
 
-    // 0.30.0 (B08): unknown workload is not a workload state.
     it("is never high when the index is unknown", () => {
         expect(isWorkloadHigh(null, true)).toBe(false);
     });
@@ -165,9 +162,7 @@ describe("composePrompt", () => {
         );
         expect(out[2]!.parts).toHaveLength(2);
         expect((out[2]!.parts[1] as { text: string }).text).toContain("CTX");
-        // Providers join text parts with "": the context must not run into the user's last word.
         expect((out[2]!.parts[1] as { text: string }).text).toMatch(/^\n\n/);
-        // An earlier message replays the context it was sent with.
         expect((out[0]!.parts[1] as { text: string }).text).toContain("OLD");
         expect(out[1]).toBe(msgs[1]);
         expect(msgs[2]!.parts).toHaveLength(1);
@@ -306,7 +301,6 @@ describe("turn contexts", () => {
         const continued = turnContexts([user("u1", "MON")], "u1", "TUE", true);
         expect(continued.current).toBe("MON");
         expect(continued.stored).toBe("MON");
-        // A continued message that never kept one (sent before contexts were stored) gets this turn's.
         expect(turnContexts([user("u1")], "u1", "TUE", true).current).toBe("TUE");
     });
 });

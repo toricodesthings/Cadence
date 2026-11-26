@@ -1,7 +1,3 @@
-/**
- * What the assistant is told about a task beyond its fields: how long it usually takes (`durationHints`) and an Effort
- * guess from this person's own choices. A guess is never the task's Effort, and it is left out when Effort suggestions are off.
- */
 import { eq } from "drizzle-orm";
 import { toEvidence } from "@cadence/domain/effort-evidence";
 import { effortGuessOf } from "@cadence/domain/effort-guess";
@@ -27,7 +23,6 @@ type GuessRow = {
 type HintRow = Parameters<typeof durationHints>[2][number] & GuessRow;
 export type TaskHint = { takesAbout?: number; took?: number | string; effortGuess?: 1 | 2 | 3 };
 
-/** Whether the person has Effort suggestions on (the same switch as the composer's). */
 async function guessesOn(tx: Tx, userId: string): Promise<boolean> {
     const [row] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
     const intelligence = (
@@ -36,7 +31,6 @@ async function guessesOn(tx: Tx, userId: string): Promise<boolean> {
     return intelligence?.nlpEnabled !== false && intelligence?.effortSuggestions !== false;
 }
 
-/** Effort guesses for the open tasks among `rows`: the stored model guess, else a similar-choices match. No model call. */
 export async function effortGuesses(
     tx: Tx,
     userId: string,
@@ -65,7 +59,6 @@ export async function effortGuesses(
     return out;
 }
 
-/** Duration hints and Effort guesses together, keyed by task id. */
 export async function taskHints(
     tx: Tx,
     userId: string,

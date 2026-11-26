@@ -1,17 +1,3 @@
-/**
- * Photos sent to the assistant: where they live, how a chat turn references
- * them, and how they reach the model.
- *
- * A turn never carries image bytes. It carries `cadence-image:<uuid>` file parts
- * (persisted as-is in `ai_messages.parts`); the route checks ownership and counts
- * new sends (`resolveTurnImages`), then swaps recent references for data URLs just
- * before the model call (`hydrateImages`). The scheme never matches a URL the
- * provider would fetch, so bytes only reach the model through this file.
- *
- * PDFs ride the same pipeline (`.pdf` key, `application/pdf` part). Object key: `ai-images/{userKey}/{imageId}.webp`, where `userKey` is the same
- * sha256 tenant key Redis uses and `imageId` is a random UUID (never the content
- * hash, which would let someone holding a known image confirm it is stored).
- */
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { CHAT_IMAGE_MEDIA_TYPE, CHAT_PDF_MEDIA_TYPE, parseChatImageUrl } from "@cadence/contracts/ai";
 import { aiImages } from "../../../db/schema";
@@ -19,15 +5,10 @@ import { AppError } from "../../../platform/errors";
 import type { Tx } from "../../../types/db";
 import { recentStart } from "../persistence/message-mapper";
 
-// ── Utility ───────────────────────────────────────────────────────────
-
 export const AI_IMAGE_CACHE_CONTROL = "private, max-age=31536000, immutable";
 
-/** Days an image lives after it was last sent or re-attached. */
 export const IMAGE_RETENTION_DAYS = 30;
-/** Hours an attached-but-unsent image survives before the cron sweeps it. */
 export const ORPHAN_HOURS = 24;
-/** Extra days a reported image is kept, so there is time to look at it. */
 export const REPORT_KEEP_DAYS = 14;
 export const IMAGE_STUB_TEXT =
     "[An image the user shared earlier. It's no longer in view; ask them to share it again if you need it.]";
@@ -44,7 +25,6 @@ export function imageExpired(): AppError {
     return new AppError(400, "IMAGE_NOT_FOUND", "That file expired — attach it again");
 }
 
-/** Image ids referenced by a message's file parts (the input guard has already vetted them). */
 export function imageIdsIn(parts: unknown[]): string[] {
     const ids = parts.flatMap((part) => {
         const p = part as { type?: unknown; url?: unknown };
@@ -54,7 +34,6 @@ export function imageIdsIn(parts: unknown[]): string[] {
     return [...new Set(ids)];
 }
 
-/** Image id → the media type its file part claims (the input guard has already vetted the parts). */
 export function imageTypesIn(parts: unknown[]): Map<string, string> {
     const types = new Map<string, string>();
     for (const part of parts) {
@@ -65,7 +44,6 @@ export function imageTypesIn(parts: unknown[]): Map<string, string> {
     return types;
 }
 
-/** SHA-256 of the stored bytes, hex. The dedup key; never leaves the database. */
 export async function contentHash(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
     const digest = await crypto.subtle.digest("SHA-256", bytes);
     return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -79,19 +57,10 @@ function toBase64(bytes: Uint8Array): string {
     return btoa(binary);
 }
 
-/** Delete stored objects, at most 1,000 keys per call (R2's batch limit). */
 export async function deleteImageObjects(bucket: R2Bucket, keys: string[]): Promise<void> {
     for (let i = 0; i < keys.length; i += 1000) await bucket.delete(keys.slice(i, i + 1000));
 }
 
-// ── Update ────────────────────────────────────────────────────────────
-
-/**
- * Check a turn's images and count how many are new sends. Every id must be an
- * image this user attached to this conversation; anything else (another user's,
- * expired, a different thread's) is `IMAGE_NOT_FOUND`. Images already sent
- * (regenerate, retry, edit) count zero.
- */
 export async function resolveTurnImages(
     tx: Tx,
     userId: string,
@@ -108,12 +77,10 @@ export async function resolveTurnImages(
             and(eq(aiImages.userId, userId), eq(aiImages.conversationId, conversationId), inArray(aiImages.id, ids)),
         );
     if (rows.length !== ids.length) throw imageExpired();
-    // A PDF can't pose as a photo (or the reverse): the part's type must be the stored one.
     if (mediaTypes && rows.some((row) => mediaTypes.get(row.id) !== row.mediaType)) throw imageExpired();
     return { newCount: rows.filter((row) => row.sentAt === null).length };
 }
 
-/** Stamp the turn's images as sent and push their expiry forward. */
 export async function markSent(tx: Tx, userId: string, ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     await tx
@@ -122,9 +89,6 @@ export async function markSent(tx: Tx, userId: string, ids: string[]): Promise<v
         .where(and(eq(aiImages.userId, userId), inArray(aiImages.id, ids)));
 }
 
-// ── Read ──────────────────────────────────────────────────────────────
-
-/** Unsent uploads the user has waiting (the pending cap). */
 export async function countPending(tx: Tx, userId: string): Promise<number> {
     const [row] = await tx
         .select({ n: sql<number>`count(*)::int` })
@@ -135,14 +99,6 @@ export async function countPending(tx: Tx, userId: string): Promise<number> {
 
 type Message = { role: string; parts: unknown[] };
 
-/**
- * Swap `cadence-image:` references for what the model should see, once per turn:
- * images in recent turns (from `from`, default `recentStart`) become data URLs (one
- * parallel R2 read each); older ones, and any the bucket no longer has, become a
- * text stub. Without the cut every later turn would re-send every image; batching
- * it with the other compaction keeps the replayed prefix cacheable.
- * Pure apart from the reads; never mutates its input.
- */
 export async function hydrateImages<T extends Message>(
     messages: T[],
     bucket: R2Bucket | undefined,
@@ -154,7 +110,6 @@ export async function hydrateImages<T extends Message>(
         if (i >= from) imageIdsIn(m.parts).forEach((id) => wanted.add(id));
     });
 
-    // Each part names its type; the key and the data URL follow it.
     const types = new Map<string, ChatFileType>();
     messages.forEach((m, i) => {
         if (i >= from)

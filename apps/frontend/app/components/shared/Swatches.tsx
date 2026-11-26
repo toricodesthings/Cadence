@@ -14,7 +14,6 @@ export const TAG_SWATCHES: SwatchOption[] = TAG_PALETTE.map((c) => ({
     label: c === "default" ? "Default" : c,
 }));
 
-/** Colour swatches sized for a thumb — project and tag forms on compact. */
 export function Swatches({
     options,
     value,

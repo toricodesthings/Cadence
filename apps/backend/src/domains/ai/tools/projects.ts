@@ -76,7 +76,6 @@ export const projectTools = (env: Env, userId: string, ctx?: AgentContext) => {
         });
 
     return {
-        // ── R ──────────────────────────────────────────────────────────────────
         get_projects: tool({
             description:
                 "The user's lists (projects in code), with their sections, including empty ones. " +
@@ -106,7 +105,6 @@ export const projectTools = (env: Env, userId: string, ctx?: AgentContext) => {
             execute: async ({ query, projectId, offset = 0, sectionQuery }) =>
                 safeExecute("get_projects", userId, async () => {
                     const db = getDbClient(env);
-                    // With projectId, offset pages that list's sections; without it, the lists.
                     const listOffset = projectId ? 0 : offset;
                     const sectionOffset = projectId ? offset : 0;
                     const { rows, sections, counts, sectionTotals, peopleMap } = await withRls(
@@ -125,7 +123,6 @@ export const projectTools = (env: Env, userId: string, ctx?: AgentContext) => {
                                     and(
                                         or(eq(projects.userId, userId), inArray(projects.id, memberView)),
                                         projectId ? eq(projects.id, projectId) : undefined,
-                                        // Each word in the list's name or a section's: "comp 3005" finds University › COMP3005.
                                         ...(query?.split(/\s+/).slice(0, 8) ?? []).map((word) =>
                                             or(
                                                 ilike(projects.name, namePattern(word)),
@@ -176,7 +173,6 @@ export const projectTools = (env: Env, userId: string, ctx?: AgentContext) => {
                                       .limit(SECTION_LIMIT + 1)
                                       .offset(sectionOffset)
                                 : [];
-                            // Open tasks per list and per section, one grouped query.
                             const counted = ids.length
                                 ? await tx
                                       .select({ projectId: tasks.projectId, sectionId: tasks.sectionId, n: count() })
@@ -196,7 +192,6 @@ export const projectTools = (env: Env, userId: string, ctx?: AgentContext) => {
                                 counts.set(list!, (counts.get(list!) ?? 0) + n);
                                 if (sectionId) counts.set(`${list}|${sectionId}`, n);
                             }
-                            // Sections per list, so a list whose sections the cap cut says so (partial).
                             const sectionTotals =
                                 !projectId && sections.length > SECTION_LIMIT
                                     ? new Map(
@@ -244,7 +239,6 @@ export const projectTools = (env: Env, userId: string, ctx?: AgentContext) => {
                 }),
         }),
 
-        // ── W ──────────────────────────────────────────────────────────────────
         create_project: tool({
             description:
                 "Creates a list, optionally with its sections in order. Returns its projectId and sectionIds, for putting tasks in it.",
@@ -283,7 +277,6 @@ export const projectTools = (env: Env, userId: string, ctx?: AgentContext) => {
                 ),
         }),
 
-        // ── W ──────────────────────────────────────────────────────────────────
         create_sections: tool({
             description:
                 "Adds sections to the end of a list, in the order given. Returns each sectionId, for placing tasks in it.",
@@ -310,7 +303,6 @@ export const projectTools = (env: Env, userId: string, ctx?: AgentContext) => {
                 }),
         }),
 
-        // ── U ──────────────────────────────────────────────────────────────────
         update_project: tool({
             description: "Renames a list or changes its emoji (null removes it) or colour. Send only what changes.",
             inputSchema: z.object({
@@ -360,7 +352,6 @@ export const projectTools = (env: Env, userId: string, ctx?: AgentContext) => {
                             .where(and(eq(taskSections.id, sectionId), eq(taskSections.userId, ownerId)));
                     }
                     if (position !== undefined) {
-                        // Renumber the list's sections 0..n with this one at its new place.
                         const siblings = await tx
                             .select({ id: taskSections.id })
                             .from(taskSections)
@@ -394,7 +385,6 @@ export const projectTools = (env: Env, userId: string, ctx?: AgentContext) => {
                 }),
         }),
 
-        // ── D ──────────────────────────────────────────────────────────────────
         delete_project: tool({
             description:
                 "Deletes a list for good, with its sections (can't be undone). Its tasks are kept with no list, " +
@@ -433,7 +423,6 @@ export const projectTools = (env: Env, userId: string, ctx?: AgentContext) => {
                         .select({ tasksUnsectioned: count() })
                         .from(tasks)
                         .where(and(eq(tasks.userId, ownerId), eq(tasks.sectionId, sectionId)));
-                    // The foreign key sets each task's section to null.
                     await tx
                         .delete(taskSections)
                         .where(and(eq(taskSections.id, sectionId), eq(taskSections.userId, ownerId)));

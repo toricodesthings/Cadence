@@ -26,7 +26,6 @@ function PaletteCard({ palette, selected, onSelect, isDaylight }: PaletteCardPro
                     : "border-twilight-border-light bg-white/[0.02] hover:bg-white/[0.04]",
             )}
         >
-            {/* Color swatch row */}
             <div className="flex items-center gap-1.5">
                 <div
                     className="h-6 w-6 rounded-full shadow-sm ring-1 ring-white/10"
@@ -37,7 +36,6 @@ function PaletteCard({ palette, selected, onSelect, isDaylight }: PaletteCardPro
                 {selected && <Check size={14} className="ml-auto text-[color:var(--accent-primary)]" />}
             </div>
 
-            {/* Label */}
             <div>
                 <span className="text-[13px] font-medium text-twilight-text">{palette.name}</span>
                 <p className="text-[11px] leading-tight text-twilight-text-muted">{palette.description}</p>
@@ -47,7 +45,6 @@ function PaletteCard({ palette, selected, onSelect, isDaylight }: PaletteCardPro
 }
 
 interface PalettePickerProps {
-    /** null while something else (a photo background) owns the accent. */
     value: PaletteId | null;
     onChange: (palette: PaletteId) => void;
     theme: string;

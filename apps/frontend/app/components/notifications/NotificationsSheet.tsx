@@ -8,7 +8,6 @@ import { Dialog, DialogContent, DialogTitle } from "../primitives/Dialog";
 import { NotificationCenter } from "./NotificationCenter";
 import { DeviceOffer } from "./DeviceDelivery";
 
-/** Shared notification panel: a dialog on desktop, a sheet in compact shells. */
 export function NotificationsSheet() {
     const { notificationsOpen, close, openSettings } = useUtilityNavigation();
     const { isCompact } = useShellMode();

@@ -10,7 +10,6 @@ export function useDeleteProject() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        // The list disappears at once; the server hears about it only once Undo's window closes.
         mutationFn: async ({ id, name }: { id: string; name: string }) => {
             await undoWindow(`Deleted ${name}`, { description: "Its tasks stay, with no list." });
             const res = await client.api.projects[":id"].$delete({ param: { id } });

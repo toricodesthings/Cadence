@@ -15,6 +15,7 @@ import {
 export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteErrorBoundary";
 import { EventCard, type EventActions } from "../components/events/EventCard";
 import { EventList } from "../components/events/EventList";
+import { EventsSkeleton } from "../components/events/EventsSkeleton";
 import { ClaimHeaderMenu, LayoutScaleMenuRow } from "../components/layout/LayoutScaleMenu";
 import { HEADER_ICON_BUTTON } from "../components/layout/PageHeader";
 import { Tip } from "../components/primitives/Tooltip";
@@ -71,7 +72,6 @@ type EventsMenuProps = {
     onSortChange: (sort: PersonalEventSortMode) => void;
 };
 
-/** The page's ⋮: how events show and in what order. Both stay on this device, like every view choice. */
 function EventsMenu({ view, onViewChange, sort, onSortChange }: EventsMenuProps) {
     return (
         <>
@@ -147,7 +147,6 @@ function EmptyEvents({ onAdd }: EmptyEventsProps) {
     );
 }
 
-/** The desktop header's add button; compact screens add from the orb. */
 function AddEventButton({ onAdd }: EmptyEventsProps) {
     return (
         <Button
@@ -166,6 +165,7 @@ function AddEventButton({ onAdd }: EmptyEventsProps) {
 
 type EventsBodyProps = EventActions & {
     events: ReturnType<typeof sortPersonalEventViewModels>;
+    isLoading: boolean;
     view: PersonalEventView;
     sort: React.ComponentProps<typeof EventList>["sort"];
     today: string;
@@ -175,9 +175,9 @@ type EventsBodyProps = EventActions & {
     onRename: (event: MaybeSharedEvent, label: string) => void;
 };
 
-/** The events as a list or as cards; the first-event invitation when there are none. */
 function EventsBody({
     events,
+    isLoading,
     view,
     sort,
     today,
@@ -193,6 +193,7 @@ function EventsBody({
     onOpenInSchedule,
     onRename,
 }: EventsBodyProps) {
+    if (isLoading) return <EventsSkeleton view={view} stacked={stacked} />;
     if (events.length === 0) return <EmptyEvents onAdd={onAdd} />;
     if (view === "list") {
         return (
@@ -234,7 +235,6 @@ function EventsBody({
     );
 }
 
-/** The device's saved order and view; unknown values fall back to next occurrence and cards. */
 function eventsViewOf(savedSort: unknown, savedView: unknown) {
     const sortMode = SORTS.find((option) => option.value === savedSort)?.value ?? "next";
     const view: PersonalEventView = savedView === "list" ? "list" : "cards";
@@ -252,17 +252,14 @@ export default function EventsRoute() {
     const [editorOpen, setEditorOpen] = useState(false);
     const [sharingEventId, setSharingEventId] = useState<string | null>(null);
     const [confirmDeleteEvent, setConfirmDeleteEvent] = useState<MaybeSharedEvent | null>(null);
-    // Leaving a shared date: confirmed first, since coming back needs a new link from its owner.
     const [confirmLeaveEvent, setConfirmLeaveEvent] = useState<MaybeSharedEvent | null>(null);
     const [searchParams] = useSearchParams();
-    // ?event=<id> (from Today/Upcoming) opens that event's details.
     const [selectedEventId, setSelectedEventId] = useState<string | null>(() => searchParams.get("event"));
     const [detailMode, setDetailMode] = useState<"peek" | "focus">("peek");
     const editingEvent = personalEvents.items.find((event) => event.id === selectedEventId);
     const sharingEvent = personalEvents.items.find((event) => event.id === sharingEventId);
     const removeFromMyEvents = useRemoveFromMyEvents();
     const { data: confirmPeople } = useEventPeople(confirmDeleteEvent ?? confirmLeaveEvent ?? undefined);
-    // View and order are this device's (a phone may want the list, a desk the cards); unknown values fall back.
     const [savedSort, setSavedSort] = useDeviceValue("cadence:events:sort");
     const [savedView, setSavedView] = useDeviceValue("cadence:events:view");
     const { sortMode, view } = eventsViewOf(savedSort, savedView);
@@ -386,6 +383,7 @@ export default function EventsRoute() {
 
                     <EventsBody
                         events={events}
+                        isLoading={personalEvents.isLoading}
                         view={view}
                         sort={sortMode}
                         today={today}

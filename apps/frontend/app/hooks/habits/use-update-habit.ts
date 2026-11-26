@@ -15,7 +15,6 @@ export function useUpdateHabit() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        // Inline fields can save together; preserve their order across editor/menu hooks.
         scope: { id: "habit-updates" },
         mutationFn: withOfflineSupport<UpdateHabit & { id: string }, Habit>(
             ({ id, ...patch }) => ({ type: "update_habit", id, payload: patch }),
@@ -37,7 +36,6 @@ export function useUpdateHabit() {
                 const found = data?.find((h) => h.id === id);
                 if (found) fullHabit = found;
             });
-            // Also search weekly caches — archived habits may only exist there
             if (!fullHabit) {
                 queryClient.getQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll }).forEach(([, data]) => {
                     const found = data?.find((h) => h.id === id);
@@ -81,7 +79,7 @@ export function useUpdateHabit() {
         },
 
         onSuccess: (habit) => {
-            if (!habit || !isLastWrite(queryClient)) return; // Queued offline, or a later write reads back
+            if (!habit || !isLastWrite(queryClient)) return;
             reconcileHabitInCaches(queryClient, habit);
         },
 

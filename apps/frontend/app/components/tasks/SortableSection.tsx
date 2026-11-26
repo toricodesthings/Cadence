@@ -4,13 +4,8 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import { BOARD_COLUMN_MIN_WIDTH } from "../shared/BoardCanvas";
 
-/** Marks a sortable section so a board's card drags can tell it from a card. */
 export const SECTION_SORT = "SectionSort";
 
-/**
- * A board column that folds sideways (width + fade, closing its gap) while a filter
- * leaves it empty, and unfolds when the filter clears. `shared/Reveal` is the vertical twin.
- */
 export function FoldColumn({ hidden, children }: { hidden: boolean; children: ReactNode }) {
     return (
         <div
@@ -22,14 +17,12 @@ export function FoldColumn({ hidden, children }: { hidden: boolean; children: Re
     );
 }
 
-/** One section's place in a sortable list or board: `children` gets its grip to put in the header. */
 export function SortableSection({
     id,
     name,
     className,
     children,
 }: {
-    /** The section's id as the list knows it. */
     id: string;
     name: string;
     className?: string;

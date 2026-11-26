@@ -8,7 +8,6 @@ vi.mock("../../../../app/hooks/tasks/use-fit-day", () => ({ usePlaceTasks: () =>
 vi.mock("../../../../app/hooks/tasks/use-update-task", () => ({
     useUpdateTask: () => ({ mutateAsync: m.mutateAsync }),
 }));
-// `useToday` reads a store set at import from the real clock; pin it to the day these tests use.
 vi.mock("../../../../app/lib/utils/user-zone", async (importOriginal) => ({
     ...(await importOriginal<object>()),
     useToday: () => "2026-10-20",

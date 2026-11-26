@@ -11,10 +11,8 @@ import {
 } from "lucide-react";
 import type { EffortLevel, TaskPriority } from "@cadence/contracts/task";
 
-/** Priority is always rising signal bars (a warning at Urgent): this one for headings, each level's own below. */
 export const PRIORITY_ICON: LucideIcon = SignalHigh;
 
-/** Icon-labelled choices — the only home for priority and effort icons, wherever they show. */
 export const PRIORITY_OPTIONS: { value: TaskPriority; label: string; icon: LucideIcon }[] = [
     { value: 0, label: "None", icon: Minus },
     { value: 1, label: "Low", icon: SignalLow },
@@ -23,7 +21,6 @@ export const PRIORITY_OPTIONS: { value: TaskPriority; label: string; icon: Lucid
     { value: 4, label: "Urgent", icon: TriangleAlert },
 ];
 
-/** Effort is always a battery: this one for headings, each level's own in EFFORT_OPTIONS. */
 export const EFFORT_ICON: LucideIcon = BatteryMedium;
 
 export const EFFORT_OPTIONS: { value: Exclude<EffortLevel, null>; label: string; icon: LucideIcon }[] = [

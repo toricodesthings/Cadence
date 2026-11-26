@@ -4,13 +4,10 @@ import { linkedAppIdSchema, linkedUrlSchema } from "./app-link";
 import { findTimeSchema } from "./planning";
 import { DATE_STYLES, SOURCE_SURFACES, type CanonicalNlpEnvelope } from "@cadence/nlp/core";
 
-// ── Enums / shared scalars ──
-/** Who or what a WAITING task waits on. */
 export const waitingOnSchema = z.string().max(500);
 
 export const taskStateSchema = z.enum(["ACTIVE", "WAITING", "COMPLETE", "ARCHIVED"]);
 export type TaskState = z.infer<typeof taskStateSchema>;
-/** A task still owed: the states that can go overdue. */
 export const openTaskStateSchema = taskStateSchema.extract(["ACTIVE", "WAITING"]);
 export const OPEN_TASK_STATES = openTaskStateSchema.options;
 
@@ -34,9 +31,8 @@ export const canonicalNlpEnvelopeSchema = z.object({
     dismissedEntityIds: z.array(z.string().min(1).max(100)).default([]),
     userOverrides: z.record(z.string(), z.unknown()).default({}),
     resolved: z.boolean().optional(),
-}) satisfies z.ZodType<CanonicalNlpEnvelope>; // nlp owns the type; this fails tsc if they drift
+}) satisfies z.ZodType<CanonicalNlpEnvelope>;
 
-/** The date and time fields a task can be written with, the same on create and update. */
 const taskWhenFields = {
     dueDate: localDateSchema.nullable().optional(),
     endDate: localDateSchema.nullable().optional(),
@@ -46,37 +42,27 @@ const taskWhenFields = {
     durationEstimate: z.number().int().min(1).max(1440).nullable().optional(),
 };
 
-/** Optional task fields shared identically by create and update. */
 const taskSharedOptionalFields = {
     projectId: z.uuid().nullable().optional(),
     reminderAt: instantSchema.nullable().optional(),
     recurrenceRule: z.string().max(500).nullable().optional(),
-    // Omitted → the server picks a default on create (see @cadence/domain suggestInteractionMode).
     interactionMode: taskInteractionModeSchema.optional(),
     waitingOn: waitingOnSchema.nullable().optional(),
     waitingReminder: instantSchema.nullable().optional(),
     effort: effortLevelSchema.nullable().optional(),
-    /** Who chose `effort`; omit when it was not the person (assistant, import). Only chosen values inform suggestions. */
     effortOrigin: effortOriginSchema.optional(),
-    /** Hide until this day. */
     notBefore: localDateSchema.nullable().optional(),
-    /** The one app this task opens; null removes it, omitted leaves it. */
     linkedAppId: linkedAppIdSchema.nullable().optional(),
-    /** Or the one website it opens (https only); the client keeps at most one of the two. */
     linkedUrl: linkedUrlSchema.nullable().optional(),
     sectionId: z.uuid().nullable().optional(),
 };
 
-// ── Input schemas (moved verbatim from backend tasks.schema.ts) ──
 export const insertTaskSchema = z.object({
-    /** Client-chosen id, so a task made offline can be edited before it syncs. */
     id: z.uuid().optional(),
     title: z.string().trim().min(1).max(500),
     content: z.string().max(50_000).nullable().optional(),
     state: taskStateSchema.default("ACTIVE"),
     orderIndex: z.number(),
-    // A day (all-day or a deadline), or a timed block (instants plus the zone it was planned in).
-    // All-day = no scheduledStart.
     ...taskWhenFields,
     timezoneLocked: z.boolean().default(false),
     priority: taskPrioritySchema.default(0),
@@ -99,10 +85,8 @@ export const updateTaskSchema = z.object({
     isPinned: z.boolean().optional(),
     reminderSilenced: z.boolean().optional(),
     ...taskSharedOptionalFields,
-    /** "dismissed": the person said no to the Effort guess; kept until the title or list changes. */
     effortGuessSource: z.literal("dismissed").optional(),
     takenBy: z.uuid().nullable().optional(),
-    /** Present when the write places a block Cadence proposed (Find a time): it decides whether the choice teaches. */
     findTime: findTimeSchema.optional(),
     expectedUpdatedAt: z.string().optional(),
 });
@@ -113,7 +97,6 @@ export const reorderTaskSchema = z.object({
     orderedTaskIds: z.array(z.uuid()).max(200).optional(),
 });
 
-/** The tasks one batch call may touch. */
 export const batchTaskIdsSchema = z.array(z.uuid()).min(1).max(50);
 
 export const batchDeleteSchema = z.object({
@@ -125,10 +108,6 @@ export const batchStateSchema = z.object({
     state: taskStateSchema,
 });
 
-/**
- * Either `scheduledStart` (every task gets that exact instant) or `date` (each task keeps its
- * own local time on the new day, all-day stays all-day; the server uses the user's zone).
- */
 export const batchRescheduleSchema = z
     .object({
         taskIds: batchTaskIdsSchema,
@@ -141,11 +120,6 @@ export const batchRescheduleSchema = z
     );
 export type BatchReschedule = z.infer<typeof batchRescheduleSchema>;
 
-/**
- * `POST /tasks/place`: Fit today's placements in one all-or-nothing write. Undo is the same request with the values
- * from before (`previous` in the answer), so the time fields are nullable. Each item must be unchanged since the
- * client read it (`expectedUpdatedAt`), or nothing is written and the 409's `issues` name each changed task by `path`.
- */
 export const placeTaskItemSchema = z.object({
     id: z.uuid(),
     scheduledStart: instantSchema.nullable(),
@@ -158,7 +132,6 @@ export const placeTaskItemSchema = z.object({
 export const placeTasksSchema = z.object({ items: z.array(placeTaskItemSchema).min(1).max(50) });
 export type PlaceTaskItem = z.infer<typeof placeTaskItemSchema>;
 
-// ── Row schema — exactly the DB columns (wire-shaped, timestamps as ISO strings) ──
 export const taskRowSchema = z.object({
     origin: z.enum(["thought"]).nullable(),
     id: z.uuid(),
@@ -193,12 +166,9 @@ export const taskRowSchema = z.object({
     notBefore: localDateSchema.nullable(),
     linkedAppId: z.string().nullable(),
     linkedUrl: z.string().nullable(),
-    /** The moment the task entered Done (null while it isn't): with the id, one completion. */
     completedAt: instantSchema.nullable(),
-    /** Who volunteered to do this shared task ("I'll do it"), and when. */
     takenBy: z.uuid().nullable(),
     takenAt: instantSchema.nullable(),
-    /** Who made the task; null = the list owner (or a deleted account). */
     createdBy: z.uuid().nullable(),
     updatedBy: z.uuid().nullable(),
     createdAt: instantSchema,
@@ -206,27 +176,19 @@ export const taskRowSchema = z.object({
 });
 export type TaskRow = z.infer<typeof taskRowSchema>;
 
-// ── Entity schema — row + API enrichment (joins/derived). Narrows priority/effort
-//    to the canonical literal unions that the client consumes. ──
 export const taskSchema = taskRowSchema.omit({ effortOrigin: true, effortChosenAt: true, effortGuessAt: true }).extend({
-    /** A guess from the person's own Effort choices (never their Effort): shown as `~`, used for day load. Absent on older data. */
     effortGuess: effortLevelSchema.nullable().optional(),
     effortGuessSource: z.enum(["model", "dismissed"]).nullable().optional(),
     origin: z.enum(["thought"]).nullable().optional(),
     priority: taskPrioritySchema,
     effort: effortLevelSchema.nullable(),
-    // The client treats these nullable columns as optional (matches the prior FE
-    // interface — fixtures and partial reads may omit them).
     sectionId: z.uuid().nullable().optional(),
     waitingOn: z.string().nullable().optional(),
     waitingReminder: instantSchema.nullable().optional(),
     notBefore: localDateSchema.nullable().optional(),
-    /** Any stored id, even one this build doesn't know; absent on data cached before the field existed. */
     linkedAppId: z.string().nullable().optional(),
-    /** Re-checked with `parseWebsite` before any link renders. */
     linkedUrl: z.string().nullable().optional(),
     tagIds: z.array(z.uuid()),
-    /** Optional: optimistic rows and data cached before sharing don't carry them. */
     takenBy: z.uuid().nullable().optional(),
     takenAt: instantSchema.nullable().optional(),
     createdBy: z.uuid().nullable().optional(),
@@ -234,19 +196,15 @@ export const taskSchema = taskRowSchema.omit({ effortOrigin: true, effortChosenA
     isHabit: z.boolean().optional(),
     seriesId: z.uuid().optional(),
     isRecurringInstance: z.boolean().optional(),
-    /** The day an occurrence falls on (its id is `<seriesId>::<LocalDate>`). */
     occurrenceDay: localDateSchema.optional(),
     occurrenceStart: instantSchema.nullable().optional(),
     occurrenceEnd: instantSchema.nullable().optional(),
 });
 export type Task = z.infer<typeof taskSchema>;
 
-// FE-facing input types use z.input so server-defaulted fields remain optional
-// for clients building request bodies.
 export type CreateTaskInput = z.input<typeof insertTaskSchema>;
 export type UpdateTaskInput = z.input<typeof updateTaskSchema>;
 
-/** One earlier Effort choice, from `GET /tasks/effort-evidence`: the person's own recorded choices only. */
 export const effortEvidenceRowSchema = z.object({
     id: z.uuid(),
     title: z.string(),
@@ -257,20 +215,17 @@ export const effortEvidenceRowSchema = z.object({
 });
 export type EffortEvidenceRow = z.infer<typeof effortEvidenceRowSchema>;
 
-// ── List filters (GET /tasks query) ──
-
 const booleanQuerySchema = z.enum(["true", "false"]).transform((v) => v === "true");
 
 const taskFiltersSchemaBase = z.object({
     state: taskStateSchema.optional(),
     projectId: z.uuid().optional(),
-    /** A day window, inclusive: LocalDates. The server turns them into instant bounds in the user's zone. */
     from: localDateSchema.optional(),
     to: localDateSchema.optional(),
     priority: z.coerce.number().int().min(0).max(4).optional(),
     isPinned: booleanQuerySchema.optional(),
     effort: z.coerce.number().int().min(1).max(3).optional(),
-    notBeforeBefore: localDateSchema.optional(), // tasks hidden until this day or earlier (or never)
+    notBeforeBefore: localDateSchema.optional(),
     hasNoDate: booleanQuerySchema.optional(),
     hasNoProject: booleanQuerySchema.optional(),
     effectiveOnOrBeforeDate: localDateSchema.optional(),
@@ -293,14 +248,11 @@ function refineTaskFilters(value: z.infer<typeof taskFiltersSchemaBase>, ctx: z.
 export const taskFiltersSchema = taskFiltersSchemaBase.superRefine(refineTaskFilters);
 export type TaskFilters = z.infer<typeof taskFiltersSchema>;
 
-// No default limit: open lists are the working set and views need all of it.
-// Done and Trash grow forever, so their pages send a limit.
 export const taskListQuerySchema = taskFiltersSchemaBase
     .extend({ limit: z.coerce.number().int().min(1).max(1000).optional(), offset: paginationSchema.shape.offset })
     .superRefine(refineTaskFilters);
 export type TaskListQueryInput = z.input<typeof taskListQuerySchema>;
 
-/** Offline warming only reads open lists; keep history and pagination separate. */
 export const TASK_BATCH_MAX = 10;
 export const taskBatchFiltersSchema = z
     .array(
@@ -342,7 +294,6 @@ export const taskBatchQuerySchema = z.object({
         .pipe(taskBatchFiltersSchema),
 });
 
-/** Task/occurrence rows are sent once; each list holds indices into that array. */
 export const taskBatchSchema = z.object({
     tasks: z.array(taskSchema),
     lists: z.array(z.array(z.number().int().nonnegative())),

@@ -12,7 +12,6 @@ interface TaskTagVars {
     tagId: string;
 }
 
-/** Shared optimistic add/remove: the task's `tagIds` flip at once so pickers tick without waiting. */
 function useTaskTagMutation(adding: boolean, request: (vars: TaskTagVars) => Promise<unknown>) {
     const queryClient = useQueryClient();
 
@@ -40,7 +39,6 @@ function useTaskTagMutation(adding: boolean, request: (vars: TaskTagVars) => Pro
     });
 }
 
-/** Add a tag to a task */
 export function useAddTaskTag() {
     const client = useApiClient();
     return useTaskTagMutation(true, async ({ taskId, tagId }) => {
@@ -49,7 +47,6 @@ export function useAddTaskTag() {
     });
 }
 
-/** Remove a tag from a task */
 export function useRemoveTaskTag() {
     const client = useApiClient();
     return useTaskTagMutation(false, async ({ taskId, tagId }) => {

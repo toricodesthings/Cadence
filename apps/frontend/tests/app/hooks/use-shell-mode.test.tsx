@@ -10,7 +10,6 @@ describe("getShellMode", () => {
         [1119, true, "tablet"],
         [768, true, "tablet"],
         [767, true, "phone"],
-        // A mouse keeps the desktop shell on a tall, narrow monitor (1080x1920, 900x1440, 768x1366).
         [1080, false, "laptop"],
         [900, false, "laptop"],
         [768, false, "laptop"],

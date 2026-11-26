@@ -1,7 +1,6 @@
 import MiniSearch from "minisearch";
 import { processTerm, searchTerms } from "./terms";
 
-/** One method of an SDK to rank: `name` is its words ("create tasks"), `text` its description. */
 export interface MethodDocument {
     id: string;
     name: string;
@@ -19,12 +18,6 @@ const STOPWORDS = new Set(
     ).split(" "),
 );
 
-/**
- * Ranks an SDK's methods against plain words. Stopwords are ignored, word forms match ("routines" = "routine"),
- * a method's name outweighs its description, and the last word may be half-typed.
- * `synonyms` maps a word in a method's name to the words people use for it; they weigh less than the name and expand the index only, so queries stay plain.
- * Returns null when nothing is left to rank on (empty or all stopwords): the caller keeps its own order.
- */
 export function rankMethods(
     query: string,
     docs: readonly MethodDocument[],
@@ -54,7 +47,6 @@ export function rankMethods(
             prefix: (term, index, terms) => index === terms.length - 1 && term.length >= 3,
         },
     });
-    // The words people use for a method's name weigh less than the name itself.
     engine.addAll(docs.map((doc) => ({ ...doc, alias: aliasesOf(doc.name).join(" ") })));
 
     const wanted = queryTerms.map(processTerm);

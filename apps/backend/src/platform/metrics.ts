@@ -7,8 +7,9 @@ import { habitDays } from "@cadence/domain/repeats";
 import { addDays, dayOf, expandSeries, startOfDay, todayIn, type LocalDate, type Zone } from "@cadence/domain/time";
 import { logger, hashIdentifier, issuesFromError } from "./log";
 import { userZone } from "./user-zone";
+import { withLoadShares } from "./load-share";
+import { memberView } from "../db/schema/columns";
 
-/** Count one reschedule per task, in one upsert. `firstScheduled` is the task's new day. */
 export async function trackReschedules(
     db: DbClient,
     userId: string,
@@ -38,7 +39,6 @@ export async function trackReschedules(
     });
 }
 
-/** The overdue predicate: not a series or Fixed block, and its day (due day, else the start's day) is before `today`. */
 export function overdueOn(today: LocalDate, zone: Zone) {
     return and(
         isNull(tasks.recurrenceRule),
@@ -47,7 +47,6 @@ export function overdueOn(today: LocalDate, zone: Zone) {
     )!;
 }
 
-/** Record completion for several tasks in one RLS transaction: one read, one upsert. */
 export async function trackBatchCompletion(db: DbClient, taskIds: string[], userId: string) {
     await withRls(db, userId, async (tx) => {
         const foundTasks = await tx
@@ -75,7 +74,6 @@ export async function trackBatchCompletion(db: DbClient, taskIds: string[], user
     });
 }
 
-/** Batch-insert usage events in a single RLS transaction. */
 export async function trackBatchEvents(
     db: DbClient,
     userId: string,
@@ -88,7 +86,6 @@ export async function trackBatchEvents(
                 .values(events.map((e) => ({ userId, event: e.event, metadata: e.metadata ?? null })));
         });
     } catch (err) {
-        // Best-effort telemetry — never block the caller, but surface the failure.
         logger.warn("http", "telemetry_write_failed", {
             userHash: await hashIdentifier(userId),
             events: events.length,
@@ -97,14 +94,11 @@ export async function trackBatchEvents(
     }
 }
 
-/** Signals older than this are recomputed when the assistant next needs them (Neon is awake then); nothing recomputes them on a timer. */
 export const SIGNALS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
-/** True when there are no stored signals or they're past {@link SIGNALS_MAX_AGE_MS} (instant arithmetic only). */
 export const signalsStale = (lastCalculatedAt: string | undefined, now = Date.now()) =>
-    !lastCalculatedAt || !(now - Date.parse(lastCalculatedAt) <= SIGNALS_MAX_AGE_MS); // an unparseable time counts as stale
+    !lastCalculatedAt || !(now - Date.parse(lastCalculatedAt) <= SIGNALS_MAX_AGE_MS);
 
-/** Recompute user workload signals from existing data and persist in user_metrics. */
 export async function computeWorkloadSignals(db: DbClient, userId: string) {
     await withRls(db, userId, async (tx) => {
         const now = new Date();
@@ -126,7 +120,6 @@ export async function computeWorkloadSignals(db: DbClient, userId: string) {
         const denominator = completedCount + overdue.overdue;
         const completionRatio = denominator > 0 ? completedCount / denominator : 0;
 
-        // A signal with no underlying rows is unknown, not zero — it carries no penalty.
         const burnoutIndex = computeBurnoutIndex({
             rescheduleVelocity: reschedule.rows > 0 ? reschedule.value : null,
             overdueCarryLoad: overdue.active > 0 ? overdue.overdue : null,
@@ -139,7 +132,7 @@ export async function computeWorkloadSignals(db: DbClient, userId: string) {
             rescheduleVelocity: reschedule.value,
             currentBurnoutIndex: burnoutIndex,
             completionRatio,
-            overdueCarryLoad: overdue.overdue,
+            overdueCarryLoad: Math.round(overdue.overdue),
             habitAdherenceRate: habit.rate,
             scheduleDensity: density.minutesPerDay,
             lastCalculatedAt: now.toISOString(),
@@ -151,7 +144,6 @@ export async function computeWorkloadSignals(db: DbClient, userId: string) {
     });
 }
 
-/** Tasks rescheduled within [since, until]; a row from before `lastRescheduledAt` existed has no event time and is left out. */
 async function queryRescheduleVelocity(tx: Tx, userId: string, since: string, until: string) {
     const [stats] = await tx
         .select({ avgReschedules: avg(taskMetrics.rescheduleCount), rows: count() })
@@ -166,20 +158,25 @@ async function queryRescheduleVelocity(tx: Tx, userId: string, since: string, un
     return { value: parseFloat(String(stats?.avgReschedules ?? "0")), rows: stats?.rows ?? 0 };
 }
 
-/** Open one-off tasks whose day is before the user's today, plus how many such tasks exist at all (evidence coverage). */
+const carried = (userId: string) => or(eq(tasks.userId, userId), inArray(tasks.projectId, memberView))!;
+
 async function queryOverdueCarryLoad(tx: Tx, userId: string, today: LocalDate, zone: Zone) {
     const countable = and(isNull(tasks.recurrenceRule), ne(tasks.interactionMode, "timetable"));
-    const [stats] = await tx
-        .select({
-            overdue: sql<number>`COUNT(*) FILTER (WHERE ${overdueOn(today, zone)})`,
-            active: sql<number>`COUNT(*) FILTER (WHERE ${countable})`,
-        })
-        .from(tasks)
-        .where(and(eq(tasks.userId, userId), eq(tasks.state, "ACTIVE")));
-    return { overdue: Number(stats?.overdue ?? 0), active: Number(stats?.active ?? 0) };
+    const open = and(carried(userId), eq(tasks.state, "ACTIVE"));
+    const [[stats], overdue] = await Promise.all([
+        tx
+            .select({ active: sql<number>`COUNT(*) FILTER (WHERE ${countable})` })
+            .from(tasks)
+            .where(open),
+        tx
+            .select({ projectId: tasks.projectId, takenBy: tasks.takenBy })
+            .from(tasks)
+            .where(and(open, overdueOn(today, zone))),
+    ]);
+    const shares = await withLoadShares(tx, userId, overdue);
+    return { overdue: shares.reduce((sum, t) => sum + t.share, 0), active: Number(stats?.active ?? 0) };
 }
 
-/** Completions that happened within [since, until], by when they were completed. */
 async function queryCompletedCount(tx: Tx, userId: string, since: string, until: string) {
     const [stats] = await tx
         .select({ cnt: count() })
@@ -194,10 +191,6 @@ async function queryCompletedCount(tx: Tx, userId: string, since: string, until:
     return stats?.cnt ?? 0;
 }
 
-/**
- * Routine days from `since` up to yesterday, as Routines counts them: every due day, done or left open.
- * A skip is a choice, not a miss, so it leaves the denominator; today is still open and counts nowhere.
- */
 async function queryHabitAdherenceRate(tx: Tx, userId: string, since: LocalDate, today: LocalDate, zone: Zone) {
     const yesterday = addDays(today, -1);
     const [routines, logs] = await Promise.all([
@@ -245,64 +238,60 @@ async function queryHabitAdherenceRate(tx: Tx, userId: string, since: LocalDate,
     return { rate: total > 0 ? completed / total : 0, logs: total };
 }
 
-/**
- * Timed minutes that started within [since, until]: the load already carried, not what is planned ahead.
- * A repeating series is one row anchored at its first day, so each of its occurrences in the window counts.
- */
 async function queryScheduleDensity(tx: Tx, userId: string, since: string, until: string, zone: Zone) {
     const timed = and(
-        eq(tasks.userId, userId),
+        carried(userId),
         ne(tasks.state, "ARCHIVED"),
         sql`${tasks.scheduledStart} IS NOT NULL`,
         sql`${tasks.scheduledEnd} IS NOT NULL`,
     );
-    const [stats] = await tx
-        .select({
-            totalMinutes: sql<number>`COALESCE(SUM(EXTRACT(EPOCH FROM (${tasks.scheduledEnd} - ${tasks.scheduledStart})) / 60), 0)`,
-            blocks: count(),
-        })
-        .from(tasks)
-        .where(
-            and(
-                timed,
-                isNull(tasks.recurrenceRule),
-                gte(tasks.scheduledStart, since),
-                lte(tasks.scheduledStart, until),
+    const columns = {
+        projectId: tasks.projectId,
+        takenBy: tasks.takenBy,
+        recurrenceRule: tasks.recurrenceRule,
+        scheduledStart: tasks.scheduledStart,
+        scheduledEnd: tasks.scheduledEnd,
+        zone: tasks.zone,
+    };
+    const [oneOffs, series] = await Promise.all([
+        tx
+            .select(columns)
+            .from(tasks)
+            .where(
+                and(
+                    timed,
+                    isNull(tasks.recurrenceRule),
+                    gte(tasks.scheduledStart, since),
+                    lte(tasks.scheduledStart, until),
+                ),
             ),
-        );
-    const series = await tx
-        .select({
-            recurrenceRule: tasks.recurrenceRule,
-            scheduledStart: tasks.scheduledStart,
-            scheduledEnd: tasks.scheduledEnd,
-            zone: tasks.zone,
-        })
-        .from(tasks)
-        .where(and(timed, sql`${tasks.recurrenceRule} IS NOT NULL`));
-    let totalMinutes = Number(stats?.totalMinutes) || 0;
-    let blocks = stats?.blocks ?? 0;
+        tx
+            .select(columns)
+            .from(tasks)
+            .where(and(timed, sql`${tasks.recurrenceRule} IS NOT NULL`)),
+    ]);
+    let totalMinutes = 0;
+    let blocks = 0;
     const [from, to] = [Date.parse(since), Date.parse(until)];
-    for (const row of series) {
-        const occurrences = expandSeries({
-            rule: row.recurrenceRule!,
-            start: { instant: row.scheduledStart!, end: row.scheduledEnd! },
-            zone: (row.zone as Zone | null) ?? zone,
-            range: { from: dayOf(since, zone), to: dayOf(until, zone) },
-        });
+    for (const row of await withLoadShares(tx, userId, [...oneOffs, ...series])) {
+        if (!row.share) continue;
+        const occurrences = row.recurrenceRule
+            ? expandSeries({
+                  rule: row.recurrenceRule,
+                  start: { instant: row.scheduledStart!, end: row.scheduledEnd! },
+                  zone: (row.zone as Zone | null) ?? zone,
+                  range: { from: dayOf(since, zone), to: dayOf(until, zone) },
+              })
+            : [{ start: row.scheduledStart, end: row.scheduledEnd }];
         for (const { start, end } of occurrences) {
             if (!start || !end || Date.parse(start) < from || Date.parse(start) > to) continue;
-            totalMinutes += (Date.parse(end) - Date.parse(start)) / 60_000;
+            totalMinutes += ((Date.parse(end) - Date.parse(start)) / 60_000) * row.share;
             blocks++;
         }
     }
     return { minutesPerDay: totalMinutes / 7, blocks };
 }
 
-/**
- * The heuristic load score from whichever signals actually have evidence. A signal with no
- * rows is unknown and adds nothing; with no evidence at all the score itself is unknown
- * (null) — a new account has no purported stress state.
- */
 function computeBurnoutIndex(signals: {
     rescheduleVelocity: number | null;
     overdueCarryLoad: number | null;

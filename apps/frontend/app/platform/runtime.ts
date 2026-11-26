@@ -9,7 +9,6 @@ export interface AvailableAppUpdate {
     version: string;
     date?: string;
     body?: string;
-    /** Downloads, then installs and restarts. `onProgress` gets 0–100, or null while the size is unknown. */
     install: (onProgress?: (percent: number | null) => void) => Promise<void>;
 }
 
@@ -17,9 +16,7 @@ export interface PlatformNotification {
     title: string;
     body?: string;
     icon?: string;
-    /** Same-origin path a tap opens. */
     route?: string;
-    /** Notifications sharing a tag replace each other, so a local alert and a pushed one never stack. */
     tag?: string;
 }
 
@@ -33,7 +30,6 @@ interface PlatformRuntime {
     target: RuntimeTarget;
     getNotificationPermission: () => Promise<NotificationPermissionState>;
     requestNotificationPermission: () => Promise<NotificationPermissionState>;
-    /** Resolves once the notification was handed to the browser/OS (not proof it was seen); throws if it could not be. */
     sendNotification: (notification: PlatformNotification) => Promise<void>;
     openExternalUrl: (url: string) => Promise<void>;
     getAuthCallbackUrl: (redirectTo?: string) => string;
@@ -65,7 +61,6 @@ const loadPlatformRuntime = (() => {
 
 export const IS_DESKTOP_RUNTIME = RUNTIME_TARGET === "desktop";
 
-/** An auth callback's params: the query, plus any the provider put in the hash (the query wins). */
 export function mergedCallbackParams(location: { search: string; hash: string }): URLSearchParams {
     const params = new URLSearchParams(location.search);
     const hash = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
@@ -98,12 +93,10 @@ export function normalizeRedirectTo(value?: string | null): string {
     }
 }
 
-/** Starts loading the platform adapter, so a later tap can call it without waiting on an import (a permission prompt must run inside the tap). */
 export function warmPlatformRuntime(): void {
     void loadPlatformRuntime();
 }
 
-/** One runtime method, callable before the adapter has loaded. */
 const call = <K extends keyof PlatformRuntime>(key: K) =>
     (async (...args: unknown[]) =>
         ((await loadPlatformRuntime())[key] as (...a: unknown[]) => unknown)(...args)) as PlatformRuntime[K];
@@ -135,24 +128,20 @@ export const getCurrentAuthCallback = call("getCurrentAuthCallback");
 export const listenForAuthCallback = call("listenForAuthCallback");
 export const beginSocialSignIn = call("beginSocialSignIn");
 export const beginSocialLink = call("beginSocialLink");
-/** Opens a URL in the system browser (desktop) or a new tab (web). */
 export const openExternalUrl = call("openExternalUrl");
 export const platformFetch = call("platformFetch");
 export const checkForAppUpdate = call("checkForAppUpdate");
 export const getNativeStore = call("getNativeStore");
 
-/** True inside a Tauri window of the desktop build. */
 export function hasDesktopWindow(): boolean {
     return IS_DESKTOP_RUNTIME && typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-/** The named native store inside a Tauri window; null otherwise or when it fails to load. */
 export async function getDesktopStore(storeName: string): Promise<NativeStoreAdapter | null> {
     if (!hasDesktopWindow()) return null;
     return getNativeStore(storeName).catch(() => null);
 }
 
-/** `localStorage`, or null outside a browser. */
 export function getWebStorage(): Storage | null {
     return typeof window !== "undefined" && typeof window.localStorage !== "undefined" ? window.localStorage : null;
 }

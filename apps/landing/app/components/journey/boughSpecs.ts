@@ -3,31 +3,19 @@ import type { Pt } from "~/lib/geometry";
 
 import type { FoliageKind } from "./Foliage";
 
-/* The journey bough's authored segments (see BoughSegment): plain data, cheap enough to ship. */
-
 export const W = 1000;
-/** Every segment is timed on this clock; journey.css maps it onto the section's scroll. */
 export const CLOCK = 2000;
-/** A chapter is one screen: words beside a panel, the bough between. */
 const CHAPTER_H = 640;
 
-/** Chapter keys are drawn on a 900-unit box and fitted to the chapter's height; 0 and 900 land exactly on the joints. */
 const fit = (keys: readonly Pt[]): Pt[] => keys.map(([x, y]) => [x, Math.round((y * CHAPTER_H) / 900)] as const);
 
 type SegmentSpec = Pick<
     BoughSpec,
     "id" | "seed" | "keys" | "w0" | "wEnd" | "forks" | "joint" | "bloomShare" | "clusterSize"
 > & {
-    /** viewBox height; the section's aspect is 1000 / h. */
     h: number;
 };
 
-/**
- * A chapter's forks, by the side its words take (1 turns off the falling limb to the left, -1 to the right).
- * The words hold x 0–444 (or 556–1000) over y ≈ 170–500, so the long gestures reach the panel's side, where
- * they show above its top and pass behind it; on the words' side only a short twig above them and a strand
- * weeping below them, and nothing crosses a line of text.
- */
 const chapterForks = (words: 1 | -1, lean = 0): BoughSpec["forks"] => {
     const panel = -words as 1 | -1;
     return [
@@ -50,16 +38,12 @@ const chapterForks = (words: 1 | -1, lean = 0): BoughSpec["forks"] => {
 };
 
 export const SEGMENTS = {
-    // Enters from the right screen edge under the statement and arcs down into the centre gutter.
     prelude: {
         id: "js-prelude",
         seed: 601,
         h: 720,
         w0: 16,
         wEnd: 14.5,
-        // One long diagonal from the top right (where the hero's right bough hangs) into the joint: it falls about
-        // as fast as it travels, so the growth keeps pace with the scroll instead of shooting across a near-level
-        // stretch. It keeps right of the statement (x ≤ 865, y 50–290 at narrow desktops) until it is below it.
         keys: [
             [1600, 30],
             [1380, 110],
@@ -81,7 +65,6 @@ export const SEGMENTS = {
         ],
         bloomShare: 0.5,
     },
-    // Enters from the right after the mobile statement, then settles into the left gutter joint.
     "prelude-mobile": {
         id: "js-prelude-mobile",
         seed: 607,
@@ -107,7 +90,6 @@ export const SEGMENTS = {
         ],
         bloomShare: 0.5,
     },
-    // Panel right: a twig reaches left over the words, a strand weeps behind the panel's corner.
     spring: {
         id: "js-spring",
         seed: 613,
@@ -127,7 +109,6 @@ export const SEGMENTS = {
         forks: chapterForks(1),
         bloomShare: 0.5,
     },
-    // Panel left: the same gesture mirrored (never flipped: its own keys and seed).
     summer: {
         id: "js-summer",
         seed: 727,
@@ -166,17 +147,12 @@ export const SEGMENTS = {
         forks: chapterForks(1, -4),
         bloomShare: 0.5,
     },
-    // Emilie, the one tall chapter: the limb swings wide of her centred words, then falls behind her stage.
     emilie: {
         id: "js-emilie",
         seed: 911,
         h: 900,
         w0: 10,
         wEnd: 9,
-        // Her words hold x 205–850, y 130–400 (wider at narrow desktops, where the glints wrap); the stage's
-        // panel starts below them at x 418, and her sigil's ring (centre 192, 640; radius ≈ 116) left of it. The
-        // limb parts above the eyebrow: it swings right round the words and falls behind the panel; its twin
-        // (held on authored points) swings left, comes down to the ring and starts to wrap its left side (short of its foot: at narrow desktops the words wrap and the stage sits ~40 lower).
         keys: [
             [500, 0],
             [500, 40],
@@ -221,7 +197,6 @@ export const SEGMENTS = {
         ],
         bloomShare: 0.4,
     },
-    // Winter is bare: lit buds only, no blossom.
     winter: {
         id: "js-winter",
         seed: 953,
@@ -239,10 +214,8 @@ export const SEGMENTS = {
             [500, 900],
         ]),
         forks: chapterForks(-1, -2),
-        // Bare wood, and what it carries is ice, not blossom (the kind below)
         bloomShare: 0.35,
     },
-    // Today, the lantern-lit night before spring: panel right, so the limb leans as spring's did.
     today: {
         id: "js-today",
         seed: 967,
@@ -283,7 +256,6 @@ export const SEGMENTS = {
         ],
         bloomShare: 0,
     },
-    // The crown: the limb opens into four long arcing limbs wider than the column, every tip in bloom.
     finale: {
         id: "js-finale",
         seed: 991,
@@ -353,7 +325,6 @@ export const SEGMENTS = {
         bloomShare: 1,
         clusterSize: [4, 7],
     },
-    // A winding continuation, with uneven long limbs and seeded twigs reaching above and below it.
     "finale-mobile": {
         id: "js-finale-mobile",
         seed: 997,
@@ -406,13 +377,11 @@ export const SEGMENTS = {
 export type SegmentName = keyof typeof SEGMENTS;
 
 export const FEATURES = ["spring", "summer", "autumn", "emilie", "winter", "today", "constellation"] as const;
-/** The last feature runs straight down its own (left) side into the crown, so it draws no crossing. */
 export const LAST_FEATURE = FEATURES[FEATURES.length - 1];
 export type FeatureName = (typeof FEATURES)[number];
 export const mobileBoughSide = (name: SegmentName) =>
     FEATURES.indexOf(name as FeatureName) % 2 === 1 ? "right" : "left";
 
-/** What each segment's tips carry. The seasons are read from the foliage first, and the colour only follows. */
 export const FOLIAGE: Record<SegmentName, FoliageKind> = {
     prelude: "ume",
     "prelude-mobile": "ume",

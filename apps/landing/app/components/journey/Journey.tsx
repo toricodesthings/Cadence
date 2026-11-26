@@ -15,24 +15,11 @@ import { Finale } from "./Finale";
 import { Panel } from "./Panel";
 import { SkyBody } from "./JourneySkyScene";
 
-/*
- * The journey: one year on one weeping bough. Four chapters wear the four
- * seasons (and four of the app's palettes), Emilie keeps the lantern between
- * autumn and winter, Today carries it through the night after winter, and the
- * finale is spring returning. The night deepens as
- * you descend, so what's lit is the content. Everything that moves is bound to
- * scroll in CSS (journey.css). The only JS is one viewport watcher (lib/viewport.ts,
- * not an IntersectionObserver, which would cost every running loop a main-thread
- * frame): it pauses sections that are out of view and, where the browser has no
- * scroll timelines, grows each section's bough once on entry.
- */
-
 const LEAD_SENTENCES = PRELUDE.lead.split(/(?<=\.)\s+/).map((sentence, i, sentences) => ({
     words: sentence.split(" "),
     start: sentences.slice(0, i).reduce((count, previous) => count + previous.split(" ").length, 0),
 }));
 
-/** Sparkles that kindle round "whole year": [left %, top %, delay s]. */
 const YEAR_SPARKS: readonly (readonly [number, number, number])[] = [
     [-5, 8, 0],
     [104, -6, 1.9],
@@ -46,11 +33,7 @@ export function Journey() {
         const root = ref.current;
         if (!root) return;
         const scrubs = CSS.supports("animation-timeline: view()");
-        // Without scroll timelines the boughs grow on a clock; until now they were simply drawn.
         if (!scrubs) root.classList.add("is-live");
-        // The sections, and the mist over the seam: it belongs to no section, and its drift would run on far offscreen.
-        // Loops pause at the screen's edge (a loop off screen falls back to the main thread); a section's bough and
-        // particles are dropped only a quarter screen out, more than any limb overhangs its section, so nothing pops.
         const finale = root.querySelector(".finale");
         const crown = root.querySelector(".finale-crown");
         let stopCrown: (() => void) | undefined;
@@ -60,7 +43,6 @@ export function Journey() {
             if (!scrubs && share >= 0.2) section.classList.add("is-grown");
             if (section === finale && near && !stopCrown && crown) {
                 // The crown lives inside the finale, which the browser skips until it is near (content-visibility).
-                // Measuring it earlier would force the whole finale to lay out during hydration.
                 requestAnimationFrame(() => {
                     stopCrown ??= watchViewport([crown], onSection, { steps: [0.2], margin: 0.25 });
                 });
@@ -71,7 +53,6 @@ export function Journey() {
             onSection,
             { steps: [0.2], margin: 0.25 },
         );
-        // Mobile branches wait for their own area below the text or panel, including each crossing.
         const branches = Array.from(root.querySelectorAll(".prelude-branch, .bough-crossing"));
         const stopBranches = !scrubs
             ? watchViewport(
@@ -82,7 +63,6 @@ export function Journey() {
                   { steps: [0.2] },
               )
             : undefined;
-        // Clips start downloading a screen ahead, so each is ready when its panel arrives, and play only while seen
         const stopClips = watchViewport(
             Array.from(root.querySelectorAll<HTMLVideoElement>(".panel-clip")),
             (el, share, near) => tendClip(el as HTMLVideoElement, near, share > 0),
@@ -102,7 +82,6 @@ export function Journey() {
                 {import.meta.env.SSR ? <SkyBody /> : null}
             </StaticSvg>
             <div className="journey-fade" aria-hidden="true" />
-            {/* The valley's weather over the seam, so the hero's ground and the journey's sky are one night */}
             <div className="journey-mist" aria-hidden="true">
                 <span />
                 <span />
@@ -114,7 +93,6 @@ export function Journey() {
             <div className="jsec prelude" style={cssVars({ "--h": segmentHeight("prelude") })}>
                 <Drift kind="lantern" />
                 <div className="prelude-words">
-                    {/* Lit word by word as it is read (journey.css) */}
                     <p className="prelude-lead font-display">
                         {LEAD_SENTENCES.map(({ words, start }, i) => (
                             <Fragment key={i}>
@@ -149,7 +127,6 @@ export function Journey() {
                                 focusable="false"
                             >
                                 <defs>
-                                    {/* Gold, fading in from the left and brightest where the stroke ends */}
                                     <linearGradient id="prelude-swash" x1="0" x2="1">
                                         <stop offset="0" stopColor="var(--hero-crest)" stopOpacity="0.2" />
                                         <stop offset="0.7" stopColor="var(--hero-crest)" />

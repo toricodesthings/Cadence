@@ -2,10 +2,6 @@ import { useRef } from "react";
 import { applyMarkdownAction, type MarkdownAction } from "../../../lib/notes/markdown-transforms";
 import { cn } from "../../../lib/utils";
 
-/**
- * The exceptional Markdown view (Edit Markdown, or a note the visual editor can't carry whole).
- * Same note session and save rules as visual editing; it just edits the stored text directly.
- */
 export function NoteSourceEditor({
     value,
     onChange,

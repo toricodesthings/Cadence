@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pickHolds, useCaptureComposer } from "../../../app/components/holding/CaptureInput";
 import { Composer } from "../../../app/components/shared/Composer";
 
-// Real parser and real composers: under four parallel zone runs a wait needs more than the 1s default.
 configure({ asyncUtilTimeout: 5000 });
 const { create, process } = vi.hoisted(() => ({ create: vi.fn(), process: vi.fn() }));
 vi.mock("../../../app/hooks/inbox/use-create-inbox-item", () => ({
@@ -75,7 +74,6 @@ describe("Capture composer", () => {
         fireEvent.change(input, { target: { value: "Call Maya tomorrow" } });
         fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
         await screen.findByRole("alert");
-        // The alert can render a beat before the failed save settles; a retry inside it is ignored, as it should be.
         await waitFor(() => expect(input.readOnly).toBe(false));
         fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
         await waitFor(() => expect(input.value).toBe(""));
@@ -91,7 +89,6 @@ describe("Capture composer", () => {
         fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
         await waitFor(() => expect(process).toHaveBeenCalled());
         expect(process.mock.calls[0][0]).toMatchObject({ title: "Call Maya", priority: 3, nlp: { resolved: true } });
-        // Never shown as a thought on its way to being a task.
         expect(create.mock.calls[0][0]).toMatchObject({ placing: true });
         expect(process.mock.calls[0][0].dueDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });

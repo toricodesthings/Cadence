@@ -12,7 +12,6 @@ interface Bar {
     clippedEnd: boolean;
 }
 
-/** Pack bars first, then fill each day's free cells. Overflow is local to that day. */
 export function buildAllDayWeekLayout(weekDates: LocalDate[], tasksByDate: Record<string, Task[]>) {
     const column = new Map(weekDates.map((day, index) => [day, index]));
     const seen = new Set<string>();

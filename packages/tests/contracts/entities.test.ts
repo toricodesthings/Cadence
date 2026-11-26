@@ -1,12 +1,3 @@
-/**
- * The small CRUD contracts (tags, projects, sections, subtasks, inbox, notes)
- * share two promises that every client relies on, so they are checked here as
- * tables rather than once per module:
- *
- * 1. Size limits are part of the API. Changing one is a breaking change.
- * 2. Update schemas carry ONLY the fields that were sent. A default leaking
- *    through `.partial()` would silently overwrite untouched columns.
- */
 import { describe, expect, it } from "vitest";
 import type { z } from "zod";
 import { updateHabitSchema } from "@cadence/contracts/habit";

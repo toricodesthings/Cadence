@@ -21,7 +21,6 @@ function SectionPill({ id, projectId }: { id: string; projectId?: string | null 
     );
 }
 
-/** Shared by creation and update cards; fetch names even when the list hasn't been opened. */
 export function TaskDestination({ projectId, sectionId }: { projectId?: string | null; sectionId?: string | null }) {
     return (
         <>

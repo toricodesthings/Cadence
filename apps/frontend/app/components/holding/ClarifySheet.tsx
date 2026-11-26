@@ -53,9 +53,7 @@ export function ClarifySheet({
     const { data: projects = [] } = useEditableProjects();
     const { guard: guardSharedMove, dialog: sharedMoveDialog } = useMoveToSharedGuard("capture");
     const stored = overridesOf(item);
-    // Read once: a suggestion that arrives after the sheet is open never changes a field under the user.
     const [suggestion] = useState(() => storedSuggestion(item));
-    // The priority their own words stated, read by the model; × declines it for this placing.
     const [wordsPriority, setWordsPriority] = useState(() => priorityFromWords(item));
     const dismissed = (item.analysis?.dismissedEntityIds ?? []) as string[];
     const parse = useThoughtParse(item.rawText, dismissed);
@@ -64,7 +62,6 @@ export function ClarifySheet({
     const projectId = placement?.projectId ?? null;
     const suggested = stored.projectId === undefined && !parse.projectId && suggestion !== null;
     const { data: sections = [] } = useSections(projectId);
-    // A section only counts inside the chosen list.
     const sectionId = sections.some((section) => section.id === placement?.sectionId) ? placement!.sectionId : null;
     const tagIds = stored.tagIds ?? parse.tagIds;
     const { lightest } = useWeekLoad(today());
@@ -88,7 +85,6 @@ export function ClarifySheet({
             tagIds,
             priority: parse.priority ?? (wordsPriority || undefined),
             durationEstimate: parse.durationMinutes,
-            // A picked schedule: an all-day day (or a span's first day) or a timed block; else a placement; else none.
             ...(useCustom
                 ? {
                       scheduledDay: schedule.scheduledStart ? undefined : schedule.dueDate,
@@ -98,7 +94,7 @@ export function ClarifySheet({
                   }
                 : when
                   ? placeFields(when)
-                  : { dueDate: null, scheduledStart: null, scheduledEnd: null }), // explicit nulls: the server must not infer a day from the text
+                  : { dueDate: null, scheduledStart: null, scheduledEnd: null }),
             waitingOn: parse.waitingOn,
             reminderAt: parse.fields.reminderAt,
             notBefore: parse.fields.notBefore,
@@ -147,7 +143,6 @@ export function ClarifySheet({
                     <DraftRow
                         applied={parse.applied}
                         suggestions={[]}
-                        // When, List and Tags show these below; the row covers what has no field of its own.
                         shownElsewhere={["due_date", "scheduled_start", "project", "tag"]}
                         literal={false}
                         onDismiss={(id) =>
@@ -202,7 +197,6 @@ export function ClarifySheet({
                             <ValueSelect
                                 label="List"
                                 value={projectId ?? ""}
-                                // A section belongs to its list: changing the list clears it.
                                 onChange={(id) => save({ projectId: id || null, sectionId: null })}
                                 options={[
                                     { value: "", label: "None" },

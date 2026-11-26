@@ -20,7 +20,6 @@ export function isSharedEvent(event: Partial<Pick<SharedEvent, "access" | "membe
     return (event.access ?? "owner") !== "owner" || (event.members?.length ?? 0) > 0;
 }
 
-/** People on a shared event (owner + members). Fetches only when the event is shared. */
 export function useEventPeople(
     event: (Pick<SharedEvent, "id"> & Partial<Pick<SharedEvent, "access" | "members">>) | undefined,
 ) {
@@ -76,7 +75,6 @@ export function useRemoveFromEvent() {
     });
 }
 
-/** A member removes a shared date from their own events, with an undo window before the server hears. */
 export function useRemoveFromMyEvents() {
     const client = useApiClient();
     const queryClient = useQueryClient();

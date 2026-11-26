@@ -2,10 +2,6 @@ import { reorderWrites } from "@cadence/domain/ordering";
 import type { TaskSection } from "@cadence/contracts/section";
 import { useUpdateSection } from "./use-sections";
 
-/**
- * Move a list's sections: to a place (a drop) or one step (a menu's Move up/down). `sections` come in
- * their saved order; each write is optimistic and offline-safe, and the list re-sorts itself.
- */
 export function useSectionReorder(projectId: string | null | undefined, sections: TaskSection[]) {
     const update = useUpdateSection(projectId);
     const moveTo = (id: string, to: number) => {

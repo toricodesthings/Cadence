@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { errorCodeSchema, clientErrorCodeSchema } from "@cadence/contracts/common";
 
-/**
- * Every usage event the API accepts. Names older desktop builds still send stay
- * here even after the web app stops sending them.
- */
 export const USAGE_EVENTS = [
     "capture.opened",
     "capture.submitted",
@@ -56,7 +52,6 @@ export const USAGE_EVENTS = [
     "export.request",
 ] as const;
 
-/** Most events one batch may carry. */
 export const TRACK_BATCH_MAX = 50;
 
 export const trackEventSchema = z.object({
@@ -71,9 +66,6 @@ export const trackBatchSchema = z.object({
 export type TrackEvent = z.infer<typeof trackEventSchema>;
 export type UsageEvent = TrackEvent["event"];
 
-// Fixed dimensions keep browser telemetry private and useful for percentile graphs.
-// `chunks` and `hydrate` are only sent by revision ≤ 2 clients. Revision 3 adds `boot`
-// (navigation → session start) and gives `api` rows their start offset as `elapsed_ms`.
 export const STARTUP_PHASES = [
     "boot",
     "session",
@@ -103,7 +95,6 @@ export const STARTUP_ROUTES = [
     "weekly_reset",
     "other",
 ] as const;
-/** `provisional`: revealed from the saved workspace before the session check answered. */
 export const PERFORMANCE_CACHE_CLASSES = ["warm", "cold", "provisional", "unknown"] as const;
 export const PERFORMANCE_PLATFORMS = ["web", "desktop"] as const;
 export const PERFORMANCE_VIEWPORTS = ["compact", "wide"] as const;
@@ -144,7 +135,6 @@ export const PERFORMANCE_ENDPOINTS = [
 ] as const;
 export const performanceSampleSchema = z
     .object({
-        // Old clients retain their historical timing definitions and an explicit legacy cohort.
         measurement_revision: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(1),
         build_id: z
             .string()
@@ -177,7 +167,6 @@ export const performanceBatchSchema = z
     .strict();
 export type PerformanceSample = z.infer<typeof performanceSampleSchema>;
 
-// No messages, stacks, URLs, user content or arbitrary client fields in error reports.
 export const CLIENT_ERROR_KINDS = ["render", "runtime", "unhandled_rejection", "query", "mutation", "action"] as const;
 export const CLIENT_ERROR_NAMES = [
     "Error",

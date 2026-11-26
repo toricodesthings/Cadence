@@ -4,17 +4,11 @@ import { toast } from "sonner";
 import { extractActionableLines } from "../../lib/notes/markdown-transforms";
 import { useCreateSubtask, useDeleteSubtask } from "./use-subtasks";
 
-/** Completed conversions this session, by task and exact lines: the same batch isn't silently made twice. */
 const converted = new Map<string, string[]>();
-/** Ids chosen for an unfinished attempt, so a retry repeats the same subtasks instead of adding more. */
 const attempts = new Map<string, string[]>();
 
 const signatureOf = (taskId: string, lines: string[]) => `${taskId}\n${lines.join("\n")}`;
 
-/**
- * Turn a note's list lines into subtasks of `taskId`: explicit, previewed by the caller, one submission at a
- * time, retry-safe (stable ids), and undoable. Nothing here runs from typing or ticking a note checkbox.
- */
 export function useNoteSubtasks(taskId: string, body: string) {
     const create = useCreateSubtask(taskId);
     const remove = useDeleteSubtask(taskId);
@@ -54,7 +48,6 @@ export function useNoteSubtasks(taskId: string, body: string) {
                 action: { label: "Undo", onClick: () => undo(ids) },
             });
         } catch {
-            // The mutation already told the user; ids stay so Retry won't duplicate.
         } finally {
             setSubmitting(false);
             bump((n) => n + 1);

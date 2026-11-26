@@ -96,11 +96,11 @@ describe("suggestEffort", () => {
     });
     it("counts an accepted suggestion for less than a direct choice", () => {
         const few = [3, 3, 3].map((l, i) => ev("Class X Lab", l as EffortLevel, 7 + i, { origin: "accepted" }));
-        expect(suggestEffort("Class X Lab", null, few, TODAY)).toBeNull(); // agreeing three times is not yet evidence
+        expect(suggestEffort("Class X Lab", null, few, TODAY)).toBeNull();
         const accepted = [3, 3, 3, 3, 3].map((l, i) =>
             ev("Class X Lab", l as EffortLevel, 7 + i, { origin: "accepted" }),
         );
-        expect(suggestEffort("Class X Lab", null, accepted, TODAY)).toBeNull(); // accepted-only never suggests (D12)
+        expect(suggestEffort("Class X Lab", null, accepted, TODAY)).toBeNull();
         const withOne = [...accepted, ev("Class X Lab", 3, 9)];
         expect(suggestEffort("Class X Lab", null, withOne, TODAY)).toMatchObject({ level: 3 });
         const mixed = [...accepted, ...[1, 1, 1].map((l, i) => ev("Class X Lab", l as EffortLevel, 7 + i))];
@@ -113,7 +113,6 @@ describe("suggestEffort", () => {
     });
 });
 
-/** Synthetic users with chronological holdouts: only earlier choices may inform a later one. */
 describe("evaluation against a modal baseline", () => {
     let seed = 7;
     const rand = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
@@ -132,7 +131,7 @@ describe("evaluation against a modal baseline", () => {
             hits = 0;
         for (let user = 0; user < 40; user++) {
             const before = (1 + Math.floor(rand() * 3)) as EffortLevel;
-            const after = rand() < 0.5 ? before : ((1 + Math.floor(rand() * 3)) as EffortLevel); // some people change
+            const after = rand() < 0.5 ? before : ((1 + Math.floor(rand() * 3)) as EffortLevel);
             const course = `Course${user}`;
             const rows: EffortEvidence[] = [];
             for (let i = 0; i < 12; i++) {
@@ -156,7 +155,6 @@ describe("evaluation against a modal baseline", () => {
                 if (s.kind === "level" && s.level === truth) hits++;
             }
         }
-        // Gates are set from the baseline: at least as good where it speaks, and it must speak on most cases but not all.
         expect(covered / total).toBeGreaterThan(0.5);
         expect(covered / total).toBeLessThan(1);
         expect(mine).toBeGreaterThanOrEqual(baseline);

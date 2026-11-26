@@ -17,8 +17,6 @@ import {
 } from "./boughSpecs";
 import { Foliage } from "./Foliage";
 
-/* The journey bough's drawing: generated and rendered at build time only (BoughSegment wraps it in StaticSvg). */
-
 const BUILT = Object.fromEntries(
     Object.entries(SEGMENTS).map(([name, { h, ...spec }]) => [
         name,
@@ -35,7 +33,6 @@ const BUILT = Object.fromEntries(
     ]),
 ) as Record<SegmentName, Bough>;
 
-/** A separate, aspect-matched crossing below each feature keeps curved wood clear of its content. */
 const CROSSING_KEYS: readonly Pt[] = [
     [0, 0],
     [0, 60],
@@ -77,17 +74,13 @@ const CROSSINGS = Object.fromEntries(
 ) as Record<Exclude<FeatureName, typeof LAST_FEATURE>, Bough>;
 
 const n3 = (v: number) => Math.round(v * 1000) / 1000;
-/** A stretch of the segment's clock, as fractions the CSS turns into a scroll range. */
 const span = (from: number, to: number) => cssVars({ "--t0": n3(from / CLOCK), "--t1": n3(to / CLOCK) });
 const timing = (limb: Limb) => span(limb.start, limb.start + limb.dur);
-/** Joined main limbs meet their neighbours with flat ends, so nothing doubles up at a joint. */
 const cap = (limb: Limb) => (limb.depth === 1 ? "butt" : "round");
-/** The main limb's halo is one width down the whole page, so it never steps at a joint. */
 const MAIN_HALO = 11;
 const WOOD_HEART = "color-mix(in srgb, var(--hero-wood-heart) 75%, var(--hero-wood))";
 const STRAND_HEART = "color-mix(in srgb, var(--hero-wood-heart) 75%, var(--hero-wood-lit))";
 
-/** Match the preceding trunk at the crown's neck, reaching copper before its first fork. */
 const CROWN_JOIN = [
     [
         "grain",
@@ -98,10 +91,8 @@ const CROWN_JOIN = [
     ["heart", "color-mix(in srgb, var(--hero-branch-heart) 75%, var(--hero-branch-wood))", WOOD_HEART],
 ] as const;
 
-/** Vertical tangents and a slight overlap keep joins closed at fractional viewport sizes. */
 const STRAND = "M12,0C12,180 16,360 12,500S12,820 12,1000";
 
-/** Everything a segment's layers share: its ids, limbs and the gutter (fixed-width) rule. */
 function segmentParts({
     name,
     id,
@@ -118,13 +109,10 @@ function segmentParts({
     crown: boolean;
 }) {
     const main = limbs[0];
-    // A main limb that starts at a joint takes its moon rim from the left and a little below: nudged up, the
-    // rim's top edge would bleed through the wood's anti-aliased first row as a light tick across the joint
     const rim = (limb: Limb) =>
         limb.depth === 1 && SEGMENTS[name].keys[0][1] === 0 ? "translate(-1.2 1.2)" : "translate(-1.2 -1.2)";
     const spine = (i: number) => `#${id}-s${i}`;
     const step = (limb: Limb, i: number, k: number) => (limb.steps[k].d === null ? spine(i) : `#${id}-t${i}-${k}`);
-    // The gutter's 5px wood / 2px heart stays the same width at every narrow viewport.
     const gutter = (i: number) => mobile && i === 0;
     const gutterClip = (i: number) => (gutter(i) ? `url(#${id}-gutter)` : undefined);
     return { id, h, limbs, main, mobile, crown, rim, spine, step, gutter, gutterClip };
@@ -137,18 +125,15 @@ function SegmentDefs({ seg, leaf }: { seg: Seg; leaf: Leaf }) {
     const { id, h, limbs, main, mobile, crown, gutter, spine } = seg;
     return (
         <defs>
-            {/* A vertical clip grows fixed-width strokes without SVG's scale-dependent dash/pathLength rounding. */}
             {mobile && (
                 <clipPath id={`${id}-gutter`} clipPathUnits="userSpaceOnUse">
                     <rect className="seg-gutter" x={-W} width={W * 3} height={h} style={timing(main)} />
                 </clipPath>
             )}
-            {/* The halo takes the season over from the section above across its first stretch, so a joint never changes colour at a line */}
             <linearGradient id={`${id}-halo`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2={n1(h * 0.3)}>
                 <stop offset="0" stopColor="var(--ember-prev)" />
                 <stop offset="1" stopColor="var(--hero-ember)" />
             </linearGradient>
-            {/* Lit toward the moon (left), shaded away from it; horizontal only, so segments share it across joints */}
             <linearGradient id={`${id}-grain`} gradientUnits="userSpaceOnUse" x1="400" y1="0" x2="600" y2="0">
                 <stop offset="0" stopColor="var(--hero-wood-lit)" />
                 <stop offset="1" stopColor="var(--hero-wood)" />
@@ -182,7 +167,6 @@ function SegmentDefs({ seg, leaf }: { seg: Seg; leaf: Leaf }) {
             <Foliage id={`${id}-ume`} kind={leaf} />
             {limbs.map((limb, i) => (
                 <Fragment key={i}>
-                    {/* vector-effect belongs on the referenced path: it does not inherit through <use>. */}
                     <path
                         id={`${id}-s${i}`}
                         d={limb.spine}
@@ -227,7 +211,6 @@ function HaloStrokes({ seg }: { seg: Seg }) {
     const { id, limbs, mobile, gutter, gutterClip, spine } = seg;
     return (
         <>
-            {/* Halo: two faint, wide strokes of ember along every spine */}
             <g fill="none" stroke={`url(#${id}-halo)`}>
                 {(mobile
                     ? [[2.6, 0.08]]
@@ -259,14 +242,12 @@ function HaloStrokes({ seg }: { seg: Seg }) {
 
 function Wood({ seg }: { seg: Seg }) {
     const { id, limbs, main, crown, gutter, gutterClip, step, rim } = seg;
-    // Twigs first and the main limb last, so every parent's wood covers its children's bases.
     const order = limbs.map((limb, i) => [limb, i] as const).reverse();
     return (
         <>
             {order.map(([limb, i]) =>
                 limb.outline && !gutter(i) ? (
                     <g key={i} mask={`url(#${id}-m${i})`}>
-                        {/* Moon rim: the outline nudged toward the key light, showing past the wood's upper-left edge */}
                         <use
                             href={`#${id}-o${i}`}
                             fill={crown ? `url(#${id}-join-rim)` : "var(--hero-wood-rim)"}
@@ -318,8 +299,6 @@ function Heart({ seg }: { seg: Seg }) {
     const { id, limbs, main, mobile, crown, gutter, gutterClip, step } = seg;
     return (
         <>
-            {/* Heart: the amber light inside the wood. Opaque (pre-mixed into the wood) with round ends, so where two
-          segments' hearts overlap at a joint there is no brighter spot and no anti-aliased seam */}
             <g
                 fill="none"
                 stroke={crown ? `url(#${id}-join-heart)` : mobile ? STRAND_HEART : WOOD_HEART}
@@ -358,7 +337,6 @@ export function SegmentDrawing({ name, crossing = false }: { name: SegmentName; 
 
     return (
         <>
-            {/* Top-aligned: if a section's words ever outgrow its aspect, the joint above still holds */}
             <svg
                 className="bough-seg"
                 viewBox={viewBox}
@@ -393,7 +371,6 @@ export function SegmentDrawing({ name, crossing = false }: { name: SegmentName; 
                     </g>
                 ))}
 
-                {/* The lantern leading the reader: an ember riding the growth front (omitted without motion-path support) */}
                 {!mobile && (
                     <g
                         className="seg-ember"

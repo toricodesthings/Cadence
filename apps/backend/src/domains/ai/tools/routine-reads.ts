@@ -1,4 +1,3 @@
-/** The bounded routine rows shared by schedule and status projections. */
 import type { Tx } from "../../../types/db";
 import { habitOccurrences, isPausedOn } from "@cadence/domain/repeats";
 import type { Zone } from "@cadence/domain/time";
@@ -29,7 +28,6 @@ export async function readSnapshotRoutines(tx: Tx, userId: string, zone?: Zone) 
 
 export type SnapshotRoutineReader = (tx: Tx) => Promise<Awaited<ReturnType<typeof readSnapshotRoutines>>>;
 
-/** Routines with the days they're due in [from, to], skipping paused days and other people's turns; none due → left out. */
 export function routinesDue(
     rows: {
         id: string;
@@ -72,7 +70,6 @@ export function routinesDue(
                         timeZone as Zone,
                     ) === row.callerId),
         );
-        // A routine at set times reports them instead of one usual time.
         return days.length
             ? [
                   {

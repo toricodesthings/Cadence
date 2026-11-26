@@ -6,7 +6,6 @@ import { resolveWebsite } from "../../platform/app-links";
 const quote = (text: string | undefined | null) =>
     text ? `“${text.length > 60 ? `${text.slice(0, 57)}…` : text}”` : "";
 const LINK_KEYS = new Set(["linkedAppId", "linkedUrl", "expectedUpdatedAt"]);
-/** "App: Gmail" / "Website: example.com" for a change that only sets what it opens, never the stored id or full address. */
 const appChange = (payload: Record<string, unknown>): string | null => {
     if (
         !("linkedAppId" in payload || "linkedUrl" in payload) ||
@@ -20,10 +19,6 @@ const appChange = (payload: Record<string, unknown>): string | null => {
 };
 const plural = (count: number, one: string) => `${count} ${one}${count === 1 ? "" : "s"}`;
 
-/**
- * A queued change in plain words ("Complete “Pay rent”"), for the sync review.
- * `titleOf` looks up a task or routine name the cache still holds.
- */
 export function describeChange(op: MutationOp, titleOf: (id: string) => string | undefined): string {
     const task = (id: string) => quote(titleOf(id)) || "a task";
     switch (op.type) {

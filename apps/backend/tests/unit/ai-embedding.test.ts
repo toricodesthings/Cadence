@@ -16,7 +16,6 @@ import { embedText, embedTexts } from "../../src/domains/ai/memory/embedding";
 
 const env = {} as Env;
 
-/** An embedding model that returns one `dims`-long vector per value. */
 function embeddingModel(dims: number) {
     const model = new MockEmbeddingModelV4({
         doEmbed: async ({ values }) => ({
@@ -38,7 +37,6 @@ describe("embedding", () => {
 
         expect(embedding).toHaveLength(512);
         expect(spend).toMatchObject({ inputTokens: 7, costUsd: 0.00002 });
-        // extraBody lands in the /embeddings body; require_parameters keeps OpenRouter off upstreams that ignore it.
         expect(provider.settings).toMatchObject({
             extraBody: { dimensions: 512 },
             provider: { require_parameters: true },

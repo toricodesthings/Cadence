@@ -1,10 +1,3 @@
-/**
- * Coordinated color palette definitions.
- *
- * Each palette is a hand-curated set of harmonious colors tuned for both
- * Twilight (dark) and Daylight (light) surfaces. The CSS tokens are applied
- * via `[data-palette="..."]` attributes on `<html>`.
- */
 import { PALETTE_IDS } from "@cadence/contracts/settings";
 
 export type PaletteId = (typeof PALETTE_IDS)[number];

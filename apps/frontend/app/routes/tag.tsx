@@ -27,7 +27,6 @@ import { resolveTagColor } from "../lib/utils/color-resolver";
 import type { Task } from "@cadence/contracts/task";
 import { ClaimHeaderMenu, LayoutScaleMenuRow } from "../components/layout/LayoutScaleMenu";
 
-/** The orb's direct add: every task made here carries this tag. */
 function TagTaskSheet({
     open,
     onClose,
@@ -58,11 +57,6 @@ function TagTaskSheet({
     );
 }
 
-/**
- * A tag as a place (phones reach it from the workspace menu, a task's tag chip
- * or a `?tag=` link). Same skeleton as a project, but flat: no sections, no
- * kanban, no manual order — tags label work, they don't organise it.
- */
 export default function TagView() {
     const { tagId = "" } = useParams();
     const navigate = useNavigate();

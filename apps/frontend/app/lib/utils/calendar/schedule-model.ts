@@ -17,7 +17,6 @@ export function applyCalendarClutterFilters(tasks: Task[], clutter: UserSettings
     });
 }
 
-/** What a task write carries to put the task back as it was. */
 export const temporalOf = (task: Task) => ({
     dueDate: task.dueDate,
     endDate: task.endDate,
@@ -26,7 +25,6 @@ export const temporalOf = (task: Task) => ({
     zone: task.zone,
 });
 
-/** A day-keyed record of tasks, one entry per day each task shows on. */
 export const recordByDay = (tasks: Task[]): Record<LocalDate, Task[]> => Object.fromEntries(groupByDate(tasks));
 
 export function isCalendarViewModeValue(value: string | null): value is CalendarViewMode {

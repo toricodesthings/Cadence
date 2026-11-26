@@ -12,8 +12,6 @@ import { useAssistantStore } from "../../stores/assistant-store";
 import { useUtilityNavigation } from "../../hooks/ui/use-utility-navigation";
 import { useLensScrub } from "../../hooks/ui/use-lens-scrub";
 
-// Today, Upcoming and Projects live in the Capture page's workspace menu, so
-// the dock keeps the four surfaces you switch between, not the ones you filter.
 const TABS = [
     { to: "/", label: "Capture", icon: Inbox },
     { to: "/schedule", label: "Schedule", icon: Calendar },
@@ -29,7 +27,6 @@ export function MobileTabBar() {
     const primary = TABS.slice(0, -1).some((tab) => tab.to === pathname);
     const activeIndex = TABS.findIndex((tab) => pathname === tab.to || (tab.to === "/browse" && !primary));
     const navigate = useNavigate();
-    // The lens is the active indicator: it glides on a route change, and on touch scrubs under the finger.
     const { trackRef, lens, handlers, hoverIndex, held } = useLensScrub({
         activeIndex,
         onCommit: (i) => navigate(TABS[i].to),
@@ -78,6 +75,7 @@ export function MobileTabBar() {
                         <Tip key={to} label={label} side="top">
                             <Link
                                 to={to}
+                                prefetch="intent"
                                 data-lens-item
                                 aria-current={active ? "page" : undefined}
                                 aria-label={

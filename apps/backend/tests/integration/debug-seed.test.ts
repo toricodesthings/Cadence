@@ -1,4 +1,3 @@
-/** The debug seed runs clean, and its AI showcase thread fires every assistant tool (add new tools there). */
 import { beforeAll, expect, it, vi } from "vitest";
 import { asOwner, createUser, getTestDb, startTestDb } from "../helpers/db";
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
@@ -45,7 +44,7 @@ it("seeds days as days and timed blocks as instants planned in the user's zone",
     const timed = rows.filter((r) => r.scheduled_start);
     expect(rows.some((r) => r.due_on)).toBe(true);
     expect(timed.length).toBeGreaterThan(0);
-    expect(timed.every((r) => r.zone === "UTC")).toBe(true); // the seeded user's own zone
+    expect(timed.every((r) => r.zone === "UTC")).toBe(true);
     expect(rows.filter((r) => r.hidden_until).every((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.hidden_until!))).toBe(true);
     expect((await asOwner((pg) => pg.query("SELECT time_zone FROM users WHERE id = $1", [userId]))).rows[0]).toEqual({
         time_zone: "UTC",

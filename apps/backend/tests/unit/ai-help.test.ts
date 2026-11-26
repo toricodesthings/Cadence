@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { HELP_TOPICS, helpTools } from "../../src/domains/ai/tools/help";
 import { PROMPT_BLOCKS } from "../../src/domains/ai/prompt/prompt-blocks";
 
-// Mirrors the frontend's routes.ts and SettingsContent TabId; a link outside these is a dead end.
 const ROUTES = [
     "/",
     "/today",

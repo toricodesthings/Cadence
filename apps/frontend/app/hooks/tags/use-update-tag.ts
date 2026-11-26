@@ -6,7 +6,6 @@ import { tagCache } from "./optimistic-helpers";
 import { toastError } from "../../lib/utils/error-toast";
 import { wasQueued, withOfflineSupport } from "../../lib/api/offline-mutation";
 
-/** Rename or recolour a tag, optimistically in place */
 export function useUpdateTag() {
     const client = useApiClient();
     const queryClient = useQueryClient();

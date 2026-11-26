@@ -8,14 +8,12 @@ import { useShellMode } from "../../hooks/ui/use-shell-mode";
 
 type SkyStyle = CSSProperties & { "--sky-warmth": string };
 
-/** The greeting, its tinted name, the part of the day, adaptive sky warmth, and weather once in (never a spinner or error). */
 function useGreeting() {
     const { session } = useAuthState();
     const { weather, status } = useWeather();
     const now = useMinuteClock();
     const name = session?.user?.name?.trim().split(/\s+/)[0];
     const greeting = getTimeBasedGreeting(now, name);
-    // The name always ends the greeting; tint just that.
     const named = Boolean(name && greeting.endsWith(name));
     const text = (
         <>
@@ -30,10 +28,6 @@ function useGreeting() {
     return { text, period, weather: readyWeather, weatherStatus: status, skyStyle };
 }
 
-/**
- * One quiet line over Capture's field (desktop): a greeting and, once it's in, the weather. Quieter than the
- * field's own prompt. Phones drop the condition word; the icon and temperature carry it.
- */
 export function CaptureGreeting({ className = "" }: { className?: string }) {
     const { text, weather, skyStyle } = useGreeting();
     return (
@@ -61,19 +55,10 @@ export function CaptureGreeting({ className = "" }: { className?: string }) {
     );
 }
 
-/**
- * Capture's window: the greeting in display type beside or beneath a soft sky tinted across a continuous
- * theme-adaptive spectrum (accent for hot/sunny/daytime → calm for cold/rainy/night).
- * - `band`: tops a touch feed with new thoughts and scrolls away with it.
- * - `empty`: fills New on touch when only New is empty.
- * - `clear`: Row view's open vertical all-clear empty state (when Capture is completely empty).
- * - `board-clear`: Board view's distinct wide horizontal all-clear state inside a subtle board canvas frame.
- */
 export function CaptureWindow({ variant }: { variant: "band" | "empty" | "clear" | "board-clear" }) {
     const { text, period, weather, weatherStatus, skyStyle } = useGreeting();
     const { isPhone } = useShellMode();
     if (variant === "clear" || variant === "board-clear") {
-        // Phone: no canvas frame in either view, just the open all-clear filling the page.
         const boardClear = variant === "board-clear" && !isPhone;
         const showSkyWeather = Boolean(weather) || weatherStatus === "loading";
         const clearSky = (

@@ -48,13 +48,9 @@ interface TaskCardProps {
     isDropTarget?: boolean;
     onSelect?: (id: string) => void;
     variant?: "list" | "board";
-    /** Simplify context menu and reduce metadata for Holding route */
     holdingContext?: boolean;
-    /** True when rendered inside the task's own list page (shows avatar only, without the shared Users glyph). */
     inList?: boolean;
-    /** Optional smart-sort rationale label */
     rationaleLabel?: string | null;
-    /** dnd-kit drag handle props — scopes drag to an explicit grip handle */
     dragHandleProps?: {
         ref: (node: HTMLElement | null) => void;
         listeners: DraggableSyntheticListeners;
@@ -62,7 +58,6 @@ interface TaskCardProps {
     };
 }
 
-/** Priority bar CSS var classes — references CSS custom properties set in app.css */
 const PRIORITY_BAR_CLASS: Record<number, string> = {
     0: "",
     1: "bg-[var(--color-priority-low)]",
@@ -71,7 +66,6 @@ const PRIORITY_BAR_CLASS: Record<number, string> = {
     4: "bg-[var(--color-priority-urgent)] priority-urgent-bar",
 };
 
-/** Priority background tint (very subtle) */
 const PRIORITY_BG_CLASS: Record<number, string> = {
     0: "",
     1: "",
@@ -80,7 +74,6 @@ const PRIORITY_BG_CLASS: Record<number, string> = {
     4: "[--row-wash:color-mix(in_srgb,var(--color-priority-urgent)_3%,transparent)]",
 };
 
-/** Board titles keep clear of the corner cluster: the ⋮, plus room for each of shared and pinned. */
 const BOARD_TITLE_CLEAR = ["pr-5 pointer-coarse:pr-6", "pr-12 pointer-coarse:pr-14", "pr-18 pointer-coarse:pr-20"];
 
 const PASSIVE_TIMETABLE_CARD_CLASS =
@@ -105,7 +98,6 @@ type ScheduleSummary = ReturnType<typeof getTaskScheduleSummary>;
 
 type PrimaryCue = { icon: LucideIcon; label: string; className: string };
 
-/** The one line a card leads with: when it happens, else who it waits on, else that it repeats. */
 function primaryCueOf(task: Task, scheduleSummary: ScheduleSummary, isPassiveTimetable: boolean): PrimaryCue | null {
     const scheduleLabel = scheduleSummary.primaryLabel;
     if (scheduleLabel) {
@@ -125,7 +117,6 @@ function primaryCueOf(task: Task, scheduleSummary: ScheduleSummary, isPassiveTim
     return task.recurrenceRule ? { icon: Repeat, label: "Repeating task", className: "text-twilight-text-soft" } : null;
 }
 
-/** One chip for the tags: the first one's name (or how many), in its tone, with up to two dots. */
 function tagSignal(tags: Tag[]): CollapsedSignal | null {
     if (tags.length === 0) return null;
     const primaryTagTone = getTagTone(tags[0]);
@@ -143,7 +134,6 @@ function tagSignal(tags: Tag[]): CollapsedSignal | null {
     };
 }
 
-/** Reminders on the task: a waiting check-in, and its own reminder (or that it is silenced). */
 function reminderSignals(task: Task): Array<CollapsedSignal | null> {
     return [
         task.waitingReminder
@@ -165,7 +155,6 @@ function reminderSignals(task: Task): Array<CollapsedSignal | null> {
     ];
 }
 
-/** The one line a card leads with, plus the quieter chips under it. */
 function getTaskCues(task: Task, tags: Tag[], scheduleSummary: ScheduleSummary, isPassiveTimetable: boolean) {
     const scheduleLabel = scheduleSummary.primaryLabel;
     const primaryCue = primaryCueOf(task, scheduleSummary, isPassiveTimetable);
@@ -211,7 +200,6 @@ function getTaskCues(task: Task, tags: Tag[], scheduleSummary: ScheduleSummary, 
     return { primaryCue, secondarySignals };
 }
 
-/** Presentational task card — composes TaskCheckbox + TaskContextMenu + inline subtasks */
 export function TaskCard({
     task,
     tags = [],
@@ -231,7 +219,6 @@ export function TaskCard({
         inList ??
         (typeof window !== "undefined" &&
             (window.location.pathname.startsWith("/project/") || window.location.pathname.startsWith("/projects/")));
-    // A list you can only view: no check-off, drag or renaming. A shared one shows who made each task.
     const access = useTaskAccess(task);
     const priorityConfig = PRIORITY_CONFIG[task.priority];
     const showUrgentIcon = task.priority >= 3;
@@ -244,7 +231,6 @@ export function TaskCard({
     const subtaskUi = useInlineSubtasks(task.id);
     const subtaskPanelId = useId();
 
-    // Override isSelected if managed by global store
     const isGloballySelected = selectedTaskIds.has(task.id);
     const isTaskSelected = isGloballySelected || isSelected;
 
@@ -266,7 +252,6 @@ export function TaskCard({
     const isCompactCard = !hasCollapsedSupport && !subtaskUi.open && !subtaskUi.adding;
     const subtasksShown = (subtaskUi.open && orderedSubtasks.length > 0) || subtaskUi.adding;
     const isBoardCard = variant === "board";
-    // A box one title line tall (the title text sits 2px into its row); side controls centre on its first line.
     const titleLine = `${COLLECTION_ROW_TITLE} flex h-lh shrink-0 items-center ${isCompactCard ? "" : "mt-0.5 self-start"}`;
 
     const [isRenaming, setIsRenaming] = useState(false);
@@ -326,7 +311,6 @@ export function TaskCard({
                 ${isDragging ? "shadow-[0_18px_46px_rgba(0,0,0,0.32),0_0_24px_color-mix(in_srgb,var(--accent-primary)_8%,transparent)]" : ""}
             `}
         >
-            {/* Priority Bar */}
             {(isPassiveTimetable || task.priority > 0) && (
                 <div
                     className={`absolute left-0 top-3 bottom-3 w-1 rounded-r-full ${isPassiveTimetable ? "bg-moonlit/90" : PRIORITY_BAR_CLASS[task.priority]}`}
@@ -334,7 +318,6 @@ export function TaskCard({
                 />
             )}
 
-            {/* Grip and checkbox sit in boxes one title line tall, so they centre on its first line; their hit areas overflow. */}
             {dragHandleProps && access.canEdit && (
                 <div className={isBoardCard ? "-ml-1 -mr-1.5 flex" : `${titleLine} -ml-2 -mr-1.5`}>
                     <div
@@ -356,7 +339,6 @@ export function TaskCard({
                 </div>
             )}
 
-            {/* With subtasks open the checkbox column stretches so its rail runs down beside them. */}
             <div className={`flex shrink-0 flex-col items-center ${subtasksShown ? "self-stretch" : ""}`}>
                 {isBoardCard ? (
                     <TaskCheckbox task={task} compact />
@@ -370,7 +352,6 @@ export function TaskCard({
 
             {task.origin === "thought" && <ThoughtMark />}
 
-            {/* Content */}
             <div className={`min-w-0 flex-1 ${isCompactCard ? "flex min-h-[2.75rem] items-center" : ""}`}>
                 <div className="flex-1">
                     <button
@@ -383,7 +364,6 @@ export function TaskCard({
                         aria-pressed={isTaskSelected}
                         className={`w-full rounded-2xl text-left cursor-pointer ${isBoardCard ? "p-0" : "p-1 -m-1"}`}
                     >
-                        {/* Board titles (21px line) drop onto the 32px checkbox's centre line, with the grip. */}
                         <div className={`flex items-start gap-2 ${isBoardCard && !isCompactCard ? "pt-[5px]" : ""}`}>
                             {showUrgentIcon ? (
                                 <PriorityIcon
@@ -402,7 +382,6 @@ export function TaskCard({
                             <div className="min-w-0 flex-1">
                                 <span
                                     className={`block line-clamp-2 ${
-                                        // Board cards float the ⋮ over the corner; keep the title clear of it.
                                         isBoardCard
                                             ? `${BOARD_TITLE_CLEAR[Number(access.isShared) + Number(task.isPinned)]} text-[15px] leading-[1.4]`
                                             : COLLECTION_ROW_TITLE
@@ -412,7 +391,6 @@ export function TaskCard({
                                     <PendingMark id={task.id} />
                                 </span>
 
-                                {/* The date reads first; when it's past, only "Past due" carries colour. */}
                                 {primaryCue ? (
                                     <div
                                         className={`mt-1.5 flex min-w-0 items-center gap-1.5 text-[12px] font-medium ${isPastDue ? "text-twilight-text-soft" : primaryCue.className}`}
@@ -494,7 +472,6 @@ export function TaskCard({
                 </div>
             </div>
 
-            {/* Pin, creator and ⋮ sit together: in the top corner on a board, else one title line tall so they centre on its first line. */}
             <div
                 className={
                     isBoardCard
@@ -511,7 +488,6 @@ export function TaskCard({
                     </div>
                 ) : null}
 
-                {/* Context menu — subtly visible, full opacity on hover */}
                 <div
                     data-no-dnd="true"
                     className={`pointer-coarse:opacity-100 opacity-40 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${

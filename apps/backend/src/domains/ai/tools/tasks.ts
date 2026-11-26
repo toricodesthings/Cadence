@@ -70,10 +70,6 @@ import {
     type ScopedBroadcast,
 } from "./shared-guard";
 
-/**
- * The whole filtered candidate set that matches `query`, best match first unless the
- * caller keeps its own sort. Ranked before pagination, never only a recent page.
- */
 function rankBySearch<
     T extends {
         id: string;
@@ -102,13 +98,8 @@ function rankBySearch<
     return rows;
 }
 
-/**
- * The task's list and section names, so the model can match how the user remembers it
- * ("the COMP3005 assignment") and say where it lives, with no extra read.
- */
 export const placeNameColumns = taskPlaceColumns;
 
-/** The task columns every read tool projects. */
 export const taskCoreColumns = {
     ...placeNameColumns,
     id: tasks.id,
@@ -137,20 +128,17 @@ export const taskCoreColumns = {
     updatedAt: tasks.updatedAt,
 } as const;
 
-/** Columns returned by the minimal task projection — selected once, reused. */
 const minimalTaskColumns = {
     ...taskCoreColumns,
     waitingReminder: tasks.waitingReminder,
     notBefore: tasks.notBefore,
 } as const;
 
-/** A task's day in SQL, for ordering: a timed task's start in the user's zone, else its due day. */
 const daySql = (zone: string) =>
     sql`(CASE WHEN ${tasks.scheduledStart} IS NOT NULL THEN (${tasks.scheduledStart} AT TIME ZONE ${zone})::date ELSE ${tasks.dueDate} END)`;
 
 export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
     const track = ctx.waitUntil ?? (() => {});
-    /** One write per tool call (`once`), then its metrics and live broadcast after commit; a replayed call tracks nothing. */
     const write = <T>(
         name: string,
         toolCallId: string,
@@ -186,9 +174,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             }
             return result;
         });
-    /** How much of a note this surface reads (and so may rewrite whole): all of it over MCP. */
     const noteLimit = ctx.rawNotes ? Infinity : NOTE_READ_LIMIT;
-    /** A note as reads return it: capped, fenced in-app (raw over MCP), with its version. */
     const noteView = (noteText: string, version: number) => {
         const shown = noteText.slice(0, noteLimit);
         const nonce = ctx.nonce ?? makeFenceNonce();
@@ -206,10 +192,8 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
     const zone = ctx.timezone;
     const day = daySql(zone);
     const weekStartsOn = ctx.weekStart === "Monday" ? "Monday" : "Sunday";
-    /** Tasks on a day from `from` to `to` (open start: everything up to `to`). A series sits in get_schedule_window, not here. */
     const dayRange = (from: LocalDate | undefined, to: LocalDate) =>
         and(isNull(tasks.recurrenceRule), from ? inDayWindow(from, to, zone) : onOrBefore(to, zone));
-    /** get_tasks' narrowing filters: day window or range, section, tag, priority. */
     const narrowingFilters = (args: {
         dueWindow?: Parameters<typeof resolveDueWindow>[0];
         from?: LocalDate;
@@ -224,7 +208,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             const window = resolveDueWindow(args.dueWindow, ctx.today, weekStartsOn);
             conditions.push(dayRange(window.from, window.to));
         }
-        // One side open is a half-bounded range.
         if (args.from || args.to) conditions.push(dayRange(args.from, args.to ?? "2999-12-31"));
         if (args.sectionId) conditions.push(eq(tasks.sectionId, args.sectionId));
         else if (args.noSection) conditions.push(isNull(tasks.sectionId));
@@ -234,7 +217,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
     };
 
     return {
-        // ── R ──────────────────────────────────────────────────────────────────
         get_tasks: tool({
             description:
                 "The user's tasks, open ones (Active and Waiting) unless a state is given. Filters combine: words, list, section, tag, state, priority, due window (overdue, today, this week, this month) or a day range. " +
@@ -294,16 +276,12 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                     const db = getDbClient(env);
                     let suggestionScope: SQL | undefined;
                     const result = await withRls(db, userId, async (tx) => {
-                        // Reuse the REST filter builder — no copy-pasted WHERE clauses (AGENTS §18).
-                        // Fixed blocks (classes, shifts) aren't to-dos: they pass on their own and can't be
-                        // checked off, so they never belong in a task list. get_schedule_window shows them.
                         const conditions: (SQL | undefined)[] = [
                             ...buildTaskWhereClause(
                                 userId,
                                 {
                                     state: args.state,
                                     projectId: args.projectId,
-                                    // false is "any", like noDate: a model filling every field must not hide pinned tasks.
                                     isPinned: args.pinned || undefined,
                                     hasNoDate: args.missingStructure || args.noDate || undefined,
                                     hasNoProject: args.missingStructure || undefined,
@@ -320,11 +298,9 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             conditions.push(...applied.conditions);
                             view = { name: applied.name };
                             sort ??= applied.sort;
-                            // A view's states replace the open-only default.
                             if (!args.state && !applied.hasStates)
                                 conditions.push(inArray(tasks.state, OPEN_TASK_STATES));
                         } else if (!args.state) {
-                            // Done and Trash only when asked for by name.
                             conditions.push(inArray(tasks.state, OPEN_TASK_STATES));
                         }
                         conditions.push(...narrowingFilters(args));
@@ -344,7 +320,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             .from(tasks)
                             .where(and(...conditions))
                             .orderBy(...order, asc(tasks.id));
-                        // Rank the complete filtered candidate set before pagination; never search only a recent page.
                         const rows = args.query
                             ? rankBySearch(await selection, args.query, !!sort).slice(offset, offset + limit + 1)
                             : await selection.limit(limit + 1).offset(offset);
@@ -380,7 +355,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             ...(more && { more, nextOffset: offset + limit }),
                         };
                     });
-                    // Words matched nothing: one decision call (no transaction open) offers the task they probably meant.
                     if (args.query && offset === 0 && result.count === 0) {
                         const match = await didYouMean(env, userId, args.query, "assistant_search", suggestionScope);
                         if (match) return { ...result, possibleMatch: { id: match.id, title: match.title } };
@@ -389,7 +363,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 }),
         }),
 
-        // ── R ──────────────────────────────────────────────────────────────────
         get_task_detail: tool({
             description:
                 `One task with its subtasks, tags and note. The note shows its first ${NOTE_READ_LIMIT} characters ` +
@@ -434,7 +407,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             .where(eq(taskTags.taskId, taskId))
                             .limit(50);
 
-                        // The notes panel shows task_notes.body, falling back to tasks.content. RLS scopes to own + shared lists.
                         const [noteRow] = await tx
                             .select({ body: taskNotes.body, version: taskNotes.version })
                             .from(taskNotes)
@@ -455,10 +427,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 }),
         }),
 
-        // ── W ──────────────────────────────────────────────────────────────────
-        // Writes execute on the server. Whether a call waits for the user's tap is the
-        // agent's `toolApproval` (safety/approval.ts), never the tool's. The tool call id
-        // keys each write, so a replayed call never writes twice.
         create_tasks: tool({
             description:
                 "Creates 1–20 tasks, each with optional checklist steps, tags (by id or name), a note, a reminder and a hide-until day. " +
@@ -479,7 +447,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                                         ),
                                 })
                                 .refine(
-                                    // null and false set nothing: a model that sends every field sends them for "none".
                                     (d) => !d.inboxItemId || !d.fixed,
                                     "A task from a capture can't be a Fixed block",
                                 ),
@@ -534,7 +501,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             };
                         }
                     }
-                    // Resolve access per distinct destination list and enforce edit role + list room.
                     const accessByList = new Map<string, ListAccess>();
                     for (const d of drafts) {
                         if (d.projectId && !accessByList.has(d.projectId)) {
@@ -544,7 +510,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             accessByList.set(d.projectId, access);
                         }
                     }
-                    // One lookup for every draft's tag names, so two drafts never make the same tag twice.
                     const named = await tagIdsByName(
                         tx,
                         drafts.flatMap((draft) => draft.tagNames ?? []),
@@ -595,7 +560,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             inboxItemId,
                             {
                                 ...fields,
-                                // Explicit nulls: the capture's own words never add a date, list or tags.
                                 dueDate: fields.dueDate ?? null,
                                 scheduledStart: fields.scheduledStart ?? null,
                                 scheduledEnd: fields.scheduledEnd ?? null,
@@ -612,7 +576,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             liveChanges.push({ type: "task", task: broadcast });
                         }
                     }
-                    // Every create writes orderIndex 0: place the batch per list, in draft order.
                     const placement = to
                         ? { to }
                         : beforeTaskId
@@ -629,7 +592,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         const ownerId = (projectId ? accessByList.get(projectId)?.ownerId : undefined) ?? userId;
                         await reorderTasks(tx, ownerId, ids, placement);
                     }
-                    // Where each batch landed, by its open neighbours' titles, so a dry run shows the order too.
                     const placed = [];
                     for (const [projectId, ids] of byList) {
                         const ownerId = (projectId ? accessByList.get(projectId)?.ownerId : undefined) ?? userId;
@@ -652,7 +614,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                             before: rows[last + 1]?.title ?? null,
                         });
                     }
-                    // A guess from their own choices, for the card's one-tap Use. Never written with the batch.
                     const guesses = await effortGuesses(
                         tx,
                         userId,
@@ -679,7 +640,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         ...(live.length > 0 && { live }),
                     };
                 });
-                // After the commit, so the task exists for the background guess; a replayed call already started it.
                 const done = result as { created?: { taskId: string }[]; deduped?: boolean; dryRun?: boolean };
                 if (!done.deduped && !done.dryRun)
                     for (const c of done.created ?? []) track(suggestEffortGuess(env, userId, c.taskId));
@@ -821,7 +781,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         addTagIds.length || undefined,
                         removeTagIds.length || undefined,
                     ];
-                    // Everything they asked for was dropped: write nothing, so the reply can't claim a change.
                     if (checked.ignored && [...Object.values(checked.fields), ...rest].every((v) => v === undefined)) {
                         return { result: { updated: 0, ignored: checked.ignored }, id: taskIds[0] };
                     }
@@ -874,7 +833,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                                 "Only the owner of this list can move its tasks to another list.",
                             );
                         }
-                        // Moving caller-owned tasks into someone else's shared list.
                         if (!guest && destAccess && destAccess.ownerId !== userId) {
                             await assertListRoom(tx, destAccess.listId);
                             for (const id of group.ids) {
@@ -954,7 +912,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         ...(live.length > 0 && { live }),
                     };
                 });
-                // A new title or list: the old guess was cleared, so score the new one.
                 if (
                     (patch.title !== undefined || patch.projectId !== undefined) &&
                     !(result as { dryRun?: boolean }).dryRun
@@ -1055,7 +1012,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         const before = await tasksBefore(tx, taskIds);
                         const groups = await tasksByOwner(tx, userId, taskIds);
                         for (const group of groups) requireEdit(group.access);
-                        // A tapped card is the user's own pick; otherwise a same-titled twin means the model may have guessed.
                         const tapped =
                             !ctx.approvalMode ||
                             approvalFor(ctx.approvalMode)({ toolCall: { toolName: "set_task_state", input } }) !==
@@ -1124,7 +1080,7 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                 write("delete_tasks", toolCallId, async (tx) => {
                     const taskIds = targets.map((target) => target.taskId);
                     await assertTasksNotStale(tx, taskIds, ctx, expectedUpdatedAt);
-                    await tasksBefore(tx, taskIds); // an unknown id fails, never a silent "deleted: 0"
+                    await tasksBefore(tx, taskIds);
                     const groups = await tasksByOwner(tx, userId, taskIds);
                     for (const group of groups) requireEdit(group.access);
                     let deleted = 0;
@@ -1181,7 +1137,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
                         );
                     }
                     const moved = new Set(allRows.map((row) => row.id));
-                    // The day each left, so "undo that" can put each one back where it was.
                     const left = before
                         .filter((row) => moved.has(row.id))
                         .map(({ id, title, day }) => ({ id, title, from: day }));
@@ -1200,10 +1155,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
         }),
     };
 
-    /**
-     * The tasks a batch write names, as they are before it. An id that matches no task
-     * fails the call, so a remembered or made-up id gets a fresh read instead of a silent 0.
-     */
     async function tasksBefore(tx: Tx, taskIds: string[]) {
         const rows = await tx
             .select({
@@ -1228,11 +1179,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
         }));
     }
 
-    /**
-     * Open tasks that share a title (any case) and a day (or both no day) with one of `targets`,
-     * when two or more do: nothing in the data tells them apart, so a pick among them is a guess.
-     * A different day can (the nearer one is a fair pick), so it doesn't count.
-     */
     async function sameTitled(tx: Tx, targets: { title: string; day: string | null }[]) {
         const titles = [...new Set(targets.map((row) => row.title.toLowerCase()))];
         const rows = await tx
@@ -1272,7 +1218,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
             }));
     }
 
-    /** Each task's note and subtasks for `get_tasks details`, in two queries. */
     async function detailsFor(tx: Tx, taskIds: string[]) {
         const out = new Map<
             string,
@@ -1303,20 +1248,17 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
         return out;
     }
 
-    /** The user's "new tasks go to" setting (Settings → Tasks). */
     async function newTaskPlacement(tx: Tx) {
         const [row] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
         return (row?.settings as { tasks?: { newTaskPlacement?: "top" | "bottom" } } | null)?.tasks?.newTaskPlacement;
     }
 
-    /** Tag ids keyed by lower-cased name, found or made in one pass. */
     async function tagIdsByName(tx: Tx, names: string[]) {
         const clean = names.map((name) => name.trim()).filter(Boolean);
         const ids = await findOrCreateTags(tx, userId, clean);
         return new Map(clean.map((name, i) => [name.toLowerCase(), ids[i]]));
     }
 
-    /** The ids of the user's tags with these names (case-insensitive); a name with no tag is skipped. */
     async function existingTagIds(tx: Tx, names: string[]) {
         const wanted = [...new Set(names.map((name) => name.trim().toLowerCase()).filter(Boolean))];
         if (!wanted.length) return [];
@@ -1327,17 +1269,12 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
         return rows.map((row) => row.id);
     }
 
-    /** Tasks carrying any of `tagIds`. */
     function hasAnyTag(tagIds: string[]) {
         return exists(
             sql`(select 1 from ${taskTags} where ${taskTags.taskId} = ${tasks.id} and ${inArray(taskTags.tagId, tagIds)})`,
         );
     }
 
-    /**
-     * A saved focus view as SQL, with the same meaning as the app's `applyFocusView`:
-     * its due windows are "by then" (undated tasks stay in, except for overdue).
-     */
     async function focusViewConditions(tx: Tx, id: string) {
         const [row] = await tx
             .select({ name: savedFocusViews.name, definition: savedFocusViews.definition })
@@ -1355,7 +1292,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
         if (view.priorityMin !== null) conditions.push(gte(tasks.priority, view.priorityMin));
         if (view.effortMin !== null) conditions.push(or(isNull(tasks.effort), gte(tasks.effort, view.effortMin)));
         if (view.effortMax !== null) conditions.push(or(isNull(tasks.effort), lte(tasks.effort, view.effortMax)));
-        // Short = a known estimate at most this long; unknown length is not known-short.
         if (view.durationMaxMinutes !== null) conditions.push(lte(tasks.durationEstimate, view.durationMaxMinutes));
         if (view.waitingOnly) conditions.push(eq(tasks.state, "WAITING"));
         if (view.missingStructureOnly) conditions.push(or(hasNoDay(), isNull(tasks.projectId)));
@@ -1369,7 +1305,6 @@ export const taskTools = (env: Env, userId: string, ctx: AgentContext) => {
     }
 };
 
-/** Each task's tag names (by name: what the user says, and far shorter than ids), in one query. */
 export async function tagNamesFor(tx: Tx, taskIds: string[]) {
     const byTask = new Map<string, string[]>();
     if (!taskIds.length) return byTask;
@@ -1383,11 +1318,6 @@ export async function tagNamesFor(tx: Tx, taskIds: string[]) {
     return byTask;
 }
 
-/**
- * Rewrite or add to one task's note. The note the user sees is `task_notes.body`,
- * falling back to the legacy `tasks.content`. A rewrite is refused for a note
- * longer than this surface reads (`readLimit`); a stale `noteVersion` is a 409.
- */
 async function changeNote(
     tx: Tx,
     userId: string,

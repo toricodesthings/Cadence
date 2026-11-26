@@ -1,11 +1,3 @@
-/**
- * Embedding client for the memory (pgvector RAG) layer.
- *
- * Edge-safe: every call is plain HTTP via the `ai` SDK (`embed`/`embedMany`)
- * through OpenRouter — no native deps, runs on Workers.
- *
- * Callers check the person's mode (memory-mode.ts) first, so Off issues no embedding request.
- */
 import { embed, embedMany } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { logger } from "../../../platform/log";
@@ -14,27 +6,17 @@ import { addDailySpend, spendWithinCap } from "../../../platform/daily-budget";
 import { AppError } from "../../../platform/errors";
 import type { Env } from "../../../types/env";
 
-/** Dimensionality of the `ai_memories.embedding` column (halfvec) — embeddings MUST match. */
 const EMBEDDING_DIMENSIONS = 512;
 
-/** An embedding in a chat turn (recall, remember): a slow provider costs the lookup, never the reply. */
 const EMBED_TIMEOUT_MS = 5_000;
-/** Background batches (learning, the nightly pass) can wait longer: a batch of facts takes more than a turn's budget. */
 const BATCH_TIMEOUT_MS = 30_000;
 
-/** Qwen3 truncates by Matryoshka to {@link EMBEDDING_DIMENSIONS}; configurable via AI_EMBEDDING_MODEL. */
 const DEFAULT_EMBEDDING_MODEL = "qwen/qwen3-embedding-8b";
 
-/** Configured embedding model id, or a default. */
 export function getEmbeddingModelId(env: Env): string {
     return env.AI_EMBEDDING_MODEL?.trim() || DEFAULT_EMBEDDING_MODEL;
 }
 
-/**
- * OpenRouter embedding model, mirroring `getModel` in agent.ts. Qwen3 embeds at
- * 4096 dims natively; `dimensions` truncates (Matryoshka) to the column's size, and
- * `require_parameters` keeps OpenRouter off any upstream that would ignore it.
- */
 function getEmbeddingModel(env: Env, userHash?: string) {
     const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY || "dummy" });
     return openrouter.textEmbeddingModel(getEmbeddingModelId(env), {
@@ -44,7 +26,6 @@ function getEmbeddingModel(env: Env, userHash?: string) {
     });
 }
 
-/** Guard that an embedding matches the column dimensionality. */
 function assertDimensions(vector: number[]): number[] {
     if (vector.length !== EMBEDDING_DIMENSIONS) {
         throw new Error(`embedding dimension mismatch: expected ${EMBEDDING_DIMENSIONS}, got ${vector.length}`);
@@ -52,14 +33,8 @@ function assertDimensions(vector: number[]): number[] {
     return vector;
 }
 
-/** What an embedding call cost, logged as `ai_embedding`. */
 export type EmbeddingSpend = TurnSpend & { model: string; inputTokens?: number };
 
-/**
- * Embed a single text. Returns a vector of {@link EMBEDDING_DIMENSIONS} plus what the call cost. Throws on failure or a
- * dimension mismatch — the caller (recall/learning) decides whether to
- * swallow it (best-effort) or surface it.
- */
 export async function embedText(
     env: Env,
     text: string,
@@ -71,7 +46,6 @@ export async function embedText(
         value: text,
         abortSignal: AbortSignal.timeout(EMBED_TIMEOUT_MS),
     });
-    // Same fields as `ai_turn` / `ai_title`, so all OpenRouter spend filters alike.
     const spend: EmbeddingSpend = {
         model: getEmbeddingModelId(env),
         inputTokens: usage?.tokens,
@@ -85,7 +59,6 @@ export async function embedText(
     return { embedding: assertDimensions(embedding), spend };
 }
 
-/** Batch embedding via `embedMany`, logged as one `ai_embedding` line. Each vector is validated against the column size. `inTurn` keeps a chat turn's 5 s budget. */
 export async function embedTexts(
     env: Env,
     texts: string[],

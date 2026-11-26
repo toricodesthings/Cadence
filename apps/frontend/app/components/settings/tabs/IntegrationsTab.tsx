@@ -39,7 +39,6 @@ export function IntegrationsTab() {
     const updateSettings = useUpdateSettings();
 
     const integrations = settings?.integrations ?? SETTINGS_DEFAULTS.integrations;
-    // One typed patch per integration key keeps each switch to a single line.
     const patch = <K extends keyof Integrations>(key: K, value: Partial<Integrations[K]>) =>
         updateSettings.mutate({ integrations: { [key]: value } as Partial<Integrations> });
     const { googleCalendar, appleCalendar, notion, obsidian, ics } = integrations;

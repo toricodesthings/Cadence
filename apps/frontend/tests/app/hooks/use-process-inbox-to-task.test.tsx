@@ -91,7 +91,6 @@ describe("useProcessInboxToTask", () => {
         const { result } = renderHook(() => useProcessInboxToTask(), { wrapper: withClient(client) });
         result.current.mutate({ inboxItemId: "10000000-0000-4000-8000-000000000004", rawText: "Call Maya" });
 
-        // Before the server answers: already a task with no day, never a thought in between.
         await waitFor(() => expect(client.getQueryData<Task[]>(key)?.map((task) => task.title)).toEqual(["Call Maya"]));
 
         resolve(

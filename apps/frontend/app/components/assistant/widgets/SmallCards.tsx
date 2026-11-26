@@ -1,7 +1,3 @@
-/**
- * Cards for the single-item writes: `create_project`, `create_tag`, `log_habit`,
- * and the routine, event and section writes (design §4.1).
- */
 import { FolderPlus, TagIcon, Flame, Check, CalendarHeart, Columns3 } from "lucide-react";
 import { IdentityBlock } from "./ProposalCard";
 import { ApprovalCard, DeleteApprovalCard, type RetiredRenderContext, type ToolRenderContext } from "./ApprovalCard";
@@ -13,11 +9,8 @@ import { formatShortDate, formatTime } from "../../../lib/utils/date-format";
 import { getTaskRecurrenceSummary } from "../../../lib/utils/task/task-scheduling";
 import { getNextPersonalEventDate } from "../../../lib/utils/personal-events";
 
-/** "🌱 Garden", or just the name. */
 const withEmoji = (emoji: string | null | undefined, name: string) => (emoji ? `${emoji} ${name}` : name);
-/** A routine's HH:MM in the viewer's clock format. */
 const wallClock = (time: string) => formatTime(`2000-01-01T${time}:00`);
-/** Copy for a switch the draft sets: on, off, or null when it leaves it alone. */
 const switchCopy = (value: boolean | undefined, on: string, off: string) =>
     value === undefined ? null : value ? on : off;
 
@@ -65,7 +58,6 @@ const LOG_COPY: Record<string, { done: string; ask: string }> = {
     SKIPPED: { done: "Skipped", ask: "Skip" },
 };
 
-/** What logging does: the settled verb and the card's line ("Water ✓ · Stretch skipped" for steps). */
 function logHabitText(
     input: { status?: string; time?: unknown; stepStatus?: Record<string, string> },
     steps: { id: string; title: string }[],
@@ -74,7 +66,6 @@ function logHabitText(
     const copy = LOG_COPY[input.status ?? "COMPLETED"] ?? { done: "Cleared", ask: "Clear" };
     const at = typeof input.time === "string" ? ` at ${wallClock(input.time)}` : "";
     if (!marks) return { verb: copy.done + at, line: copy.ask + at };
-    // Step marks, in the routine's order.
     const line = steps
         .filter((step) => marks[step.id])
         .map((step) => `${step.title} ${marks[step.id] === "SKIPPED" ? "skipped" : "✓"}`)
@@ -132,7 +123,6 @@ const WEEKDAY_NAMES: Record<string, string> = {
     SU: "Sun",
 };
 
-/** When it happens: set times, one usual time ("Any time" when cleared), and per-day times. */
 function routineTimeParts(draft: RoutineDraft) {
     const times = draft.times?.length
         ? draft.times.map(wallClock).join(", ")
@@ -151,7 +141,6 @@ function routineTimeParts(draft: RoutineDraft) {
     return { times, dayTimes };
 }
 
-/** Its list, tags, place and emoji, when the draft changes them. */
 function routinePlacementParts(draft: RoutineDraft, tagNames: string[]) {
     return [
         draft.colorAccent ? `Colour: ${draft.colorAccent}` : null,
@@ -162,7 +151,6 @@ function routinePlacementParts(draft: RoutineDraft, tagNames: string[]) {
     ];
 }
 
-/** "Every weekday · 07:30 · 3 steps · reminder", from whatever the draft sets. */
 function routineSummary(draft: RoutineDraft, tagNames: string[] = []) {
     const { times, dayTimes } = routineTimeParts(draft);
     const steps = draft.steps?.map((step) => (typeof step === "string" ? step : step.title)).join(" → ");
@@ -223,7 +211,6 @@ export function CreateHabitCard({ ctx }: { ctx: ToolRenderContext<"create_habit"
     );
 }
 
-/** What the routine change does; a bare rename or new emoji says so when nothing else changes. */
 function habitChanges(patch: RoutineDraft, habit: { title: string } | undefined, tagNames: string[]) {
     const summary = routineSummary(patch, tagNames);
     if (summary) return summary;
@@ -231,7 +218,6 @@ function habitChanges(patch: RoutineDraft, habit: { title: string } | undefined,
     return patch.emoji ? "New emoji" : undefined;
 }
 
-/** The routine's name after the change, and its title with the emoji it will have. */
 function habitCardTitle(
     patch: RoutineDraft,
     habit: { title: string; emoji?: string | null } | undefined,
@@ -277,7 +263,6 @@ export function UpdateHabitCard({ ctx }: { ctx: ToolRenderContext<"update_habit"
     );
 }
 
-/** `delete_habit` is permanent (history and streaks go too), so Auto still waits for this tap. */
 export function DeleteHabitCard({ ctx }: { ctx: ToolRenderContext<"delete_habit"> }) {
     const persona = useAssistantPersona();
     const name: string = ctx.part?.input?.title ?? ctx.part?.output?.deleted ?? "this routine";
@@ -305,7 +290,6 @@ type EventDraft = {
     color?: string | null;
 };
 
-/** The event as it is now, from the events cache. */
 function useEventLookup() {
     const { items } = usePersonalEvents(new Date().getFullYear());
     return (id: string) => items.find((event) => event.id === id);
@@ -326,7 +310,6 @@ function eventSubtitle(draft: EventDraft) {
 }
 
 export function CreateEventCard({ ctx }: { ctx: ToolRenderContext<"save_event"> | RetiredRenderContext }) {
-    // Older threads hold create_event, whose fields sat at the top level.
     const draft: EventDraft = ctx.part?.input?.patch ?? ctx.part?.input ?? {};
     const title = eventTitle(draft, "this event");
     return (
@@ -348,7 +331,6 @@ function eventName(patch: EventDraft, current: string | undefined, saved: string
     return patch.label ?? current ?? saved ?? "this event";
 }
 
-/** What the event change does; an emoji-only change says so. */
 function eventChanges(patch: EventDraft) {
     const subtitle = eventSubtitle(patch);
     if (subtitle || !("emoji" in patch)) return subtitle;
@@ -377,7 +359,6 @@ export function UpdateEventCard({ ctx }: { ctx: ToolRenderContext<"save_event"> 
     );
 }
 
-/** `delete_event` is permanent (events have no Trash), so Auto still waits for this tap. */
 export function DeleteEventCard({ ctx }: { ctx: ToolRenderContext<"delete_event"> }) {
     const lookupEvent = useEventLookup();
     const name = lookupEvent(ctx.part?.input?.eventId ?? "")?.label ?? ctx.part?.output?.deleted ?? "this event";
@@ -415,7 +396,6 @@ export function CreateSectionsCard({ ctx }: { ctx: ToolRenderContext<"create_sec
     );
 }
 
-/** "Renamed from “Old” · Moved to the top" */
 function sectionChanges(input: { name?: string; position?: number }, current: string) {
     return [
         input.name && input.name !== current ? `Renamed from “${current}”` : null,
@@ -446,7 +426,6 @@ export function UpdateSectionCard({ ctx }: { ctx: ToolRenderContext<"update_sect
     );
 }
 
-/** `delete_section` is permanent; its tasks stay in the list, unsectioned. Auto still waits for this tap. */
 export function DeleteSectionCard({ ctx }: { ctx: ToolRenderContext<"delete_section"> }) {
     const persona = useAssistantPersona();
     const lookupSection = useSectionLookup();

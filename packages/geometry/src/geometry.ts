@@ -1,9 +1,3 @@
-/*
- * Deterministic geometry for the generated SVG scenes (the app's loading screen and the landing page).
- * Paths are generated on the server and the client, so everything uses an integer PRNG and plain IEEE
- * arithmetic (sqrt is exact; no Math.sin/pow), keeping output byte-identical across engines and hydration safe.
- */
-
 export type Pt = readonly [number, number];
 
 export function rng(seed: number): () => number {
@@ -36,7 +30,6 @@ export function sinR(x: number): number {
 export const cosR = (x: number): number => sinR(x + TAU / 4);
 export const rad = (deg: number): number => (deg * TAU) / 360;
 
-/** Rotates a vector by `a` radians (clockwise on screen, where y points down). */
 export function rotate([x, y]: Pt, a: number): Pt {
     const c = cosR(a);
     const s = sinR(a);
@@ -47,7 +40,6 @@ export function polyline(points: readonly Pt[]): string {
     return points.map(([x, y], i) => `${i ? "L" : "M"}${pt(x, y)}`).join("");
 }
 
-/** Samples an `M start Q control end0 T end1 …` chain into points `step` apart, so ridges stay smooth and x stays monotonic. */
 export function quadChain(start: Pt, control: Pt, ends: readonly Pt[], step: number): Pt[] {
     const out: Pt[] = [start];
     let p0: Pt = start;
@@ -70,7 +62,6 @@ export function quadChain(start: Pt, control: Pt, ends: readonly Pt[], step: num
     return out;
 }
 
-/** Smooth Catmull-Rom curve through `keys`, sampled `n` points per segment. */
 export function smoothThrough(keys: readonly Pt[], n: number): Pt[] {
     const out: Pt[] = [keys[0]];
     for (let i = 0; i < keys.length - 1; i++) {
@@ -94,7 +85,6 @@ export function smoothThrough(keys: readonly Pt[], n: number): Pt[] {
     return out;
 }
 
-/** Linear lookup of y on a polyline whose x is monotonic. */
 export function yAt(points: readonly Pt[], x: number): number {
     if (x <= points[0][0]) return points[0][1];
     for (let i = 1; i < points.length; i++) {
@@ -105,7 +95,6 @@ export function yAt(points: readonly Pt[], x: number): number {
     return points[points.length - 1][1];
 }
 
-/** Stroke path of the slopes that rise left→right, i.e. the faces turned toward the upper-left key light. */
 export function risingEdges(points: readonly Pt[]): string {
     let d = "";
     let open = false;
@@ -122,16 +111,11 @@ export function risingEdges(points: readonly Pt[]): string {
     return d;
 }
 
-/** One path of small circles, one per star. */
 export const starPath = (stars: readonly { x: number; y: number; r: number }[]): string =>
     stars
         .map(({ x, y, r }) => `M${pt(x - r, y)}a${r},${r} 0 1,0 ${n1(2 * r)},0a${r},${r} 0 1,0 ${n1(-2 * r)},0`)
         .join("");
 
-/**
- * Box (in % of a 1920×1080 stage) holding a twinkling pair of distant stars, painted as two radial gradients
- * so one opacity animation drives both. `cool`/`warm` are the star colours.
- */
 export function twinkleBox(a: Pt, b: Pt, cool: string, warm: string): Record<string, string> {
     const x0 = Math.min(a[0], b[0]) - 8;
     const y0 = Math.min(a[1], b[1]) - 8;

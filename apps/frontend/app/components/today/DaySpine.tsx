@@ -7,7 +7,6 @@ export interface SpineItem {
     id: string;
     title: string;
     start: Date;
-    /** Fixed blocks may have no end. */
     end: Date | null;
 }
 
@@ -23,14 +22,11 @@ export interface SpineEntry {
     fillAfter: number;
 }
 
-/** Sorted blocks, the one happening now, the next one, and precomputed timeline entries with live connector fill. */
 export function useSpine(items: SpineItem[]) {
     const now = useMinuteClock();
     const sorted = useMemo(() => [...items].sort((a, b) => a.start.getTime() - b.start.getTime()), [items]);
     const current = sorted.find((item) => item.start <= now && item.end && item.end > now) ?? null;
     const next = sorted.find((item) => item.start > now) ?? null;
-    // A "now" separator only sits in a gap between a finished block and an upcoming one;
-    // while a block is active, the block itself anchors now.
     const gapIndex = current ? -1 : sorted.findIndex((item) => item.start > now);
     const entries: SpineEntry[] = sorted.map((item, index) => {
         const state = stateOf(item, now, current, next);
@@ -64,7 +60,6 @@ function progressOf(item: SpineItem, now: Date): number | null {
     return Math.min(1, Math.max(0, (now.getTime() - item.start.getTime()) / total));
 }
 
-/** Fraction (0–1) of the span from `from.start` to `to.start` that has elapsed at `now`. */
 function segmentFillOf(from: SpineItem, to: SpineItem, now: Date): number {
     const start = from.start.getTime();
     const end = to.start.getTime();
@@ -76,11 +71,6 @@ function rangeOf(item: SpineItem): string {
     return formatChipTime(item.start.toISOString(), item.end?.toISOString());
 }
 
-/**
- * When earlier blocks are already complete and the timeline overflows, center the current or next-up block
- * in its own scroll container (without scrolling the outer page). Only re-runs when the active/next block changes,
- * so manual scrolling is never fought.
- */
 function useAutoCenterAnchor(
     listRef: React.RefObject<HTMLOListElement | null>,
     { axis, anchorId, hasCompleted }: { axis: "x" | "y"; anchorId: string | null; hasCompleted: boolean },
@@ -133,7 +123,6 @@ function useAutoCenterAnchor(
     }, [listRef, axis, anchorId, hasCompleted, prefersReduced]);
 }
 
-/** Fallback for browsers without scroll-driven animation timelines: marks scrollable edges for `.spine-scroll`. */
 function useScrollFadeFallback(ref: React.RefObject<HTMLOListElement | null>, count: number) {
     useEffect(() => {
         const scroller = ref.current;
@@ -279,10 +268,6 @@ function SpineBlockCard({
     );
 }
 
-/**
- * List view: fixed blocks arranged cleanly in time order inside Today's Fixed section.
- * Anchors the live or next block by surface and accent rail; past blocks recede quietly.
- */
 export function DaySpine({ items, onOpen }: { items: SpineItem[]; onOpen: (item: SpineItem) => void }) {
     const { now, entries, hasCompleted, anchorId } = useSpine(items);
     const scrollRef = useRef<HTMLOListElement>(null);
@@ -312,7 +297,6 @@ export function DaySpine({ items, onOpen }: { items: SpineItem[]; onOpen: (item:
     );
 }
 
-/** List view, folded: one quiet peek line under the Fixed header showing what's now or next. */
 export function SpinePeek({ items, onOpen }: { items: SpineItem[]; onOpen: () => void }) {
     const { current, next } = useSpine(items);
     const anchor = current ?? next;
@@ -360,7 +344,6 @@ export function SpinePeek({ items, onOpen }: { items: SpineItem[]; onOpen: () =>
     );
 }
 
-/** Board view: the same blocks anchored along a continuous vertical spine with live accent fill. */
 export function SpineTimeline({ items, onOpen }: { items: SpineItem[]; onOpen: (item: SpineItem) => void }) {
     const { now, entries, hasCompleted, anchorId } = useSpine(items);
     const listRef = useRef<HTMLOListElement>(null);

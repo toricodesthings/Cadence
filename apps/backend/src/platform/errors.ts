@@ -7,14 +7,12 @@ export class AppError extends Error {
         public readonly code: ErrorCode,
         message: string,
         public readonly isRetryable = false,
-        /** Which items a failure is about (a batch's 409 names each changed one by `path`). */
         public readonly issues?: ApiIssue[],
     ) {
         super(message);
     }
 }
 
-/** The unique constraint a Postgres write broke, if that's why it failed. */
 export function violatedUnique(error: unknown): string | undefined {
     const pg = ((error as { cause?: unknown }).cause ?? error) as {
         code?: string;
@@ -35,12 +33,7 @@ export function assertNoConflict(expectedUpdatedAt: string | undefined, actualUp
     }
 }
 
-/** Whether a client's `expectedUpdatedAt` still names the stored version. */
 export function sameVersion(expectedUpdatedAt: string, actualUpdatedAt: string) {
-    // Compare instants, not strings: the API serves strict ISO, but a client may
-    // send the same instant in another valid form (an offset, no milliseconds, or
-    // a value cached before timestamps were unified). A naive !== would report a
-    // false conflict.
     const expectedMs = new Date(expectedUpdatedAt).getTime();
     const actualMs = new Date(actualUpdatedAt).getTime();
     return !Number.isNaN(expectedMs) && !Number.isNaN(actualMs)

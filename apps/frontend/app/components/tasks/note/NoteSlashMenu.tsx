@@ -6,14 +6,9 @@ import { cn } from "../../../lib/utils";
 import { caretRect } from "./note-selection";
 import type { NoteCommand } from "./note-commands";
 
-/** Ids the editor points at (aria-activedescendant) so a screen reader announces the highlighted row. */
 export const SLASH_LIST_ID = "note-slash-list";
 export const slashOptionId = (commandId: string) => `note-slash-${commandId.replace(/[^\w-]/g, "-")}`;
 
-/**
- * The "/" menu, anchored at the real caret. Presentational: the editor owns the query, the
- * highlighted row and the keys, so Escape and arrows are handled in one place and nothing listens globally.
- */
 export function NoteSlashMenu({
     editor,
     anchorPos,
@@ -53,10 +48,8 @@ export function NoteSlashMenu({
                 collisionPadding={{ top: 8, bottom: 8 + bottomInset, left: 8, right: 8 }}
                 avoidCollisions
                 className="w-72 rounded-xl p-1 shadow-xl"
-                // The editor keeps focus and the keys; the menu is only ever pointed at.
                 onOpenAutoFocus={(e) => e.preventDefault()}
                 onCloseAutoFocus={(e) => e.preventDefault()}
-                // Radix takes Escape before the editor and marks it handled (ProseMirror then skips it), so the menu closes itself here.
                 onEscapeKeyDown={onDismiss}
                 onInteractOutside={(e) => e.preventDefault()}
                 onMouseDown={(e) => e.preventDefault()}

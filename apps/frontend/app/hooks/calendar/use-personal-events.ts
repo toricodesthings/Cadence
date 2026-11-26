@@ -27,19 +27,12 @@ export function personalEventsQueryOptions(client: ApiClient) {
     });
 }
 
-/**
- * Hook for reading and managing personal calendar events (`/personal-events`, online-only like settings).
- * Whether they show on the calendar (`enabled`) is a display preference kept in settings.
- *
- * @param year  — view year for computing event dates
- * @param month — optional 0-based month for filtering to a single month
- */
 export function usePersonalEvents(year: number, month?: number) {
     const client = useApiClient();
     const queryClient = useQueryClient();
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
-    const { data } = useAuthedQuery(personalEventsQueryOptions);
+    const { data, isLoading } = useAuthedQuery(personalEventsQueryOptions);
 
     const enabled = settings?.calendar?.personalEvents?.enabled ?? true;
     const items = data ?? NO_EVENTS;
@@ -74,7 +67,6 @@ export function usePersonalEvents(year: number, month?: number) {
     });
 
     const remove = useMutation({
-        // The event disappears at once; the server hears about it only once Undo's window closes.
         mutationFn: async ({ id, label }: { id: string; label: string }) => {
             await undoWindow(toastName(label), { description: "Deleted" });
             return unwrapResponse(await client.api["personal-events"][":id"].$delete({ param: { id } }));
@@ -84,7 +76,6 @@ export function usePersonalEvents(year: number, month?: number) {
         onSettled: () => personalEventCache.invalidate(queryClient),
     });
 
-    // Map of "YYYY-MM-DD" → SharedEvent[] for the given year
     const eventsByDate = useMemo(() => {
         const map = new Map<string, SharedEvent[]>();
         if (!enabled) return map;
@@ -98,7 +89,6 @@ export function usePersonalEvents(year: number, month?: number) {
         return map;
     }, [enabled, items, year]);
 
-    // Set of day-of-month numbers that have events (for dot rendering in month view)
     const eventDays = useMemo(() => {
         const days = new Set<number>();
         if (!enabled || month === undefined) return days;
@@ -112,7 +102,6 @@ export function usePersonalEvents(year: number, month?: number) {
         return days;
     }, [enabled, items, month]);
 
-    // ISO date set for year view
     const eventDateSet = useMemo(() => {
         const set = new Set<string>();
         if (!enabled) return set;
@@ -123,7 +112,6 @@ export function usePersonalEvents(year: number, month?: number) {
         return set;
     }, [enabled, items, year]);
 
-    // Get events for a specific date string "YYYY-MM-DD"
     const getEventsForDate = useCallback(
         (dateStr: string): SharedEvent[] => {
             if (!enabled) return [];
@@ -142,13 +130,11 @@ export function usePersonalEvents(year: number, month?: number) {
     );
 
     const updateEvent = useCallback(
-        // Callers may pass a whole event (or view model); only the editable fields go out.
         (id: string, patch: Partial<Omit<PersonalEvent, "id">>) =>
             update.mutate({ id, patch: personalEventSchema.omit({ id: true }).partial().parse(patch) }),
         [update],
     );
 
-    /** Removes the event and offers Undo, which cancels the delete before it is sent. */
     const removeEvent = useCallback(
         (id: string) => {
             const removed = items.find((e) => e.id === id);
@@ -171,6 +157,7 @@ export function usePersonalEvents(year: number, month?: number) {
     return {
         enabled,
         items,
+        isLoading,
         eventsByDate,
         eventDays,
         eventDateSet,

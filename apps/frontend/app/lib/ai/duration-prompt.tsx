@@ -9,12 +9,6 @@ export interface DurationApi {
     report: (input: DurationReport) => Promise<DurationReportView | null>;
 }
 
-/**
- * After the person completes a task, in Full, maybe ask how long it took. The server decides (its budget is one
- * ask a day across devices, reserved when it says yes, backing off when ignored). Never required, and skipping
- * records nothing; every failure to *ask* is silent. `guess` is Cadence's own number for this task: the question
- * never uses it as a reference (it would anchor the answer).
- */
 export async function offerDuration(
     task: { id: string; title: string },
     memoryMode: string | null | undefined,
@@ -43,10 +37,7 @@ export async function offerDuration(
                     }
                 />
             ),
-            // Closed by the toast itself, which waits while it is hovered or focused.
             { duration: Infinity },
         );
-    } catch {
-        // Quiet: a question that can't be asked is not worth an error.
-    }
+    } catch {}
 }

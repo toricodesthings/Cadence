@@ -24,26 +24,20 @@ import type { Habit } from "@cadence/contracts/habit";
 
 export interface HabitReviewItem {
     id: string;
-    /** The routine itself, for its day cells (logging a past day in place). */
     habit: Habit;
     title: string;
     colorAccent: string | null;
-    /** The last 7 days (oldest first): a scheduled day's status, or null when it wasn't due. */
     week: { day: LocalDate; status: "COMPLETED" | "SKIPPED" | "PENDING" | null }[];
-    /** Skipped on every day it was due so far this week: "Skip next week?" shows. */
     allSkipped: boolean;
 }
 
 const getToday = today;
 const getTomorrow = () => addDays(today(), 1);
-/** The routine look-back: the last 7 days, today included. */
 const WEEK_DAYS = 7;
 
-/** The person's choices for a placed capture: the day or patch wins over its words, and its own date words never decide placement. */
 function manualFromPatch(patch: InstructionPatch, day: LocalDate | undefined) {
     return {
         dueDate: patch.dueDate !== undefined ? patch.dueDate : (day ?? null),
-        // The placement is the user's call here; the capture's own date words never decide it.
         scheduledStart: patch.scheduledStart ?? null,
         scheduledEnd: patch.scheduledEnd ?? null,
         ...(patch.projectId && { projectId: patch.projectId }),
@@ -54,7 +48,6 @@ function manualFromPatch(patch: InstructionPatch, day: LocalDate | undefined) {
     };
 }
 
-/** What is left after placing (waiting, hiding, a nudge): a plain edit of the new task. */
 function followUpEdits(patch: InstructionPatch, waitlist: boolean | undefined) {
     const { state, notBefore, waitingReminder } = patch;
     return {
@@ -68,9 +61,9 @@ export function useWeeklyReviewActions() {
     const [actionError, setActionError] = useState<string | null>(null);
     const [keptWaitingIds, setKeptWaitingIds] = useState<Set<string>>(new Set());
 
-    const { data: inboxItems = [] } = useInbox();
-    const { data: activeTasks = [] } = useTasks({ state: "ACTIVE" });
-    const { data: waitingTasks = [] } = useTasks({ state: "WAITING" });
+    const { data: inboxItems = [], isLoading: inboxLoading } = useInbox();
+    const { data: activeTasks = [], isLoading: activeTasksLoading } = useTasks({ state: "ACTIVE" });
+    const { data: waitingTasks = [], isLoading: waitingTasksLoading } = useTasks({ state: "WAITING" });
 
     const updateTask = useUpdateTask();
     const archiveTask = useArchiveTask();
@@ -83,7 +76,6 @@ export function useWeeklyReviewActions() {
     const { data: settings } = useSettings();
 
     const todayDay = useToday();
-    // Hidden tasks (Hide until a later day) aren't loose ends until they come back.
     const unscheduledTasks = useMemo(
         () => activeTasks.filter((t) => !t.dueDate && !t.scheduledStart && (!t.notBefore || t.notBefore <= todayDay)),
         [activeTasks, todayDay],
@@ -91,12 +83,12 @@ export function useWeeklyReviewActions() {
 
     const visibleWaiting = waitingTasks.filter((t) => !keptWaitingIds.has(t.id));
 
-    // Every step reads the routines (Welcome and the step list count them), so the query is never gated by step.
     const weekStart = addDays(todayDay, -(WEEK_DAYS - 1));
-    const { data: habits = [] } = useHabitsRange({ start: weekStart, end: todayDay });
+    const { data: habits = [], isLoading: habitsLoading } = useHabitsRange({ start: weekStart, end: todayDay });
+    const tasksLoading = activeTasksLoading || waitingTasksLoading;
+    const isLoading = inboxLoading || tasksLoading || habitsLoading;
 
     const habitReviewItems = useMemo<HabitReviewItem[]>(() => {
-        // Your own routine order, so a row never jumps while you log its days (a save can reshuffle the cache).
         return habits
             .filter((h) => !h.archived)
             .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt))
@@ -136,11 +128,6 @@ export function useWeeklyReviewActions() {
         [pendingActionKey],
     );
 
-    /**
-     * Turn a capture into a task through the one transactional path (the capture stays, as placed, and Undo is its own).
-     * A day or typed change replaces what the words said; a capture from an earlier day keeps its words literal,
-     * because its "tomorrow" is not today's.
-     */
     const placeCapture = useCallback(
         async (item: InboxItem, choice: { day?: LocalDate; patch?: InstructionPatch; waitlist?: boolean }) => {
             const parse = await loadParse().catch(() => null);
@@ -173,7 +160,6 @@ export function useWeeklyReviewActions() {
                 recurrenceRule: f.recurrenceRule,
                 nlp: resolvedNlp(item.rawText, "inbox", settings?.dateTime?.dateStyle ?? "mdy", [], {}),
             });
-            // The capture is placed and kept; what is left (waiting, hiding, a nudge) is a plain edit of the new task.
             const after = followUpEdits(patch, choice.waitlist);
             if (task && Object.keys(after).length) await updateTask.mutateAsync({ id: task.id, ...after });
         },
@@ -235,6 +221,10 @@ export function useWeeklyReviewActions() {
     );
 
     return {
+        isLoading,
+        inboxLoading,
+        tasksLoading,
+        habitsLoading,
         inboxItems,
         habits,
         renameCapture,

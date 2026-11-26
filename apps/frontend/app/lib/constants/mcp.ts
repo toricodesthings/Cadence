@@ -1,6 +1,5 @@
 import type { McpScope } from "@cadence/contracts/connections";
 
-/** Plain words for what each connected-assistant permission lets it do (consent page and Settings). */
 export const MCP_SCOPE_COPY: Record<McpScope, { title: string; description: string; short: string }> = {
     "cadence:read": {
         title: "Read your Cadence",
@@ -21,5 +20,4 @@ export const MCP_SCOPE_COPY: Record<McpScope, { title: string; description: stri
     },
 };
 
-/** The URL people add to their assistant. */
 export const CADENCE_MCP_URL = "https://mcp.cadenceapp.cloud/mcp";

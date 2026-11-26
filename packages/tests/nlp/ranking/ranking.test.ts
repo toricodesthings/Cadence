@@ -1,9 +1,3 @@
-/**
- * §13.1 & §13.3 Acceptance: Ranking determinism and explainability
- *
- * - Same inputs → same output order and scores (deterministic)
- * - Reasons are always present and correct
- */
 import { describe, it, expect } from "vitest";
 import { rankTasks, type RankableTask } from "@cadence/nlp/ranking";
 
@@ -73,7 +67,6 @@ describe("rankTasks scoring signals", () => {
             makeTask({ id: "due_today", dueDate: TODAY, orderIndex: 1 }),
         ];
         const result = rankTasks(tasks, OPTS);
-        // Overdue gets +40, due_today gets +30
         expect(result[0].task.id).toBe("overdue");
         expect(result[0].reasons).toContain("overdue");
         expect(result[1].reasons).toContain("due_today");

@@ -38,7 +38,6 @@ describe("DateTimeTab time zone", () => {
         mutate.mockClear();
         settings.current = { dateTime: { timezone: "device" } };
         setUserZone("America/Toronto");
-        // jsdom has none of these; Radix Select reads them while opening.
         Element.prototype.scrollIntoView = vi.fn();
         Element.prototype.hasPointerCapture = vi.fn(() => false);
         Element.prototype.releasePointerCapture = vi.fn();

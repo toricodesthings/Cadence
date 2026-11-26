@@ -1,13 +1,3 @@
-/**
- * Primitives barrel export.
- *
- * All Radix UI primitives are pre-themed here as the "base layer".
- * Domain components import from this barrel — never from @radix-ui/* directly.
- *
- * Usage:
- *   import * as DropdownMenu from "~/components/primitives/DropdownMenu";
- *   import * as Tooltip from "~/components/primitives/Tooltip";
- */
 export { Button, type ButtonProps, type ButtonVariant, type ButtonSize } from "./Button";
 export { ActivityBadge } from "./ActivityBadge";
 export * as AlertDialog from "./AlertDialog";

@@ -1,5 +1,3 @@
-// Runs the current package's test suite once per time zone, so a test that depends on the machine's zone fails somewhere.
-// Usage (from a package dir): node ../../scripts/test-tz.mjs [zones...]   (default: the four-zone matrix; `pnpm check` passes two)
 import { spawnSync } from "node:child_process";
 
 const ZONES = ["America/Toronto", "America/Los_Angeles", "Pacific/Kiritimati", "Pacific/Pago_Pago"];

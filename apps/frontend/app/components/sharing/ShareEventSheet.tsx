@@ -93,7 +93,6 @@ function ShareEventBody({
     );
 }
 
-/** Share a yearly date with the people it belongs to (Decision 8). */
 export function ShareEventSheet({
     event,
     open,

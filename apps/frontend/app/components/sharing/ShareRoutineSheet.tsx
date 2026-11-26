@@ -68,7 +68,6 @@ function ShareRoutineBody({
     const participants = (people ?? []).filter((p) => p.role === "owner" || p.role === "edit");
     const supporters = (people ?? []).filter((p) => p.role === "view");
 
-    // Order participants by turnOrder when in turns mode.
     const orderedParticipants: ListPerson[] = (() => {
         if (habit.shareMode !== "turns" || !habit.turnOrder?.length) return participants;
         const byId = new Map(participants.map((p) => [p.userId, p]));
@@ -257,7 +256,6 @@ function ShareRoutineBody({
     );
 }
 
-/** Share a routine to do together, take turns, or let someone cheer you on (R11). */
 export function ShareRoutineSheet({
     habit,
     open,

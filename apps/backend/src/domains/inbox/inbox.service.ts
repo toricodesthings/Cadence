@@ -24,11 +24,6 @@ import { writeNote } from "../notes/notes.service";
 import { placeTagIds } from "../tags/tags.service";
 import { assertRowRoom } from "../../platform/storage-ceiling";
 
-/**
- * Turn a capture into a task in one transaction: the task, its tags, checklist
- * steps and note, and the capture marked placed (never deleted). A replayed key
- * or an already placed capture returns that task instead of a second one.
- */
 export async function processCapture(
     tx: Tx,
     userId: string,
@@ -47,7 +42,6 @@ export async function processCapture(
         .where(and(eq(inboxItems.id, id), eq(inboxItems.userId, userId)))
         .for("update");
     throwIfNotFound(item, "Inbox item");
-    // Already placed (double submit, second device): return that task, never a duplicate.
     const placed = item.processed && item.placedTaskId ? await findTask(tx, userId, item.placedTaskId) : undefined;
     if (placed) return { task: placed, broadcast: undefined, access: null, alreadyProcessed: true };
 
@@ -75,7 +69,6 @@ export async function processCapture(
     const isSharedDest = Boolean(destAccess && destAccess.audience.length > 1);
 
     await assertOwnership(tx, ownerId, {
-        // A section with no list can't match: reject it rather than drop it silently.
         projectId: taskValues.sectionId ? (taskValues.projectId ?? null) : taskValues.projectId,
         sectionId: taskValues.sectionId,
     });
@@ -83,7 +76,6 @@ export async function processCapture(
         await assertOwnership(tx, userId, { tagIds: taskTagIds });
     }
 
-    // 1. Create the task atomically
     if (!guest) await assertRowRoom(tx, userId, "tasks");
     const insertValues = {
         ...taskValues,
@@ -119,7 +111,6 @@ export async function processCapture(
     }
     if (extras.note) await writeNote(tx, ownerId, task.id, extras.note, { expectedVersion: 0 });
 
-    // 2. Transition inbox item (never delete — preserves audit trail)
     await tx
         .update(inboxItems)
         .set({
@@ -129,7 +120,6 @@ export async function processCapture(
             analysisStatus: "applied",
             analysisVersion: parsed.parserVersion,
             analysisSummary: parsed.summary,
-            // Kept after placing: Admin reads whether the suggestion was accepted, and what it cost, from here.
             analysis: {
                 ...(parsed as unknown as Record<string, unknown>),
                 ...(item.analysis?.suggestedPlacement ? { suggestedPlacement: item.analysis.suggestedPlacement } : {}),
@@ -148,7 +138,6 @@ export async function processCapture(
     return { task: callerTask, broadcast, access: destAccess, alreadyProcessed: false };
 }
 
-/** The model's Effort score for the capture (placement's batched E3) becomes the task's guess, never its Effort. */
 function effortGuessFromCapture(analysis: unknown) {
     const parsed = suggestedEffortSchema.safeParse((analysis as { suggestedEffort?: unknown } | null)?.suggestedEffort);
     return parsed.success
@@ -160,7 +149,6 @@ function effortGuessFromCapture(analysis: unknown) {
         : {};
 }
 
-/** Where a ticked-off thought goes: nowhere. */
 const PLACED_NOWHERE = {
     dueDate: null,
     endDate: null,
@@ -172,18 +160,15 @@ const PLACED_NOWHERE = {
     recurrenceRule: null,
 };
 
-/** The task row a capture becomes. A ticked-off thought is done and placed nowhere. */
 function captureTaskValues(
     userId: string,
     body: ProcessInboxItem,
     inferred: Awaited<ReturnType<typeof inferPlacement>>["inferred"],
     zone: Zone,
 ) {
-    // One placement: what the caller sent (a day, or a timed start), else what the parse found.
     const temporalFields = temporalColumns(
         {
             dueDate: inferred.dueDate,
-            // A span's last day belongs to the day it was picked with; a different (inferred) day drops it.
             endDate: body.endDate && inferred.dueDate === body.dueDate ? body.endDate : null,
             scheduledStart: inferred.scheduledStart,
             scheduledEnd: inferred.scheduledEnd,
@@ -197,7 +182,6 @@ function captureTaskValues(
         userId,
         title: body.title,
         orderIndex: 0,
-        // Waiting on someone is a state, not just a note: the task shows who only while WAITING.
         state: waitingOn ? ("WAITING" as const) : ("ACTIVE" as const),
         origin: null,
         projectId: "projectId" in body ? body.projectId : inferred.projectId,
@@ -225,7 +209,6 @@ async function findTask(tx: Tx, userId: string, taskId: string) {
 
 const unset = <T>(value: T | null | undefined): T | undefined => value ?? undefined;
 
-/** The fields the caller sent; unsent (or null) ones are undefined. */
 function explicitFields(body: ProcessInboxItem) {
     return {
         projectId: unset(body.projectId),
@@ -234,14 +217,12 @@ function explicitFields(body: ProcessInboxItem) {
         durationEstimate: unset(body.durationEstimate),
         waitingOn: unset(body.waitingOn),
         recurrenceRule: unset(body.recurrenceRule),
-        // An explicit null stays null: it means "no date", not "not given".
         dueDate: body.dueDate !== undefined ? body.dueDate : unset(body.scheduledDay),
         scheduledStart: body.scheduledStart,
         scheduledEnd: unset(body.scheduledEnd),
     };
 }
 
-/** Fields the client resolved itself: an absent one is "none". */
 function asResolved(explicit: ReturnType<typeof explicitFields>) {
     return {
         ...explicit,
@@ -252,7 +233,6 @@ function asResolved(explicit: ReturnType<typeof explicitFields>) {
     };
 }
 
-/** The capture's fields: what the caller sent, else what its words say. */
 async function inferPlacement(
     tx: Tx,
     userId: string,
@@ -271,17 +251,10 @@ async function inferPlacement(
     };
     const parsed = parseCanonicalNlpEnvelope(envelope, { context: nlpRuntime.context, clock: nlpRuntime.clock });
     const explicit = explicitFields(body);
-    // `resolved`: the client chose every field; store them as sent (an absent one is "none") and never re-read the words.
     const inferred = body.nlp?.resolved ? asResolved(explicit) : inferTaskFieldsFromParse(parsed, explicit, zone);
     return { parsed, inferred };
 }
 
-// ── Update ────────────────────────────────────────────────────────────
-
-/**
- * Put a capture back in New (Undo for placing, ticking, keeping or discarding).
- * A task made from it moves to Trash, where it can still be restored.
- */
 export async function unprocessCapture(tx: Tx, userId: string, id: string) {
     const [capture] = await tx
         .select()
@@ -306,7 +279,6 @@ export async function unprocessCapture(tx: Tx, userId: string, id: string) {
     return restored;
 }
 
-/** Keep a capture as a note or discard it (both restorable), and/or change its words. */
 export async function updateCapture(
     tx: Tx,
     userId: string,
@@ -335,9 +307,6 @@ export async function updateCapture(
     return row;
 }
 
-// ── Delete ────────────────────────────────────────────────────────────
-
-/** Delete captures for good. Tasks made from them stay. Unknown ids are skipped. */
 export async function deleteCaptures(tx: Tx, userId: string, ids: string[]) {
     return tx
         .delete(inboxItems)

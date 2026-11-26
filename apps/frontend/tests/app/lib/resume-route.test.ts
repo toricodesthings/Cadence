@@ -12,7 +12,6 @@ import {
 const installed = (standalone: boolean) =>
     vi.stubGlobal("matchMedia", (query: string) => ({ matches: standalone && query.includes("standalone") }));
 
-/** Loads the page at `path` and runs the head script, as a launch would. */
 const launch = (path: string) => {
     window.history.replaceState(null, "", path);
     new Function(RESUME_ROUTE_SCRIPT)();

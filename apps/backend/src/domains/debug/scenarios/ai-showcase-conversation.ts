@@ -1,21 +1,3 @@
-/**
- * AI showcase conversation — one thread that fires every assistant tool once, so
- * every chip and proposal card can be eyeballed without talking to a model.
- *
- * Write-card states on display:
- * - approved (`output-available`): set_task_state, create_tasks, log_habit (in Auto),
- *   create_tasks from a capture, create_project
- * - declined (`output-denied`): create_tag; not answered: reschedule_tasks
- * - a question (`ask_user`), answered by the next message
- * - waiting (`approval-requested`, last reply only): every other write tool (routine
- *   changes, events, sections, lists, tags, captures, copies, order, focus views)
- *
- * Read outputs go through the real `projections.ts` helpers and approved writes
- * through the real services, so both match what the live tools do. Seeded
- * approvals carry no signature: approving one fails closed where
- * TOOL_APPROVAL_SECRET is set.
- */
-
 import { asc, eq } from "drizzle-orm";
 import type { Tx } from "../../../types/db";
 import {
@@ -62,7 +44,6 @@ interface ShowcaseRefs {
     personalEvents: { id: string; label: string }[];
 }
 
-// Seeded tool outputs render timed values in UTC; the live tools use the user's zone.
 const TZ = "UTC";
 
 function find<T>(rows: T[], match: (row: T) => boolean, label: string): T {
@@ -143,8 +124,6 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
         .orderBy(asc(savedFocusViews.orderIndex));
     const overdueView = find(views, (v) => v.name === "Overdue Review", "focus view");
 
-    // ── Side effects the conversation implies ───────────────────────────
-    // capture_to_inbox writes immediately.
     const [passport] = await db
         .insert(inboxItems)
         .values({
@@ -155,7 +134,6 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
         })
         .returning();
 
-    // remember saves immediately (its receipt carries Undo).
     const [remembered] = await db
         .insert(aiMemories)
         .values({
@@ -170,10 +148,8 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
         })
         .returning();
 
-    // Approved: set_task_state.
     await setTaskState(db, userId, [invoices.id], "COMPLETE");
 
-    // Approved: create_tasks.
     const slidesDraft = {
         title: "Prep slides for client review",
         note: "Pull Q3 numbers and the revised timeline.",
@@ -186,11 +162,9 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
     };
     const slidesCreated = await createTasks(db, userId, [slidesDraft]);
 
-    // Approved in Auto: log_habit ×2.
     const hydrateLog = await resolveHabit(db, userId, hydrate.id, { targetDate: today, status: "COMPLETED" });
     const strengthLog = await resolveHabit(db, userId, strength.id, { targetDate: today, status: "SKIPPED" });
 
-    // Approved: structure_inbox_item, create_project.
     const transcriptDraft = {
         title: "Pull quotable lines from customer interview",
         dueDate: seedDate(clock, 3),
@@ -226,7 +200,6 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
     });
     const activeHabits = refs.habits.filter((h) => !h.archived);
 
-    // ── Thread ──────────────────────────────────────────────────────────
     const [conversation] = await db
         .insert(aiConversations)
         .values({
@@ -355,7 +328,6 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
         {
             role: "assistant",
             minute: 5,
-            // A question to tap or type an answer to; answered by the next message, so it rests settled.
             parts: [
                 step,
                 read(

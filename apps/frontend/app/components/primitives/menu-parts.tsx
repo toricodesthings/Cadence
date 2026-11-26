@@ -16,7 +16,6 @@ const ITEM_VARIANTS = {
     danger: MENU_ITEM_DANGER,
 };
 
-/** The rows both menus style the same way, themed for one Radix namespace (each keeps its own context). */
 export function themedMenuParts<M extends RadixMenu>(Radix: M) {
     const { SubTrigger: RSubTrigger, SubContent: RSubContent, Item: RItem, Separator: RSeparator } = Radix as RadixMenu;
     return {

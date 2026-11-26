@@ -1,11 +1,3 @@
-/**
- * §13.2 & §13.3 Acceptance: Reminder engine pipeline tests
- *
- * - Reminder derivation is deterministic
- * - Dismissals and deferrals persist as intended
- * - Quiet hours never hide anything from the list
- * - Habit bundling works at threshold
- */
 import { beforeEach, describe, it, expect } from "vitest";
 import { atLocal, dayOf, wallTimeOf } from "@cadence/domain/time";
 import { setUserZone } from "../../../../app/lib/utils/user-zone";
@@ -25,7 +17,6 @@ const BASE_TASK = makeTask({ id: "t1", userId: "u1", title: "Test Task" });
 const BASE_HABIT = makeHabit({ id: "h1", userId: "u1", title: "Test Habit" });
 
 const ZONE = "America/Toronto";
-/** A wall time on the test day in the user's zone, as the Date the engine takes for "now". */
 const at = (time: string, day = "2026-03-26") => new Date(atLocal(day, time, ZONE));
 beforeEach(() => setUserZone(ZONE));
 
@@ -76,7 +67,6 @@ describe("deriveCandidates", () => {
     });
 
     it("produces a task-reminder candidate when reminder is within 1 hour", () => {
-        // Both instants in UTC: a local `now` against a UTC reminder only lines up near UTC.
         const now = new Date("2026-03-26T10:00:00.000Z");
         const task: Task = {
             ...BASE_TASK,
@@ -87,7 +77,6 @@ describe("deriveCandidates", () => {
         expect(candidates[0].kind).toBe("task-reminder");
     });
 
-    // 0.30.0 (B03): waiting follow-ups and yearly events are covered.
     it("produces one waiting follow-up per check-in, only while still waiting", () => {
         const now = new Date("2026-03-26T10:00:00.000Z");
         const waiting: Task = {
@@ -102,7 +91,6 @@ describe("deriveCandidates", () => {
         expect(candidates[0].id).toBe(`waiting-followup::t1::${waiting.waitingReminder}`);
         expect(candidates[0].body).toContain("Sam");
 
-        // Released (back to active) or done waiting: no nudge.
         expect(deriveCandidates([{ ...waiting, state: "ACTIVE" }], [], now)).toEqual([]);
         expect(deriveCandidates([{ ...waiting, state: "COMPLETE" }], [], now)).toEqual([]);
         expect(deriveCandidates([{ ...waiting, waitingOn: null }], [], now)).toEqual([]);
@@ -122,17 +110,14 @@ describe("deriveCandidates", () => {
         expect(candidates.length).toBe(1);
         expect(candidates[0].kind).toBe("personal-event");
         expect(candidates[0].id).toBe("personal-event::ev1::2026-03-26");
-        // Bell off, or another day: nothing.
         expect(deriveCandidates([], [], now, { personalEvents: [{ ...event, notify: false }] })).toEqual([]);
         expect(deriveCandidates([], [], at("10:00", "2026-03-27"), { personalEvents: [event] })).toEqual([]);
     });
 
     it("observes Feb 29 birthdays on Feb 28 in common years", () => {
         const event = { id: "ev2", label: "Leap day", monthDay: "02-29", emoji: null, notify: true, startedOn: null };
-        // 2026 is a common year: the nudge lands on Feb 28.
         expect(deriveCandidates([], [], at("10:00", "2026-02-28"), { personalEvents: [event] }).length).toBe(1);
         expect(deriveCandidates([], [], at("10:00", "2026-03-01"), { personalEvents: [event] })).toEqual([]);
-        // 2028 is a leap year: the nudge lands on Feb 29 itself.
         expect(deriveCandidates([], [], at("10:00", "2028-02-29"), { personalEvents: [event] }).length).toBe(1);
     });
 });
@@ -165,7 +150,6 @@ describe("filterByBehavior", () => {
     });
 
     it("bundles missed habits when count >= threshold", () => {
-        // 3pm — targetTime 14:00 was 1hr ago (within ±2hr window), so candidates are generated
         const now = at("15:00");
         const habits: Habit[] = Array.from({ length: 4 }, (_, i) => ({
             ...BASE_HABIT,
@@ -176,13 +160,12 @@ describe("filterByBehavior", () => {
             logs: [{ id: "virt", habitId: `h${i}`, status: "PENDING", targetDate: "2026-03-26", completedAt: null }],
         }));
         const candidates = deriveCandidates([], habits, now);
-        expect(candidates.length).toBe(4); // All 4 habits generate candidates
+        expect(candidates.length).toBe(4);
         const filtered = filterByBehavior(candidates, now, {
             ...DEFAULT_BEHAVIOR,
             bundleMissedHabits: true,
             missedHabitBundleThreshold: 3,
         });
-        // Should have a single bundled notification
         const bundled = filtered.filter((n) => n.id.startsWith("habit-bundle"));
         expect(bundled.length).toBe(1);
         expect(bundled[0].body).toContain("4 routines");
@@ -204,7 +187,6 @@ describe("filterByBehavior", () => {
             deferredUntil: new Map([[candidates[1].id, new Date(now.getTime() + 3_600_000).toISOString()]]),
         };
         const options = { ...DEFAULT_BEHAVIOR, bundleMissedHabits: true, missedHabitBundleThreshold: 3 };
-        // 4 minus 1 dismissed and 1 deferred leaves 2: under the threshold, so they stay individual.
         const filtered = filterByBehavior(candidates, now, { ...options, hidden });
         expect(filtered.some((n) => n.id.startsWith("habit-bundle"))).toBe(false);
         expect(filtered).toHaveLength(2);
@@ -227,7 +209,7 @@ describe("routine reminders", () => {
         expect(deriveCandidates([], [routine(log("PENDING"))], now)).toHaveLength(1);
         expect(deriveCandidates([], [routine(log("COMPLETED"))], now)).toHaveLength(0);
         expect(deriveCandidates([], [routine(log("SKIPPED"))], now)).toHaveLength(0);
-        expect(deriveCandidates([], [routine([])], now)).toHaveLength(0); // not due today, or paused
+        expect(deriveCandidates([], [routine([])], now)).toHaveLength(0);
     });
 });
 
@@ -260,11 +242,9 @@ describe("applyPresentationRules", () => {
             deferredUntil: new Map([[candidates[0].id, deferUntil]]),
         };
 
-        // Still deferred
         const resultBefore = applyPresentationRules(candidates, state, now);
         expect(resultBefore.length).toBe(0);
 
-        // After defer period, should resurface
         const later = at("10:11");
         const resultAfter = applyPresentationRules(candidates, state, later);
         expect(resultAfter.length).toBe(1);

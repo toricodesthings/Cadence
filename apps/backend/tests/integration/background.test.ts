@@ -11,13 +11,11 @@ beforeAll(startTestDb);
 
 const settings = (userId: string) => apiAs(userId, "/settings", settingsRoutes);
 
-/** Smallest valid still WebP: a VP8L chunk with a 2×2 header. */
 const TINY_WEBP = new Uint8Array([
     0x52, 0x49, 0x46, 0x46, 0x16, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x4c, 0x08, 0, 0, 0, 0x2f, 0x01,
     0x40, 0, 0, 0, 0, 0, 0x45, 0x58, 0x49, 0x46, 0x02, 0, 0, 0, 0xaa, 0xbb,
 ]);
 
-/** In-memory stand-in for the R2 binding (only what the route uses). */
 function createBucket() {
     const objects = new Map<string, Uint8Array>();
     const bucket = {
@@ -81,7 +79,6 @@ describe("background routes", () => {
 
         const key = `backgrounds/${userId}/${image.id}.webp`;
         expect([...bucket.objects.keys()]).toEqual([key]);
-        // The trailing EXIF chunk was stripped before storage.
         expect(bucket.objects.get(key)!.length).toBe(TINY_WEBP.length - 10);
     });
 

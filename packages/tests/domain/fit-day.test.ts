@@ -128,6 +128,19 @@ describe("weekRoom / roomiestDay", () => {
         expect(room[0]).toMatchObject({ bookedMinutes: 210, openMinutes: 690, deadlines: [{ id: "c", title: "c" }] });
     });
 
+    it("weighs each task by its share: overlaps count once at the larger share, a 0 share still lists its deadline", () => {
+        const room = weekRoom(
+            [
+                t("a", { scheduledStart: at("09:00"), scheduledEnd: at("11:00"), share: 0.5 }),
+                t("b", { scheduledStart: at("10:00"), scheduledEnd: at("12:00") }),
+                t("c", { dueDate: day, durationEstimate: 60, share: 0.5 }),
+                t("d", { dueDate: day, durationEstimate: 600, share: 0 }),
+            ],
+            opts,
+        );
+        expect(room[0]).toMatchObject({ bookedMinutes: 180, deadlines: [{ id: "c" }, { id: "d" }] });
+    });
+
     it("a full week falls back to the day with the most room", () => {
         const busy = Array.from({ length: 7 }, (_, i) => {
             const d = `2026-10-2${i}`;
@@ -144,7 +157,7 @@ describe("weekRoom / roomiestDay", () => {
 });
 
 describe("dispositionDay", () => {
-    const room = weekRoom([], { from: day, days: 7, zone, timelineStartHour: 7 }); // Tue 2026-10-20 …
+    const room = weekRoom([], { from: day, days: 7, zone, timelineStartHour: 7 });
     it("maps this_week through roomiestDay, inside this week only, and next_week to the week's first day", () => {
         expect(dispositionDay("today", { today: day, room, minutes: 30, weekStart: "Monday" })).toBe(day);
         expect(dispositionDay("this_week", { today: day, room, minutes: 30, weekStart: "Monday" })).toBe("2026-10-21");

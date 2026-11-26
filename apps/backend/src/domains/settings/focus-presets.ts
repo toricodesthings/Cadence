@@ -7,10 +7,6 @@ import type { Tx } from "../../types/db";
 const asIcon = (name: string) =>
     (FOCUS_VIEW_ICONS as readonly string[]).includes(name) ? (name as FocusViewIcon) : null;
 
-/**
- * Every account starts with the built-in presets as its own rows, so they rename, recolour, pin and delete like
- * any view. Only keys never written are added: a deleted one stays hidden, and a preset added later still arrives.
- */
 export async function ensureFocusPresets(tx: Tx, userId: string) {
     const have = await tx
         .select({ key: savedFocusViews.presetKey })
@@ -38,7 +34,6 @@ export async function ensureFocusPresets(tx: Tx, userId: string) {
         .onConflictDoNothing();
 }
 
-/** A built-in preset is hidden, so it never comes back on the next read; any other view is deleted. */
 export async function hideOrDeleteFocusView(tx: Tx, userId: string, id: string) {
     const hidden = await tx
         .update(savedFocusViews)

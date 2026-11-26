@@ -7,11 +7,9 @@ export interface SegmentedOption<T extends string> {
     value: T;
     label: ReactNode;
     icon?: ReactNode;
-    /** Colour of the chosen segment; defaults to the control's `tone`. */
     tone?: string;
 }
 
-/* Concentric: inner radius = outer radius − inset (1px border + padding). sm 11 − 3 = 8, md 12 − 4 = 8. */
 const SIZES = {
     sm: { root: "rounded-[11px] p-0.5", item: "rounded-lg px-3 py-1 text-[13px]", lens: "inset-y-0.5 rounded-lg" },
     md: {
@@ -21,17 +19,11 @@ const SIZES = {
     },
 } as const;
 
-/** The chosen/idle look of one segment, shared with other pressed controls (formatting toggles). Needs `--segment-tone` on the element or an ancestor. */
 const SEGMENT_FILL =
     "border-[color-mix(in_srgb,var(--segment-tone)_25%,transparent)] bg-[color-mix(in_srgb,var(--segment-tone)_18%,transparent)]";
 export const SEGMENT_ACTIVE = `${SEGMENT_FILL} text-[var(--segment-tone)]`;
 export const SEGMENT_IDLE = "border-transparent text-twilight-text-soft hover:bg-white/[0.04] hover:text-twilight-text";
 
-/**
- * One choice out of a few, shown side by side (Week/Month, Task/Event,
- * Soft/Balanced/Vivid). The chosen segment takes `tone`, the accent by default. Its fill is one
- * lens that glides between segments and, on touch, scrubs under the finger.
- */
 export function SegmentedControl<T extends string>({
     value,
     onChange,

@@ -20,7 +20,6 @@ import { RoutineMark } from "../habits/RoutineMark";
 type Day = ReturnType<typeof useWeekRoom>["room"][number];
 const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 
-/** "3h", "2h 30m", "45m". */
 function hm(minutes: number) {
     const h = Math.floor(minutes / 60);
     const m = Math.round(minutes % 60);
@@ -29,19 +28,13 @@ function hm(minutes: number) {
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-/** An hour of the person's day: "7 AM", "Midnight". */
 const hourLabel = (hour: number) =>
     hour >= 24 ? "Midnight" : formatWallTime(`${String(hour).padStart(2, "0")}:00`).replace(":00 ", " ");
 
-/** A tile's free time, rounded to the hour so seven fit side by side: "10h", "45m". */
 function hShort(minutes: number) {
     return minutes >= 60 ? `${Math.round(minutes / 60)}h` : `${Math.round(minutes)}m`;
 }
 
-/**
- * One tile in the week strip: weekday, date, and the day's free time. Only a deadline adds a mark (the exception);
- * planned blocks and routines are told in the day's own view, so seven tiles stay quiet enough to scan.
- */
 function DayTile({
     day,
     today,
@@ -99,10 +92,6 @@ function DayTile({
     );
 }
 
-/**
- * The day's centre piece: free time as a ring, scaled to the person's day (Settings → Your day), so today's shorter
- * evening reads as less room than an open Saturday. The time is written inside.
- */
 function FreeRing({ day, fullDay }: { day: Day; fullDay: number }) {
     const r = 42;
     const c = 2 * Math.PI * r;
@@ -134,7 +123,6 @@ function FreeRing({ day, fullDay }: { day: Day; fullDay: number }) {
     );
 }
 
-/** A count pill under the day's name, tinted by what it counts. */
 function Pill({ icon: Icon, tone, children }: { icon: typeof Flag; tone: string; children: ReactNode }) {
     return (
         <span
@@ -145,7 +133,6 @@ function Pill({ icon: Icon, tone, children }: { icon: typeof Flag; tone: string;
     );
 }
 
-/** An inset grouped list: a header outside, rows inside one card split by hairlines. */
 function Group({
     icon: Icon,
     title,
@@ -169,7 +156,6 @@ function Group({
     );
 }
 
-/** A row in the day's view: opens its own panel beside the reset (never leaves it). */
 function Row({ lead, title, onOpen }: { lead: ReactNode; title: string; onOpen: () => void }) {
     return (
         <li>
@@ -289,7 +275,6 @@ function DayView({
                             <h3 className="flex items-center gap-2 px-1 text-sm font-semibold text-twilight-text-soft">
                                 <Flame size={15} aria-hidden="true" className="text-accent-primary" /> Routines
                             </h3>
-                            {/* Routines read as a set, not a to-do list: a two-up grid, each with its own mark in its tone. */}
                             <ul className="surface-card grid grid-cols-2 gap-1.5 rounded-2xl p-1.5">
                                 {day.routines.map((h) => (
                                     <li key={h.id} className="min-w-0">
@@ -317,11 +302,6 @@ function DayView({
     );
 }
 
-/**
- * The next 7 days: a strip to pick a day (date and free time, a flag when something's due), then that day's
- * view: free time as a ring, counts as pills, and grouped lists. Tasks and routines open their panel beside the
- * reset, so looking never leaves it.
- */
 export function WeekView({
     room,
     onOpenTask,

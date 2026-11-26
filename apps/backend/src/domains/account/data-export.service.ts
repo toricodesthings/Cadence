@@ -12,20 +12,13 @@ import type { Env } from "../../types/env";
 
 const FROM = { email: "noreply@mail.cadenceapp.cloud", name: "Cadence" };
 
-/** Says which time values are which, so the file reads the same in any tool. */
 const TIME_NOTE =
     "Days (due_on, end_on, hidden_until, target_date, first_scheduled…) are calendar days as YYYY-MM-DD with no time zone. Moments (scheduled_start, scheduled_end, created_at, …) are ISO 8601 in UTC (…Z); a timed task's zone column is the time zone it was planned in. users.time_zone is yours.";
 
-/** Email caps a message at 25 MiB, body included. ponytail: over this the export fails; zip it or link R2 if anyone gets here. */
 const MAX_BYTES = 20 * 1024 * 1024;
 
-/** Internal bookkeeping the person never wrote. Everything else with their id on it goes in the file. */
 const SKIPPED_TABLES = new Set(["mutation_dedup"]);
 
-/**
- * Every table holding the person's rows, as JSON. Driven by the schema, so a new table is exported without
- * anyone remembering to add it. Embedding vectors and generated search columns are left out (model internals).
- */
 export async function buildExport(tx: Tx, identity: { userId: string; email: string }): Promise<string> {
     const { userId } = identity;
     const data: Record<string, unknown[]> = {};
@@ -44,14 +37,11 @@ export async function buildExport(tx: Tx, identity: { userId: string; email: str
                 ? eq(all.userId, userId)
                 : name === "users"
                   ? eq(all.id, userId)
-                  : // the links the person made for their shared lists
-                    name === "share_invites"
+                  : name === "share_invites"
                     ? eq(all.createdBy, userId)
-                    : // routine_cheers: the cheers the person sent or got
-                      "fromUserId" in all
+                    : "fromUserId" in all
                       ? or(eq(all.fromUserId, userId), eq(all.toUserId, userId))
-                      : // task_tags is the one table without a user id: owned through its task
-                        "taskId" in all
+                      : "taskId" in all
                         ? inArray(all.taskId, tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.userId, userId)))
                         : undefined;
         if (!scope) throw new Error(`data export doesn't know how to scope ${name}`);
@@ -72,11 +62,6 @@ export async function buildExport(tx: Tx, identity: { userId: string; email: str
     );
 }
 
-/**
- * Builds the export and emails it, then records the outcome on the request row. Runs after the response
- * (`waitUntil`), so it never throws: a failure is logged and leaves the row `failed`.
- * ponytail: runs inside the request's waitUntil window; move to a Cloudflare Queue if exports outgrow it.
- */
 export async function deliverExport(
     env: Env,
     request: { id: string; userId: string; email: string },
@@ -124,7 +109,6 @@ export async function deliverExport(
                 .where(and(eq(dataExports.id, request.id), eq(dataExports.userId, userId))),
         );
     } catch (error) {
-        // Still "pending" on the row; the hour's wait on POST /account/export frees it up again
         logger.error("auth", "data_export_record_failed", {
             requestId,
             userHash: await hashIdentifier(userId),

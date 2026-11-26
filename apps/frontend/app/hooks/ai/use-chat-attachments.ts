@@ -7,17 +7,12 @@ import { queryKeys } from "../../lib/api/query-keys";
 import { compressChatImage } from "../../lib/utils/image";
 import type { ImageAllowance } from "../../lib/ai/usage";
 
-/** A photo or PDF on the composer. It uploads as soon as it's attached; Send waits for it. */
 type AttachmentPreview = {
     id: string;
-    /** Local preview (object URL of the original). */
     url: string;
-    /** The picked file's name; it stays on this device. */
     name: string;
-    /** Original size, then the compressed size that's actually sent. */
     bytes: number;
     mediaType: typeof CHAT_IMAGE_MEDIA_TYPE | typeof CHAT_PDF_MEDIA_TYPE;
-    /** PDF page count once uploaded, when the server could read it. */
     pages?: number | null;
 };
 
@@ -47,8 +42,6 @@ export function useChatAttachments({
     const attachmentsRef = useRef(attachments);
     attachmentsRef.current = attachments;
 
-    // Remove an unsent upload from the server (frees its pending slot). Best-effort:
-    // anything missed is swept after a day.
     const discardImage = useCallback(
         (imageId: string) => void client.api.ai.images[":id"].$delete({ param: { id: imageId } }).catch(() => {}),
         [client],
@@ -63,7 +56,6 @@ export function useChatAttachments({
         [discardImage],
     );
 
-    // Compress and upload right away, so the upload hides behind typing.
     const uploadAttachment = async (localId: string, file: File) => {
         try {
             const isPdf = file.type === CHAT_PDF_MEDIA_TYPE;
@@ -80,7 +72,6 @@ export function useChatAttachments({
             const self = current.find((a) => a.id === localId);
             const duplicate = current.some((a) => a.id !== localId && a.imageId === data.id);
             if (!self || duplicate) {
-                // Taken off while uploading, or the same photo twice: keep one copy.
                 if (self) {
                     URL.revokeObjectURL(self.url);
                     setAttachments((prev) => prev.filter((a) => a.id !== localId));
@@ -150,7 +141,6 @@ export function useChatAttachments({
             discardImage(gone.imageId);
         setAttachments((prev) => prev.filter((a) => a.id !== id));
     };
-    // Release preview blobs when the panel unmounts (unsent uploads are swept server-side).
     useEffect(() => () => attachmentsRef.current.forEach((a) => URL.revokeObjectURL(a.url)), []);
 
     return {

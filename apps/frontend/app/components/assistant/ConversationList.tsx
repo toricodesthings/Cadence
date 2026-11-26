@@ -17,11 +17,6 @@ import { ConversationListItem } from "./ConversationListItem";
 import { useMemoryPage } from "../../hooks/ai/use-memory";
 import { ClearArchiveButton } from "./ClearArchiveButton";
 
-/**
- * The saved-conversations history drawer (design §7). An in-panel surface
- * (overlaid on the thread), not a route — preserves the ambient side-panel
- * feel. Selecting a row loads its messages via the panel's `onSelect` handler.
- */
 export function ConversationList({
     activeConversationId,
     onClose,
@@ -38,7 +33,6 @@ export function ConversationList({
     const archive = useArchiveConversation();
     const del = useDeleteConversation();
     const setLearn = useSetConversationLearn();
-    // The per-chat switch exists only while memory is on.
     const { data: memoryPage } = useMemoryPage();
     const learnSwitch = memoryPage && !memoryPage.inactive;
     const [showArchived, setShowArchived] = useState(false);

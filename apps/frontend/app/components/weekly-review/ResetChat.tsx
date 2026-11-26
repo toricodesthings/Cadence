@@ -20,7 +20,6 @@ import { SETTINGS_DEFAULTS } from "../../types/settings";
 import { describeImageAllowance, describeUsage } from "../../lib/ai/usage";
 import type { SlashCommand } from "../../lib/ai/slash-commands";
 
-/** The Huddle's one conversation, kept on this device so leaving and coming back resumes it; Done clears it. */
 export const RESET_CHAT_KEY = "cadence-weekly-reset-chat";
 
 const STARTERS = [
@@ -32,10 +31,6 @@ const STARTERS = [
     { label: "Find focus time", icon: Target, text: "Find me a 90-minute focus block this week" },
 ] as const;
 
-/**
- * The Huddle step: just the assistant, the assistant panel's thread and composer, embedded. The greeting is the app's own
- * (no model call); a starter chip sends its words as a normal message. Typing nothing costs nothing.
- */
 export function ResetChat() {
     const [savedId, saveId] = useDeviceValue(RESET_CHAT_KEY);
     const { activeConversationId, setSurface, setAssistantPanelOpen, setHistoryOpen, setMemoryOpen } =
@@ -73,14 +68,12 @@ export function ResetChat() {
     });
     const { openSettings } = useUtilityNavigation();
 
-    // One thread on screen: the side panel closes while the reset owns the chat, and each turn says it's the reset's.
     useEffect(() => {
         setAssistantPanelOpen(false);
         setSurface("weekly_reset");
         return () => setSurface(null);
     }, [setAssistantPanelOpen, setSurface]);
 
-    // Resume the reset's thread, or start one; whichever id ends up active (a 404 mints a new one) is the one kept.
     const started = useRef(false);
     useEffect(() => {
         if (started.current) return;
@@ -97,7 +90,6 @@ export function ResetChat() {
         if (sent) setInput("");
         return sent;
     };
-    // The overlays live in the panel: those commands open it there.
     const runSlashCommand = (command: SlashCommand) => {
         if (command.id === "clear") conversation.handleNewChat();
         else if (command.id === "settings") openSettings("assistant");

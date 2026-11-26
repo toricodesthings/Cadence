@@ -19,7 +19,6 @@ import { revokeAllGrants } from "../mcp/oauth";
 import { deliverExport } from "./data-export.service";
 import { withinDailyBudget } from "../../platform/daily-budget";
 
-/** One export an hour: each one reads every table, and the file goes to an inbox that may be shared or slow. */
 const EXPORT_COOLDOWN_MS = 60 * 60 * 1000;
 const EXPORT_STUCK_MS = 15 * 60 * 1000;
 
@@ -31,7 +30,6 @@ const exportColumns = {
     completedAt: dataExports.completedAt,
 };
 
-/** Deletes every object under `prefix` (R2 lists 1,000 keys a page and deletes at most 1,000 per call). */
 async function deletePrefix(bucket: R2Bucket, prefix: string): Promise<void> {
     let cursor: string | undefined;
     do {
@@ -44,7 +42,6 @@ async function deletePrefix(bucket: R2Bucket, prefix: string): Promise<void> {
 
 const JWKS_SUFFIX = "/.well-known/jwks.json";
 
-/** Neon Auth's base URL, from the JWKS URL the API already trusts (`{base}/.well-known/jwks.json`). */
 function authBaseUrl(env: Env): string {
     const jwks = env.NEON_AUTH_JWKS_URL;
     if (!jwks?.endsWith(JWKS_SUFFIX)) {
@@ -53,10 +50,6 @@ function authBaseUrl(env: Env): string {
     return jwks.slice(0, -JWKS_SUFFIX.length);
 }
 
-/**
- * Proves the person is present, not just holding a session token: Neon Auth must accept their password, or the
- * code it emailed them. A stolen token alone can't delete an account. Neon Auth rate-limits both checks.
- */
 export async function verifyPresence(
     env: Env,
     identity: { userId: string; email?: string },
@@ -71,17 +64,14 @@ export async function verifyPresence(
     if (!identity.email || (!proof.password && !proof.otp)) {
         throw new AppError(403, "REAUTH_FAILED", "Confirm it's you with your password or an emailed code");
     }
-    // Our own Neon Auth host from env; only the JSON body carries user input.
     const base = authBaseUrl(env);
     const res = proof.password
         ? await fetch(`${base}/sign-in/email`, {
-              // nosemgrep
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ email: identity.email, password: proof.password, rememberMe: false }),
           })
         : await fetch(`${base}/email-otp/check-verification-otp`, {
-              // nosemgrep
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ email: identity.email, type: "sign-in", otp: proof.otp }),
@@ -92,31 +82,26 @@ export async function verifyPresence(
         success?: boolean;
         token?: string;
     } | null;
-    // The password check signed in a real session: sign it out again (best effort), so checks leave nothing behind.
     const token = res.headers.get("set-auth-token") ?? body?.token;
     if (proof.password && token) {
         await fetch(`${base}/sign-out`, { method: "POST", headers: { Authorization: `Bearer ${token}` } }).catch(
             () => {},
-        ); // nosemgrep
+        );
     }
-    // A password must belong to this very account; an OTP check answers only success
     const ok = proof.password ? body?.user?.id === identity.userId : body?.success === true;
     if (!ok) throw fail();
 }
 
-/** Presence checks a person may try per UTC day; past it, a stolen session can't keep guessing. */
 const REAUTH_TRIES_PER_DAY = 10;
 
-/** Removes the sign-in identity. A 404 means it is already gone, which is what a retry wants. */
 export async function deleteAuthUser(env: Env, userId: string): Promise<void> {
     const { NEON_API_KEY, NEON_PROJECT_ID, NEON_BRANCH_ID } = env;
     if (!NEON_API_KEY || !NEON_PROJECT_ID || !NEON_BRANCH_ID) {
         throw new AppError(503, "ACCOUNT_DELETION_UNAVAILABLE", "Account deletion is not available right now");
     }
-    // Defense in depth: `sub` is signed by Neon Auth, but it goes into an admin URL, so only a plain UUID may
     if (!z.uuid().safeParse(userId).success) throw new AppError(400, "VALIDATION_ERROR", "Invalid account id");
     const res = await fetch(
-        `https://console.neon.tech/api/v2/projects/${encodeURIComponent(NEON_PROJECT_ID)}/branches/${encodeURIComponent(NEON_BRANCH_ID)}/auth/users/${userId}`, // nosemgrep
+        `https://console.neon.tech/api/v2/projects/${encodeURIComponent(NEON_PROJECT_ID)}/branches/${encodeURIComponent(NEON_BRANCH_ID)}/auth/users/${userId}`,
         { method: "DELETE", headers: { Authorization: `Bearer ${NEON_API_KEY}` } },
     );
     if (!res.ok && res.status !== 404) {
@@ -129,17 +114,10 @@ export async function deleteAuthUser(env: Env, userId: string): Promise<void> {
     }
 }
 
-/**
- * Permanent account deletion. The order is deliberate: files, then connected-assistant grants, then the
- * workspace (one `users` row; every table cascades from it), and the sign-in identity last. A failure
- * before the last step leaves a signed-in user who can simply retry; nothing is ever left with no owner.
- */
 export const accountRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
-    // POST /account/delete — body carries the confirmation phrase plus a password or emailed code. There is no undo.
     .post("/delete", apiValidator("json", deleteAccountSchema), async (c) => {
         const userId = c.get("userId");
         const { NEON_API_KEY, NEON_PROJECT_ID, NEON_BRANCH_ID } = c.env;
-        // Refuse before touching anything if the last step could not run
         if (!NEON_API_KEY || !NEON_PROJECT_ID || !NEON_BRANCH_ID) {
             throw new AppError(503, "ACCOUNT_DELETION_UNAVAILABLE", "Account deletion is not available right now");
         }
@@ -197,7 +175,6 @@ export const accountRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         logger.info("auth", "account_deleted", { userHash });
         return c.json({ data: { deleted: true } }, 200);
     })
-    // POST /account/export — emails the person a JSON copy of all their data, at the address they signed up with. Answers at once; the email follows.
     .post("/export", async (c) => {
         const userId = c.get("userId");
         const email = c.get("userEmail");
@@ -231,7 +208,6 @@ export const accountRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         c.executionCtx.waitUntil(deliverExport(c.env, { id: request.id, userId, email }, c.get("requestId")));
         return c.json({ data: request satisfies DataExport }, 202);
     })
-    // GET /account/export — the latest request, or null when there has never been one.
     .get("/export", async (c) => {
         const userId = c.get("userId");
         const [latest] = await withRls(getDbClient(c.env), userId, (tx) =>
@@ -242,7 +218,6 @@ export const accountRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
                 .orderBy(desc(dataExports.requestedAt))
                 .limit(1),
         );
-        // A request stuck pending (isolate died mid-send) reads as failed; nothing is stored.
         const stuck =
             latest?.status === "pending" && Date.now() - new Date(latest.requestedAt).getTime() > EXPORT_STUCK_MS;
         return c.json(

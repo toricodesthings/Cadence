@@ -43,10 +43,6 @@ import { useNoteToolbarState } from "./note/use-note-toolbar-state";
 
 const OUTLINE_PREF = "cadence-note-outline";
 
-/**
- * TaskNoteRoom — the full-screen writing room. Mounted at shell level (MainLayout) over the
- * opaque focus shell; opened through the note room store.
- */
 export function TaskNoteRoom() {
     const { taskId, taskTitle, close } = useNoteRoomStore();
     const reduced = useReducedMotionSetting();
@@ -105,25 +101,21 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
     const scope = task && isSeriesScopedNote(task) ? getNoteScopeLabel(task) : null;
     const body = state?.body ?? "";
 
-    // Close hands focus back to whatever opened the room.
     useEffect(() => {
         opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         return () => opener.current?.focus?.();
     }, []);
 
-    // A note the visual editor can't carry whole opens as Markdown, never silently trimmed.
     useEffect(() => {
         if (!state?.loaded || checkedFidelity.current) return;
         checkedFidelity.current = true;
         if (!isFaithful(state.body)) setSourceMode(true);
     }, [state?.loaded, state?.body]);
 
-    // Phone keyboard: strip and panels ride it; a panel takes its place at the last height.
     const { inset, last } = useKeyboardInset(phone);
     const panelHeight = Math.min(Math.max(last.current || 320, 280), Math.round(window.innerHeight / 2));
     const effectiveInset = phone ? (panel ? panelHeight : inset) : 0;
 
-    // ── words (debounced: never per keystroke) ──
     useEffect(() => {
         const id = setTimeout(() => {
             setWords(
@@ -137,7 +129,6 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
         return () => clearTimeout(id);
     }, [editor, body, sourceMode]);
 
-    // ── outline (from the document, not Markdown lines) ──
     const outlineCache = useRef(new WeakMap<object, NoteHeading[]>());
     const outlineState = useEditorState({
         editor,
@@ -166,7 +157,6 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
         [editor],
     );
 
-    // Search opens a heading: jump to the real one, no keyboard on a phone.
     useEffect(() => {
         if (!scrollToHeading || !editor || sourceMode) return;
         const heading = findHeading(outlineState.headings, scrollToHeading);
@@ -174,7 +164,6 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
         clearScrollTarget();
     }, [scrollToHeading, editor, sourceMode, outlineState.headings, jumpTo, phone, clearScrollTarget]);
 
-    // ── closing ──
     const requestClose = useCallback(async () => {
         if (!session) return onClose();
         const safe = await session.persist();
@@ -188,7 +177,6 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
-            // One Escape per layer: a menu or dialog that took it has already prevented the default.
             if (e.key !== "Escape" || e.defaultPrevented || e.isComposing) return;
             e.preventDefault();
             void requestClose();
@@ -197,7 +185,6 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
         return () => window.removeEventListener("keydown", onKey);
     }, [requestClose]);
 
-    // ── saving on purpose ──
     const saveNow = useCallback(async () => {
         if (!session) return "failed" as const;
         return session.flush();
@@ -227,7 +214,6 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
         [body, saveNow],
     );
 
-    // ── menu actions ──
     const onAction = useCallback(
         (id: NoteCommandId) => {
             switch (id) {
@@ -502,7 +488,6 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
         </>
     );
 
-    // ── phone ──
     if (phone) {
         return (
             <ImmersiveDetailLayout
@@ -679,7 +664,6 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
         );
     }
 
-    // ── tablet and desktop ──
     const compactTablet = shell.isTablet;
     return (
         <ImmersiveDetailLayout
@@ -770,7 +754,6 @@ function NoteRoomInner({ taskId, taskTitle, onClose }: { taskId: string; taskTit
     );
 }
 
-/** `/` at the start of a fresh line, so the menu opens where it can act. */
 function runSlash(editor: Editor) {
     const { $from } = editor.state.selection;
     const chain = editor.chain().focus();

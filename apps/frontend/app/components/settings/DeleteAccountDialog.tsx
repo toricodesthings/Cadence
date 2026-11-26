@@ -27,7 +27,6 @@ type IdentityProofProps = {
     onSendCode: () => void;
 };
 
-/** Proof it's them: their password, or a code emailed to them when they sign in with Google or GitHub. */
 function IdentityProof({
     hasPassword,
     email,
@@ -95,11 +94,6 @@ function IdentityProof({
     );
 }
 
-/**
- * Permanent account deletion. The button stays off until the phrase is typed and the person proves it's them:
- * their password, or (Google/GitHub accounts without one) a code emailed to them. The server checks that proof
- * itself, so a stolen session can't delete an account. There is no undo.
- */
 export function DeleteAccountDialog() {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -147,7 +141,6 @@ export function DeleteAccountDialog() {
             toastError(error, "Couldn't delete your account. Nothing was removed; try again.");
             return;
         }
-        // The account is gone: drop everything this device kept for it, then leave
         queryClient.clear();
         await Promise.allSettled([clearWal(), createIDBPersister().removeClient()]);
         toast.success("Your account was deleted.");
@@ -211,7 +204,6 @@ export function DeleteAccountDialog() {
                             Keep my account
                         </Button>
                     </AlertDialog.Cancel>
-                    {/* A plain button, not AlertDialog.Action: Action closes the dialog before the request finishes */}
                     <Button
                         variant="danger"
                         size="md"

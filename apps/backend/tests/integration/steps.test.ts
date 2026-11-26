@@ -1,4 +1,3 @@
-/** POST /ai/steps: Suggest steps, with the model scripted. A draft only: nothing is stored before Keep. */
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiAs } from "../helpers/app";
 import { asOwner, createUser, startTestDb } from "../helpers/db";

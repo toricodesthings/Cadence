@@ -41,7 +41,6 @@ export function NotificationCenter({
     onClose: () => void;
     fullPage?: boolean;
     onOpenSettings?: () => void;
-    /** Shown above the list (the device-notifications offer). */
     banner?: React.ReactNode;
 }) {
     const handleOpen = useOpenNotification(markRead, onClose);
@@ -90,7 +89,6 @@ export function NotificationCenter({
         listRef.current?.scrollTo?.({ top: 0 });
     }
 
-    // Keep keyboard focus in the list when its current row disappears.
     function actOnRow(id: string, action: () => void, removesRow = true) {
         const rows = Array.from(listRef.current?.querySelectorAll<HTMLButtonElement>("[data-notification-open]") ?? []);
         const index = displayed.findIndex((n) => n.id === id);

@@ -12,7 +12,6 @@ import type { AgentContext } from "./index";
 const fieldAskOf = (settings: unknown) =>
     (settings as { assistant?: { fieldAsk?: FieldAskState | null } } | null)?.assistant?.fieldAsk ?? null;
 
-/** A field question sent without `field` still counts, so a retry can't skip the back-off. ponytail: English cues, widen with the eval's misses. */
 const FIELD_CUES = {
     priority: /\b(?:matters? most|most important|priorit)/i,
     effort: /\b(?:heaviest|hardest|most effort|biggest)\b/i,
@@ -21,7 +20,6 @@ const fieldOf = (question: string, field?: "priority" | "effort") =>
     field ??
     (FIELD_CUES.priority.test(question) ? "priority" : FIELD_CUES.effort.test(question) ? "effort" : undefined);
 
-/** Merged in SQL: the rest of `settings` is never rewritten from a stale read. */
 const writeFieldAsk = (tx: Tx, userId: string, value: FieldAskState) =>
     tx
         .update(users)
@@ -30,7 +28,6 @@ const writeFieldAsk = (tx: Tx, userId: string, value: FieldAskState) =>
         })
         .where(eq(users.id, userId));
 
-/** The turn's message settles a field question still waiting: an option answers it, anything else is a miss (A2 back-off). */
 export async function settleFieldQuestion(tx: Tx, userId: string, settings: unknown, reply: string) {
     const settled = settleFieldAsk(fieldAskOf(settings), reply);
     if (!settled) return undefined;
@@ -38,12 +35,6 @@ export async function settleFieldQuestion(tx: Tx, userId: string, settings: unkn
     return settled.answered;
 }
 
-/**
- * One question for the user, Claude Code style: the card shows it with a few
- * options to tap and a box for their own words. The turn stops here (agent.ts
- * `stopWhen`), and their reply arrives as the next user message, so nothing
- * waits on the server and a reload keeps the thread as it was.
- */
 export const askTools = (env: Env, userId: string, ctx: AgentContext) => ({
     ask_user: tool({
         description:

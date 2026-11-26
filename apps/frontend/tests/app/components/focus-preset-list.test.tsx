@@ -37,7 +37,6 @@ const renderList = (a = actions()) => {
     return a;
 };
 
-/** Each row's name (its first line), in order. */
 const names = () =>
     within(screen.getByRole("list", { name: "Presets" }))
         .getAllByRole("button")

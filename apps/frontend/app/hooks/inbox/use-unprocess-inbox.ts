@@ -33,7 +33,7 @@ export function useUnprocessInbox() {
             return { tasks, inbox };
         },
         onSuccess: (item) => {
-            if (!item) return; // Queued offline: the optimistic row stays.
+            if (!item) return;
             cache.setQueryData<InboxItem[]>(queryKeys.inbox.all, (old) => [
                 item,
                 ...(old ?? []).filter((i) => i.id !== item.id),

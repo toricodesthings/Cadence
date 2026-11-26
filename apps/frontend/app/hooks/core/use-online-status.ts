@@ -9,7 +9,6 @@ function subscribe(listener: () => void) {
     };
 }
 
-/** Live `navigator.onLine`; assumes online when there is no browser. */
 export function useOnlineStatus(): boolean {
     return useSyncExternalStore(
         subscribe,

@@ -14,10 +14,6 @@ const nonEmpty = (ids?: (string | null | undefined)[]): string[] => [
 
 export type SharedPeopleMap = Map<string, ListPerson[]>;
 
-/**
- * For a set of list ids, loads the people in each list that is actually shared (has at least one member).
- * Unshared lists are omitted from the returned map.
- */
 export async function sharedListPeople(tx: Tx, projectIds: (string | null | undefined)[]): Promise<SharedPeopleMap> {
     const ids = nonEmpty(projectIds);
     const result: SharedPeopleMap = new Map();
@@ -35,7 +31,6 @@ export async function sharedListPeople(tx: Tx, projectIds: (string | null | unde
     return result;
 }
 
-/** Shared-list attribution for a projected task row (names only, never ids or emails). */
 export function sharedTaskMeta(
     peopleMap: SharedPeopleMap,
     row: { projectId: string | null; userId?: string; createdBy?: string | null; takenBy?: string | null },
@@ -51,7 +46,6 @@ export function sharedTaskMeta(
     };
 }
 
-/** Shared-list summary for a projected list row (caller's role + people's names and roles, never ids or emails). */
 export function sharedProjectMeta(
     peopleMap: SharedPeopleMap,
     projectId: string,
@@ -66,7 +60,6 @@ export function sharedProjectMeta(
     };
 }
 
-/** Record the `updatedAt` timestamps of shared tasks read in this session so subsequent writes catch stale edits. */
 export function recordSeenSharedTasks(
     ctx: AgentContext,
     rows: { id: string; projectId: string | null; updatedAt?: Date | string | null }[],
@@ -80,11 +73,6 @@ export function recordSeenSharedTasks(
     }
 }
 
-/**
- * Stale-write guard for shared tasks: compares the stored `updated_at` against `expectedUpdatedAt`
- * (or the timestamp seen on the last read in `ctx.seenTaskUpdatedAt`). If another person changed
- * the task in the meantime, throws `409 STALE_WRITE` naming them so the assistant never overwrites blindly.
- */
 export async function assertTasksNotStale(
     tx: Tx,
     taskIds: string[],
@@ -127,7 +115,6 @@ export async function assertTasksNotStale(
         const expectedMs = expectedById.get(row.id);
         if (expectedMs === undefined || Number.isNaN(expectedMs)) continue;
         const actualMs = new Date(row.updatedAt).getTime();
-        // Truncate sub-millisecond drift from Postgres microsecond timestamps.
         if (Math.floor(actualMs) > Math.floor(expectedMs)) {
             const editor = people.find((p) => p.userId === (row.updatedBy ?? row.userId))?.name ?? "Someone";
             throw new AppError(
@@ -139,10 +126,6 @@ export async function assertTasksNotStale(
     }
 }
 
-/**
- * Duplicate check for creates in shared lists: returns any open task in the same shared list
- * (created by any member) that shares a title (case-insensitive) with one of the drafts.
- */
 export async function sharedCreateDuplicates(
     tx: Tx,
     drafts: { title: string; projectId?: string | null }[],
@@ -188,7 +171,6 @@ export async function sharedCreateDuplicates(
         });
 }
 
-/** Deduplicated audience userIds from a set of resolved list accesses. */
 export function audienceOfAccesses(accesses: (ListAccess | null | undefined)[]): string[] {
     const out = new Set<string>();
     for (const access of accesses) {
@@ -200,10 +182,6 @@ export function audienceOfAccesses(accesses: (ListAccess | null | undefined)[]):
 
 export type ScopedBroadcast = { audience: string[]; changes: import("@cadence/contracts/live").LiveChange[] };
 
-/**
- * Partition live changes strictly by shared list so a batch touching mixed private and shared
- * tasks (or two different shared lists) never sends one list's rows to another list's members.
- */
 export function scopeLiveBroadcasts(
     accesses: (ListAccess | null | undefined)[],
     changes: import("@cadence/contracts/live").LiveChange[],

@@ -21,24 +21,18 @@ import { useUserLocation } from "./use-user-location";
 import type { DayPeriod } from "../../lib/constants/greetings";
 
 export interface WeatherData {
-    /** Rounded, in the unit of the place: Fahrenheit in the US and a few others, else Celsius. */
     temp: number;
-    /** Raw temperature in Celsius, used for unit-independent sky warmth tinting. */
     celsius: number;
-    /** WMO weather code (0–99). */
     code: number;
-    /** Whether the sun is currently up at the resolved location. */
     isDay: boolean;
     condition: string;
     icon: LucideIcon;
 }
 
-/** off: turned off in settings · unavailable: no location to look up · error: the lookup failed */
 export type WeatherStatus = "off" | "unavailable" | "loading" | "ready" | "error";
 
 type Described = { label: string; icon: LucideIcon };
 
-// WMO weather codes (https://open-meteo.com/en/docs), folded into a few plain words.
 function describe(code: number, isDay: boolean): Described {
     if (code <= 1) return { label: "clear", icon: isDay ? Sun : Moon };
     if (code === 2) return { label: "partly cloudy", icon: isDay ? CloudSun : CloudMoon };
@@ -47,7 +41,6 @@ function describe(code: number, isDay: boolean): Described {
     return precipitationOf(code) ?? { label: "cloudy", icon: Cloud };
 }
 
-/** Drizzle, sleet, rain or snow; null for any other code. */
 function precipitationOf(code: number): Described | null {
     if (code >= 51 && code <= 57) return { label: "drizzle", icon: CloudDrizzle };
     if (code === 66 || code === 67) return { label: "sleet", icon: CloudSnow };
@@ -83,13 +76,6 @@ function skyConditionScore(code: number, isDay: boolean): number {
     return 38;
 }
 
-/**
- * Continuous 0–100 sky warmth position for Capture's adaptive color spectrum:
- * 100 leans fully into the active theme's primary accent (hot, sunny, daytime),
- * 0 shifts into a tranquil theme-derived calm tone (cold, rainy/snowy, night).
- * Blends temperature (45%), sky condition (35%), and daylight/time-of-day (20%),
- * falling back smoothly to the time of day when weather is unavailable.
- */
 export function skyWarmth(period: DayPeriod, weather?: Pick<WeatherData, "celsius" | "code" | "isDay"> | null): number {
     if (!weather) return PERIOD_FALLBACK_WARMTH[period];
     const tempScore = clampPercent(((weather.celsius + 5) / 35) * 100);
@@ -98,16 +84,11 @@ export function skyWarmth(period: DayPeriod, weather?: Pick<WeatherData, "celsiu
     return Math.round(clampPercent(tempScore * 0.45 + skyScore * 0.35 + lightScore * 0.2));
 }
 
-/** Places that read temperatures in Fahrenheit. */
 const FAHRENHEIT = new Set(["US", "BS", "KY", "LR", "PW", "FM", "MH"]);
 
 const WEATHER_STALE_MS = 20 * 60 * 1000;
 const WEATHER_GC_MS = 60 * 60 * 1000;
 
-/**
- * Current weather for the location `useUserLocation` resolved. It never
- * asks the browser for a position: without coordinates it reports "unavailable".
- */
 export function useWeather() {
     const { data: settings } = useSettings();
     const client = useApiClient();
@@ -127,7 +108,6 @@ export function useWeather() {
         staleTime: WEATHER_STALE_MS,
         gcTime: WEATHER_GC_MS,
         retry: 1,
-        // The key carries coordinates; keep them out of the offline cache.
         meta: { persist: false },
     });
 

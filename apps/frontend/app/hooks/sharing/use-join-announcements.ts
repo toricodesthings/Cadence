@@ -6,12 +6,6 @@ import { useProjects } from "../projects/use-projects";
 import { isOwnList } from "./use-list-access";
 import { listPeopleQuery } from "./use-list-people";
 
-/**
- * Tells the owner when someone joins one of their lists. The live socket refetches the lists on a join, so a member
- * of an own list never seen in it before this session is someone who just accepted a link (or did while this device
- * was away). The first read only sets the baseline. People seen once stay seen, so a removal rolled back after a
- * failed write is never announced as a join.
- */
 export function useJoinAnnouncements() {
     const { data: projects } = useProjects();
     const queryClient = useQueryClient();
@@ -36,7 +30,6 @@ export function useJoinAnnouncements() {
             const before = known.get(project.id);
             known.set(project.id, new Set([...(before ?? []), ...members]));
 
-            // Previously a shared list (not owned by us), now ours -> ownership was transferred to us.
             if (!first && wasAccess && wasAccess !== "owner") {
                 void queryClient.fetchQuery(listPeopleQuery(client, project)).then(
                     (people) => {
@@ -48,7 +41,6 @@ export function useJoinAnnouncements() {
                 continue;
             }
 
-            // A list made in this session starts with nobody in it.
             const joined = first ? [] : members.filter((id) => !before?.has(id));
             if (!joined.length) continue;
             void queryClient.fetchQuery(listPeopleQuery(client, project)).then(

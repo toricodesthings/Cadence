@@ -1,8 +1,3 @@
-/**
- * Read entity titles out of the react-query caches so change-set / complete /
- * delete cards can render human labels for ids the model only knows by uuid.
- * Falls back to a short id slice when the entity isn't cached.
- */
 import { isLocalDate } from "@cadence/domain/time";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../../../lib/api/query-keys";
@@ -13,7 +8,6 @@ import type { Tag } from "@cadence/contracts/tag";
 import type { TaskSection } from "@cadence/contracts/section";
 import type { InboxItem } from "@cadence/contracts/inbox";
 
-/** The cached task itself (undefined when it isn't cached). */
 export function useTaskLookup() {
     const queryClient = useQueryClient();
     return (id: string): Task | undefined => {
@@ -30,7 +24,6 @@ export function useTaskTitleLookup() {
     return (id: string): string => lookup(id)?.title ?? `Task ${id.slice(0, 6)}`;
 }
 
-/** Tags for ids, from the tags cache; unknown ids are skipped. */
 export function useTagsLookup() {
     const queryClient = useQueryClient();
     return (ids: string[]): Tag[] => {
@@ -39,7 +32,6 @@ export function useTagsLookup() {
     };
 }
 
-/** A section from any cached list's sections (undefined when none is cached). */
 export function useSectionLookup() {
     const queryClient = useQueryClient();
     return (id: string): TaskSection | undefined => {
@@ -51,7 +43,6 @@ export function useSectionLookup() {
     };
 }
 
-/** A capture from any cached Capture list (undefined when none is cached). */
 export function useCaptureLookup() {
     const queryClient = useQueryClient();
     return (id: string): InboxItem | undefined => {
@@ -76,11 +67,6 @@ export function useHabitLookup() {
     };
 }
 
-/**
- * When a proposal lands, in the viewer's time zone and date/time settings:
- * "Mar 8" for a date-only value, "Mar 8, 2:00 PM" for a timed one. Null when
- * missing or invalid. A date-only value is a day, rendered as stored.
- */
 export function formatWhen(value?: string | null): string | null {
     if (!value) return null;
     if (isLocalDate(value)) return formatShortDate(value);

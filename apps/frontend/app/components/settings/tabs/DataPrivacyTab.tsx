@@ -17,9 +17,7 @@ import { useDataExport, useRequestDataExport } from "../../../hooks/core/use-dat
 
 type DataExport = ReturnType<typeof useDataExport>["data"];
 
-/** What the export row says, and whether to hold the button: one an hour, matching the server's limit. */
 function exportState(latest: DataExport, email: string, requesting: boolean) {
-    // Matches the server's one-an-hour limit, so the button never offers a request it would refuse
     const busy =
         requesting ||
         latest?.status === "pending" ||
@@ -35,7 +33,6 @@ function exportStatusText(latest: DataExport, email: string) {
     return "The last export didn't go through. Try again.";
 }
 
-/** Email my data, behind a confirm that says where it goes. */
 function ExportRow({ email }: { email: string }) {
     const [exportConfirmOpen, setExportConfirmOpen] = useState(false);
     const { data: latest } = useDataExport();
@@ -94,7 +91,6 @@ export function DataPrivacyTab() {
         <div className="flex flex-col gap-10">
             <h2 className="mb-2 text-2xl font-bold text-twilight-text">Data & Privacy</h2>
 
-            {/* ── Privacy preferences ── */}
             <SettingsSection title="Privacy preferences">
                 <SettingsRow
                     title="Usage diagnostics"
@@ -116,7 +112,6 @@ export function DataPrivacyTab() {
                 </SettingsRow>
             </SettingsSection>
 
-            {/* ── Local data preferences ── */}
             <SettingsSection title="Stored data">
                 <SettingsRow
                     title="Store recent searches"
@@ -141,7 +136,6 @@ export function DataPrivacyTab() {
                 </SettingsRow>
             </SettingsSection>
 
-            {/* ── Export and deletion status ── */}
             <SettingsSection title="Export">
                 <ExportRow email={email} />
             </SettingsSection>

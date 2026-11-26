@@ -17,7 +17,6 @@ import { useTaskDetailIntentStore } from "../../stores/task-detail-intent-store"
 
 export const OFFER_LABEL: Record<PlanningOffer, string> = { steps: "Break into steps", later: "Leave for later" };
 
-/** The offer a surface is showing right now (at most one), for the ⋯ menu to echo as its last item. */
 export interface ShownOffer {
     taskId: string;
     kind: PlanningOffer;
@@ -29,12 +28,6 @@ export const useShownOffer = (taskId: string): ShownOffer | null => {
     return offer?.taskId === taskId ? offer : null;
 };
 
-/**
- * Planning offers, one at a time: of the tasks a surface lists (in its own order), the first one the server says may
- * show an offer. "Break into steps" puts the cursor in the task's subtask field; "Leave for later" sets Hide until
- * (its check-in day, else a week out) and nothing else, with Undo. Not now is one tap, from the chip or the menu.
- * Nothing is offered outside Full, and nothing is ever done without the tap.
- */
 export function usePlanningOffers(ordered: readonly Task[]) {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -56,9 +49,7 @@ export function usePlanningOffers(ordered: readonly Task[]) {
         async (taskId: string, kind: PlanningOffer, outcome: "chosen" | "declined") => {
             try {
                 unwrapResponse(await client.api.ai.memory.planning.offer.$post({ json: { taskId, kind, outcome } }));
-            } catch {
-                // Quiet: an outcome that can't be recorded is not worth an error.
-            }
+            } catch {}
             void queryClient.invalidateQueries({ queryKey: queryKeys.ai.planningOffers });
         },
         [client, queryClient],
@@ -73,7 +64,7 @@ export function usePlanningOffers(ordered: readonly Task[]) {
     const accept = useCallback(() => {
         if (!task || !kind) return;
         if (kind === "steps") {
-            askForSteps(task.id); // chosen is recorded when a step is actually written (`useCreateSubtask`)
+            askForSteps(task.id);
             return;
         }
         const before = task.notBefore ?? null;
@@ -92,7 +83,6 @@ export function usePlanningOffers(ordered: readonly Task[]) {
         if (task && kind) void report(task.id, kind, "declined");
     }, [kind, report, task]);
 
-    // Weekly Reset's relief: two or more rows that keep slipping, hidden together with one tap (and one Undo).
     const slipping = useMemo(
         () => (eligible ? ordered.filter((t) => eligible.steps.includes(t.id)) : []),
         [eligible, ordered],

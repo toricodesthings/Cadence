@@ -16,7 +16,6 @@ const real = coreTools({} as never, "u", {
     currentDate: "",
     today: "2026-01-01",
 }) as unknown as Record<string, { inputSchema: PublishedEntry["schema"] }>;
-/** Every catalog tool as an entry: the real shared schema, a spy for `call`. */
 const entries = (call: (args: unknown) => Promise<unknown> = vi.fn(async () => ok({ ok: true }))) =>
     (Object.entries(TOOL_CATALOG) as [PublishedTool, { kind: string }][])
         .filter(([, spec]) => spec.kind !== "ask")
@@ -31,7 +30,6 @@ const entries = (call: (args: unknown) => Promise<unknown> = vi.fn(async () => o
             call,
         })) as unknown as PublishedEntry[];
 
-// A real execution id's shape: `exec_<16 digits>_<uuid>`.
 const ctx = { executionId: "exec_0001795473042890_37939ee5-d998-457b-bc50-906edcec8c0e" };
 const KEY = /^cm:37939ee5-d998-457b-bc50-906edcec8c0e:/;
 

@@ -19,7 +19,6 @@ const hkdf = async (salt: Uint8Array, ikm: Uint8Array, info: Uint8Array, bytes: 
         ),
     );
 
-/** A browser's side of RFC 8291: decrypts what the server encrypted. */
 async function browser() {
     const pair = (await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, [
         "deriveBits",

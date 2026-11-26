@@ -14,17 +14,13 @@ import { isRecurringTask, isRecurringTaskInstance } from "../../../lib/utils/tas
 import { PendingMark } from "../../shared/PendingMark";
 import { SPRINGS } from "../../../lib/constants/motion";
 
-/** Past this, a release commits; a flick past `FLICK` commits sooner. */
 const COMMIT = 88;
 const FLICK = 520;
-/** Room for Tomorrow and Pick day until the tray is measured (Later, longer words or larger text widen it). */
 const ACTIONS_WIDTH = 220;
 
 export interface ScheduleRowHandlers {
     onOpen: (task: Task) => void;
-    /** Task: queue completion. Routine: toggle today's check-in. */
     onComplete: (task: Task) => void | Promise<unknown>;
-    /** Move to the next day: tomorrow for today's rows. */
     onLater: (task: Task) => void;
     onPickDay: (task: Task) => void;
 }
@@ -32,11 +28,8 @@ export interface ScheduleRowHandlers {
 export interface ScheduleRowProps extends ScheduleRowHandlers {
     task: Task;
     routineEmoji?: string | null;
-    /** Faded: already behind "now" on today. */
     past?: boolean;
-    /** Today's next gap for this task ("4:30 PM"), when there is one: the third swipe button, after the two that never move. */
     laterToday?: { time: string; place: () => void } | null;
-    /** A task is being dragged somewhere: swipes stand down so dnd-kit keeps the finger. */
     dragActive?: boolean;
     reducedMotion?: boolean;
 }
@@ -47,12 +40,6 @@ function timeRange(task: Task) {
     return task.scheduledEnd ? `${start} – ${formatTime(task.scheduledEnd)}` : start;
 }
 
-/**
- * One scheduled thing, drawn as what it is: a fixed block (no check), a routine
- * (its mark and a light check-in) or a task (the task checkbox). Tasks swipe
- * right to finish and left for Tomorrow / Pick day; routines swipe right to
- * check in. Every swipe has a tap path too: the check, and the detail sheet.
- */
 export function ScheduleRow({
     task,
     routineEmoji,
@@ -70,7 +57,6 @@ export function ScheduleRow({
     const movable = kind === "task" && !isRecurringTask(task) && !isRecurringTaskInstance(task);
     const canSwipeRight = kind !== "fixed" && !done;
     const [actionsOpen, setActionsOpen] = useState(false);
-    /** A swipe ends in a click on the row; that click isn't a tap. */
     const swiped = useRef(false);
     const x = useMotionValue(0);
     const doneOpacity = useTransform(x, [0, COMMIT], [0, 1]);
@@ -82,7 +68,6 @@ export function ScheduleRow({
     });
     const actionsOpacity = useTransform(x, [-actionsWidth, -24, 0], [1, 0.4, 0]);
 
-    // Long-press lifts a task onto the week strip. Touch only: a mouse drag is the swipe.
     const { setNodeRef, listeners, isDragging } = useDraggable({
         id: `phone-row-${task.id}`,
         data: { taskId: task.id },
@@ -180,7 +165,6 @@ export function ScheduleRow({
                     ref={tray}
                     style={{ opacity: actionsOpacity }}
                     className="absolute inset-y-0 right-0 flex items-center gap-1.5 pr-2"
-                    // Hidden from the a11y tree while closed; the detail sheet holds the same actions.
                     aria-hidden={!actionsOpen}
                 >
                     <button

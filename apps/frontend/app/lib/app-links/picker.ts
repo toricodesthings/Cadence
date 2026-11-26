@@ -2,7 +2,6 @@ import { createSearchIndex } from "@cadence/search";
 import { suggestApps } from "@cadence/nlp/app-suggestions";
 import { CATEGORY_LABEL, type AppEntry } from "./catalog";
 
-/** One heading's rows. Headings are omitted when there is nothing to say; every app appears exactly once. */
 export interface AppPickerSection {
     key: string;
     heading?: string;
@@ -13,10 +12,6 @@ const norm = (text: string) => text.toLowerCase().normalize("NFKC").replace(/\s+
 const byLabel = (a: AppEntry, b: AppEntry) => a.label.localeCompare(b.label);
 const names = (entry: AppEntry) => [entry.label, ...entry.aliases].map(norm);
 
-/**
- * Title-based order for one picker visit: the apps the title points at (never selected), computed once
- * when the picker opens so a title edit can't move a row under a finger.
- */
 export function suggestForTitle(title: string, available: readonly AppEntry[]): { ids: string[]; heading?: string } {
     const hit = suggestApps(
         title,
@@ -29,7 +24,6 @@ export function suggestForTitle(title: string, available: readonly AppEntry[]): 
     };
 }
 
-/** The list with no query: current choice first, then the title's suggestions, then the rest A→Z. */
 export function pickerSections(
     available: readonly AppEntry[],
     currentId: string | null | undefined,
@@ -53,10 +47,6 @@ export function pickerSections(
     return sections;
 }
 
-/**
- * Searches the supported catalogue: exact name or alias, then name prefix, then purpose words, and spelling
- * guesses only when nothing stricter matched. One or two letters match name prefixes only.
- */
 export function createAppSearch(available: readonly AppEntry[]) {
     const index = createSearchIndex(
         available.map((entry) => ({

@@ -6,14 +6,6 @@ import { buildFocusSearchParams } from "./use-route-focus";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import type { SearchResult } from "./use-universal-search";
 
-/**
- * Shared routing for a universal-search result.
- *
- * Used by both the desktop command palette and the compact MobileSearchSheet so
- * a result resolves to the exact same destination regardless of surface — only
- * the presentation differs (§4.5 Mobile Translation Rule). `onDone` runs first
- * (typically closing the surface) so the navigation lands on a clean shell.
- */
 export function useSearchNavigation() {
     const navigate = useNavigate();
     const openNoteRoom = useNoteRoomStore((s) => s.open);
@@ -24,7 +16,6 @@ export function useSearchNavigation() {
             onDone?.();
             trackUsageEvent("command_palette.result_opened", { object_type: result.kind as never });
 
-            // A match inside notes/headings opens the note room rather than navigating.
             if (result.noteAction) {
                 openNoteRoom(result.noteAction.taskId, result.noteAction.taskTitle, result.noteAction.scrollToHeading);
                 return;

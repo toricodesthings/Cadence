@@ -1,18 +1,11 @@
-/**
- * Conservative three-way merge of note text (base = what both edits started from).
- * Accepts only edits to separate places; anything that touches the same lines is a
- * conflict for the user to settle, never a guessed result.
- */
 import { diffArrays } from "diff";
 
 interface Hunk {
-    /** Base lines [start, end) replaced by `lines`. */
     start: number;
     end: number;
     lines: string[];
 }
 
-/** Past this many changed lines, two edits are a conflict to review, not a diff to compute. */
 const MAX_EDIT_LINES = 1000;
 
 function hunks(base: string[], other: string[]): Hunk[] | null {
@@ -70,20 +63,12 @@ export function mergeNotes(base: string, local: string, remote: string): Merge {
     out.push(...baseLines.slice(at));
     const body = out.join("\n");
 
-    // Both sides were valid on their own; the result must be too.
     if (fences(body) !== fences(local) || fences(local) !== fences(remote)) return { ok: false };
     return { ok: true, body };
 }
 
-export type Reconciled =
-    /** Server already holds this text: acknowledge it, write nothing. */
-    | { kind: "same" }
-    /** Text from both sides, combined; save it against the server's revision. */
-    | { kind: "merged"; body: string }
-    /** Overlapping edits: nothing is guessed, both versions stay recoverable. */
-    | { kind: "conflict" };
+export type Reconciled = { kind: "same" } | { kind: "merged"; body: string } | { kind: "conflict" };
 
-/** `base` is the text the local edit started from; `undefined` when unknown (older queued saves). */
 export function reconcileNote(base: string | undefined, local: string, remote: string): Reconciled {
     if (local === remote) return { kind: "same" };
     if (base === undefined) return { kind: "conflict" };

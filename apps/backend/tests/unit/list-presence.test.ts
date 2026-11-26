@@ -11,7 +11,6 @@ vi.mock("cloudflare:workers", () => ({
     },
 }));
 
-// Minimal WebSocketRequestResponsePair polyfill for unit tests outside workerd.
 (globalThis as Record<string, unknown>).WebSocketRequestResponsePair = class {
     constructor(
         public request: string,
@@ -93,12 +92,10 @@ describe("ListPresence", () => {
 
         expect(presence.onlineUserIds()).toEqual(["alice", "bob"]);
 
-        // Closing one of Alice's two tabs keeps Alice online.
         presence.webSocketClose(alice1.ws, 1000);
         expect(presence.onlineUserIds()).toEqual(["alice", "bob"]);
         expect(JSON.parse(bob.sent.at(-1)!)).toEqual({ type: "presence", userIds: ["alice", "bob"] });
 
-        // Evicting Alice closes her remaining tab and updates Bob.
         await presence.evict("alice");
         expect(alice2.closed[0]?.code).toBe(4403);
         expect(presence.onlineUserIds()).toEqual(["bob"]);

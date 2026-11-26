@@ -11,11 +11,6 @@ import {
     TERMS_PATH,
 } from "~/lib/site";
 
-/*
- * The ground under everything, standing on the finale valley's last hills. It carries the page's own
- * vocabulary (the mark, the wordmark's treatment, the crest, the crest's gold for the group headings)
- * and carries the source and privacy links beneath the finale's single invitation.
- */
 const GROUPS = [
     {
         title: "The app",
@@ -43,9 +38,7 @@ const GROUPS = [
 
 export function SiteFooter() {
     return (
-        // The void, painted: the journey's sticky sky runs on under the footer at the page's end, and would show through
         <footer className="site-footer relative bg-twilight-void">
-            {/* The valley's last light, spilling over the ground the footer stands on */}
             <span className="footer-glow" aria-hidden="true" />
             <div className="relative mx-auto w-full max-w-6xl px-6 pt-16 pb-10">
                 <div className="grid gap-12 md:grid-cols-[1.2fr_2fr]">

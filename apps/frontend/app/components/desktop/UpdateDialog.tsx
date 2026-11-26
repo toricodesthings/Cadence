@@ -79,14 +79,8 @@ type RequiredUpdateDialogProps = {
 
 export type UpdateDialogProps = SettingsUpdateDialogProps | RequiredUpdateDialogProps;
 
-/**
- * Desktop update prompt:
- * - `settings`: optional modal in Settings > About (Install or Later).
- * - `required`: non-dismissible full-screen card matching Sign In (`CardPage`) when the running build is below `MIN_DESKTOP_VERSION`.
- */
 export function UpdateDialog(props: UpdateDialogProps) {
     const [installing, setInstalling] = useState(false);
-    // 0–100 while downloading, null while the size is unknown; 100 means it's restarting.
     const [progress, setProgress] = useState<number | null>(null);
 
     const install = async (update: AvailableAppUpdate) => {

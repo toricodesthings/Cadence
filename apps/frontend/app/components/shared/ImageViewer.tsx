@@ -4,7 +4,6 @@ import { Dialog, DialogContent, DialogTitle } from "../primitives/Dialog";
 export interface ViewerImage {
     key: string;
     title: string;
-    /** Null while it loads (or when it can't); only the shown image needs one. */
     src: string | null;
     bytes?: number;
     failed?: boolean;
@@ -17,11 +16,6 @@ export function formatBytes(bytes: number): string {
 const NAV_BUTTON =
     "mobile-icon-button cursor-pointer rounded-full bg-twilight-surface text-twilight-text-soft ring-1 ring-white/10 transition-colors hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
-/**
- * Full-screen photo viewer at every size: the photo centred and fitted to what's left between the title row and
- * the arrows, never cropped or scrolled. Title, size, and ← → through a set. Controlled by
- * `index` (null = closed); arrow keys step, and the set wraps around.
- */
 export function ImageViewer({
     images,
     index,

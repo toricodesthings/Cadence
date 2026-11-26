@@ -5,12 +5,10 @@ const DURATION_PATTERNS: Array<{
     pattern: RegExp;
     resolve: (match: RegExpMatchArray) => DurationValue;
 }> = [
-    // "an hour", "one hour"
     {
         pattern: /(?<!\bhalf\s)(?<!\bof\s)\b(?:an?|one)\s+hour\b(?!\s+and\s+a\s+half)/i,
         resolve: () => ({ minutes: 60, humanLabel: "1 hour" }),
     },
-    // "two hours" … "six hours"
     {
         pattern: /\b(two|three|four|five|six)\s+hours?\b/i,
         resolve: (m) => {
@@ -18,7 +16,6 @@ const DURATION_PATTERNS: Array<{
             return { minutes: hours * 60, humanLabel: `${hours} hours` };
         },
     },
-    // "half hour", "half an hour"
     {
         pattern: /\bhalf\s+(?:an?\s+)?hour\b/i,
         resolve: () => ({
@@ -26,7 +23,6 @@ const DURATION_PATTERNS: Array<{
             humanLabel: "30 min",
         }),
     },
-    // "quarter hour", "quarter of an hour"
     {
         pattern: /\bquarter\s+(?:of\s+)?(?:an?\s+)?hour\b/i,
         resolve: () => ({
@@ -34,7 +30,6 @@ const DURATION_PATTERNS: Array<{
             humanLabel: "15 min",
         }),
     },
-    // "30 min", "45 minutes", "30m", "90 mins"
     {
         pattern: /\b(\d+)\s*(?:min(?:ute)?s?|m)\b/i,
         resolve: (m) => ({
@@ -42,7 +37,6 @@ const DURATION_PATTERNS: Array<{
             humanLabel: `${m[1]} min`,
         }),
     },
-    // "1 hour", "2 hours", "1.5 hours", "1h", "2hr"
     {
         pattern: /\b(\d+(?:\.\d+)?)\s*(?:hour|hours|hrs?|h)\b/i,
         resolve: (m) => {
@@ -54,7 +48,6 @@ const DURATION_PATTERNS: Array<{
             };
         },
     },
-    // "1h30m", "1h 30m"
     {
         pattern: /\b(\d+)\s*h\s*(\d+)\s*m?\b/i,
         resolve: (m) => {
@@ -76,12 +69,8 @@ export interface EntityParseResult {
     consumedRanges: Array<{ start: number; end: number }>;
 }
 
-/** The longest length a task title may carry ("1h call"); a "how long did it take?" answer passes 1,440. */
 const TITLE_MAX_MINUTES = 480;
 
-/**
- * Parse duration estimates from natural language.
- */
 export function parseDuration(
     input: string,
     { maxMinutes = TITLE_MAX_MINUTES }: { maxMinutes?: number } = {},
@@ -92,7 +81,6 @@ export function parseDuration(
     for (const { pattern, resolve } of DURATION_PATTERNS) {
         const match = input.match(pattern);
         if (!match) continue;
-        // "in 30 minutes" / "within 2 hours" is when something starts, not how long it takes
         if (/\b(?:in|within|after)\s+$/i.test(input.slice(0, match.index ?? 0))) continue;
 
         const value = resolve(match);
@@ -113,7 +101,6 @@ export function parseDuration(
             explanation: `Detected duration: ${value.humanLabel}`,
         });
 
-        // "takes 45 minutes", "for half an hour": the cue word goes with the estimate
         const cue = /\b(?:takes?|taking|about|around|for)\s+$/i.exec(input.slice(0, start));
         consumedRanges.push({ start: cue ? start - cue[0].length : start, end });
         break;
@@ -122,15 +109,11 @@ export function parseDuration(
     return { entities, consumedRanges };
 }
 
-/**
- * Parse "waiting on/for [person]" patterns.
- */
 export function parseWaitingOn(input: string): EntityParseResult {
     const entities: ParsedEntity[] = [];
     const consumedRanges: Array<{ start: number; end: number }> = [];
 
     const match = input.match(WAITING_PATTERN) ?? input.match(WAITING_SIMPLE);
-    // "Not waiting on Sam anymore": a release, not a dependency — leave it literal.
     if (match && isNegatedBefore(input, match.index ?? 0)) return { entities, consumedRanges };
     if (match) {
         const person = match[1].trim();
@@ -161,10 +144,6 @@ const UNIT_MINUTES: Record<string, number> = { m: 1, h: 60, d: 1440 };
 const RELATIVE_REMINDER =
     /\b(?:remind(?:\s+me)?|reminder|alert(?:\s+me)?|notify(?:\s+me)?)\s+(\d+|an?|one|half\s+an?)\s*(min(?:ute)?s?|m|hours?|hrs?|h|days?|d)\s+(?:before|ahead|early|prior)\b/i;
 
-/**
- * "remind me 30 minutes before": a nudge measured back from the task's timed start. The value carries only the
- * offset; the draft turns it into an instant once it knows the start (no start, nothing applies).
- */
 export function parseRelativeReminder(input: string): EntityParseResult {
     const match = RELATIVE_REMINDER.exec(input);
     if (!match) return { entities: [], consumedRanges: [] };

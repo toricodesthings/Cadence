@@ -1,6 +1,3 @@
-// The 0.29.0 labelled corpus. Expectations are written from what the words mean, never from what the parser returns.
-// Reference clock: Tuesday 2026-10-06 10:00 in America/Toronto. Paraphrase families (one intent over many verbs)
-// stay together: a family is wholly in `dev` or wholly in `held-out`, so near-duplicates never leak between them.
 import { atLocal } from "@cadence/domain/time";
 
 export const ZONE = "America/Toronto";
@@ -36,11 +33,8 @@ export interface Case {
     split: "dev" | "held-out";
     surface: Surface;
     text: string;
-    /** The fields that must be applied, with their values. Every other field must stay empty. */
     fields: Fields;
-    /** The title that must remain. */
     title: string;
-    /** Negative, literal, ambiguous or unsupported: nothing may be applied beyond `fields`. */
     negative?: boolean;
     combined?: boolean;
 }
@@ -63,7 +57,6 @@ const VERBS = [
 const cases: Omit<Case, "split">[] = [];
 const add = (c: Omit<Case, "split">) => cases.push(c);
 
-/** One family: the same intent over every verb. */
 function family(
     name: string,
     surface: Surface,
@@ -85,7 +78,6 @@ function family(
     }
 }
 
-// ── Days ──
 const DAYS: Array<[string, string]> = [
     ["tomorrow", "2026-10-07"],
     ["today", "2026-10-06"],
@@ -100,7 +92,6 @@ for (const [phrase, day] of DAYS)
     family(`day:${phrase}`, "task", (v) => ({ text: `${v} ${phrase}`, fields: { dueDate: day } }), {
         verbs: VERBS.slice(0, 6),
     });
-// Typed fast: shortcuts and misspellings still mean a day (read at medium, never high). "tom" stays text: it is also a name.
 const SHORT: Array<[string, Fields]> = [
     ["tmrw", { dueDate: "2026-10-07" }],
     ["tmr", { dueDate: "2026-10-07" }],
@@ -125,7 +116,6 @@ for (const [phrase, fields] of SHORT) {
         { verbs: VERBS.slice(0, 4) },
     );
 }
-// Dictated times: number words read as the hour; a bare one ("at five", "half past three") stays ambiguous.
 const SPOKEN: Array<[string, string]> = [
     ["at five pm", "17:00"],
     ["at seven thirty pm", "19:30"],
@@ -161,7 +151,6 @@ for (const [phrase, day] of DAYS.slice(0, 3))
         verbs: VERBS.slice(5, 8),
     });
 
-// ── Deadlines ──
 family("by-friday", "task", (v) => ({ text: `${v} by Friday`, fields: { dueDate: "2026-10-09" } }));
 family("before-friday", "task", (v) => ({ text: `${v} before Friday`, fields: { dueDate: "2026-10-08" } }), {
     verbs: VERBS.slice(0, 4),
@@ -176,7 +165,6 @@ family("end-of-month", "task", (v) => ({ text: `${v} by end of this month`, fiel
     verbs: VERBS.slice(0, 4),
 });
 
-// ── Times ──
 family("time-pm", "task", (v) => ({
     text: `${v} tomorrow at 3pm`,
     fields: { scheduledStart: at("2026-10-07", "15:00") },
@@ -220,7 +208,6 @@ family(
     { verbs: VERBS.slice(0, 4) },
 );
 
-// ── Duration ──
 family("duration-for", "task", (v) => ({ text: `${v} for 30 minutes`, fields: { durationMinutes: 30 } }), {
     verbs: VERBS.slice(0, 4),
 });
@@ -234,7 +221,6 @@ family("duration-half", "task", (v) => ({ text: `${v} for half an hour`, fields:
     verbs: VERBS.slice(0, 3),
 });
 
-// ── Recurrence ──
 family("every-weekday", "task", (v) => ({
     text: `${v} every weekday`,
     fields: { recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" },
@@ -280,7 +266,6 @@ family(
     { verbs: VERBS.slice(0, 3) },
 );
 
-// ── Priority, waiting, hide, reminder ──
 for (const [p, n] of [
     ["p1", 4],
     ["p2", 3],
@@ -328,7 +313,6 @@ family(
     { verbs: VERBS.slice(4, 7), negative: true },
 );
 
-// ── Destination ──
 family("in-list", "task", (v) => ({ text: `${v} in Work`, fields: { projectId: WORK } }));
 family("tag-cue", "task", (v) => ({ text: `${v} tag it errands`, fields: { tagIds: [ERRANDS] } }), {
     verbs: VERBS.slice(0, 3),
@@ -340,7 +324,6 @@ family("list-slash", "task", (v) => ({ text: `${v} /work`, fields: { projectId: 
     verbs: VERBS.slice(0, 3),
 });
 
-// ── Combined ──
 family(
     "combined-1",
     "task",
@@ -396,7 +379,6 @@ family("correction", "task", (v) => ({ text: `${v} not Friday, Monday instead`, 
     combined: true,
 });
 
-// ── Negative, literal, ambiguous, unsupported: nothing may apply ──
 const LITERAL: Array<[string, string]> = [
     ["Send monthly report", "monthly report"],
     ["Read the daily digest", "daily digest"],
@@ -471,7 +453,6 @@ for (const text of [
         negative: true,
     });
 }
-// Partial: the clear part applies, the ambiguous part stays in the title.
 add({
     id: "partial:two-dates",
     family: "partial:two-dates",
@@ -494,7 +475,6 @@ for (const text of [
     add({ id: `plain:${text}`, family: "plain", surface: "task", text, fields: {}, title: text, negative: true });
 }
 
-// ── Routines: a cadence and a time of day, no day ──
 const ACTIVITIES = [
     "Stretch",
     "Meditate",
@@ -579,7 +559,6 @@ for (const text of [
     });
 }
 
-// ── Yearly events: a month and a day, nothing else ──
 const NAMES = [
     "Mom's birthday",
     "Dad's birthday",
@@ -643,6 +622,5 @@ for (const text of UNFIT)
 for (const text of ["Birthday party", "Reunion", "Garden day", "Retreat"])
     add({ id: `event-plain:${text}`, family: `event-plain:${text}`, surface: "event", text, fields: {}, title: text });
 
-/** A family is wholly dev or wholly held-out; roughly a third of families are held out. */
 const hash = (s: string) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
 export const CORPUS: Case[] = cases.map((c) => ({ ...c, split: hash(c.family) % 3 === 0 ? "held-out" : "dev" }));

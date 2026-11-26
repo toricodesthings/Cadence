@@ -14,7 +14,7 @@ const BASE_TASK = {
     dueDate: null,
     endDate: null,
     zone: TORONTO,
-    scheduledStart: "2026-03-10T13:30:00.000Z", // Tue 09:30 EDT
+    scheduledStart: "2026-03-10T13:30:00.000Z",
     scheduledEnd: "2026-03-10T14:45:00.000Z",
     durationEstimate: 75,
     recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH;UNTIL=20260502",
@@ -55,7 +55,7 @@ describe("task recurrence expansion", () => {
 
     it("returns the whole range when no limit is sent, and honours one when it is", () => {
         const daily = { ...BASE_TASK, recurrenceRule: "FREQ=DAILY" };
-        const range = { from: "2026-03-10", to: "2026-06-17" }; // 100 days
+        const range = { from: "2026-03-10", to: "2026-06-17" };
         expect(expand([daily], range, TORONTO)).toHaveLength(100);
         expect(expand([daily], { ...range, limit: 5, offset: 2 }, TORONTO).map((i) => i.occurrenceDay)).toEqual([
             "2026-03-12",
@@ -93,7 +93,7 @@ describe("task recurrence expansion", () => {
     it("keeps a weekly 14:35 Toronto series at 14:35 across both DST changes", () => {
         const series = {
             ...BASE_TASK,
-            scheduledStart: "2026-10-27T18:35:00.000Z", // Tue 14:35 EDT
+            scheduledStart: "2026-10-27T18:35:00.000Z",
             scheduledEnd: "2026-10-27T19:50:00.000Z",
             recurrenceRule: "FREQ=WEEKLY;BYDAY=TU",
         };
@@ -143,7 +143,6 @@ describe("task recurrence expansion", () => {
                 once("a", { scheduledStart: "2026-03-10T13:30:00.000Z" }),
                 once("b", { scheduledStart: null, scheduledEnd: null, dueDate: "2026-03-09" }),
                 once("c", { scheduledStart: null, scheduledEnd: null, dueDate: "2026-03-20" }),
-                // 03:00Z on the 16th is 23:00 on the 15th in Toronto: the user's day wins.
                 once("d", { scheduledStart: "2026-03-16T03:00:00.000Z", scheduledEnd: null }),
             ],
             WEEK,

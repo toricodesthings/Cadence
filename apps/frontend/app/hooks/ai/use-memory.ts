@@ -1,8 +1,3 @@
-/**
- * "What Cadence knows": the memory page, the mode choice, forget / undo / clear.
- * The server owns the mode (POST /ai/memory/mode); the page response is the whole truth,
- * so every mutation writes it back into the cache and nothing is merged client-side.
- */
 import { refetchAfterWrites } from "../../lib/api/write-gate";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -31,7 +26,6 @@ export function useMemoryPage(enabled = true) {
     });
 }
 
-/** The next 30 older facts after `cursor` (the page shows them under "Show older"). */
 export function useOlderMemory() {
     const client = useApiClient();
     return useMutation({
@@ -40,13 +34,11 @@ export function useOlderMemory() {
     });
 }
 
-/** Writes a mutation's page result into the cache, and its mode into settings (what the duration prompt reads). */
 function useRefreshPage() {
     const queryClient = useQueryClient();
     const settings = useSettingsCache();
     return (page: MemoryPage) => {
         queryClient.setQueryData(queryKeys.ai.memory, page);
-        // Clear or a mode change: what was learned before is not this page's to show.
         queryClient.removeQueries({ queryKey: queryKeys.ai.durationEvidence });
         const current = settings.read();
         if (current) settings.write({ ...current, assistant: { ...current.assistant, memoryMode: page.mode } });
@@ -64,7 +56,6 @@ export function useSetMemoryMode() {
     });
 }
 
-/** Forget one fact now (Undo within 10 minutes), or `undo: true` to take back a save with no trace. */
 export function useForgetMemory() {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -89,7 +80,7 @@ export function useForgetMemory() {
         },
         onSettled: () => {
             void refetchAfterWrites(queryClient, queryKeys.ai.memory);
-            void queryClient.invalidateQueries({ queryKey: queryKeys.ai.durationEvidence }); // a duration fact's answers hide with it
+            void queryClient.invalidateQueries({ queryKey: queryKeys.ai.durationEvidence });
         },
     });
 }
@@ -102,7 +93,7 @@ export function useRestoreMemory() {
             unwrapResponse(await client.api.ai.memory[":id"].restore.$post({ param: { id } })),
         onSettled: () => {
             void refetchAfterWrites(queryClient, queryKeys.ai.memory);
-            void queryClient.invalidateQueries({ queryKey: queryKeys.ai.durationEvidence }); // a duration fact's answers hide with it
+            void queryClient.invalidateQueries({ queryKey: queryKeys.ai.durationEvidence });
         },
         onError: (error) => toastError(error, "Couldn’t bring that back"),
     });
@@ -119,7 +110,6 @@ export function useClearMemory() {
     });
 }
 
-/** What the "How long did it take?" toast needs from the server. Quiet: a failure is never worth interrupting for. */
 export function useDurationApi() {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -128,10 +118,8 @@ export function useDurationApi() {
             unwrapResponse(await client.api.ai.memory.duration.ask.$post({ json: { taskId } })),
         shown: async (token: string) =>
             void unwrapResponse(await client.api.ai.memory.duration.shown.$post({ json: { token } })),
-        /** Resolves with what the server stored (null when it stored nothing), and rejects when it couldn't: "Saved" follows only the first. */
         report: async (input: DurationReport) => {
             const view = await unwrapResponse(await client.api.ai.memory.duration.$post({ json: input }));
-            // An open Took row shows the same answer the toast just saved.
             if (view) {
                 queryClient.setQueryData(queryKeys.ai.duration(input.taskId, view.completedAt), view);
                 queryClient.setQueryData(queryKeys.ai.duration(input.taskId), view);
@@ -142,7 +130,6 @@ export function useDurationApi() {
     };
 }
 
-/** The answer behind a done task's "Took 45 min" row; null when there is none (or memory isn't Full). */
 export function useReportedDuration(taskId: string, completedAt: string | null | undefined, enabled: boolean) {
     const client = useApiClient();
     return useQuery({
@@ -156,10 +143,6 @@ export function useReportedDuration(taskId: string, completedAt: string | null |
     });
 }
 
-/**
- * Changes or clears a task's answer from its detail. The row renders the stored view the server returns (`isPending`
- * is "Saving…", `isError` is "Couldn't save · Retry"), never its own draft.
- */
 export function useSetReportedDuration(taskId: string, completedAt: string | null | undefined) {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -175,7 +158,6 @@ export function useSetReportedDuration(taskId: string, completedAt: string | nul
                 );
                 return null;
             }
-            // A done task always carries its completion; without one there is nothing to answer for.
             if (!completedAt) throw new Error("No completion to answer for");
             return unwrapResponse(
                 await client.api.ai.memory.duration.$post({ json: { taskId, completedAt, ...input } }),
@@ -188,7 +170,6 @@ export function useSetReportedDuration(taskId: string, completedAt: string | nul
     });
 }
 
-/** The answer behind a done routine day's "Took 30 min" row (one per marked time for a routine at set times); null when there is none. */
 export function useReportedRoutineDuration(habitId: string, day: string, time: string | null, enabled: boolean) {
     const client = useApiClient();
     return useQuery({
@@ -202,7 +183,6 @@ export function useReportedRoutineDuration(habitId: string, day: string, time: s
     });
 }
 
-/** Changes or clears a routine day's answer. Same promise as a task's: the row renders what the server stored. */
 export function useSetReportedRoutineDuration(habitId: string, day: string, time: string | null) {
     const client = useApiClient();
     const queryClient = useQueryClient();

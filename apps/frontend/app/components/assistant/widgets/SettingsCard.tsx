@@ -27,7 +27,6 @@ function SettingRows({ rows }: { rows: Row[] }) {
     );
 }
 
-/** `update_settings`: always waits for a tap; once applied, one line with Undo (the server returns the old values as a patch). */
 export function SettingsCard({ ctx }: { ctx: ToolRenderContext<"update_settings"> }) {
     const { part, stale } = ctx;
     const settings = useSettings().data;
@@ -57,7 +56,7 @@ export function SettingsCard({ ctx }: { ctx: ToolRenderContext<"update_settings"
                                 setUndone(true);
                                 update.mutate(undo as DeepPartial<UserSettings>);
                             }}
-                            className="ml-auto flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-accent-primary hover:bg-white/[0.06]"
+                            className="ml-auto flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-accent-primary hover:surface-item"
                         >
                             <Undo2 size={12} aria-hidden /> Undo
                         </button>

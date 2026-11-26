@@ -9,14 +9,12 @@ import { getWalSnapshot } from "./offline-wal";
 import { tasksQueryOptions } from "../../hooks/tasks/use-tasks";
 import { buildTasksQuery, type UseTasksFilterInput } from "../utils/task/task-scheduling";
 
-/** One background transport, with each result owned/cancelled by its normal query. */
 export async function prefetchTaskBatch(
     client: ApiClient,
     queryClient: QueryClient,
     filters: (UseTasksFilterInput & { state: z.infer<typeof openTaskStateSchema> })[],
     signal: AbortSignal,
 ) {
-    // A server read must not overwrite edits that haven't synced yet.
     if (getWalSnapshot().some((entry) => entry.status !== "failed")) return;
     const pending = filters
         .map((filter) => ({ filter, options: tasksQueryOptions(client, filter) }))
@@ -37,10 +35,8 @@ export async function prefetchTaskBatch(
             return queryClient.prefetchQuery({
                 ...options,
                 staleTime: STALE_TIMES.OFFLINE_WINDOW,
-                retry: false, // Background warming can try again on the next visibility/online event.
+                retry: false,
                 queryFn: async (context) => {
-                    // Query retains this function after warming. Later invalidation/refetch
-                    // must read the server again, rather than replaying the settled batch.
                     if (batchUsed && typeof options.queryFn === "function") return options.queryFn(context);
                     batchUsed = true;
                     response ??= fetchBatch().then(unwrapResponse);

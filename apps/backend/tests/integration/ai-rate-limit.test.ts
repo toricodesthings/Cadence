@@ -1,7 +1,3 @@
-/**
- * The usage budget as the chat route applies it: admit before persisting, settle in
- * onFinish, headers on both paths. Drives the real route with a scripted model.
- */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MockLanguageModelV4 } from "ai/test";
 import { agentOf, streamOf, textChunks, textModel } from "../helpers/ai";
@@ -51,7 +47,6 @@ beforeEach(async () => {
     vi.mocked(getAgentInstance).mockResolvedValue(agentOf(textModel()));
 });
 
-/** One chat turn; the stream is drained so onFinish (and settle) has run on return. */
 async function chat(env: Record<string, unknown> = {}, parts: unknown[] = [{ type: "text", text: "hello there" }]) {
     const res = await apiAs(
         TEST_USER_ID,
@@ -80,7 +75,7 @@ describe("POST /ai/chat — usage budget", () => {
         expect(redis.strings.get(keys.req5h)).toBe("1");
         expect(redis.strings.get(keys.inflight)).toBe("0");
         expect(redis.strings.get(keys.tok5h)).toBe("2");
-        expect(redis.commandLog.filter((c) => c === "eval")).toHaveLength(2); // admit + settle
+        expect(redis.commandLog.filter((c) => c === "eval")).toHaveLength(2);
     });
 
     it("rejects an over-budget turn with 429 AI_RATE_LIMITED + headers, persisting NO user turn", async () => {
@@ -95,7 +90,7 @@ describe("POST /ai/chat — usage budget", () => {
         expect(response.headers.get("Retry-After")).toBe(String(5 * 60 * 60));
         expect(response.headers.get("X-RateLimit-Remaining-Requests-5h")).toBe("0");
         expect(appendUserMessage).not.toHaveBeenCalled();
-        expect(redis.commandLog).toEqual(["get", "eval"]); // spend-cap read + admit; no settle for a turn never admitted
+        expect(redis.commandLog).toEqual(["get", "eval"]);
     });
 
     it("rejects only on the image quota as AI_IMAGE_LIMITED", async () => {
@@ -155,7 +150,7 @@ describe("POST /ai/chat — usage budget", () => {
         expect(status).toBe(429);
         expect(body.error).toMatchObject({ code: "AI_SPEND_CAPPED", isRetryable: false });
         expect(Number(response.headers.get("Retry-After"))).toBeGreaterThan(0);
-        expect(redis.strings.get(keys.req5h)).toBeUndefined(); // nothing admitted
+        expect(redis.strings.get(keys.req5h)).toBeUndefined();
     });
 
     it("charges a turn that fails mid-stream at least its reserve", async () => {

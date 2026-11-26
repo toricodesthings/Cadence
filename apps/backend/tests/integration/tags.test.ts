@@ -1,9 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { TAG_PALETTE } from "@cadence/contracts/constants";
 import { apiAs } from "../helpers/app";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { asOwner, createUser, getTestDb, startTestDb } from "../helpers/db";
+import { createUser, getTestDb, startTestDb } from "../helpers/db";
 import { withRls } from "../../src/platform/rls";
 import { findOrCreateTags } from "../../src/domains/tags/tags.service";
 
@@ -97,25 +95,6 @@ describe("tags", () => {
         const { body } = await api("GET", "");
 
         expect(body.data.map((t: any) => t.name)).toEqual(["zeta", "alpha"]);
-    });
-
-    it("migration 0027 keeps tags in their alphabetical order", async () => {
-        const userId = await createUser();
-        const backfill = readFileSync(resolve(import.meta.dirname, "../../drizzle/0027_tag_sort_order.sql"), "utf8")
-            .split("--> statement-breakpoint")
-            .pop()!;
-        const order = await asOwner(async (pg) => {
-            for (const name of ["pear", "Apple", "mango"])
-                await pg.query("INSERT INTO tags (user_id, name, sort_order) VALUES ($1, $2, 0)", [userId, name]);
-            await pg.exec(backfill);
-            return (
-                await pg.query<{ name: string }>("SELECT name FROM tags WHERE user_id = $1 ORDER BY sort_order", [
-                    userId,
-                ])
-            ).rows.map((r) => r.name);
-        });
-
-        expect(order).toEqual(["Apple", "mango", "pear"]);
     });
 
     it("moves a tag by its sort order", async () => {

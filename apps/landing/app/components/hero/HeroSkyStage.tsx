@@ -1,12 +1,5 @@
 import { cssVars, n1, pt, rng, starPath, twinkleBox, type Pt } from "~/lib/geometry";
 
-/*
- * Night sky on the loading screen's 1920×1080 stage (overscanned like `slice`,
- * so star density holds at every aspect). Stars fade in by tier as six paths
- * plus the four brightest as their own groups; twinkles are paired radial
- * gradients animated on opacity.
- */
-
 interface Star {
     x: number;
     y: number;
@@ -14,12 +7,10 @@ interface Star {
     warm: boolean;
 }
 
-/** Upper-left, where the boughs' moonlit rims say the light comes from. */
 const MOON: Pt = [420, 230];
 const MARIA =
     "M404,222a9,7 0 1,0 18,0a9,7 0 1,0 -18,0M426,238a6,5 0 1,0 12,0a6,5 0 1,0 -12,0M412,244a5,3.5 0 1,0 10,0a5,3.5 0 1,0 -10,0";
 
-/** [count, radius]; the brightest tier is placed first so it gets the best sky. */
 const TIERS: readonly (readonly [number, number])[] = [
     [10, 1.8],
     [26, 1.1],
@@ -33,10 +24,8 @@ const STARS: Star[][] = (() => {
         const tier: Star[] = [];
         for (let guard = 0; tier.length < count && guard < 8000; guard++) {
             const x = 24 + rand() * 1872;
-            // Denser toward the zenith, thinning toward the horizon.
             const y = 24 + 1020 * rand() * (0.35 + 0.65 * rand());
             const warm = rand() < 0.3;
-            // Keep-out ellipse around the wordmark.
             const ex = (x - 960) / 520;
             const ey = (y - 540) / 180;
             if (ex * ex + ey * ey < 1) continue;
@@ -54,14 +43,12 @@ const STARS: Star[][] = (() => {
 
 const BIG = STARS[0].slice(0, 4);
 
-/** [stars, class] for the six faded-in paths (cool + warm per tier). */
 const TIER_PATHS: readonly (readonly [readonly Star[], string])[] = [
     [STARS[2], "hero-star-t1"],
     [STARS[1], "hero-star-t2"],
     [STARS[0].slice(4), "hero-star-t3"],
 ];
 
-/** Four twinklers, each a pair of distant stars sharing one opacity animation. */
 const TWINKLE_PAIRS: readonly { a: Pt; b: Pt; dur: number; delay: number }[] = [
     { a: [1320, 120], b: [1540, 236], dur: 4.3, delay: -1.2 },
     { a: [180, 300], b: [330, 170], dur: 5.9, delay: -3.1 },
@@ -80,8 +67,6 @@ function twinkleStyle({ a, b, dur, delay }: (typeof TWINKLE_PAIRS)[number]) {
 export function HeroSkyStage() {
     return (
         <>
-            {/* The moon in its own box, so it sets on the hero's scroll by a composited transform (hero.css); the
-          box moves, not the <svg>, since Chrome composites no transform on an <svg> element */}
             <div className="hero-moon">
                 <svg className="hero-stars" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
                     <defs>
@@ -125,7 +110,6 @@ export function HeroSkyStage() {
                         style={cssVars({ "--at": `${240 + i * 60}ms` })}
                     >
                         <circle cx={n1(s.x)} cy={n1(s.y)} r="2.3" />
-                        {/* 4-point sparkle: two thin crossed lines */}
                         <path
                             d={`M${pt(s.x - 8, s.y)}L${pt(s.x + 8, s.y)}M${pt(s.x, s.y - 8)}L${pt(s.x, s.y + 8)}`}
                             stroke={s.warm ? "var(--hero-star-warm)" : "var(--hero-star-cool)"}

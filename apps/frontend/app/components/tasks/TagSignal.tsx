@@ -18,7 +18,6 @@ export function getTagTone(tag?: Tag) {
     };
 }
 
-/** A row's tags at a glance, as on task cards: one name, or a count with the first colours. */
 export function TagSignal({ tags }: { tags: Tag[] }) {
     if (!tags.length) return null;
     const tone = getTagTone(tags[0]);

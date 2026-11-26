@@ -5,7 +5,7 @@ import { makeTask } from "../../../helpers";
 import { setUserZone } from "../../../../app/lib/utils/user-zone";
 
 const zone = "America/Toronto";
-setUserZone(zone); // shown in the person's zone, whatever zone this machine is in
+setUserZone(zone);
 const day = "2026-10-20";
 const at = (time: string) => atLocal(day, time, zone);
 const busyTask = (id: string, start: string, end: string, over: object = {}) =>
@@ -35,7 +35,7 @@ describe("planDay", () => {
             }),
         );
         expect(plan.minutes).toBe(45);
-        expect(plan.proposals[0].start).toBe(at("09:15")); // a Done block takes no room; the class keeps its 15-minute buffer
+        expect(plan.proposals[0].start).toBe(at("09:15"));
     });
 
     it("never treats a routine as a block", () => {

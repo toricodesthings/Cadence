@@ -23,7 +23,6 @@ import { suggestPlacement } from "../decisions/placement";
 import { assertRowRoom, assertStorageRoom } from "../../platform/storage-ceiling";
 
 export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
-    // ── Atomic Inbox→Task Processing (Section 11.2C) ──
     .post(
         "/:id/process",
         apiValidator("param", uuidParamSchema),
@@ -77,11 +76,9 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             ),
         );
 
-        // Pick a list and section in the background; Save never waits. A replayed save already has its analysis.
         if (!item.analysis) c.executionCtx.waitUntil(suggestPlacement(c.env, userId, item.id));
         return c.json({ data: item }, 201);
     })
-    // ── Inbox Sections ──
     .post("/sections", apiValidator("json", insertInboxSectionSchema), async (c) => {
         const body = c.req.valid("json");
         const idempotencyKey = getIdempotencyKey(c);
@@ -112,7 +109,6 @@ export const inboxRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
 
         const updated = await withCallerRls(c, async (tx, userId) => {
             await assertOwnership(tx, userId, { inboxSectionId: body.sectionId });
-            // A placed capture leaves `placed` only through /unprocess.
             const [row] = await tx
                 .update(inboxItems)
                 .set(body)

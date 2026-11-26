@@ -34,7 +34,6 @@ describe("useSettings", () => {
 
         const { result } = renderHook(() => useSettings(), { wrapper: withClient() });
 
-        // readLocalCache deep-merges stored values onto SETTINGS_DEFAULTS
         expect(result.current.data).toEqual({
             ...SETTINGS_DEFAULTS,
             tasks: { ...SETTINGS_DEFAULTS.tasks, hideCompleted: true },

@@ -9,7 +9,6 @@ import { finish, streamOf, textChunks } from "../helpers/ai";
 
 const SECRET = "test-approval-secret";
 
-/** A model that calls `toolName` once, then answers "Done." once it sees a result. */
 function scriptedModel(toolName: string, input: unknown) {
     return new MockLanguageModelV4({
         doStream: async ({ prompt }) =>

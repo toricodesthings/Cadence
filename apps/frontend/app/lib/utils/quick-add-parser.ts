@@ -12,7 +12,6 @@ export interface QuickAddParsedToken {
 
 export interface QuickAddParseResult {
     cleanedTitle: string;
-    /** The all-day / deadline day (a LocalDate); null when the input names a time instead. */
     dueDate: LocalDate | null;
     recurrenceRule: string | null;
     priority: TaskPriority | null;

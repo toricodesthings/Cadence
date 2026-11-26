@@ -1,16 +1,10 @@
 import { cssVars, n1, rng } from "./loading-geometry";
 
-/*
- * Every season's particle set is in the markup; CSS gates show one (hidden sets
- * don't animate). Motion uses shared keyframes driven by per-element vars.
- */
-
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const s = (v: number, unit = "") => `${n1(v)}${unit}`;
 
 type Tier = "far" | "mid" | "near";
 
-/** Reduced-motion stills: [viewport x %, viewport y %, rotation]. Near/mid stay outside the wordmark column. */
 const LEAF_POSES: Record<Tier, readonly (readonly [number, number, number])[]> = {
     far: [
         [10, 40, 20],
@@ -40,7 +34,6 @@ const LEAVES = (() => {
         const pose = LEAF_POSES[tier][idx];
         const dur =
             tier === "far" ? lerp(20, 28, rand()) : tier === "mid" ? lerp(13, 17, rand()) : lerp(7.5, 9, rand());
-        // Near leaves spawn only in viewport x 0–35% / 65–100% and drift right, clear of the wordmark column.
         const x = tier === "near" ? (idx === 0 ? 5 : 71) : 2 + rand() * 96;
         const phase = tier === "near" ? (idx === 0 ? 0.35 : 0.7) : rand();
         const size =
@@ -65,7 +58,6 @@ const LEAVES = (() => {
                 "--c": `var(--ls-leaf-${tone})`,
                 "--o": tier === "far" ? s(lerp(0.55, 0.75, rand())) : tier === "mid" ? "0.9" : "1",
                 "--dur": s(dur, "s"),
-                // Half a swing; heavier near leaves swing faster relative to their fall.
                 "--swp": s(dur / (tier === "far" ? 5 : tier === "mid" ? 4 : 3), "s"),
                 "--delay": s(-phase * dur, "s"),
                 "--dx": s(dx, "vw"),
@@ -102,7 +94,6 @@ const DROPS = (() => {
 const FLAKES = (() => {
     const rand = rng(37);
     return Array.from({ length: 44 }, () => {
-        // Mostly small, far flakes: a few large near ones keep the depth
         const depth = rand() ** 1.6;
         const dur = lerp(18, 4, depth);
         return cssVars({
@@ -119,7 +110,6 @@ const FLAKES = (() => {
     });
 })();
 
-/** A few sakura petals on the air in every season. */
 const PETALS = (() => {
     const rand = rng(47);
     return Array.from({ length: 7 }, () => {

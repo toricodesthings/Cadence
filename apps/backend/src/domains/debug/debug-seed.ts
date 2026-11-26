@@ -10,21 +10,15 @@ import { insertTaskSchema } from "@cadence/contracts/task";
 import { upsertNoteSchema } from "@cadence/contracts/note";
 import type { sourceSurfaceEnum, confidenceTierEnum, focusViewSourceEnum } from "../../db/schema";
 
-// ── Schemas ──────────────────────────────────────────────────────────
-
 const seedSectionSchema = z.object({
     name: z.string().min(1).max(200),
     orderIndex: z.number(),
     projectId: z.uuid().nullable().optional(),
 });
 
-// ── Enum helper types ────────────────────────────────────────────────
-
 type SourceSurface = (typeof sourceSurfaceEnum.enumValues)[number];
 type ConfidenceTier = (typeof confidenceTierEnum.enumValues)[number];
 type FocusViewSource = (typeof focusViewSourceEnum.enumValues)[number];
-
-// ── Input types ──────────────────────────────────────────────────────
 
 export type SeedTaskInput = z.input<typeof insertTaskSchema>;
 export type SeedHabitInput = z.input<typeof insertHabitSchema> & {
@@ -58,21 +52,16 @@ export type SeedSavedFocusViewInput = {
     orderIndex?: number;
 };
 
-// ── Temporal helpers ─────────────────────────────────────────────────
-
-/** "Today" and the zone seed values are planned in (the user's `users.time_zone`). */
 export type SeedClock = { zone: Zone; today: LocalDate };
 
 export function seedClock(zone: Zone, now: Date = new Date()): SeedClock {
     return { zone, today: todayIn(zone, now) };
 }
 
-/** A day, `dayOffset` days from today (for all-day, deadline and hide-until fields). */
 export function seedDate(clock: SeedClock, dayOffset: number): LocalDate {
     return addDays(clock.today, dayOffset);
 }
 
-/** An instant: that wall time on the day `dayOffset` days from today, in the clock's zone (timed starts, reminders, audit times). */
 export function seedDateTime(clock: SeedClock, dayOffset: number, hours = 12, minutes = 0): Instant {
     return atLocal(
         seedDate(clock, dayOffset),
@@ -80,8 +69,6 @@ export function seedDateTime(clock: SeedClock, dayOffset: number, hours = 12, mi
         clock.zone,
     );
 }
-
-// ── Fixture builders ─────────────────────────────────────────────────
 
 export function createSeedSection(userId: string, input: z.input<typeof seedSectionSchema>) {
     return {
@@ -111,7 +98,6 @@ export function createSeedTag(userId: string, input: z.input<typeof insertTagSch
     };
 }
 
-/** `zone` is the zone a timed task is planned in (stored on the row). */
 export function createSeedTask(userId: string, input: SeedTaskInput, zone: Zone) {
     const parsed = insertTaskSchema.parse(input);
 

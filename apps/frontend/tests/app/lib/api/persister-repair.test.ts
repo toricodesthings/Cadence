@@ -1,7 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { createIDBPersister, repairWorkspaceCache } from "../../../../app/lib/api/persister";
 
-// Own file: a repair freezes the module's persister for the rest of the page's life.
 const storage = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn(), del: vi.fn() }));
 vi.mock("idb-keyval", () => storage);
 vi.mock("../../../../app/platform/runtime", () => ({ IS_DESKTOP_RUNTIME: false, getNativeStore: vi.fn() }));

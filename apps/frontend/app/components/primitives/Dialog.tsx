@@ -21,10 +21,6 @@ import {
 
 const Dialog = DialogPrimitive.Root;
 
-/**
- * The toaster lives outside any dialog, so a trapped focus scope would pull focus back out of it.
- * Registering it as a branch keeps an Undo toast reachable by keyboard while a dialog or sheet is open.
- */
 function ToasterFocusBranch() {
     const [toaster, setToaster] = React.useState<HTMLElement | null>(null);
     React.useEffect(() => setToaster(document.querySelector<HTMLElement>("[data-cadence-toaster]")), []);
@@ -40,7 +36,6 @@ const DialogOverlay = ({ className, ...props }: React.ComponentProps<typeof Dial
     <DialogPrimitive.Overlay className={cn(DIALOG_OVERLAY, className)} {...props} />
 );
 
-/** The dialog's X button; use it directly when a layout places close inside its own header. */
 const DialogCloseButton = ({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Close>) => (
     <DialogPrimitive.Close
         className={cn(
@@ -62,21 +57,17 @@ const DialogContent = ({
     ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
     hideCloseButton?: boolean;
-    /** False for a surface that is full screen at every size (the photo viewer). */
     phoneSheet?: boolean;
 }) => {
-    // A touch phone gets a docked sheet: pull it down from anywhere to dismiss, as every compact sheet does.
     const { isPhone, isTouch } = useShellMode();
     const sheet = phoneSheet && isPhone && isTouch;
     const close = React.useRef<HTMLButtonElement>(null);
     const [sheetEl, setSheetEl] = React.useState<HTMLElement | null>(null);
-    // A throw closes through Radix (onOpenChange); the CSS slide-out adds to the drag, so it leaves from the finger.
     const { y, backdropOpacity } = useSheetGesture({
         element: sheetEl,
         enabled: sheet,
         onDismiss: () => close.current?.click(),
     });
-    // Like every sheet, it rides the keyboard instead of hiding its fields and buttons under it.
     const { inset: keyboard, aboveKeyboard } = useKeyboardInset(sheet);
     const content = (
         <>

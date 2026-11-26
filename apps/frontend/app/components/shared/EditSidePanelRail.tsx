@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ResizableSidePanel } from "./ResizableSidePanel";
 import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
 
-/** Keep the rail mounted through its exit, and let its actual width drive layout. */
 export function EditSidePanelRail({
     children,
     ariaLabel,

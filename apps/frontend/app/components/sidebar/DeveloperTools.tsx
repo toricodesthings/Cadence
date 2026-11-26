@@ -27,7 +27,6 @@ import { useApiClient } from "../../hooks/auth/use-api-client";
 import { hardRefreshWorkspaceCaches } from "../../lib/api/workspace-cache";
 import type { Season } from "../../lib/themes/season";
 
-/** Loading-screen previews in the dev tools; no season means the real one (date or theme preset). */
 const LOADING_PREVIEWS: readonly { season?: Season; label: string; icon: typeof Sun; iconClassName: string }[] = [
     { label: "Current", icon: CalendarClock, iconClassName: "text-twilight-text-soft" },
     { season: "spring", label: "Spring", icon: Flower2, iconClassName: "text-pink-300" },
@@ -152,13 +151,11 @@ const DEV_TOOL_TILES = [
 
 type DevToolTile = (typeof DEV_TOOL_TILES)[number];
 
-/** The icon rail's developer tools (admins only): seed or wipe the workspace, preview toasts and loading scenes. */
 export function DeveloperTools() {
     const api = useApiClient();
     const queryClient = useQueryClient();
     const [isLoading, setIsLoading] = useState(false);
 
-    // Dialog states
     const [wipeConfirmOpen, setWipeConfirmOpen] = useState(false);
 
     const handleSeedData = async () => {
@@ -213,7 +210,6 @@ export function DeveloperTools() {
 
     return (
         <>
-            {/* Developer Tools */}
             <div className="w-[40%] h-px bg-twilight-border my-0.5 rounded-full opacity-50" aria-hidden="true" />
 
             <AlertDialog.Root open={wipeConfirmOpen} onOpenChange={setWipeConfirmOpen}>
@@ -297,7 +293,6 @@ function DevToolTileItem({ tile, disabled, onRun }: DevToolTileItemProps) {
         </div>
     );
 
-    // Loading screen: opens a season picker instead of firing straight away.
     if (key === "loading_screen") {
         return (
             <DropdownMenu.Sub>

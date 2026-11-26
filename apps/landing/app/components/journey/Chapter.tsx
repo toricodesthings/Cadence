@@ -6,11 +6,6 @@ import type { ChapterCopy, Season } from "~/lib/site";
 import { BoughSegment, mobileBoughSide, segmentHeight, type SegmentName } from "./BoughSegment";
 import { Drift, type DriftKind } from "./Drift";
 
-/**
- * One chapter of the journey: the words on one side, the panel on the other, the bough's segment in the
- * gutter between (and behind both), and the season's particles in the air. The section's aspect is its
- * segment's, so the bough registers with the layout.
- */
 export function Chapter({
     copy,
     segment,
@@ -20,7 +15,6 @@ export function Chapter({
 }: {
     copy: ChapterCopy;
     segment: SegmentName;
-    /** The season of the section above, which the bough's halo carries over the joint (the lantern if omitted). */
     prev?: Season;
     drift: DriftKind;
     children?: ReactNode;
@@ -46,7 +40,6 @@ export function Chapter({
     );
 }
 
-/** A chapter's words, each revealed in turn: eyebrow, title, then (when given) the body and its glints. */
 export function ChapterWords({
     copy,
     titleId,

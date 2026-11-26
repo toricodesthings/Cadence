@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import type { FocusViewColor, FocusViewIcon } from "@cadence/contracts/settings";
 
-/** The icons a view can wear (the contract's set, in its order). */
 export const FOCUS_ICONS: Record<FocusViewIcon, LucideIcon> = {
     Zap,
     Clock,
@@ -39,7 +38,6 @@ export const FOCUS_ICONS: Record<FocusViewIcon, LucideIcon> = {
     Leaf,
 };
 
-/** Each colour as a theme token, so daylight mode re-tunes it. */
 export const FOCUS_COLORS: Record<FocusViewColor, { label: string; tone: string }> = {
     lantern: { label: "Lantern", tone: "var(--color-lantern)" },
     ember: { label: "Ember", tone: "var(--color-ember-red)" },
@@ -56,7 +54,6 @@ export const DEFAULT_COLOR: FocusViewColor = "lantern";
 export const toneOf = (color: FocusViewColor | null | undefined) => FOCUS_COLORS[color ?? DEFAULT_COLOR].tone;
 export const iconOf = (icon: FocusViewIcon | null | undefined) => FOCUS_ICONS[icon ?? DEFAULT_ICON];
 
-/** The round icon bubble every view shows, tinted with its colour (a check while it's the active view). */
 export function FocusBubble({
     icon,
     color,

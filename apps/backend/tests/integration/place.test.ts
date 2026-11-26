@@ -1,4 +1,3 @@
-/** POST /tasks/place: Fit today's one write for a whole day, and its Undo. */
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiAs } from "../helpers/app";
 import { asOwner, createUser, startTestDb } from "../helpers/db";
@@ -114,7 +113,6 @@ describe("POST /tasks/place", () => {
         const body = { items: [item(a, "2026-10-20T13:00:00.000Z", "2026-10-20T14:00:00.000Z")] };
         const key = { "Idempotency-Key": crypto.randomUUID() };
         expect((await tasks("POST", "/place", body, key)).status).toBe(200);
-        // The same request again: the stored answer, not a 409 for the version it already changed.
         expect((await tasks("POST", "/place", body, key)).status).toBe(200);
         expect(await sql("SELECT 1 FROM planning_records WHERE user_id = $1", [userId])).toHaveLength(0);
         expect(await sql("SELECT 1 FROM ai_memory_signals WHERE user_id = $1", [userId])).toHaveLength(0);

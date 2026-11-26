@@ -15,9 +15,7 @@ export function SettingsDialog() {
     const [searchParams, setSearchParams] = useSearchParams();
     const activeTab = settingsTab(searchParams.get("settings")) as TabId | null;
 
-    // We keep internal state for search to filter tabs in the sidebar
     const [searchQuery, setSearchQuery] = React.useState("");
-    // Search matches a tab's name or any of its row titles
     const needle = searchQuery.trim().toLowerCase();
     const matches = SETTINGS_CATEGORIES.filter(
         (item) =>
@@ -59,7 +57,6 @@ export function SettingsDialog() {
                 </DialogDescription>
 
                 <div className="flex w-full h-full">
-                    {/* Left Sidebar */}
                     <div className="hidden w-[280px] shrink-0 flex-col gap-6 overflow-y-auto border-r border-twilight-border/70 bg-twilight-surface-muted/70 px-4 py-10 md:flex">
                         <div className="px-2">
                             <SearchField
@@ -120,9 +117,7 @@ export function SettingsDialog() {
                         </nav>
                     </div>
 
-                    {/* Main Content Area */}
                     <div className="settings-content-bg relative flex flex-1 flex-col items-stretch overflow-y-auto">
-                        {/* Desktop close — visible at lg */}
                         <button
                             type="button"
                             className="group absolute right-6 top-6 z-10 hidden flex-col items-center gap-2 lg:flex"

@@ -9,7 +9,7 @@ import {
 } from "../../../../app/lib/ai/usage";
 import type { AiUsage } from "@cadence/contracts/ai";
 
-const NOW = 1_760_000_000_000; // fixed clock (ms)
+const NOW = 1_760_000_000_000;
 const nowS = Math.floor(NOW / 1000);
 
 function usage(overrides?: {
@@ -67,8 +67,8 @@ describe("describeUsage", () => {
     it("picks the tighter of two low windows", () => {
         const line = describeUsage(
             usage({
-                fiveH: { requests: { used: 46, limit: 50 }, resetEpoch: null }, // 4 left
-                sevenD: { requests: { used: 498, limit: 500 }, resetEpoch: null }, // 2 left
+                fiveH: { requests: { used: 46, limit: 50 }, resetEpoch: null },
+                sevenD: { requests: { used: 498, limit: 500 }, resetEpoch: null },
             }),
             NOW,
         );

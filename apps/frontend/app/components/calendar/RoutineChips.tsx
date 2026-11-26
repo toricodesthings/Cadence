@@ -14,7 +14,6 @@ import { formatChipTime } from "../../lib/utils/date-format";
 import { MARKER_HEIGHT, type TimedPointLayout } from "../../lib/utils/calendar/calendar-utils";
 import type { VirtualHabitTask } from "../../hooks/habits/use-virtual-habit-tasks";
 
-/** One shared list for grouped badges and the strip's visible details/overflow control. */
 function RoutineList({ tasks, onSelect }: { tasks: readonly Task[]; onSelect: (id: string) => void }) {
     return (
         <div className="flex flex-col gap-1">
@@ -27,13 +26,11 @@ function RoutineList({ tasks, onSelect }: { tasks: readonly Task[]; onSelect: (i
 
 type PointProps = { layout: TimedPointLayout; onSelect: (id: string) => void; tipSide: "left" | "right" };
 
-/** A details click inside a draggable chip: open this item without the chip also handling the click. */
 const openOnly = (onSelect: (id: string) => void, id: string) => (e: React.MouseEvent) => {
     e.stopPropagation();
     onSelect(id);
 };
 
-/** Points share the row, but every routine keeps its own check-off and named details button. */
 export function RoutineRow({ layout, onSelect, tipSide }: PointProps) {
     const { points } = layout;
     const first = points[0];
@@ -73,7 +70,6 @@ export function RoutineRow({ layout, onSelect, tipSide }: PointProps) {
     );
 }
 
-/** The badge never steals a span's column; its mark checks off, its visible details control opens in place. */
 export function RoutineBadge({ layout, onSelect, tipSide }: PointProps) {
     const { points } = layout;
     const first = points[0];
@@ -116,7 +112,6 @@ const MARK = 24;
 const GAP = 4;
 const DETAILS = 24;
 
-/** Marks check off; the always-visible details button lists every routine, including overflow. */
 export function RoutineStrip({
     tasks,
     onSelect,

@@ -17,7 +17,6 @@ const text = (t: string) => ({ type: "text", text: t });
 const user = (...parts: unknown[]) => ({ role: "user", parts });
 const assistant = () => ({ role: "assistant", parts: [text("ok")] });
 
-/** R2 stand-in holding the given ids' bytes under user "u". */
 function bucket(stored: string[]) {
     const reads: string[] = [];
     const objects = new Map(stored.map((id) => [aiImageKey("u", id), new Uint8Array([1, 2, 3])]));
@@ -49,8 +48,8 @@ describe("hydrateImages", () => {
         expect(out[10].parts[0]).toEqual({ type: "file", mediaType: "image/webp", url: "data:image/webp;base64,AQID" });
         expect(out[10].parts[1]).toEqual(text("this?"));
         expect(hydrated).toBe(1);
-        expect(r2.reads).toEqual([aiImageKey("u", ids[1])]); // the stubbed image is never read
-        expect(messages[10].parts[0]).toEqual(file(ids[1])); // input untouched
+        expect(r2.reads).toEqual([aiImageKey("u", ids[1])]);
+        expect(messages[10].parts[0]).toEqual(file(ids[1]));
     });
 
     it("keeps an image inlined until its turn compacts with the others", async () => {

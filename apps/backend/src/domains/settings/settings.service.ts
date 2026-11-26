@@ -17,13 +17,6 @@ function isPlainObject(value: unknown): value is Record<string, any> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/**
- * Lift the location fields that used to live under `calendar.holidays`
- * (`usePreciseLocation`, `locationMode`, `countryCode`, `subdivisionCode`,
- * `promptDismissedAt`) into `location`. Runs on stored settings before they are
- * merged over defaults. The legacy keys are left in place so older clients keep
- * reading them; the parsers ignore them.
- */
 export function migrateLegacySettings<T>(stored: T): T {
     if (!isPlainObject(stored) || stored.location !== undefined) return stored;
     const holidays = isPlainObject(stored.calendar) ? stored.calendar.holidays : undefined;
@@ -48,17 +41,10 @@ export function migrateLegacySettings<T>(stored: T): T {
     };
 }
 
-/**
- * Normalize stored settings against canonical defaults.
- * - Merges in missing sections/keys from defaults
- * - Migrates legacy `preferredView` into `tasks.defaultView`
- * - Migrates legacy `calendar.holidays` location fields into `location`
- */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 export function normalizeSettings(stored: Record<string, any>): SettingsView {
     const merged = deepMerge<SettingsView>(SETTINGS_DEFAULTS, migrateLegacySettings(stored));
 
-    // Migrate legacy preferredView → tasks.defaultView
     if (stored.preferredView && !stored.tasks?.defaultView) {
         merged.tasks = { ...merged.tasks, defaultView: stored.preferredView };
     }
@@ -66,11 +52,6 @@ export function normalizeSettings(stored: Record<string, any>): SettingsView {
     return merged;
 }
 
-/**
- * Merge a settings patch into the user's stored settings: row lock, normalize, background sanitizing,
- * and the zone pin. The route and the assistant's `update_settings` both write through this.
- * Returns the settings before and after (both normalized).
- */
 export async function patchSettings(
     tx: Tx,
     userId: string,
@@ -81,19 +62,17 @@ export async function patchSettings(
         .from(users)
         .where(eq(users.id, userId))
         .limit(1)
-        .for("update"); // concurrent patches (and assistant event writes) must not drop each other's change
+        .for("update");
 
-    // Normalize stored settings first, then merge in patch
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     const before = normalizeSettings((user?.settings || {}) as Record<string, any>);
     const merged = deepMerge<SettingsView>(before, sanitizeBackgroundPatch(before, patch));
-    if (JSON.stringify(merged) === JSON.stringify(before)) return { before, after: before }; // nothing changes: nothing is written
+    if (JSON.stringify(merged) === JSON.stringify(before)) return { before, after: before };
 
     const [updated] = await tx
         .update(users)
         .set({
             settings: merged,
-            // Pinning a zone makes it the user's zone at once, while "device" waits for the client's next sync.
             ...(isZone(merged.dateTime?.timezone) && { timeZone: merged.dateTime.timezone }),
         })
         .where(eq(users.id, userId))

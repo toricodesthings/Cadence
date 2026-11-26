@@ -26,7 +26,6 @@ vi.mock("../../../app/hooks/ai/use-memory", () => ({
 vi.mock("../../../app/lib/utils/error-toast", () => ({ toastError: vi.fn() }));
 vi.mock("sonner", () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), message: vi.fn() }) }));
 
-// A fresh id per test: writes to one task queue behind each other, and the first test never settles.
 let SERIES = "";
 let n = 0;
 const listKey = queryKeys.tasks.list({ state: "ACTIVE" });
@@ -100,7 +99,6 @@ describe("the version an edit sends", () => {
         api.patch.mockResolvedValue(Response.json({ data: makeTask({ id: "other" }) }));
         const qc = seed();
         const listed = qc.getQueryData<Task[]>(listKey)!.find((t) => t.id === "other")!;
-        // What an optimistic create used to leave behind: a client-clock copy under a note key.
         qc.setQueryData(queryKeys.notes.detail("x"), [{ ...listed, updatedAt: "2099-01-01T00:00:00.000Z" }]);
         const { result } = renderHook(useUpdateTask, { wrapper: withClient(qc) });
         act(() => {

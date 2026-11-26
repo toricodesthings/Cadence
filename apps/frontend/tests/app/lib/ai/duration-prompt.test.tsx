@@ -68,8 +68,8 @@ describe("offerDuration: what the toast is given", () => {
 
     it("keeps Cadence's own number out of the question (D7)", async () => {
         expect((await shown(45)).props.reference).toBe(45);
-        expect((await shown(60)).props.reference).toBeNull(); // the default block
-        expect((await shown(45, 45)).props.reference).toBeNull(); // Cadence's own guess
+        expect((await shown(60)).props.reference).toBeNull();
+        expect((await shown(45, 45)).props.reference).toBeNull();
         expect((await shown(null, 45)).props.reference).toBeNull();
     });
 });

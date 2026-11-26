@@ -7,7 +7,6 @@ import { Input } from "../../primitives/Input";
 import { openExternalUrl } from "../../../platform/runtime";
 import { caretRect } from "./note-selection";
 
-/** Adds https:// to a bare address; refuses schemes that run code. */
 export function normalizeLink(raw: string): string | null {
     const url = raw.trim();
     if (!url) return null;
@@ -16,7 +15,6 @@ export function normalizeLink(raw: string): string | null {
     return `https://${url}`;
 }
 
-/** What the popover starts with: the link under the caret, else the selected text. */
 export function readLink(editor: Editor): { label: string; href: string; hasLink: boolean } {
     const { state } = editor;
     const hasLink = editor.isActive("link");
@@ -29,7 +27,6 @@ export function readLink(editor: Editor): { label: string; href: string; hasLink
     return { label: state.doc.textBetween(from, to), href: "", hasLink };
 }
 
-/** Edit a link's label and address, anchored at the caret. Selected text stays selected text. */
 export function NoteLinkPopover({
     editor,
     open,

@@ -6,11 +6,6 @@ import { useSettings } from "../core/use-settings";
 import { queryKeys } from "../../lib/api/query-keys";
 import { unwrapResponse } from "../../lib/api/helpers";
 
-/**
- * What Find a time orders by: the person's own choices (Full) and what they said about when they
- * like to do things (whenever memory is on). Fetched only while memory is on; a failure or no connection just means
- * proposals come earliest first.
- */
 export function usePlanningEvidence(): PlanningEvidence | undefined {
     const client = useApiClient();
     const { authReady, isAuthenticated } = useAuthState();

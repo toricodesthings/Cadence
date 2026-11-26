@@ -1,25 +1,8 @@
 import { n1, rad, rng, rotate, smoothThrough, type Pt } from "./geometry";
 
-/*
- * Bough generator for the hero. A bough is a hand-keyed main limb plus forks
- * described by `ForkSpec`s; limbs without authored forks sprout seeded ones,
- * down to four levels. The PRNG only jitters angles, lengths and key points,
- * so each bough keeps its authored silhouette. Output is plain path strings
- * and millisecond timings, identical on server and client.
- *
- * Two kinds of path:
- * - What is seen crisp (the thick limbs' outlines, the fine twigs' strokes) is
- *   a smooth cubic Bézier curve at 0.1 precision. Points are rounded before
- *   they are differenced, so relative steps never drift.
- * - What is only ever blurred or hidden (the growth-mask and halo spines, the
- *   inner-glow steps of thick limbs) is a whole-unit polyline: smaller, and
- *   the difference cannot be seen.
- */
-
 const round = ([x, y]: Pt): Pt => [Math.round(x), Math.round(y)];
 const ip = ([x, y]: Pt): string => `${x},${y}`;
 
-/** Relative steps between rounded points; zero steps are dropped. */
 function steps(points: readonly Pt[]): string {
     let out = "";
     let prev = points[0];
@@ -40,11 +23,6 @@ function polyline(points: readonly Pt[]): string {
 
 const r1 = ([x, y]: Pt): Pt => [n1(x), n1(y)];
 
-/**
- * Catmull-Rom through `points` as relative cubic Béziers, from points[0] as the current point. Fine twigs are
- * a pixel or two wide, so they are emitted at whole-unit precision (`coarse`): the curve is the same to the
- * eye and the path string is a fifth shorter, which is most of the journey's HTML.
- */
 function curveThrough(points: readonly Pt[], coarse = false): string {
     const q = coarse ? Math.round : n1;
     const p = points.map(coarse ? ([x, y]: Pt): Pt => [Math.round(x), Math.round(y)] : r1);
@@ -67,29 +45,15 @@ function smoothPath(points: readonly Pt[], coarse = false): string {
 }
 
 export type ForkSpec = {
-    /** Where along the parent (0–1, by length) the fork leaves. */
     t: number;
-    /** 1 turns clockwise off the parent's tangent, -1 counter-clockwise. */
     side: 1 | -1;
-    /** A twig that doubles back toward the trunk (trees do that). */
     back?: boolean;
-    /** Length as a fraction of the parent's; defaults to 0.35–0.55. */
     len?: number;
-    /** Angle off the parent's tangent in degrees; defaults to 32–44 (118–134 for `back`). */
     angle?: number;
-    /** A weeping strand: each stretch bends further toward straight down. */
     weep?: boolean;
-    /** Omitted: seeded twigs sprout on their own. `[]`: none. */
     forks?: ForkSpec[];
-    /**
-     * A limb that parts from its parent and rejoins it `until` of the way along (0–1), round something the
-     * parent must not cross: it follows `path` (absolute viewBox points, held exactly), keeps most of its
-     * width, grows in step with the parent, and ends hidden under the parent's wood instead of in a tip.
-     */
     until?: number;
-    /** With `until`, the rejoining limb's course; without it, a free limb held on these points, ending in a tip after `len` of the parent's growth. */
     path?: readonly Pt[];
-    /** Width as a share of the parent's where it leaves (default 0.55; a rejoining twin runs near 0.8). */
     wShare?: number;
 };
 
@@ -98,41 +62,22 @@ export type BoughSpec = {
     seed: number;
     viewBox: readonly [number, number];
     keys: readonly Pt[];
-    /** Main limb width at the trunk, in viewBox units. */
     w0: number;
     start: number;
     dur: number;
     forks: ForkSpec[];
-    /** A viewBox point near the wordmark: blossom clusters closest to it open first. */
     focus: Pt;
-    /**
-     * Journey segments meet head to tail. "start" holds the first two keys exactly (they set the joint's
-     * tangent); "both" also holds the last two, and the main limb then tapers to `wEnd` and ends in a joint,
-     * not a tip.
-     */
     joint?: "start" | "both";
     wEnd?: number;
-    /** A smooth stroked trunk for a screen-width gutter; forks retain their tapered outlines. */
     strokeTrunk?: boolean;
-    /** Blossoms open at ignition (the hero) or as the growth reaches their tip (the journey). */
     bloom?: "ignition" | "tip";
-    /** Share of tips that blossom rather than bud (default 0.4; 0 for none). */
     bloomShare?: number;
-    /** Flowers per cluster, [min, max] (default [2, 4]; only the journey's crown goes higher). */
     clusterSize?: readonly [number, number];
 };
 
-/**
- * A prefix of the limb's spine, for tapering with strokes: step k covers the
- * spine from the base to k/n of its length at the limb's width where that
- * stretch begins, so the stack narrows toward the tip. `len` is the prefix's
- * share of the spine, used as its `pathLength` so every step's dash grows in
- * step with the whole limb. `d` is null for the full-length step (the spine).
- */
 export type Step = { d: string | null; len: number; w: number };
 
 export type Limb = {
-    /** Tapered outline (thick limbs only; fine twigs are stroked steps). */
     outline: string | null;
     spine: string;
     steps: Step[];
@@ -153,22 +98,13 @@ export type Bough = {
     flowers: Flower[];
 };
 
-/** Tip width by depth. */
 const W_TIP = [0, 2.4, 1.8, 1.3, 1];
 const KNOT = [1.09, 1.18, 1.18, 1.09];
-/** Growth time by depth. */
 const DUR = [0, 0, 700, 520, 400];
-/**
- * Spine samples per key segment, and taper steps, by depth. Each taper step is a prefix of its limb's spine,
- * so a step costs about as much as the spine again: deep twigs take two (base and tip) rather than three, and
- * the eye cannot tell at one or two units wide.
- */
 const SAMPLES = [0, 6, 5, 4, 3];
 const STEPS = [0, 5, 4, 2, 2];
 const MAX_DEPTH = 4;
-/** Limbs up to this depth get a masked, tapered outline; deeper ones are stroked. */
 const RIBBON_DEPTH = 2;
-/** Blossoms open at ignition; clusters nearest the wordmark first. */
 const BLOOM_AT = 1650;
 
 type Tip = { at: Pt; dir: Pt; ready: number };
@@ -180,10 +116,8 @@ const unit = (v: Pt): Pt => {
     return [v[0] / l, v[1] / l];
 };
 
-/** `u^1.375` from square roots only (close to the spec's 1.35 taper, exact across engines). */
 const taper = (u: number): number => u * Math.sqrt(Math.sqrt(Math.sqrt(u * u * u)));
 
-/** Tapered filled outline: upper side, a rounded tip, then the lower side reversed. */
 function ribbon(spine: readonly Pt[], widths: readonly number[], scale: number): string {
     const upper: Pt[] = [];
     const lower: Pt[] = [];
@@ -193,7 +127,6 @@ function ribbon(spine: readonly Pt[], widths: readonly number[], scale: number):
         const hw = (widths[i] * scale) / 2;
         upper.push([x - ty * hw, y + tx * hw]);
         lower.push([x + ty * hw, y - tx * hw]);
-        // Quadratic control one full width past the end, so the cap bulges by half a width.
         if (i === spine.length - 1) ctrl = r1([x + tx * hw * 2, y + ty * hw * 2]);
     });
     lower.reverse();
@@ -203,7 +136,6 @@ function ribbon(spine: readonly Pt[], widths: readonly number[], scale: number):
     return `M${ux},${uy}${curveThrough(upper)}q${n1(ctrl[0] - end[0])},${n1(ctrl[1] - end[1])} ${n1(lx - end[0])},${n1(ly - end[1])}${curveThrough(lower)}Z`;
 }
 
-/** A limb's taper steps: each a prefix of its spine, the last the whole limb. */
 function taperSteps(
     spine: Pt[],
     tAt: number[],
@@ -234,7 +166,6 @@ export function generateBough(spec: BoughSpec): Bough {
     const limbs: Limb[] = [];
     const tips: Tip[] = [];
 
-    /** Seeded twigs for a limb with no authored forks: two on a branch, sometimes one on a twig. */
     function sprout(depth: number): ForkSpec[] {
         if (depth === 2) {
             const side = rand() < 0.5 ? 1 : -1;
@@ -247,22 +178,16 @@ export function generateBough(spec: BoughSpec): Bough {
         return [];
     }
 
-    /**
-     * Each spine point's width. A joined main limb is one slice of the journey's long taper, so it narrows
-     * evenly to its joint; a rejoining limb narrows only a little, since it ends in wood, not in air.
-     */
     function limbWidths(tAt: number[], w0: number, depth: number, rejoin: boolean): number[] {
         if (depth === 1 && joined) return tAt.map((t) => spec.wEnd! + (w0 - spec.wEnd!) * (1 - t));
         if (rejoin) return tAt.map((t) => w0 * (1 - 0.3 * t));
         return tAt.map((t) => w0 * taper(1 - t) + W_TIP[depth]);
     }
 
-    /** A free twig's keys: it curls back toward its parent's heading, sags with reach, and an upward one droops at its end. */
     function twigKeys(origin: Pt, tangent: Pt, total: number, fork: ForkSpec): Pt[] {
         const angle = fork.angle ?? (fork.back ? 118 + rand() * 16 : 32 + rand() * 12);
         const reach = total * (fork.len ?? 0.35 + rand() * 0.2);
         let dir = rotate(tangent, rad(angle) * fork.side);
-        // Each twig curls back toward its parent's heading, so none stays straight.
         const curl = -fork.side * rad(3 + rand() * 4);
         const keys: Pt[] = [origin];
         let cur = origin;
@@ -270,11 +195,9 @@ export function generateBough(spec: BoughSpec): Bough {
             dir = rotate(dir, curl);
             if (fork.weep) dir = unit([dir[0] * 0.75, dir[1] * 0.75 + 0.5]);
             cur = [cur[0] + (dir[0] * reach) / 3, cur[1] + (dir[1] * reach) / 3];
-            // Gravity: lateral reach sags.
             const sag = 0.12 * Math.abs(cur[0] - origin[0]) * (s / 3);
             keys.push([cur[0] + jit(reach * 0.04), cur[1] + sag + jit(reach * 0.04)]);
         }
-        // Upward twigs droop back over their last stretch.
         if (!fork.weep && dir[1] < -0.3) keys[3] = [keys[3][0], keys[3][1] + reach * 0.1];
         return keys;
     }
@@ -305,8 +228,6 @@ export function generateBough(spec: BoughSpec): Bough {
                 if (at >= 0 && at < widths.length) widths[at] *= m;
             });
 
-        // Forks first (their knots widen the parent before its outline is built). One that rejoins runs
-        // along its path back into the parent; a free one grows out as a twig.
         const children = (depth < MAX_DEPTH ? forks : []).map((fork): [Pt[], number, number, ForkSpec, number] => {
             const k = indexAt(fork.t);
             knot(k);
@@ -360,7 +281,6 @@ export function generateBough(spec: BoughSpec): Bough {
         }
     }
 
-    // Held keys are exact; the rest are jittered. A hero bough holds only its trunk base.
     const last = spec.keys.length - 1;
     const held = (i: number) => i === 0 || (spec.joint !== undefined && i === 1) || (joined && i >= last - 1);
     grow(
@@ -372,7 +292,6 @@ export function generateBough(spec: BoughSpec): Bough {
         spec.forks,
     );
 
-    // Tips: ≥18 units apart, none near the trunk base; 40 % bloom, the rest bud.
     const base = spec.keys[0];
     const kept: Tip[] = [];
     for (const tip of tips) {
@@ -402,7 +321,6 @@ export function generateBough(spec: BoughSpec): Bough {
                 let at: Pt = tip.at;
                 if (f > 0) {
                     const off = rotate(tip.dir, rad((f % 2 ? 1 : -1) * (50 + rand() * 60)));
-                    // Flowers past the fourth spread further out, so a big cluster opens instead of stacking
                     const spread = f > 3 ? (f - 3) * 6 : 0;
                     const r = 7 + rand() * 6 + spread;
                     const back = 3 + rand() * 7 + spread * 0.8;

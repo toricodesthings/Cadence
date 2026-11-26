@@ -1,9 +1,3 @@
-/**
- * Same-browser announcements that a note was saved, so another open tab refreshes at
- * once. It carries no text: receivers re-read through the typed query. Other devices,
- * the assistant and tabs without BroadcastChannel are caught by polling and by the
- * server's revision check.
- */
 export interface NoteAnnouncement {
     userId: string;
     owner: string;

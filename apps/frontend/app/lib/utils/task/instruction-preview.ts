@@ -8,7 +8,6 @@ interface Named {
 
 type Lookups = { projects: Named[]; tags: Named[]; sections?: Named[] };
 
-/** Its state, when it happens and how long, and when it hides or follows up. */
 function timeParts(patch: InstructionPatch): string[] {
     const parts: string[] = [];
     if (patch.state === "WAITING") parts.push("Waiting");
@@ -22,7 +21,6 @@ function timeParts(patch: InstructionPatch): string[] {
     return parts;
 }
 
-/** Who it waits on, its list › section, tags and priority. */
 function placeParts(patch: InstructionPatch, { projects, tags, sections = [] }: Lookups): string[] {
     const parts: string[] = [];
     if (patch.waitingOn) parts.push(`Waiting on ${patch.waitingOn.trim()}`);
@@ -34,7 +32,6 @@ function placeParts(patch: InstructionPatch, { projects, tags, sections = [] }: 
     return parts;
 }
 
-/** The change a patch makes, in the words the user will read before applying it. */
 export function previewParts(patch: InstructionPatch, lookups: Lookups): string[] {
     return [...timeParts(patch), ...placeParts(patch, lookups)];
 }

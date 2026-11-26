@@ -12,7 +12,6 @@ import { taskRoutes } from "../../src/domains/tasks/tasks.route";
 
 beforeAll(startTestDb);
 
-/** A retried create (flaky network, offline queue replay) must never make a second row. */
 describe("a retried create under one Idempotency-Key", () => {
     it.each([
         ["list", "/projects", projectRoutes, { name: "Home" }, "GET", ""],

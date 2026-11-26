@@ -28,23 +28,19 @@ describe("shared routine check-offs", () => {
         const url = (await sOwner("POST", `/${habit.id}/invites`, { way: "together" })).body.data.url as string;
         await listsSam("POST", "/join", { token: tokenOf(url) });
 
-        // Owner checks off today; Sam skips today.
         const ownerRes = await hOwner("POST", `/${habit.id}/resolve`, { targetDate: today, status: "COMPLETED" });
         expect(ownerRes.status, JSON.stringify(ownerRes.body)).toBe(200);
         expect(ownerRes.body.data.habit.currentStreak, JSON.stringify(ownerRes.body.data)).toBe(1);
         await hSam("POST", `/${habit.id}/resolve`, { targetDate: today, status: "SKIPPED" });
 
-        // Sam sees Tori in others (COMPLETED), own streak 0.
         const samView = (await hSam("GET", `/${habit.id}`)).body.data;
         expect(samView.currentStreak).toBe(0);
         expect(samView.today.others).toEqual([{ userId: owner, status: "COMPLETED" }]);
 
-        // Owner sees NO others (Sam's SKIPPED is never shown), own streak 1.
         const ownerView = (await hOwner("GET", `/${habit.id}`)).body.data;
         expect(ownerView.currentStreak).toBe(1);
         expect(ownerView.today.others).toEqual([]);
 
-        // Member personal prefs (reminder, sortOrder, pausedUntil) don't touch owner.
         const patched = await hSam("PATCH", `/${habit.id}`, {
             reminderEnabled: true,
             sortOrder: 42,
@@ -57,7 +53,6 @@ describe("shared routine check-offs", () => {
         expect(ownerAfter.reminderEnabled).toBe(false);
         expect(ownerAfter.pausedUntil).toBeNull();
 
-        // Owner-only field by member -> 403.
         expect((await hSam("PATCH", `/${habit.id}`, { archived: true })).status).toBe(403);
     });
 
@@ -73,25 +68,20 @@ describe("shared routine check-offs", () => {
         const url = (await sOwner("POST", `/${habit.id}/invites`, { way: "turns" })).body.data.url as string;
         await listsSam("POST", "/join", { token: tokenOf(url) });
 
-        // Today is owner's turn.
         expect((await hOwner("GET", `/${habit.id}`)).body.data.today.turn).toBe(owner);
 
-        // Sam covers owner's turn -> day closes for both, household streak = 1.
         const covered = await hSam("POST", `/${habit.id}/resolve`, { targetDate: today, status: "COMPLETED" });
         expect(covered.status).toBe(200);
         expect((await hOwner("GET", `/${habit.id}`)).body.data.currentStreak).toBe(1);
         expect((await hSam("GET", `/${habit.id}`)).body.data.currentStreak).toBe(1);
 
-        // Owner marking COMPLETED is a no-op returning Sam's log.
         const noop = await hOwner("POST", `/${habit.id}/resolve`, { targetDate: today, status: "COMPLETED" });
         expect(noop.body.data.log.userId).toBe(sam);
 
-        // Owner CAN clear Sam's log.
         const cleared = await hOwner("POST", `/${habit.id}/resolve`, { targetDate: today, status: "PENDING" });
         expect(cleared.status).toBe(200);
         expect(cleared.body.data.log.status).toBe("PENDING");
 
-        // Owner logs COMPLETED -> Sam CANNOT clear owner's log (403).
         await hOwner("POST", `/${habit.id}/resolve`, { targetDate: today, status: "COMPLETED" });
         expect((await hSam("POST", `/${habit.id}/resolve`, { targetDate: today, status: "PENDING" })).status).toBe(403);
     });
@@ -123,24 +113,20 @@ describe("shared routine check-offs", () => {
         await listsSam("POST", "/join", { token: tokenOf(togetherUrl) });
         await listsKai("POST", "/join", { token: tokenOf(cheerUrl) });
 
-        // Supporter cannot log (403).
         expect((await hKai("POST", `/${habit.id}/resolve`, { targetDate: today, status: "COMPLETED" })).status).toBe(
             403,
         );
 
-        // Owner skips today; supporter weekly view shows PENDING (never SKIPPED) and 0 streak.
         await hOwner("POST", `/${habit.id}/resolve`, { targetDate: today, status: "SKIPPED" });
         const kaiWeekly = (await hKai("GET", `/weekly?start=${today}&end=${today}`)).body.data;
         expect(kaiWeekly[0].currentStreak).toBe(0);
         expect(kaiWeekly[0].logs[0].status).toBe("PENDING");
 
-        // Sam marks step s1 done (day still PENDING because s2 is open).
         await hSam("POST", `/${habit.id}/resolve`, {
             targetDate: today,
             status: "PENDING",
             stepStatus: { s1: "COMPLETED" },
         });
-        // Owner removes step s2 -> Sam's day re-derives to COMPLETED!
         await hOwner("PATCH", `/${habit.id}`, { steps: [{ id: "s1", title: "Water" }] });
         const samWeekly = (await hSam("GET", `/weekly?start=${today}&end=${today}`)).body.data;
         expect(samWeekly[0].logs[0].status).toBe("COMPLETED");
@@ -164,7 +150,6 @@ describe("shared routine check-offs", () => {
         const link1 = (await sOwner("POST", `/${stepHabit.id}/invites`, { way: "together" })).body.data.url as string;
         await listsSam("POST", "/join", { token: tokenOf(link1) });
 
-        // Both owner and Sam complete s1 -> both days COMPLETED, streaks = 1.
         await hOwner("POST", `/${stepHabit.id}/resolve`, {
             targetDate: today,
             status: "PENDING",
@@ -177,7 +162,6 @@ describe("shared routine check-offs", () => {
         });
         expect((await hSam("GET", `/${stepHabit.id}`)).body.data.currentStreak).toBe(1);
 
-        // Participant Sam adds a second step s2 -> neither crashes; both logs reopen to PENDING, Sam's streak updates to 0.
         const stepPatch = await hSam("PATCH", `/${stepHabit.id}`, {
             steps: [
                 { id: "s1", title: "Tea" },
@@ -190,7 +174,6 @@ describe("shared routine check-offs", () => {
             "PENDING",
         );
 
-        // Routine at set times: shifting 14:00 -> 14:30 by participant moves both owner's and Sam's marks.
         const timedHabit = (
             await hOwner("POST", "", {
                 title: "Meds",

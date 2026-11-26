@@ -25,7 +25,6 @@ import {
 } from "@cadence/contracts/notification";
 import { uuidParamSchema } from "@cadence/contracts/common";
 
-// Writes validate these columns (focus-view definition, reminder object type), so reads narrow them.
 const toSavedFocusView = (row: SavedFocusViewRow): SavedFocusView => ({
     ...row,
     definition: row.definition as SavedFocusView["definition"],

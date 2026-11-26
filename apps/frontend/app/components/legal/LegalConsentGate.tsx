@@ -8,14 +8,8 @@ import { useSettings, useUpdateSettings } from "../../hooks/core/use-settings";
 import { takeSignUpTicks } from "../../lib/legal-consent";
 import { toastError } from "../../lib/utils/error-toast";
 
-/**
- * Signed in but never accepted the current Terms and Privacy Policy: a new Google/GitHub account made from the
- * sign-in page, or an existing account from before this step. Nothing in the workspace is usable until the person
- * accepts or signs out. Anyone who ticked on the sign-up page already said it, so that is recorded quietly.
- */
 export function LegalConsentGate() {
     const { completeSignOut } = useAuthState();
-    // `dataUpdatedAt` is 0 while only the device's cached copy is showing, which may predate the acceptance
     const { data: settings, dataUpdatedAt } = useSettings();
     const { mutateAsync } = useUpdateSettings();
     const [ticked, setTicked] = useState(false);

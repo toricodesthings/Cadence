@@ -15,11 +15,6 @@ import devices from "../../../prompts/help/devices.md";
 import privacyAndData from "../../../prompts/help/privacy-and-data.md";
 import sharing from "../../../prompts/help/sharing.md";
 
-/**
- * The Cadence guide: one short markdown file per topic in ../help, git-owned like
- * the prompt blocks. A user-visible change that makes a file wrong edits it in the
- * same change. Part of the promptHash (agent.ts).
- */
 export const HELP_TOPICS = {
     tasks,
     "dates-and-times": datesAndTimes,
@@ -40,7 +35,6 @@ export const HELP_TOPICS = {
 type HelpTopic = keyof typeof HELP_TOPICS;
 
 export const helpTools = () => ({
-    // ── R (static, no DB) ────────────────────────────────────────────────────
     get_cadence_help: tool({
         description:
             "The Cadence guide: how a feature works, where it lives, and in-app links to copy. " +

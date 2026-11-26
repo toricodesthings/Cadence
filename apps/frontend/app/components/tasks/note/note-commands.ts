@@ -1,8 +1,3 @@
-/**
- * The note editor's one command registry: stable ids, labels, shortcut hints,
- * eligibility and execution. Toolbars, the More menu, slash commands and keyboard
- * handlers all call these, so a capability exists once.
- */
 import type { Editor } from "@tiptap/core";
 import {
     Bold,
@@ -86,13 +81,9 @@ export interface NoteCommand {
     label: string;
     description: string;
     icon: LucideIcon;
-    /** Display only; the real binding lives in the editor's key handling. */
     shortcut?: string;
-    /** Extra words the slash menu matches (so "/template" finds the templates). */
     keywords?: string[];
-    /** The editor command, when it is one. Menu-level actions (find, export) are handled by the room. */
     run?: (editor: Editor) => boolean;
-    /** Marks/blocks that show as pressed. */
     isActive?: (editor: Editor) => boolean;
     canRun?: (editor: Editor) => boolean;
 }
@@ -130,7 +121,6 @@ export const TEMPLATE_COMMANDS: NoteCommand[] = NOTE_TEMPLATES.map((t) =>
         description: t.description,
         icon: TEMPLATE_ICONS[t.id] ?? FileText,
         keywords: ["template"],
-        // Read at insertion time: the meeting template stamps today's date in the user's zone.
         run: (e) =>
             chain(e)
                 .insertContent(markdownToDoc(NOTE_TEMPLATES.find((x) => x.id === t.id)!.body).content ?? [])
@@ -206,7 +196,6 @@ export const NOTE_COMMANDS: NoteCommand[] = [
         run: (e) => chain(e).setParagraph().run(),
         isActive: (e) => e.isActive("paragraph"),
     }),
-    // The slash id "heading" predates the room: it stays, as a section heading.
     mk({ ...heading(2, Heading2), id: "heading", label: "Heading", description: "Add a section heading" }),
     heading(1, Heading1),
     heading(2, Heading2),
@@ -333,7 +322,6 @@ export const NOTE_COMMANDS: NoteCommand[] = [
         run: (e) => chain(e).deleteTable().run(),
         canRun: (e) => e.isActive("table"),
     }),
-    // Handled by the room (they need more than the editor):
     mk({ id: "find", label: "Find and replace", description: "Search this note", icon: Search, shortcut: mod("F") }),
     mk({ id: "copy-markdown", label: "Copy Markdown", description: "Copy the note as Markdown", icon: Copy }),
     mk({ id: "download-markdown", label: "Download .md", description: "Save the note as a file", icon: Download }),
@@ -351,13 +339,11 @@ export const NOTE_COMMANDS: NoteCommand[] = [
 const byId = new Map(NOTE_COMMANDS.map((c) => [c.id, c]));
 export const getNoteCommand = (id: NoteCommandId) => byId.get(id)!;
 
-/** Run an editor-level command; `false` when the id is a room-level action. */
 export function runNoteCommand(editor: Editor, id: NoteCommandId): boolean {
     const command = byId.get(id);
     return command?.run ? command.run(editor) : false;
 }
 
-/** What the slash menu offers: the original six block commands, then the templates. */
 export const SLASH_COMMANDS: NoteCommand[] = [
     ...(["heading", "bullet-list", "numbered-list", "checklist", "quote", "divider"] as const).map(getNoteCommand),
     getNoteCommand("code-block"),
@@ -378,7 +364,6 @@ export function filterSlashCommands(query: string): NoteCommand[] {
 
 export type MarkState = "on" | "off" | "mixed";
 
-/** Whether a mark covers all, part or none of the selection (the toolbar shows mixed selections). */
 export function markState(editor: Editor, name: string): MarkState {
     const { from, to, empty } = editor.state.selection;
     if (empty) return editor.isActive(name) ? "on" : "off";

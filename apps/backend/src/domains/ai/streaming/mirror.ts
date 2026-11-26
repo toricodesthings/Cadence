@@ -1,10 +1,3 @@
-/**
- * Batched mirror of a turn's SSE frames into its Redis chunk log: coalesce
- * complete frames and flush as ONE pipelined XADD per window (§15.3). The
- * abort-flag read is folded into each flush → primary abort signal, zero extra
- * RTT (§15.6). Never throws: a disconnect/abort just ends the mirror, and
- * onFinish + closeStream still run.
- */
 import type { Redis } from "@upstash/redis/cloudflare";
 import { flushChunks } from "./resume-store";
 
@@ -12,7 +5,6 @@ const FLUSH_MS = 100;
 const FLUSH_BYTES = 16 * 1024;
 
 export async function mirrorChunks(args: {
-    /** Already ReadableStream<string> (SSE text frames). */
     stream: ReadableStream<string>;
     redis: Redis;
     userKey: string;
@@ -40,8 +32,6 @@ export async function mirrorChunks(args: {
             if (value) buf += value;
             if (buf.length >= FLUSH_BYTES || Date.now() - lastFlush >= FLUSH_MS) await flush();
         }
-        await flush(); // final partial window
-    } catch {
-        /* disconnect/abort — onFinish + closeStream still run */
-    }
+        await flush();
+    } catch {}
 }

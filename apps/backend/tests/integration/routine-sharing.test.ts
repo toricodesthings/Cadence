@@ -46,12 +46,10 @@ describe("routine sharing", () => {
             ownerName: "Tori",
         });
 
-        // Mode clash: trying to mint a turns link while share_mode is together.
         const clash = await shareAs(owner)("POST", `/${habit.id}/invites`, { way: "turns" });
         expect(clash.status).toBe(409);
         expect(clash.body.error.code).toBe("MODE_SET");
 
-        // Cheering works alongside together.
         const cheerUrl = await link("cheering");
         expect((await listsAs(kai)("GET", `/invite-preview?token=${tokenOf(cheerUrl)}`)).body.data.way).toBe(
             "cheering",
@@ -77,18 +75,14 @@ describe("routine sharing", () => {
         await join(sam, turnsUrl);
         await join(kai, turnsUrl);
 
-        // Owner reorders turns: Sam first, then Kai, then Tori.
         const putTurns = await shareAs(owner)("PUT", `/${habit.id}/turns`, { order: [sam, kai, owner] });
         expect(putTurns.status).toBe(200);
-        // Bad participant set -> 400.
         expect((await shareAs(owner)("PUT", `/${habit.id}/turns`, { order: [sam, owner] })).status).toBe(400);
 
-        // Removing Kai keeps Sam first (today's holder).
         expect((await shareAs(owner)("DELETE", `/${habit.id}/members/${kai}`)).status).toBe(200);
         const afterRemove = (await habitsAs(owner)("GET", `/${habit.id}`)).body.data;
         expect(afterRemove.turnOrder).toEqual([sam, owner]);
 
-        // Sam leaving on their own re-anchors too, so the owner holds today's turn.
         await join(kai, turnsUrl);
         expect((await shareAs(sam)("DELETE", `/${habit.id}/members/${sam}`)).status).toBe(200);
         const afterLeave = (await habitsAs(owner)("GET", `/${habit.id}`)).body.data;
@@ -103,14 +97,12 @@ describe("routine sharing", () => {
         );
         expect(stored.turn_order).toEqual([owner, kai]);
 
-        // Stop sharing clears mode and turns.
         expect((await shareAs(owner)("DELETE", `/${habit.id}/members`)).status).toBe(200);
         const afterStop = (await habitsAs(owner)("GET", `/${habit.id}`)).body.data;
         expect(afterStop.shareMode).toBeNull();
         expect(afterStop.turnOrder).toBeNull();
         expect(afterStop.members).toEqual([]);
 
-        // Ceiling check: 100 routines joined.
         const { link: otherLink, join: otherJoin } = await routineSetup("Walk");
         const busy = await createUser();
         await asOwner(async (pg) => {
@@ -143,13 +135,11 @@ describe("routine sharing", () => {
         const today = new Date().toISOString().slice(0, 10);
         expect((await shareAs(stranger)("POST", `/${habit.id}/cheers`, { targetDate: today })).status).toBe(404);
         expect((await shareAs(kai)("POST", `/${habit.id}/cheers`, { targetDate: today })).status).toBe(204);
-        // Idempotent second cheer same day.
         expect((await shareAs(kai)("POST", `/${habit.id}/cheers`, { targetDate: today })).status).toBe(204);
 
         const ownerView = (await habitsAs(owner)("GET", `/${habit.id}`)).body.data;
         expect(ownerView.today.cheers).toEqual([kai]);
 
-        // List + event join regressions.
         const list = (await apiAs(owner, "/projects", projectRoutes)("POST", "", { name: "List" })).body.data;
         const listUrl = (await listsAs(owner)("POST", `/${list.id}/invites`)).body.data.url as string;
         expect((await listsAs(kai)("POST", "/join", { token: tokenOf(listUrl) })).body.data).toEqual({

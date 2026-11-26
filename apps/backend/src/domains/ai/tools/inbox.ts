@@ -45,13 +45,11 @@ const selectInboxPage = (
 
 type CaptureResult = { inboxItemId: string; status: string; taskId?: string };
 
-/** One `update_captures` item: new words and/or an action. */
 async function updateOneCapture(
     tx: Tx,
     userId: string,
     { inboxItemId, text, action }: { inboxItemId: string; text?: string; action?: "note" | "discard" | "done" | "new" },
 ): Promise<CaptureResult> {
-    // Like notes: a capture shown cut short can't be rewritten from that copy.
     if (text !== undefined) {
         const [current] = await tx
             .select({ length: sql<number>`length(${inboxItems.rawText})` })
@@ -82,7 +80,6 @@ async function updateOneCapture(
 }
 
 export const inboxTools = (env: Env, userId: string, ctx: AgentContext) => ({
-    // ── R ──────────────────────────────────────────────────────────────────
     get_inbox_items: tool({
         description:
             "Captures in Capture, newest first: thoughts to sort and kept notes (isNote). A placed one carries the taskId it became. " +
@@ -110,7 +107,6 @@ export const inboxTools = (env: Env, userId: string, ctx: AgentContext) => ({
             }),
     }),
 
-    // ── W (additive: never waits for approval) ──────────────────────────────
     capture_to_inbox: tool({
         description:
             "Saves a thought to Capture right away (no approval: it's additive and can be discarded). Returns its id.",
@@ -118,8 +114,6 @@ export const inboxTools = (env: Env, userId: string, ctx: AgentContext) => ({
             rawText: z.string().min(1).max(5000).describe("The thought, verbatim."),
             captureKind: z.enum(["task", "thought", "reference", "unknown"]).default("unknown"),
         }),
-        // The tool call's own id is the idempotency key: a replayed call returns its
-        // capture, and a new call can never merge into an older one.
         execute: async ({ rawText, captureKind }, { toolCallId }) =>
             safeExecute("capture_to_inbox", userId, async () => {
                 const db = getDbClient(env);
@@ -145,14 +139,12 @@ export const inboxTools = (env: Env, userId: string, ctx: AgentContext) => ({
                     await recordMutation(tx, userId, toolCallId, row.id);
                     return { item: row, deduped: false as const };
                 }).then((result) => {
-                    // Same pre-sorting as a capture saved in the app; the user's switch is read inside.
                     if (!result.deduped && ctx.waitUntil) ctx.waitUntil(suggestPlacement(env, userId, result.item.id));
                     return result;
                 });
             }),
     }),
 
-    // ── U ──────────────────────────────────────────────────────────────────
     update_captures: tool({
         description:
             "Changes 1–50 captures: new words, and/or an action: note (keep as a note), discard, done (tick off: " +
@@ -187,7 +179,6 @@ export const inboxTools = (env: Env, userId: string, ctx: AgentContext) => ({
             ),
     }),
 
-    // ── D ──────────────────────────────────────────────────────────────────
     delete_captures: tool({
         description:
             "Deletes 1–50 captures for good (can't be undone; discard is the restorable way). Tasks made from them stay. " +

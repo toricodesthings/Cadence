@@ -9,7 +9,6 @@ const mutate = vi.fn();
 vi.mock("../../../app/hooks/tasks/use-update-task", () => ({ useUpdateTask: () => ({ mutate }) }));
 stubTouch(true);
 
-// Tue 2026-10-27 09:00-10:30 EDT, weekly on Tuesdays.
 const task = {
     id: "task-1",
     scheduledStart: "2026-10-27T13:00:00.000Z",
@@ -44,7 +43,6 @@ describe("TimetableBlockEditor", () => {
 
     it("moves the series start to a day and keeps its local time across DST", () => {
         setup();
-        // US DST ends Sun 2026-11-01: 09:00 local is 13:00Z before it and 14:00Z after.
         fireEvent.change(screen.getByLabelText("Series start date"), { target: { value: "2026-11-03" } });
         expect(mutate).toHaveBeenCalledWith({
             id: "task-1",

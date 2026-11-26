@@ -1,4 +1,3 @@
-/** Task list reads shared by the single-list route and offline batch. */
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lte, ne, or, sql, type SQL } from "drizzle-orm";
 import { tracing } from "cloudflare:workers";
 import type { EffortEvidenceRow, Task, TaskBatch, TaskBatchFilters, TaskFilters } from "@cadence/contracts/task";
@@ -13,10 +12,6 @@ import { overlayPersonalReminders, toTask } from "./tasks.service";
 
 type ReadFilters = TaskFilters & { limit?: number; offset?: number };
 
-/**
- * `shared`: the REST reads also take in tasks of lists shared with the caller (RLS limits them to those lists).
- * Trash stays each person's own. AI, MCP, planning, reminders, metrics and export never pass it.
- */
 export type ReadOptions = { shared?: boolean };
 
 export function buildTaskWhereClause(
@@ -38,8 +33,6 @@ export function buildTaskWhereClause(
         conditions.push(eq(tasks.projectId, filters.projectId));
     }
 
-    // A day window: tasks on its days, plus repeating series started by its end.
-    // `expandScheduleScopedTasks` expands the series and makes the final cut.
     if (filters.from && filters.to) {
         conditions.push(inDayWindow(filters.from, filters.to, zone));
     }
@@ -98,11 +91,6 @@ export async function readTasks(tx: Tx, userId: string, filters: ReadFilters, op
     );
 }
 
-/**
- * Match each open-list predicate in SQL, fetching the union of rows + tags once.
- * Membership uses the exact single-read WHERE clauses; recurrence and paging
- * are applied per list afterwards. Completed/Trash paging stays on single reads.
- */
 export async function readTaskBatch(
     tx: Tx,
     userId: string,
@@ -156,13 +144,8 @@ export async function readTaskBatch(
     return result;
 }
 
-/** How many recorded choices one read returns: recent ones are what suggestions use, and it bounds the payload. */
 const EVIDENCE_LIMIT = 300;
 
-/**
- * This account's own recorded Effort choices, newest first. Only values a person chose (or accepted) are here:
- * never the assistant's, an import's, a copy's, a repeating task's, or anything in Trash.
- */
 export async function readEffortEvidence(tx: Tx, userId: string) {
     const rows = await tx
         .select({

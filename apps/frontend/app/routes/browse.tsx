@@ -17,8 +17,6 @@ import { useUtilityNavigation } from "../hooks/ui/use-utility-navigation";
 import { MainLayout } from "../components/layout/MainLayout";
 import { NAV_GROUP, NavigationRow } from "../components/layout/NavigationRow";
 
-/** Profile quick view — the warm "it's your workspace" anchor, and the shortest
- * path to Profile & Security. */
 function ProfileCard({ onOpen }: { onOpen: () => void }) {
     const { session } = useAuthState();
     const name = session?.user?.name?.split(" ")[0]?.trim() || "there";
@@ -82,8 +80,6 @@ export default function BrowsePage() {
                 <div className="mx-auto max-w-3xl space-y-5">
                     <ProfileCard onOpen={() => openSettings("account")} />
 
-                    {/* Capture owns Today, Upcoming, Projects and Tags; Browse keeps the
-                destinations you visit occasionally. */}
                     <nav aria-label="Workspace" className={NAV_GROUP}>
                         <NavigationRow to="/events" icon={CalendarHeart}>
                             Events

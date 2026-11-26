@@ -8,7 +8,6 @@ const fetched = [
     { userId: BEN, name: "Ben", image: null, pronouns: null, role: "view" },
 ];
 
-// Runs the hook's own `select` over what the server last sent.
 vi.mock("../../../../app/hooks/auth/use-authed-query", () => ({
     useAuthedQuery: (options: (client: unknown) => { select: (data: typeof fetched) => unknown }) => ({
         data: options({}).select(fetched),

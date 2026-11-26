@@ -9,11 +9,6 @@ import { unwrapResponse } from "../../lib/api/helpers";
 
 const NONE: Record<string, ResetDisposition> = {};
 
-/**
- * The decision model's guess per Weekly Reset row: one call per step per visit, after the step has rendered (never
- * blocking it). The ids asked about are fixed on first render, so rows resolved meanwhile keep their answer and new
- * rows get none. Off when Suggest with an AI provider is off, or offline; then every row keeps today's default.
- */
 export function useResetSuggestions(
     step: ResetSuggestionsRequest["step"],
     ids: readonly string[],
@@ -24,7 +19,6 @@ export function useResetSuggestions(
     const settings = useSettings().data;
     const online = useOnlineStatus();
     const on = !!settings && settings.tasks.intelligence?.smartPlacement !== false;
-    // ponytail: the first 30 rows in shown order; a second call per 30 if heavy users ask.
     const [asked, setAsked] = useState<string[] | null>(null);
     if (active && asked === null && ids.length > 0) setAsked(ids.slice(0, RESET_SUGGESTION_MAX));
     const { data } = useQuery({

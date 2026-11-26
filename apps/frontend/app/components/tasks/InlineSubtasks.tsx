@@ -18,12 +18,6 @@ import { useSuggestSteps } from "../../hooks/ai/use-suggest-steps";
 import { useSubtaskOpenStore } from "../../stores/subtask-open-store";
 import { useTaskDetailIntentStore } from "../../stores/task-detail-intent-store";
 
-/**
- * A row's subtasks, as on task cards: a quiet toggle line that opens the subtasks as a tree beneath it.
- * Rows own the adding state so a menu's "Add subtask" can open the panel straight into the input;
- * open/closed is remembered per task across reloads.
- */
-
 export function useInlineSubtasks(taskId: string) {
     const open = useSubtaskOpenStore((state) => !!state.open[taskId]);
     const setOpen = useSubtaskOpenStore((state) => state.setOpen);
@@ -32,7 +26,6 @@ export function useInlineSubtasks(taskId: string) {
         setOpen(taskId, true);
         setAdding(true);
     };
-    // "Break into steps?" taken from anywhere puts the cursor in this row's subtask field.
     const asked = useTaskDetailIntentStore((state) => state.addStepsFor === taskId);
     const consume = useTaskDetailIntentStore((state) => state.consume);
     useEffect(() => {
@@ -50,19 +43,13 @@ export function useInlineSubtasks(taskId: string) {
     };
 }
 
-/** The thread from a task's checkbox down past its open subtasks; rows place it under their own checkbox. */
 export const SUBTASK_RAIL =
     "pointer-events-none w-px bg-gradient-to-b from-white/[0.14] via-white/[0.08] to-transparent";
 
-/** The 20px column the chevron, subtask rings and + share, so they stack centred under the title's first letter. */
 const ICON_COLUMN = "flex w-5 shrink-0 items-center justify-center";
 
 const byOrder = (subtasks: Subtask[]) => [...subtasks].sort((a, b) => a.orderIndex - b.orderIndex);
 
-/**
- * Closed: chevron, progress bar, "done/total subtasks" and the next open one — plain text, not a pill, so it
- * never reads as metadata; green with a tick once every subtask is done. Open: just "Subtasks", as the rows say the rest.
- */
 export function SubtaskChip({
     subtasks,
     open,
@@ -72,7 +59,6 @@ export function SubtaskChip({
     subtasks: Subtask[];
     open: boolean;
     onToggle: () => void;
-    /** id of the panel it opens, for aria-controls */
     controls?: string;
 }) {
     if (!subtasks.length) return null;
@@ -214,7 +200,6 @@ function InlineSubtaskItem({
     );
 }
 
-/** The panel the chip opens: the sortable list, then the add input or an "Add subtask" row. */
 export function InlineSubtaskPanel({
     id,
     taskId,
@@ -252,7 +237,7 @@ export function InlineSubtaskPanel({
         if (!value) return stopAdding();
         const orderIndex = ordered.length ? ordered[ordered.length - 1].orderIndex + 1 : 0;
         createSubtask.mutate({ title: value, orderIndex });
-        setTitle(""); // stay focused for rapid entry
+        setTitle("");
     };
 
     const visible = (open && ordered.length > 0) || adding || !!suggest.draft || suggest.status !== "idle";
@@ -291,7 +276,6 @@ export function InlineSubtaskPanel({
                                 if (e.key === "Enter") submit();
                                 if (e.key === "Escape") stopAdding();
                             }}
-                            // Leaving the field saves what was typed and closes it; Enter alone keeps it open for the next one.
                             onBlur={() => {
                                 if (title.trim()) submit();
                                 stopAdding();

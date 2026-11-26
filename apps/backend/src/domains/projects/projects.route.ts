@@ -54,7 +54,6 @@ export const projectRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const { id } = c.req.valid("param");
 
         const { project, access } = await withCallerRls(c, async (tx, userId) => {
-            // The audience is read before the list goes, so the people losing it hear of it too.
             const access = await listAccess(tx, userId, id);
             requireOwner(access);
             return { ...(await deleteProject(tx, userId, id)), access };

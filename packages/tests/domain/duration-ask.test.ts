@@ -18,7 +18,6 @@ describe("budget", () => {
         expect(budgetOpen({ lastOn: "2026-10-11", misses: 3 }, "2026-10-14")).toBe(true);
         expect(budgetOpen({ lastOn: "2026-10-10", misses: 6 }, "2026-10-14")).toBe(false);
         expect(budgetOpen({ lastOn: "2026-10-07", misses: 6 }, "2026-10-14")).toBe(true);
-        // After 10 misses: monthly.
         expect(budgetOpen({ lastOn: "2026-09-20", misses: 10 }, "2026-10-14")).toBe(false);
         expect(budgetOpen({ lastOn: "2026-09-14", misses: 12 }, "2026-10-14")).toBe(true);
         expect(budgetOpen({ lastOn: "2026-10-01", misses: 9 }, "2026-10-14")).toBe(true);

@@ -1,16 +1,3 @@
-/**
- * Memory evals (0.32.0 §12): the real extraction, consolidation and recall against a real model, on
- * synthetic people. Costs a little, so it never runs with `pnpm test`: `pnpm eval:memory`
- * (OPENROUTER_API_KEY in the environment or `.dev.vars`; MEMORY_EVAL_RUNS=1 for a quick pass). Iteration runs once; `pnpm eval:full` repeats stochastic scenarios 3 times.
- *
- * Gates:
- *  - extraction: 0 invented or injected facts saved; recall of stated facts ≥ 90%
- *  - consolidation: ≥ 95% correct, and no wrong merge
- *  - recall: the required fact is in the context (profile + recall) ≥ 95% of 30 requests over 300 facts
- *  - "ages ago": a fact stated 4 months and 300 facts earlier is used with the right month
- *  - remember: "remember …" saves, "forget …" forgets, a save that was undone is saved again, and memory off saves nothing
- * Writes root `output/evals/memory-<profile>.json`.
- */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -151,7 +138,6 @@ describe.skipIf(!live)("memory · consolidation", () => {
         const rows = await Promise.all(
             MATCH_CASES.flatMap((c) =>
                 Array.from({ length: RUNS }, async (_, run) => {
-                    // Shuffled by run so a model that leans on position shows up.
                     const order = c.known
                         .map((_, i) => i)
                         .sort((a, b) => ((a * 7 + run * 3) % 5) - ((b * 7 + run * 3) % 5));
@@ -186,7 +172,6 @@ describe.skipIf(!live)("memory · consolidation", () => {
     });
 });
 
-/** A person with the 300 filler facts plus the named ones, with real embeddings. */
 async function seedPerson(named: { content: string; kind: string; saidOn: string }[]) {
     const userId = await createUser();
     const model = getEmbeddingModelId(env);
@@ -236,7 +221,6 @@ describe.skipIf(!live)("memory · recall over 300 facts", () => {
                     }),
                 );
                 const context = [...profile, ...recalled].map((l) => l.content);
-                // Where it ranked if the window were wider: tells a ranking miss from a fact that never matched.
                 const wide = await withRls(getTestDb(), userId, (tx: any) =>
                     recallFacts(tx, userId, {
                         text: c.request,
@@ -317,7 +301,6 @@ describe.skipIf(!live)("memory · recall with the model in the loop", () => {
 
 describe.skipIf(!live)("memory · the ages-ago test", () => {
     it(`a fact stated 4 months and 300 facts earlier is used, with the right month (×${RUNS})`, async () => {
-        // Stated in June, 4 months ago; the request names September, so "June" can only come from the callback.
         const { userId } = await seedPerson([
             { content: "Sister Maya's wedding is September 18, 2027", kind: "life", saidOn: "2026-06-12" },
         ]);
@@ -345,7 +328,7 @@ describe.skipIf(!live)("memory · the ages-ago test", () => {
         );
         report.agesAgo = runs.map((r) => ({ usesFact: r.usesFact, mentionsJune: r.month, text: r.text.slice(0, 400) }));
         console.log(`ages ago: ${runs.filter((r) => r.usesFact).length}/${runs.length} used the fact`);
-        expect(runs.every((r) => r.usesFact && r.month)).toBe(true); // used, with the month it was said
+        expect(runs.every((r) => r.usesFact && r.month)).toBe(true);
     });
 });
 
@@ -407,7 +390,6 @@ describe.skipIf(!live)("memory · the remember tool", () => {
                 );
                 if (!forgot.includes("forgot")) problems.push(`#${run} forget: ${forgot.join(",") || "no call"}`);
 
-                // The earlier save was undone from its receipt, so nothing is stored; the history still shows it.
                 const again = await actions(
                     "basic",
                     [],
@@ -446,7 +428,6 @@ describe("memory · capacity (no model)", () => {
             `[${Array.from({ length: 512 }, (_, i) => ((n * 31 + i * 17) % 100) / 100).join(",")}]`;
 
         const sizes = await asOwner(async (pg) => {
-            // 400 facts each (Full at its cap), a quarter of them with real-looking text.
             for (const [p, userId] of people.entries()) {
                 const v = vector(p);
                 await pg.query(
@@ -458,14 +439,12 @@ describe("memory · capacity (no model)", () => {
                     [userId, v, userId],
                 );
             }
-            // 90 days × ~20 signals a day each.
             await pg.query(
                 `INSERT INTO ai_memory_signals (user_id, kind, "on", bucket)
                  SELECT u, (ARRAY['reschedule','complete','routine'])[1 + d % 3]::memory_signal_kind, (date '2026-07-14' + d), 'tuesday|early'
                  FROM unnest($1::uuid[]) u, generate_series(0, 89) d, generate_series(1, 20) k`,
                 [people],
             );
-            // 1,000 user messages each, 150 characters, searchable.
             await pg.query(
                 `INSERT INTO ai_conversations (id, user_id, last_message_at) SELECT gen_random_uuid(), u, now() FROM unnest($1::uuid[]) u`,
                 [people],
@@ -489,7 +468,6 @@ describe("memory · capacity (no model)", () => {
             };
         });
 
-        // The DB part of agent setup: the profile and one recall, as the agent does (the query vector is given).
         const timings: number[] = [];
         for (const userId of people.slice(0, 30)) {
             const started = performance.now();
@@ -523,7 +501,6 @@ describe("memory · capacity (no model)", () => {
 });
 
 describe.skipIf(!live)("memory · callback tone", () => {
-    /** A person with a few facts (no filler), memory on, and one agent turn for a request. */
     async function reply(
         facts: { kind: string; content: string; sensitive?: boolean; saidOn: string }[],
         request: string,
@@ -665,6 +642,6 @@ describe.skipIf(!live || !evaluation.embeddingDimensions)("memory · embedding s
         }
         report.embeddingDimensions = result;
         console.log("dims", JSON.stringify(result));
-        expect(result[512]).toBeGreaterThanOrEqual(result[1536] - 0.1); // equal recall: the smaller column wins
+        expect(result[512]).toBeGreaterThanOrEqual(result[1536] - 0.1);
     });
 });

@@ -41,7 +41,6 @@ describe("buildTimedTaskLayouts", () => {
 
     it("renders a short block at least 15 minutes tall, and lays it out at that height", () => {
         expect(buildTimedTaskLayouts([at("call", "09:00", "09:05")])[0].height).toBe(MIN_BLOCK_HEIGHT);
-        // Back-to-back short blocks sit side by side: the later one never covers the earlier.
         const out = buildTimedTaskLayouts([at("a", "09:00", "09:05"), at("b", "09:05", "09:35")]);
         expect(out.map((l) => l.columns)).toEqual([2, 2]);
         expect(

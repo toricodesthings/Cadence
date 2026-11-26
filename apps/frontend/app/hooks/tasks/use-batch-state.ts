@@ -13,12 +13,10 @@ import { rescheduleToDay } from "@cadence/domain/task-temporal";
 import type { Instant, LocalDate } from "@cadence/domain/time";
 import { getUserZone } from "../../lib/utils/user-zone";
 
-/** The batch routes take at most 50 ids, so larger selections go as several calls. */
 async function inBatches<T>(taskIds: string[], send: (ids: string[]) => Promise<T[]>): Promise<T[]> {
     return (await Promise.all(chunk(taskIds, 50).map(send))).flat();
 }
 
-/** Batch-transition multiple tasks to a new state (COMPLETE, WAITING, ARCHIVED, ACTIVE) */
 export function useBatchStateTransition() {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -35,13 +33,11 @@ export function useBatchStateTransition() {
             taskCache.edit(queryClient, (items) =>
                 items.map((task) => (taskIds.includes(task.id) ? { ...task, state } : task)),
             ),
-        // Nothing comes back when it was queued offline.
         onSuccess: (tasks) => tasks?.forEach((task) => reconcileTaskInCaches(queryClient, task)),
         onError: (err, _vars, context) => taskCache.fail(queryClient, err, context, "Couldn't update tasks"),
     });
 }
 
-/** A day (each task keeps its own local time there) or one exact start instant for all. */
 export type BatchRescheduleInput = { taskIds: string[] } & ({ date: LocalDate } | { scheduledStart: Instant });
 
 export function useBatchRescheduleTasks() {
@@ -66,7 +62,6 @@ export function useBatchRescheduleTasks() {
                 items.map((task) => (input.taskIds.includes(task.id) ? moved(task) : task)),
             );
         },
-        // Nothing comes back when it was queued offline.
         onSuccess: (tasks) => tasks?.forEach((task) => reconcileTaskInCaches(queryClient, task)),
         onError: (err, _vars, context) => taskCache.fail(queryClient, err, context, "Couldn't reschedule tasks"),
     });
@@ -74,7 +69,6 @@ export function useBatchRescheduleTasks() {
 
 const countLabel = (n: number) => `${n} task${n === 1 ? "" : "s"}`;
 
-/** Permanently deletes tasks, but only once Undo's window closes; they leave the screen at once. */
 export function useBatchDeleteTasks() {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -106,7 +100,6 @@ export function useBatchDeleteTasks() {
     });
 }
 
-/** The state each task is in now, read before a change so Undo can put it back. */
 function statesOf(queryClient: ReturnType<typeof useQueryClient>, taskIds: string[]) {
     const wanted = new Set(taskIds);
     const states = new Map<string, TaskState>();
@@ -117,10 +110,6 @@ function statesOf(queryClient: ReturnType<typeof useQueryClient>, taskIds: strin
     return states;
 }
 
-/**
- * Sends tasks to Trash with one Undo toast that returns each to the state it came from.
- * The one place bulk Trash is wired, so the bar and the keyboard shortcut behave alike.
- */
 export function useTrashTasks() {
     const queryClient = useQueryClient();
     const { mutate } = useBatchStateTransition();

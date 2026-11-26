@@ -8,7 +8,6 @@ import { useConnections, useDisconnect } from "../../hooks/core/use-connections"
 import { CADENCE_MCP_URL, MCP_SCOPE_COPY } from "../../lib/constants/mcp";
 import { relativeTime } from "../../lib/utils/date-format";
 
-/** Settings › Integrations: outside assistants connected through MCP, each with Disconnect. */
 export function ConnectedAssistants() {
     const { data: connections, isPending, isError } = useConnections();
 
@@ -19,7 +18,8 @@ export function ConnectedAssistants() {
                 <code className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[13px] text-twilight-text">
                     {CADENCE_MCP_URL}
                 </code>{" "}
-                as a connector there, then approve it here. It can change some settings, like reminders and routine streaks, never privacy, sign-in or memory.
+                as a connector there, then approve it here. It can change some settings, like reminders and routine
+                streaks, never privacy, sign-in or memory.
             </p>
             {isError && <p className="text-sm text-twilight-text-soft">Couldn't load your connections.</p>}
             {!isPending && connections?.length === 0 && (

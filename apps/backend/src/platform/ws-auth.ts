@@ -10,7 +10,6 @@ export function offeredProtocols(request: Request): string[] {
         .filter(Boolean);
 }
 
-/** Accept and immediately close a WebSocket upgrade with an application close code. */
 export function refuseWs(protocol: string, code: number, reason: string): Response {
     const { 0: client, 1: server } = new WebSocketPair();
     server.accept();
@@ -22,10 +21,6 @@ export function refuseWs(protocol: string, code: number, reason: string): Respon
     });
 }
 
-/**
- * Shared WebSocket upgrade validation for DO endpoints: checks Upgrade header, subprotocol,
- * IP + user rate limits, and verifies the Bearer JWT passed via `Sec-WebSocket-Protocol`.
- */
 export async function authenticateWsRequest(
     request: Request,
     env: Env,

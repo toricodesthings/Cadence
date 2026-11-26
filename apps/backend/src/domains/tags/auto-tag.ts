@@ -1,4 +1,3 @@
-/** Auto-tag: tasks take the tag named like their list or section (matching lives in @cadence/domain/auto-tag). */
 import { OPEN_TASK_STATES } from "@cadence/contracts/task";
 import { and, eq, inArray, notExists } from "drizzle-orm";
 import { foldName, tagsForPlace } from "@cadence/domain/auto-tag";
@@ -33,13 +32,11 @@ async function placeNames(tx: Tx, userId: string, { projectId, sectionId }: Plac
     return [list?.name, section?.name];
 }
 
-/** Ids of the tags named like a task's list and section. Nothing for the Inbox or when the setting is off. */
 export async function placeTagIds(tx: Tx, userId: string, place: Place): Promise<string[]> {
     if (!place.projectId || !(await autoTagOn(tx, userId))) return [];
     return tagsForPlace(await placeNames(tx, userId, place), await userTags(tx, userId));
 }
 
-/** A task changed place: the old place's tags come off (unless the new place has them too), the new place's go on. */
 export async function retagForMove(tx: Tx, userId: string, taskId: string, from: Place, to: Place) {
     if (from.projectId === to.projectId && from.sectionId === to.sectionId) return;
     if (!(await autoTagOn(tx, userId))) return;
@@ -55,7 +52,6 @@ export async function retagForMove(tx: Tx, userId: string, taskId: string, from:
             .onConflictDoNothing();
 }
 
-/** The places named like a tag, and the open tasks there that don't have it yet. */
 export async function placeMatches(tx: Tx, userId: string, tagId: string) {
     const [tag] = await tx
         .select({ name: tags.name })
@@ -101,7 +97,6 @@ export async function placeMatches(tx: Tx, userId: string, tagId: string) {
     return { places, taskIds };
 }
 
-/** Link (or unlink) one tag on many tasks. Returns the ids actually changed, so Undo touches only those. */
 export async function linkTag(tx: Tx, userId: string, tagId: string, taskIds: string[], linked: boolean) {
     await assertOwnership(tx, userId, { tagIds: [tagId] });
     await Promise.all(taskIds.map((id) => assertTaskOwnership(tx, userId, id)));

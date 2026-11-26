@@ -10,10 +10,6 @@ import { runMemoryJob } from "../domains/ai/memory/memory-job";
 import type { Env } from "../types/env";
 import type { Tx } from "../types/db";
 
-/**
- * The Worker's role is under RLS, so the cron can't scan every user's rows. `cron_user_ids` (SECURITY DEFINER,
- * ids only) lists the users, and each job runs per user through `withRls`.
- */
 async function cronUserIds(db: DbClient, now: Date): Promise<string[]> {
     const rows = await db
         .select({ id: sql<string>`u.id` })
@@ -21,17 +17,12 @@ async function cronUserIds(db: DbClient, now: Date): Promise<string[]> {
     return rows.map((row) => row.id);
 }
 
-// ponytail: one transaction per user per job; batch users into one function call if the user count makes the cron slow.
 async function forEachUser(db: DbClient, userIds: string[], fn: (tx: Tx, userId: string) => Promise<number>) {
     let total = 0;
     for (const userId of userIds) total += await withRls(db, userId, (tx) => fn(tx, userId));
     return total;
 }
 
-/**
- * Prune stale mutation dedup entries older than 7 days.
- * Safe to run from a cron — prevents unbounded table growth.
- */
 export async function pruneStaleMutations(env: Env, now: Date = new Date()) {
     const db = getDbClient(env);
     const cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -47,7 +38,6 @@ export async function pruneStaleMutations(env: Env, now: Date = new Date()) {
 
 export const USAGE_EVENT_RETENTION_DAYS = 90;
 
-/** Deletes usage diagnostics older than the retention window, so the table stays ~90 days per user. */
 export async function pruneUsageEvents(env: Env, now: Date = new Date()) {
     const db = getDbClient(env);
     const cutoff = new Date(now.getTime() - USAGE_EVENT_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
@@ -61,16 +51,9 @@ export async function pruneUsageEvents(env: Env, now: Date = new Date()) {
     });
 }
 
-/**
- * The nightly memory pass, once per person, in the daily run. Forgotten facts are reduced to a label
- * by their own delayed `scrub` message, not here.
- */
 export async function runMemoryNightly(env: Env, now: Date = new Date()) {
     const db = getDbClient(env);
     const userIds = await cronUserIds(db, now);
-    // With a queue each person is their own message; the consumer logs the changes (`memory_queue`). Sent a chunk a
-    // minute, so a chat's `learn` never waits behind everyone's nightly pass (the gaps are too short for Neon to sleep).
-    // ponytail: queue delays cap at 12 h, so this spreads at most 720 chunks (18k people); past that, grow the chunk.
     if (env.MEMORY_QUEUE) {
         for (let i = 0; i * NIGHTLY_CHUNK < userIds.length; i++) {
             const chunk = userIds
@@ -80,7 +63,6 @@ export async function runMemoryNightly(env: Env, now: Date = new Date()) {
         }
         return undefined;
     }
-    // No queue (self-hosted): as many as fit in one invocation, in a new order each night so nobody is always last.
     let changed = 0;
     const started = Date.now();
     const order = [...userIds].sort(() => Math.random() - 0.5);
@@ -96,15 +78,8 @@ export async function runMemoryNightly(env: Env, now: Date = new Date()) {
 }
 
 const NIGHTLY_CHUNK = 25;
-/** Under a scheduled Worker's 15-minute limit, with room for the other daily jobs. */
 const NIGHTLY_BUDGET_MS = 8 * 60_000;
 
-/**
- * Chat image retention: deletes images attached but never sent (older than a
- * day) and images unused for 30 days. R2 lifecycle rules count from upload, not
- * last use, so this sweep is the rule. Storage goes before rows, so a failed
- * delete leaves the row for the next run.
- */
 export async function pruneAiImages(env: Env, now: Date = new Date()) {
     const bucket = env.USER_ASSETS;
     if (!bucket) return 0;
@@ -144,14 +119,8 @@ export async function pruneAiImages(env: Env, now: Date = new Date()) {
     });
 }
 
-/** Everything scheduled runs once a day, on the 06:00 UTC tick of the hourly trigger. */
 const DAILY_HOUR_UTC = 6;
 
-/**
- * The daily run. Any other hour returns at once (no query), so the database sleeps; at 06:00 UTC it prunes, runs the
- * memory backstop and sends every person's nightly memory message. Every job runs even if another fails; one
- * `cron_summary` line reports them all.
- */
 export async function runHourlyCron(env: Env, now: Date = new Date()) {
     if (now.getUTCHours() !== DAILY_HOUR_UTC) return;
     const [mutations, memories, backstop, images, usage] = await Promise.allSettled([

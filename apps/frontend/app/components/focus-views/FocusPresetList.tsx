@@ -8,13 +8,11 @@ import { Tip } from "../primitives";
 import type { SavedFocusView } from "../../stores/focus-view-store";
 import { FocusBubble, toneOf } from "./focus-look";
 
-/** A wash of the text colour: visible over any room, lightening at night and darkening by day. */
 const HOVER = "hover:bg-[color-mix(in_srgb,var(--color-twilight-text)_8%,transparent)]";
 
 const describe = (view: SavedFocusView) =>
     view.presetKey ? FOCUS_VIEW_PRESETS.find((p) => p.id === view.presetKey)?.description : undefined;
 
-/** Pinned first, then newest saves above the built-ins (lower order index), as the server sorts. */
 const byPlace = (a: SavedFocusView, b: SavedFocusView) =>
     Number(b.isPinned) - Number(a.isPinned) || a.orderIndex - b.orderIndex;
 
@@ -27,7 +25,6 @@ export type PresetActions = {
 
 type MenuParts = Pick<typeof DropdownMenu, "Item" | "Separator">;
 
-/** The same three actions in the ⋮ menu and on right-click. */
 function PresetMenuItems({
     parts: M,
     view,
@@ -123,7 +120,6 @@ type FocusPresetListProps = {
     actions: PresetActions;
 };
 
-/** Every preset, built-in or saved, in one searchable list. */
 export function FocusPresetList({ views, isActive, actions }: FocusPresetListProps) {
     const [query, setQuery] = useState("");
     const shown = useMemo(() => {
@@ -142,7 +138,6 @@ export function FocusPresetList({ views, isActive, actions }: FocusPresetListPro
                 className="rounded-full"
             />
             {shown.length > 0 ? (
-                // Only the card scrolls: about four and a half rows show, the cut row and the fade saying there's more.
                 <div className="rounded-[22px] surface-item p-1.5">
                     <ul
                         aria-label="Presets"

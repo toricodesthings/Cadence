@@ -143,7 +143,6 @@ describe("exact preparation", () => {
         expect(synced.settings).toMatchObject(settings);
         const result = await prepare(undefined, synced.settings as typeof settings);
         expect(result.turnContext).toContain("Monday");
-        // Current tool reads remain fresh: the snapshot's reuse is not a global settings cache.
         expect(Object.keys(result.agent.tools)).toContain("get_events");
     });
 

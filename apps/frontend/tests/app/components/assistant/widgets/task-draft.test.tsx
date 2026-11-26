@@ -57,7 +57,7 @@ describe("assistant task draft", () => {
             fromImage: { title: "Rabica checklist", note: "Amouage" },
         });
 
-        expect(screen.getByText(/ – /)).toBeTruthy(); // start – end
+        expect(screen.getByText(/ – /)).toBeTruthy();
         expect(screen.getByText(/priority$/)).toBeTruthy();
         expect(screen.getByText(/effort$/)).toBeTruthy();
         expect(screen.getByText(/^Repeats/)).toBeTruthy();

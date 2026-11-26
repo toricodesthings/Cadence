@@ -16,16 +16,10 @@ import { roleRing } from "./ShareHeader";
 export const ROLE_LABEL: Record<ListRole, string> = { owner: "Owner", edit: "Can edit", view: "Can view" };
 export const ROLE_ICON = { owner: UsersRound, edit: Pencil, view: Eye } as const;
 
-/** `#a1b2`: the first four characters of the account id, as on the profile page. */
 export const tagOf = (userId: string) => `#${userId.slice(0, 4)}`;
 
-/**
- * Who someone is, to the people they share a list with: picture, name, `#tag`, pronouns (left out when empty),
- * live online indicator, their role in this list, and shared lists in common. Email and birthday are never here.
- */
 type InCommon = { id: string; name: string; mark: ReactNode };
 
-/** One kind of shared thing (lists, events, routines): its icon and name, then a few chips and "+n". */
 function InCommonGroup({ icon: Icon, label, items }: { icon: LucideIcon; label: string; items: InCommon[] }) {
     if (items.length === 0) return null;
     const shown = items.slice(0, 4);
@@ -61,7 +55,6 @@ function InCommonGroup({ icon: Icon, label, items }: { icon: LucideIcon; label: 
     );
 }
 
-/** Lists, events and routines this person and the viewer share, from what the viewer already has loaded. */
 function useInCommon(userId: string, skip: boolean) {
     const { data: projects = [] } = useProjects();
     const { items: events } = usePersonalEvents(Number(todayDay().slice(0, 4)));
@@ -74,7 +67,6 @@ function useInCommon(userId: string, skip: boolean) {
             name: p.name,
             mark: p.emoji || <FolderOpen size={11} />,
         }));
-    // An event's owner isn't on the row; they made every link, so they're whoever invited its members.
     const sharedEvents = events
         .filter((e) => (e.members ?? []).some((m) => m.userId === userId || m.invitedBy === userId))
         .map((e) => ({ id: e.id, name: e.label, mark: e.emoji || <CalendarHeart size={11} /> }));
@@ -99,7 +91,6 @@ export function ProfileCard({
     projectId?: string;
     online?: boolean;
     former?: boolean;
-    /** Shared dates have no roles (Decision 8). */
     showRole?: boolean;
 }) {
     const RoleIcon = person ? ROLE_ICON[person.role] : null;

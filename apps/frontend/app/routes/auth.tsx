@@ -88,8 +88,6 @@ function DesktopAuthCallbackScreen({
         }
         void completeDesktopAuthHandoff(state, redirectTo, async () => {
             if (params.get("neon_auth_session_verifier")) {
-                // A request begun before the browser returned may still be settling.
-                // Once it has settled, retry a fresh session read, without replaying the handoff.
                 for (let attempt = 0; attempt < 3; attempt++) {
                     if (await beginAuthRecovery()) return;
                     if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 500));
@@ -113,7 +111,6 @@ function DesktopAuthCallbackScreen({
         };
     }, [beginAuthRecovery, search, hash, navigate, redirectTo]);
 
-    // In progress, this is the boot's own loading scene; the workspace startup takes it over in place.
     if (!errorMessage) return <Loading title="Completing sign in" />;
     return (
         <CardPage
@@ -181,7 +178,6 @@ function submitLabel(isSubmitting: boolean, isSignUp: boolean) {
 
 type EmailCredentials = { name: string; email: string; password: string; redirectTo: string };
 
-/** Signs up or in with email; "created" when sign-up made the account but no session (sign in next). */
 async function emailAuth(
     isSignUp: boolean,
     { name, email, password, redirectTo }: EmailCredentials,
@@ -330,9 +326,6 @@ function WebAuthCallbackScreen({ authError }: { authError: string | null }) {
     const { beginAuthRecovery } = useAuthState();
     const [timedOut, setTimedOut] = useState(Boolean(authError));
 
-    // The Worker owns the verifier exchange. Restore through the same auth state
-    // that guards the workspace; an empty first session read must not redirect
-    // back to sign-in. AuthPage navigates only after that state is authenticated.
     useEffect(() => {
         if (authError) return;
         let stopped = false;
@@ -396,6 +389,8 @@ export default function AuthPage() {
             (typeof state === "object" && state && "from" in state ? String(state.from) : "/"),
     );
 
+    const invited = redirectTo.startsWith("/join/");
+
     useDocumentTitle(`${isCallback ? "Finishing Sign In" : isSignUp ? "Create Account" : "Sign In"} · Cadence`);
 
     useEffect(() => {
@@ -420,7 +415,6 @@ export default function AuthPage() {
                 .filter((button) => button.querySelector("svg"))
                 .filter((button) => !button.textContent?.trim());
 
-            // The password eye sits beside its input; the rest are the providers, in order.
             let provider = 0;
             iconOnlyButtons.forEach((button) => {
                 if (button.parentElement?.querySelector("input")) {
@@ -450,7 +444,15 @@ export default function AuthPage() {
     return (
         <CardPage
             title={isSignUp ? "Create your account" : "Sign in to Cadence"}
-            description={isSignUp ? "Set up your workspace and start planning." : "Pick up where you left off."}
+            description={
+                invited
+                    ? isSignUp
+                        ? "Make an account to see what was shared with you."
+                        : "Sign in to see what was shared with you."
+                    : isSignUp
+                      ? "Set up your workspace and start planning."
+                      : "Pick up where you left off."
+            }
         >
             {isSignUp && (
                 <div className="mb-4 space-y-2">
@@ -463,7 +465,6 @@ export default function AuthPage() {
                 </div>
             )}
 
-            {/* Until both boxes are ticked, every control inside (email form, Google, GitHub) is natively disabled */}
             <fieldset
                 disabled={isSignUp && !ready}
                 className={`neon-auth-wrapper m-0 min-w-0 border-0 p-0 transition-opacity ${isSignUp && !ready ? "opacity-50" : ""}`}

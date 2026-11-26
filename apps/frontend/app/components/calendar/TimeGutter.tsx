@@ -1,6 +1,5 @@
 import { getDateFormatConfig } from "../../lib/utils/date-format";
 
-/** Hour labels column for the time grid */
 export function TimeGutter({ hourHeight }: { hourHeight: number }) {
     const hours = Array.from({ length: 24 }, (_, i) => i);
     const is24h = getDateFormatConfig().timeDisplay === "24h";

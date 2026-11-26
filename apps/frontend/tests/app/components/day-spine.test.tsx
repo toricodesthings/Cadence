@@ -104,7 +104,6 @@ describe("DaySpine and SpineTimeline", () => {
                 end: new Date("2026-11-24T19:00:00.000Z"),
             },
         ];
-        // At 15:35, past->current (13:05->14:35) is 100%, current->upcoming (14:35->16:35) is 50%, upcoming->later is 0%.
         mockNow = new Date("2026-11-24T15:35:00.000Z");
 
         const { container: rowContainer, unmount } = render(<DaySpine items={day} onOpen={vi.fn()} />);
@@ -150,18 +149,15 @@ describe("DaySpine and SpineTimeline", () => {
         };
 
         try {
-            // Before any block completes: should not auto-scroll.
             mockNow = new Date("2026-11-24T12:00:00.000Z");
             const { rerender } = render(<DaySpine items={ITEMS} onOpen={vi.fn()} />);
             expect(scrollTo).not.toHaveBeenCalled();
 
-            // After first block finishes, second block is up next: center it (620 + 120 - 250 = 490).
             mockNow = new Date("2026-11-24T16:10:00.000Z");
             rerender(<DaySpine items={ITEMS} onOpen={vi.fn()} />);
             expect(scrollTo).toHaveBeenCalledTimes(1);
             expect(scrollTo).toHaveBeenCalledWith({ left: 490, behavior: "auto" });
 
-            // Minute tick while still on the same anchor: do not fight user scroll.
             mockNow = new Date("2026-11-24T16:15:00.000Z");
             rerender(<DaySpine items={ITEMS} onOpen={vi.fn()} />);
             expect(scrollTo).toHaveBeenCalledTimes(1);

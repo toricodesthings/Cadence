@@ -18,9 +18,7 @@ interface ProjectLinkProps {
     href: string;
     emoji?: string | null;
     count?: number;
-    /** The list, for sharing it (owner) or seeing who is in it (member). */
     project?: Project;
-    /** Stands in for the colour dot (a shared list shows its owner), never for an emoji. */
     avatar?: React.ReactNode;
 }
 
@@ -34,7 +32,6 @@ export function ProjectLink({ id, label, color, href, emoji, count, project, ava
     const [shareOpen, setShareOpen] = useState(false);
     const openRename = () => setRenameOpen(true);
     const openShare = () => setShareOpen(true);
-    // Only the owner renames, restyles and deletes; someone let in sees who is here (and can leave there).
     const owner = !project || isOwnList(project);
 
     const handleDelete = () => {
@@ -53,7 +50,6 @@ export function ProjectLink({ id, label, color, href, emoji, count, project, ava
             )}
             {project && <ShareListDialog project={project} open={shareOpen} onOpenChange={setShareOpen} />}
 
-            {/* Row */}
             <ContextMenu.Root
                 onOpenChange={(isOpen) => {
                     if (isOpen)
@@ -77,6 +73,7 @@ export function ProjectLink({ id, label, color, href, emoji, count, project, ava
                     >
                         <Link
                             to={href}
+                            prefetch="intent"
                             aria-label={
                                 count === undefined ? label : `${label}, ${count} ${count === 1 ? "task" : "tasks"}`
                             }

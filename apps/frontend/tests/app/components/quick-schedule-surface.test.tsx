@@ -23,7 +23,6 @@ function setup(extra: Partial<React.ComponentProps<typeof QuickScheduleSurface>>
 describe("QuickScheduleSurface", () => {
     beforeEach(() => {
         setUserZone("America/Toronto");
-        // Monday 2026-10-05, 10:00 in Toronto.
         vi.useFakeTimers({ toFake: ["Date"] }).setSystemTime(new Date("2026-10-05T14:00:00.000Z"));
     });
     afterEach(() => vi.useRealTimers());
@@ -40,7 +39,7 @@ describe("QuickScheduleSurface", () => {
         const onChange = setup({
             scheduledStart: "2026-10-05T13:00:00.000Z",
             scheduledEnd: "2026-10-05T14:30:00.000Z",
-        }); // 09:00-10:30 EDT
+        });
         fireEvent.click(screen.getByRole("button", { name: "Tomorrow" }));
         expect(onChange).toHaveBeenLastCalledWith({
             dueDate: null,
@@ -52,10 +51,9 @@ describe("QuickScheduleSurface", () => {
     });
 
     it("keeps the same local time across a DST change", () => {
-        // US DST ends Sun 2026-11-01: 09:00 is EDT (13:00Z) before it and EST (14:00Z) after.
         const onChange = setup({ scheduledStart: "2026-10-30T13:00:00.000Z" });
         vi.setSystemTime(new Date("2026-10-30T14:00:00.000Z"));
-        fireEvent.click(screen.getByRole("button", { name: "Next Monday" })); // 2026-11-02
+        fireEvent.click(screen.getByRole("button", { name: "Next Monday" }));
         expect(onChange).toHaveBeenLastCalledWith(
             expect.objectContaining({ scheduledStart: "2026-11-02T14:00:00.000Z" }),
         );

@@ -27,7 +27,6 @@ import {
 import { reorderTurns, turnHabitFrom } from "./routine-turns";
 
 export const routineSharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
-    // ── Create ──
     .post(
         "/:id/invites",
         apiValidator("param", uuidParamSchema),
@@ -77,7 +76,6 @@ export const routineSharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVar
         return c.body(null, 204);
     })
 
-    // ── Update ──
     .patch("/:id/mode", apiValidator("param", uuidParamSchema), apiValidator("json", setShareModeSchema), async (c) => {
         const { id } = c.req.valid("param");
         const { mode } = c.req.valid("json");
@@ -136,7 +134,6 @@ export const routineSharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVar
         return c.json({ data: { order } });
     })
 
-    // ── Read ──
     .get("/:id/people", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
         return peopleResponse(c, async (tx, userId) => {
@@ -145,7 +142,6 @@ export const routineSharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVar
         });
     })
 
-    // ── Delete ──
     .delete("/:id/invites", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
         return resetInvitesResponse(c, (tx, userId) => routineAccess(tx, userId, id), { routineId: id }, "routine");
@@ -155,7 +151,6 @@ export const routineSharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVar
         const access = await withCallerRls(c, async (tx, userId) => {
             const access = await routineAccess(tx, userId, id);
             assertCanRemoveMember(access, userId, memberId, "routine");
-            // Reorder first: someone leaving loses their RLS update on `habits` once their row is gone.
             if (access.shareMode === "turns" && access.participants.includes(memberId)) {
                 const zone = await userZone(tx, access.ownerId);
                 const remaining = access.participants.filter((uid) => uid !== memberId);

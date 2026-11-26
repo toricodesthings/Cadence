@@ -2,11 +2,6 @@ import { useId, useState } from "react";
 import { ArrowUp, MessageCircleQuestion } from "lucide-react";
 import type { ToolRenderContext } from "./ApprovalCard";
 
-/**
- * The assistant's question (`ask_user`), Claude Code style: tap an option or type
- * your own answer and send it. The answer goes as your next message, so once the
- * thread moves on (`reply` absent) the card rests as the question alone.
- */
 export function AskCard({ ctx }: { ctx: ToolRenderContext<"ask_user"> }) {
     const input = ctx.part?.input ?? {};
     const options = (input.options ?? []).filter((option) => option?.label);

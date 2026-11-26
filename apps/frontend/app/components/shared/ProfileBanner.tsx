@@ -1,17 +1,13 @@
 import { useId, type ReactNode } from "react";
 
-/** The profile header's night sky: glow, waves and two sparks. `children` (the avatar) sit on top, positioned by the caller. */
 export function ProfileBanner({ children, className = "h-32" }: { children?: ReactNode; className?: string }) {
     const id = useId();
     return (
         <div className={`${className} relative border-b border-twilight-border isolate`}>
-            {/* Inner wrapper specifically for overflow hidden background constraints */}
             <div className="absolute inset-0 overflow-hidden bg-twilight-surface -z-10 profile-banner-bg">
-                {/* Atmospheric glow blobs per Manifesto */}
                 <div className="absolute -top-24 -right-24 w-96 h-96 bg-[var(--accent-primary)] opacity-[0.14] rounded-full blur-[80px] pointer-events-none" />
                 <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-[var(--color-moonlit)] opacity-[0.12] rounded-full blur-[80px] pointer-events-none" />
 
-                {/* Abstract Topological SVG Waves */}
                 <svg
                     className="absolute inset-0 w-full h-full opacity-30 mix-blend-overlay pointer-events-none"
                     preserveAspectRatio="none"
@@ -39,7 +35,6 @@ export function ProfileBanner({ children, className = "h-32" }: { children?: Rea
                     </defs>
                 </svg>
 
-                {/* Star / Lantern Sparks Geometry */}
                 <svg
                     className="absolute right-[15%] top-6 w-12 h-12 opacity-40 text-[var(--accent-primary)]"
                     viewBox="0 0 100 100"

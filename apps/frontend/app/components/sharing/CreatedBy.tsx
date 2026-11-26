@@ -2,10 +2,6 @@ import { usePersonInList } from "../../hooks/sharing/use-list-people";
 import { useTaskAccess } from "../../hooks/sharing/use-list-access";
 import { PersonAvatar } from "./PersonAvatar";
 
-/**
- * "Created by Ben" or "Edited by Sam", on a task in a shared list (nothing elsewhere). `createdBy` null reads as the
- * list's owner; an id that is no longer in the list reads as a former member.
- */
 export function personAttributionLabel(verb: "Created" | "Edited", name: string | null | undefined, former: boolean) {
     return former ? `${verb} by a former member` : name ? `${verb} by ${name}` : `${verb} by someone in this list`;
 }

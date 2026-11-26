@@ -8,7 +8,6 @@ import { RoutineMark } from "./RoutineMark";
 import { Button } from "../primitives/Button";
 import type { RoutineDay } from "./RoutineWeekRow";
 
-/** Quiet secondary line under a shared routine's title: turns, others who did it, or cheers (R11). */
 export function RoutineShareMeta({ habit, today }: { habit: Habit; today: string }) {
     const { session } = useAuthState();
     const me = session?.user.id;
@@ -22,7 +21,6 @@ export function RoutineShareMeta({ habit, today }: { habit: Habit; today: string
     const todayInfo = habit.today;
     const todayLog = habit.logs?.find((l) => l.targetDate === today);
 
-    // Turns label: "Your turn" / "Sam's turn" / "Covered by Sam"
     let turnText: string | null = null;
     if (habit.shareMode === "turns" && todayInfo?.turn) {
         const coveredBy = todayInfo.others[0]?.userId;
@@ -37,7 +35,6 @@ export function RoutineShareMeta({ habit, today }: { habit: Habit; today: string
         }
     }
 
-    // Together: "Sam did it" (done only)
     const othersDone = habit.shareMode !== "turns" ? (todayInfo?.others ?? []) : [];
     const cheerSenders = todayInfo?.cheers ?? [];
 
@@ -147,7 +144,6 @@ function CheeringRow({
     );
 }
 
-/** Routines the caller is cheering someone on for (R7): done days only, no streaks, never on Today. */
 export function CheeringOnSection({
     habits,
     days,

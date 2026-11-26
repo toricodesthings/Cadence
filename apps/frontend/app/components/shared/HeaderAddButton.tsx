@@ -1,6 +1,5 @@
 import { Plus } from "lucide-react";
 
-/** The desktop header's Add: label shows from `sm` up, icon alone only when the row is truly tight. */
 export function HeaderAddButton({ label, onClick }: { label: string; onClick: () => void }) {
     return (
         <button

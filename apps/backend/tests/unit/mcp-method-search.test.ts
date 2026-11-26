@@ -10,7 +10,6 @@ const entries = publishedTools(
     { timezone: "UTC", currentDate: "2026-11-23T12:00:00Z", today: "2026-11-23" } as never,
     true,
 );
-/** The items `searchConnectors` builds from the same summaries. */
 const items = entries.map((e) => ({
     path: `cadence.${e.name}`,
     connector: "cadence",
@@ -36,7 +35,6 @@ describe("cadenceRanker", () => {
         ["capture an idea", "capture_to_inbox", []],
     ])("%s → %s first", (query, first, also) => {
         const found = top(query);
-        // The first result may be either of an interchangeable pair for "routines today".
         if (query === "routines today")
             expect(found.slice(0, 2).sort()).toEqual(["get_habit_status_today", "get_today"]);
         else expect(found[0]).toBe(first);

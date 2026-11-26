@@ -57,17 +57,12 @@ export interface TaskMenuItemsProps {
     task: Task;
     onAddSubtask?: () => void;
     onRename?: () => void;
-    /** Opens the task's details: all a list you can only view offers besides who made the task. */
     onOpen?: () => void;
     MenuComponents: GenericMenu;
     onCloseMenu?: () => void;
-    /** When true, renders a simplified shallow menu for Holding context (Phase 5) */
     holdingContext?: boolean;
 }
 
-/** Reusable inner items for either DropdownMenu or ContextMenu */
-
-/** A menu row that opens a second view instead of closing the menu. */
 function submenuItem(Menu: GenericMenu, icon: ReactNode, label: string, hint: ReactNode, open: VoidFunction) {
     return (
         <Menu.Item
@@ -87,7 +82,6 @@ function submenuItem(Menu: GenericMenu, icon: ReactNode, label: string, hint: Re
         </Menu.Item>
     );
 }
-/** A plain menu row: icon, label, and an optional key hint at the far end. */
 function menuRow(
     Menu: GenericMenu,
     Icon: LucideIcon,
@@ -106,7 +100,6 @@ function menuRow(
     );
 }
 
-/** "I'll do it" / "Not doing it" / owner "Clear {name}" menu rows, shared by desktop and compact menus. */
 function TakeTaskMenuItems({ Menu, task }: { Menu: GenericMenu; task: Task }) {
     const access = useTaskAccess(task);
     const { session } = useAuthState();
@@ -129,7 +122,6 @@ function TakeTaskMenuItems({ Menu, task }: { Menu: GenericMenu; task: Task }) {
     );
 }
 
-/** The task's planning offer, echoed as the menu's last item so it is always in the same place, never shifting the rest. */
 function suggestedRow(Menu: GenericMenu, offer: ReturnType<typeof useShownOffer>) {
     return offer ? (
         <>
@@ -152,7 +144,6 @@ export function TaskMenuItems({
     holdingContext,
 }: TaskMenuItemsProps) {
     const access = useTaskAccess(task);
-    // Place lists tasks for one chosen day: Find a time looks there, not at the task's own day.
     const findDay = useContext(FindTimeDayContext);
     const archiveTask = useArchiveTask();
     const updateTask = useUpdateTask();
@@ -178,7 +169,6 @@ export function TaskMenuItems({
     const setReminder = (reminderAt: string | null) =>
         updateTask.mutate({ id: task.id, reminderAt, reminderSilenced: false });
 
-    /** Opens the reminder picker; a new reminder starts on the deadline when there is one. */
     const handleOpenReminder = () => {
         trackMenuAction(task.reminderAt ? "edit_reminder" : "set_reminder");
         if (!task.reminderAt && deadlineInstant) setReminder(deadlineInstant);
@@ -200,12 +190,11 @@ export function TaskMenuItems({
         const now = today();
         const weekday = weekdayOf(now);
         const day = nextWeek
-            ? addDays(now, (1 + 7 - weekday) % 7 || 7) // Next Monday
+            ? addDays(now, (1 + 7 - weekday) % 7 || 7)
             : startOfWeekend
-              ? addDays(now, (6 - weekday + 7) % 7 || 7) // Next Saturday
+              ? addDays(now, (6 - weekday + 7) % 7 || 7)
               : addDays(now, daysToAdd);
 
-        // The task keeps its shape: an all-day task moves its days, a timed one keeps its time on the new day.
         const moved = rescheduleToDay(task, day, getUserZone());
         updateTask.mutate({
             id: task.id,
@@ -290,7 +279,6 @@ export function TaskMenuItems({
 
     const takeItem = <TakeTaskMenuItems Menu={Menu} task={task} />;
 
-    // Who made a task in a shared list, always the menu's last line.
     const madeBy = access.isShared ? (
         <>
             <Menu.Separator />
@@ -349,12 +337,10 @@ export function TaskMenuItems({
                 </>
             ) : (
                 <>
-                    {/* ── Scheduling & Time ── */}
                     {rescheduleItem}
 
                     {findTimeItem}
 
-                    {/* Reminders are personal: every member can set their own. */}
                     {reminderItem}
 
                     {takeItem}
@@ -372,7 +358,6 @@ export function TaskMenuItems({
 
                     <Menu.Separator />
 
-                    {/* ── Status & Actions ── */}
                     {menuRow(Menu, Pin, task.isPinned ? "Unpin task" : "Pin to top", handleTogglePin, {
                         hint: "p",
                         iconClass: task.isPinned ? "fill-accent-primary text-accent-primary" : "",
@@ -512,31 +497,19 @@ function ReschedulePresets({ onPick, onCustom, onClear }: ReschedulePresetsProps
 type OrganizeItemsProps = {
     Menu: GenericMenu;
     task: Task;
-    /** Tags and the list a task sits in are its owner's; a collaborator only moves it between sections. */
     isOwner: boolean;
     onUpdate: (patch: UpdateTaskInput) => void;
     onAddTag: (tagId: string) => void;
     onRemoveTag: (tagId: string) => void;
 };
 
-/** Priority, effort, tags, list and section. */
 function OrganizeItems({ Menu, task, isOwner, onUpdate, onAddTag, onRemoveTag }: OrganizeItemsProps) {
     const { data: editableProjects = [] } = useEditableProjects();
     const { isShared } = useTaskAccess(task);
     return (
         <>
-            {/* ── Priority ── */}
-            {/* The child will be wrapped in Radix primitives, make sure PriorityPicker supports Menu abstraction 
-                Wait, PriorityPicker renders DropdownMenu internally! 
-                We must adapt PriorityPicker too, or just render something simpler for ContextMenu.
-                For now we'll allow PriorityPicker to be its own Dropdown. Note: nested dropdowns over context menu might be tricky,
-                let's pass MenuComponents to PriorityPicker too if needed, or assume it's okay. 
-                Wait! Radix doesn't allow a DropdownMenu trigger inside a ContextMenu item directly if it's not a Submenu. 
-                Instead we will pass Menu={Menu} to PriorityPicker, MoveToSubmenu, TagPickerSubmenu. 
-            */}
             <PriorityPicker currentPriority={task.priority} onSelect={(p) => onUpdate({ priority: p })} />
 
-            {/* ── Effort ── */}
             <EffortPicker
                 currentEffort={task.effort}
                 onSelect={(e) => onUpdate({ effort: e, ...(e && { effortOrigin: "manual" as const }) })}
@@ -544,7 +517,6 @@ function OrganizeItems({ Menu, task, isOwner, onUpdate, onAddTag, onRemoveTag }:
 
             <Menu.Separator />
 
-            {/* ── Organization ── */}
             <TagPickerSubmenu
                 MenuComponents={Menu}
                 activeTagIds={task.tagIds ?? []}
@@ -622,7 +594,6 @@ export function TaskContextMenu({ task, onAddSubtask, onRename, onOpen, holdingC
                 <Button
                     variant="ghost"
                     size="icon"
-                    // Touch keeps the 44px target; a mouse gets a lighter 36px one.
                     className="pointer-fine:h-9 pointer-fine:w-9"
                     aria-label={`Open actions for ${task.title}`}
                 >
@@ -631,7 +602,6 @@ export function TaskContextMenu({ task, onAddSubtask, onRename, onOpen, holdingC
             </DropdownMenu.Trigger>
 
             {shell.isCompact ? (
-                /* Compact: quick actions only — everything editable lives in task detail. */
                 <DropdownMenu.Content className="w-56" side="bottom" align="end" sideOffset={4}>
                     <TaskQuickActions task={task} />
                 </DropdownMenu.Content>

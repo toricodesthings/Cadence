@@ -3,10 +3,6 @@ import { UtilitySheet } from "../../shared/UtilitySheet";
 import { Button } from "../../primitives/Button";
 import { useNoteSubtasks } from "../../../hooks/tasks/use-note-subtasks";
 
-/**
- * Preview of the lines a note would turn into subtasks. Creation happens only on the button,
- * once per batch; a series note says which occurrence receives them.
- */
 export function NoteConvertSheet({
     open,
     onClose,

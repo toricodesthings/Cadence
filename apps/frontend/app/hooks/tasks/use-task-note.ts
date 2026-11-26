@@ -11,7 +11,6 @@ import { onNoteSaved } from "../../lib/notes/note-channel";
 import { queryKeys } from "../../lib/api/query-keys";
 import { noteStatus, type NoteSession, type NoteSessionState } from "../../lib/notes/note-session";
 
-/** The shared session for the owner's note, held while `ready` (which implies both ids); never the previous owner's after a switch. */
 function useNoteSession(
     ready: boolean,
     userId: string | null,
@@ -28,11 +27,9 @@ function useNoteSession(
         return () => releaseNoteSession(userId, ownerId);
         // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
     }, [ready, queryClient, userId, ownerId]);
-    // Between a task/account switch and the effect above, never hand out the previous owner's session.
     return held && held.owner === ownerId && held.userId === userId ? held : null;
 }
 
-/** Server data from elsewhere: poll/focus/reconnect, other tabs' announcements, and the online state. */
 function useRemoteNote(session: NoteSession | null, userId: string | null, ownerId: string | null, poll: boolean) {
     const queryClient = useQueryClient();
     const online = useOnlineStatus();
@@ -49,11 +46,6 @@ function useRemoteNote(session: NoteSession | null, userId: string | null, owner
     useEffect(() => session?.setOnline(online), [session, online]);
 }
 
-/**
- * The task's note as one shared session: the task panel and the writing room read the
- * same text, status and save stream. Resolves the canonical owner (the series for a
- * recurring task) and the account once, so nothing leaks across tasks or accounts.
- */
 export function useTaskNote(taskId: string | null) {
     const task = useTask(taskId) ?? null;
     const ownerId = task ? getNoteOwnerTaskId(task) : taskId;
@@ -64,7 +56,6 @@ export function useTaskNote(taskId: string | null) {
     const legacy = useRef("");
     legacy.current = noteOwnerTask?.content ?? "";
 
-    // Wait for the owner before editing: an occurrence must never open its own empty note.
     const session = useNoteSession(!!task && !!ownerId && !!userId, userId, ownerId, legacy);
 
     const state = useSyncExternalStore(
@@ -78,7 +69,6 @@ export function useTaskNote(taskId: string | null) {
     return { task, noteOwnerTask, session, state, ...noteView(session, state) };
 }
 
-/** What the note shows: its save status, and whether it is still loading or failed to load. */
 function noteView(session: NoteSession | null, state: NoteSessionState | null) {
     return {
         status: state ? noteStatus(state) : "loading",

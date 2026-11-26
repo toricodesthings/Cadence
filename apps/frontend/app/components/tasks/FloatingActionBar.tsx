@@ -53,7 +53,6 @@ function BarButton({
 export function FloatingActionBar() {
     const { selectedTaskIds, clearSelection } = useTaskSelectionStore();
 
-    // Convert Set back to Array for hooks
     const selectedArray = Array.from(selectedTaskIds);
 
     const count = selectedArray.length;
@@ -74,7 +73,6 @@ export function FloatingActionBar() {
     };
 
     const handleDelete = () => {
-        // Off the screen at once; the Undo toast (in the hook) holds the real delete back.
         batchDelete.mutate({ taskIds: selectedArray });
         clearSelection();
     };
@@ -82,7 +80,6 @@ export function FloatingActionBar() {
     const handleArchive = () => trashTasks(selectedArray, clearSelection);
 
     const handleReschedule = (updates: ScheduleUpdates) => {
-        // A picked time moves tasks to that instant; a picked day moves each to the day, keeping its own time.
         const when = updates.scheduledStart
             ? { scheduledStart: updates.scheduledStart }
             : updates.dueDate
@@ -113,7 +110,6 @@ export function FloatingActionBar() {
 
     return (
         <div className="layer-floating-bar fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-2xl border border-twilight-border bg-twilight-surface p-1.5 shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300">
-            {/* Count Badge */}
             <div className="flex items-center justify-center gap-2 pl-3 pr-2 border-r border-twilight-border/50">
                 <span className="flex h-5 items-center justify-center rounded-full bg-accent-primary/20 px-2 text-[11px] font-bold text-accent-primary tracking-wide">
                     {count}
@@ -123,13 +119,11 @@ export function FloatingActionBar() {
                 </span>
             </div>
 
-            {/* Actions */}
             <div className="flex items-center gap-1 px-1">
                 <BarButton icon={CheckCircle2} label="Complete" onClick={handleMarkComplete} />
 
                 <BarButton icon={Trash2} label="Trash" onClick={handleArchive} />
 
-                {/* Quick reschedule presets */}
                 <BarButton icon={Sun} label="Today" onClick={() => handleQuickReschedule(0)} />
 
                 <BarButton icon={Sunrise} label="Tomorrow" onClick={() => handleQuickReschedule(1)} />
@@ -201,7 +195,6 @@ export function FloatingActionBar() {
                 </Button>
             </div>
 
-            {/* Dismiss */}
             <div className="pl-1 pr-1 border-l border-twilight-border/50">
                 <Button
                     variant="ghost"

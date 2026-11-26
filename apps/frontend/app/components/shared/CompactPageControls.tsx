@@ -9,10 +9,6 @@ interface CompactPageControlsProps {
     className?: string;
 }
 
-/**
- * Shared compact route controls row for phone/tablet layouts.
- * Routes get one primary context control plus up to two secondary affordances.
- */
 export function CompactPageControls({
     primaryControl,
     secondaryControl,

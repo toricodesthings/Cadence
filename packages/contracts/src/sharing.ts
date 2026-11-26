@@ -1,11 +1,9 @@
 import { z } from "zod";
 import { instantSchema, localDateSchema } from "./common";
 
-/** In ascending order: it mirrors the `share_role` enum, whose order the SQL compares (`role >= min_role`). */
 export const shareRoleSchema = z.enum(["view", "edit"]);
 export type ShareRole = z.infer<typeof shareRoleSchema>;
 
-/** The caller's role in a list: the owner isn't a member row. */
 export const listRoleSchema = z.enum(["owner", ...shareRoleSchema.options]);
 export type ListRole = z.infer<typeof listRoleSchema>;
 
@@ -16,7 +14,6 @@ export const listMemberSchema = z.object({
 });
 export type ListMember = z.infer<typeof listMemberSchema>;
 
-/** What another member sees of a person: never email or birthday. */
 export const listPersonSchema = z.object({
     userId: z.uuid(),
     name: z.string().nullable(),
@@ -97,12 +94,10 @@ export type Joined = z.infer<typeof joinedSchema>;
 
 export const createRoutineInviteSchema = z.object({ way: routineShareWaySchema });
 
-/** 32 random bytes as base64url. */
 export const inviteTokenSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 export const joinListSchema = z.object({ token: inviteTokenSchema });
 export const invitePreviewQuerySchema = z.object({ token: inviteTokenSchema });
 export const setMemberRoleSchema = z.object({ role: shareRoleSchema });
-/** What a link lets people do once they join. No body: they can view. */
 export const createInviteSchema = z.object({ role: shareRoleSchema.default("view") });
 export const transferListSchema = z.object({ userId: z.uuid() });
 export const listMemberParamSchema = z.object({ id: z.uuid(), userId: z.uuid() });

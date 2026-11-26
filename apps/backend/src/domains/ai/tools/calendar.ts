@@ -5,6 +5,7 @@ import { and, eq, inArray, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { getDbClient } from "../../../platform/db";
 import { projects, tasks, users } from "../../../db/schema";
 import { memberView } from "../../../db/schema/columns";
+import { withLoadShares } from "../../../platform/load-share";
 import { withRls } from "../../../platform/rls";
 import type { Env } from "../../../types/env";
 import type { Tx } from "../../../types/db";
@@ -28,33 +29,26 @@ import { planningEvidence } from "../memory/planning.service";
 import { readSnapshotRoutines, routinesDue, type SnapshotRoutineReader } from "./routine-reads";
 export { routinesDue } from "./routine-reads";
 
-/** `fit_day through` spreads at most this many days: today and the six after. */
 const MAX_FIT_DAYS = 7;
 
-/** Hard cap on the span a single schedule-window read may cover. */
 const MAX_RANGE_DAYS = 62;
 
-/** The task columns a schedule window projects. */
 const scheduleColumns = {
     ...taskCoreColumns,
     zone: tasks.zone,
     orderIndex: tasks.orderIndex,
 } as const;
 
-/** Rows a window reads before expansion: plenty for ~2 months, a guard against runaway data. */
 const WINDOW_ROW_GUARD = 500;
 
-/** What `find_time` offers at most: a short list the person picks from, never every gap. */
 const FIND_TIME_PROPOSALS = 3;
 
-/** The person's day (Settings → Your day): where Find a time and Fit today look. */
 export async function dayHours(tx: Tx, userId: string) {
     const [row] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId));
     return dayHoursOf(row?.settings);
 }
 
 export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readRoutines?: SnapshotRoutineReader) => ({
-    // ── R ──────────────────────────────────────────────────────────────────
     get_schedule_window: tool({
         description:
             "Open tasks and the routines due on each day of a local day range (inclusive, up to ~2 months), " +
@@ -71,7 +65,6 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
             safeExecute("get_schedule_window", userId, async () => {
                 const from = start;
                 let to = end;
-                // Clamp the span server-side so a huge range can't be requested.
                 const maxTo = addDays(from, MAX_RANGE_DAYS);
                 if (to > maxTo) to = maxTo;
                 const cap = clampLimit(limit, 50);
@@ -80,17 +73,14 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                 return withRls(db, userId, async (tx) => {
                     const open = and(
                         or(eq(tasks.userId, userId), inArray(tasks.projectId, memberView)),
-                        // Trash never, Done only when asked.
                         ne(tasks.state, "ARCHIVED"),
                         includeDone ? undefined : ne(tasks.state, "COMPLETE"),
                     );
-                    // Dated one-offs in the window: all-day on `due_on`, timed by the day's instant bounds.
                     const dated = await tx
                         .select(scheduleColumns)
                         .from(tasks)
                         .where(and(open, isNull(tasks.recurrenceRule), inDayWindow(from, to, ctx.timezone)))
                         .limit(WINDOW_ROW_GUARD + 1);
-                    // A repeating series is stored at its first date; every one may land in the window.
                     const series = await tx
                         .select(scheduleColumns)
                         .from(tasks)
@@ -101,8 +91,6 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                         ? readRoutines(tx)
                         : readSnapshotRoutines(tx, userId, ctx.timezone as Zone));
 
-                    // Same expansion as GET /tasks for a day window: each occurrence of a
-                    // repeating series lands on its own day, in the series' zone.
                     const expanded = expandScheduleScopedTasks(series, { from, to }, ctx.timezone);
                     const when = (row: (typeof dated)[number]) =>
                         `${taskDay(row, ctx.timezone)} ${row.scheduledStart ?? ""}`;
@@ -189,7 +177,6 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                         return refuse("INVALID_REQUEST", "Only an open, one-off task has a time to find.");
                     }
                     const hint = (await durationHints(tx, userId, [task])).get(task.id);
-                    // Its own block or estimate wins, then the minutes said, then a supported guess; never an invented length.
                     const guess = hint?.takesAbout ? { state: "supported" as const, minutes: hint.takesAbout } : null;
                     const block = task.scheduledStart && task.scheduledEnd ? taskMinutes(task) : null;
                     const minutes = block ?? fitMinutes(task, said ? { state: "supported", minutes: said } : guess);
@@ -211,7 +198,6 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                         preferred: [] as TimeOfDay[],
                         ...(await dayHours(tx, userId)),
                     };
-                    // What they like (stated, or learned in Full) only orders the gaps.
                     const preferred = preferredBuckets(
                         await planningEvidence(tx, userId),
                         { title: task.title, projectId: task.projectId, listName: task.listName },
@@ -265,23 +251,25 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                 const max = addDays(day, MAX_FIT_DAYS - 1);
                 const last = !through || through <= day ? day : through > max ? max : through;
                 return withRls(getDbClient(env), userId, async (tx) => {
-                    const inRange = await readTasks(tx, userId, { from: day, to: last });
-                    // Today's own set also holds what's still open from earlier days, first, as Today shows it.
+                    const read = async (filters: Parameters<typeof readTasks>[2]) =>
+                        withLoadShares(tx, userId, await readTasks(tx, userId, filters, { shared: true }));
+                    const mine = <T extends { share: number }>(list: T[]) => list.filter((t) => t.share === 1);
+                    const inRange = (await read({ from: day, to: last })).filter((t) => t.share > 0);
                     const carried =
                         day === ctx.today
-                            ? (await readTasks(tx, userId, { state: "ACTIVE", effectiveOnOrBeforeDate: day })).filter(
+                            ? mine(await read({ state: "ACTIVE", effectiveOnOrBeforeDate: day })).filter(
                                   (t) => (taskDay(t, zone) ?? day) < day,
                               )
                             : [];
                     const loose =
                         includeUnscheduled && last > day
-                            ? (await readTasks(tx, userId, { state: "ACTIVE" })).filter(
+                            ? mine(await read({ state: "ACTIVE" })).filter(
                                   (t) => !t.dueDate && !t.scheduledStart && isFitCandidate(t),
                               )
                             : [];
                     const unique = <T extends { id: string }>(list: T[]) =>
                         list.filter((t, i, all) => all.findIndex((o) => o.id === t.id) === i);
-                    const everyone = unique([...carried, ...inRange, ...loose].filter(isFitCandidate));
+                    const everyone = unique([...carried, ...mine(inRange), ...loose].filter(isFitCandidate));
                     const hints = await durationHints(tx, userId, everyone);
                     const lists = new Map(
                         (
@@ -316,7 +304,7 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                     const days = [];
                     for (let d = day; d <= last; d = addDays(d, 1)) {
                         const onDay = inRange.filter((t) => taskDay(t, zone) === d);
-                        const own = [...(d === ctx.today ? carried : []), ...onDay]
+                        const own = [...(d === ctx.today ? carried : []), ...mine(onDay)]
                             .filter((t) => sized.has(t.id))
                             .map((t) => t.id);
                         const offered = unique(
@@ -345,7 +333,6 @@ export const calendarTools = (env: Env, userId: string, ctx: AgentContext, readR
                                     ctx.today,
                                 ),
                         );
-                        // What didn't fit tries the next day, unless that's past its own deadline.
                         const next = addDays(d, 1);
                         carry =
                             d < last

@@ -3,7 +3,6 @@ import { cssVars, n1, pt, rng } from "~/lib/geometry";
 const dot = (x: number, y: number, r: number) =>
     `M${pt(x - r, y)}a${r},${r} 0 1,0 ${n1(2 * r)},0a${r},${r} 0 1,0 ${n1(-2 * r)},0`;
 
-/** Faint fixed stars, denser high up: one path per warmth. */
 const STARS = (() => {
     const rand = rng(131);
     let cool = "";
@@ -18,7 +17,6 @@ const STARS = (() => {
     return { cool, warm };
 })();
 
-/** Stars that blink: four-point sparkles, clear of the words in the middle of the scene. */
 const BLINKS = (() => {
     const rand = rng(137);
     const out: { x: number; y: number; s: number; dur: number; delay: number }[] = [];
@@ -35,9 +33,6 @@ const BLINKS = (() => {
 export function SkyBody() {
     return (
         <>
-            {/* The hero's moon rises upper left and sets as you leave it; this one has crossed the whole night and
-          stands high on the other side, softer for it. Its own box, in the sky's own units, so it is never
-          cropped with the star field */}
             <span className="finale-moon" />
             <div className="finale-starlight">
                 <svg

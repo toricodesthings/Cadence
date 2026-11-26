@@ -10,17 +10,11 @@ import { AppLaunchLink, OpenPill } from "./AppLaunchLink";
 import { AppChooser, WebsiteTile } from "./AppPicker";
 import { Reveal } from "./Reveal";
 
-/** What a task or routine opens: one app or one website, never both. */
 export interface AppLinkPatch {
     linkedAppId: LinkedAppId | null;
     linkedUrl: string | null;
 }
 
-/**
- * The App pane of a task or routine. Collapsed with an app or website, it is that row with an Open pill on
- * the right: one tap leaves Cadence, a tap on the name opens the chooser. Opened, it is the chooser.
- * Choosing or removing saves and collapses back to the row.
- */
 export function AppPane({
     value,
     url,
@@ -34,20 +28,17 @@ export function AppPane({
 }: {
     value: string | null | undefined;
     url: string | null | undefined;
-    /** The task or routine's own title: read once per visit to rank suggestions. */
     title: string;
     kind: "task" | "routine";
     hint?: string;
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onChange: (patch: AppLinkPatch) => void;
-    /** A list you can only view: the saved app opens, nothing changes, and an empty pane isn't shown. */
     readOnly?: boolean;
 }) {
     const { data: settings } = useSettings();
     const entry = appEntry(value);
     const launch = entry ? resolveAppLaunch(entry) : null;
-    // An app wins if both were ever saved; a website that fails the check is treated as unavailable.
     const website = value ? null : resolveWebsite(url);
     const saved = Boolean(value || url);
 
@@ -144,7 +135,6 @@ export function AppPane({
                         currentUrl={value ? null : (resolveWebsite(url)?.href ?? null)}
                         nlpEnabled={settings?.tasks?.intelligence?.nlpEnabled !== false}
                         onSelect={(id) => choose({ linkedAppId: id, linkedUrl: null })}
-                        // Opening: the tap must follow its link first, so the pane folds on the next task, not under the finger.
                         onWebsite={(next, opening) => {
                             change({ linkedAppId: null, linkedUrl: next });
                             if (opening) window.setTimeout(() => onOpenChange(false), 0);

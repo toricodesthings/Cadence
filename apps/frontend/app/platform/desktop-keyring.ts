@@ -48,7 +48,5 @@ export async function clearDesktopSecureSecret(key: string): Promise<void> {
 
     try {
         await deleteSecret(CADENCE_KEYRING_SERVICE, key);
-    } catch {
-        // Deleting a missing secret is safe to ignore.
-    }
+    } catch {}
 }

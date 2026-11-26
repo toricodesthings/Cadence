@@ -9,16 +9,9 @@ import { toastUndo } from "../../lib/utils/undo-toast";
 import { DurationChoices } from "../assistant/DurationChips";
 import { FieldRow, VALUE_BTN } from "../shared/DetailPanelSections";
 
-/** Untimed, not Fixed, not done: the tasks whose length is this row. A timed task's length is its block. */
 export const hasTakesRow = (task: Pick<Task, "scheduledStart" | "state" | "interactionMode">) =>
     !task.scheduledStart && task.interactionMode !== "timetable" && task.state !== "COMPLETE";
 
-/**
- * "Takes 45 min": how long the plan expects this to take. With no value it shows what Cadence guesses from the
- * person's own answers, as a guess ("about 45 min", muted): a supported guess already sizes new blocks and Place's
- * minutes, so there is nothing to accept, and picking any chip (the pre-selected one too) writes it as the estimate.
- * A tentative guess ("about 45 min?") is display only. The choice, never the guess, is what's stored.
- */
 export function TakesRow({ task }: { task: Task }) {
     const guess = useDurationGuess(task);
     const updateTask = useUpdateTask();

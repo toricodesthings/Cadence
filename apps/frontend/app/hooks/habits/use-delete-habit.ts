@@ -21,7 +21,6 @@ export function useDeleteHabit() {
     );
 
     return useMutation({
-        // The routine disappears at once; the delete is sent (or queued offline) once Undo's window closes.
         mutationFn: async (input: { id: string; name: string }) => {
             await undoWindow(`Deleted ${input.name}`, { description: "Its history went with it." });
             return send(input);
@@ -31,7 +30,6 @@ export function useDeleteHabit() {
             await habitCache.cancel(queryClient);
             const snapshot = habitCache.snapshot(queryClient);
 
-            // Remove from both flat list and weekly caches
             const remove = <T extends { id: string }>(old: T[] | undefined) =>
                 transformListCache(old, (items) => items.filter((h) => h.id !== id));
 

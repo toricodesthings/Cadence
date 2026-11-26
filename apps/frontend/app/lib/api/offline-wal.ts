@@ -7,22 +7,12 @@ import type { HabitStatus, InsertHabit, StepStatus, UpdateHabit } from "@cadence
 import type { Instant, LocalDate } from "@cadence/domain/time";
 import { IS_DESKTOP_RUNTIME, getNativeStore } from "../../platform/runtime";
 
-/** Capture → task, as queued: the endpoint's body, plus the capture it places (its words stand in for a blank title). */
 export type ProcessInboxPayload = Omit<ProcessInboxItem, "title"> & {
     inboxItemId: string;
     rawText: string;
     title?: string;
 };
 
-// ── Operation Descriptors ──
-// Every mutation the app can queue, as a serializable object. Creates carry the
-// client-chosen id, so later ops can target the entity before it syncs.
-
-/**
- * One save of a task's note. `branch` (a tab's editing line), `baseBody` (the text the
- * edit started from) and `opId` (the Idempotency-Key, fixed for this exact payload) come
- * from the note session; entries queued by older builds have none of them.
- */
 export interface NoteSavePayload {
     body: string;
     expectedVersion?: number;
@@ -80,25 +70,18 @@ export type MutationOp =
     | { type: "create_section"; payload: { id: string; name: string; orderIndex: number; projectId: string | null } }
     | { type: "update_section"; id: string; payload: { name?: string; orderIndex?: number } };
 
-/** The plain request an op becomes, stored so the service worker can replay it without the app. */
 export interface WalRequest {
     method: "POST" | "PATCH" | "DELETE";
     url: string;
     json?: unknown;
-    /** Idempotency-Key when it isn't the entry id: a create's entity id, the key its online call sent. */
     key?: string;
 }
-
-// ── WAL Entry ──
 
 export type WalEntryStatus = "pending" | "replaying" | "failed";
 
 export interface WalEntry {
-    /** Also the Idempotency-Key of requests without their own. */
     id: string;
-    /** A request went out under this entry's ids, so its payload is frozen (a retry must repeat it exactly). */
     attempted?: boolean;
-    /** A note edit that overlaps a newer saved version: waits for the user's choice, never merged by guess. */
     conflict?: boolean;
     op: MutationOp;
     requests?: WalRequest[];
@@ -107,7 +90,6 @@ export interface WalEntry {
     createdAt: number;
 }
 
-/** A create's own client id (and its parent's, for a subtask or section); null for any other op. */
 function createdIds(op: MutationOp): string[] | null {
     switch (op.type) {
         case "create_task":
@@ -127,7 +109,6 @@ function createdIds(op: MutationOp): string[] | null {
     }
 }
 
-/** Every entity id an op touches: creates by their client id, batches by each task. */
 export function walTargetIds(op: MutationOp): string[] {
     const created = createdIds(op);
     if (created) return created;
@@ -144,14 +125,9 @@ export function walTargetIds(op: MutationOp): string[] {
         case "process_inbox_to_task":
             return [op.payload.inboxItemId];
         default:
-            // Creates returned above; every other op names its entity.
             return [(op as Extract<MutationOp, { id: string }>).id];
     }
 }
-
-// ── Storage: one queue per account ──
-// A queue never replays into another account (B6), and a read-cache version
-// bump never touches it.
 
 const WAL_PREFIX = "cadence-mutation-wal";
 const LEGACY_KEY = WAL_PREFIX;
@@ -174,10 +150,6 @@ async function writeKey(key: string, entries: WalEntry[]): Promise<void> {
     else await (entries.length ? set(key, entries) : del(key));
 }
 
-// ── Cross-tab safety (B7) ──
-// Every read-modify-write holds a Web Lock and reads the stored queue fresh, so
-// two tabs never overwrite each other; a broadcast tells the others to reload.
-
 let channel: BroadcastChannel | null = null;
 
 function withLock<T>(name: string, fn: () => Promise<T>): Promise<T> {
@@ -195,8 +167,6 @@ async function mutate(change: (entries: WalEntry[]) => WalEntry[]): Promise<void
     });
     channel?.postMessage(owner);
 }
-
-// ── In-memory state + subscriptions ──
 
 let walCache: WalEntry[] = [];
 const listeners = new Set<() => void>();
@@ -221,9 +191,6 @@ export function getWalServerSnapshot(): WalEntry[] {
     return [];
 }
 
-// ── Initialization ──
-
-/** Load this account's queue; `null` (signed out) empties the in-memory view. */
 export async function initWal(nextUserId: string | null): Promise<void> {
     if (nextUserId === userId) return;
     userId = nextUserId;
@@ -242,19 +209,15 @@ export async function initWal(nextUserId: string | null): Promise<void> {
         };
     }
 
-    // An entry left "replaying" by a closed tab never finished: try it again.
     await mutate((entries) =>
         entries.map((e) => (e.status === "replaying" ? { ...e, status: "pending" as const } : e)),
     );
-    // A queue from before queues were per account: adopt it once.
     const legacy = await readKey(LEGACY_KEY);
     if (legacy.length) {
         await mutate((entries) => [...legacy, ...entries]);
         await writeKey(LEGACY_KEY, []);
     }
 }
-
-// ── Mutations ──
 
 export async function enqueueWalEntry(op: MutationOp, requests?: WalRequest[]): Promise<WalEntry> {
     const entry: WalEntry = {
@@ -265,9 +228,6 @@ export async function enqueueWalEntry(op: MutationOp, requests?: WalRequest[]): 
         createdAt: Date.now(),
     };
     await mutate((entries) => {
-        // Every save of a note carries the whole text, so unsent saves from one editing
-        // line on one acknowledged base fold into the newest. Another tab's branch, or an
-        // entry a request already went out for, is never replaced.
         if (op.type !== "upsert_note" || !op.payload.branch) return [...entries, entry];
         const earlier = entries.findIndex(
             (e) =>
@@ -292,7 +252,6 @@ export async function updateWalEntry(
     await mutate((entries) => entries.map((e) => (e.id === id ? { ...e, ...patch } : e)));
 }
 
-/** Swap an entry's payload (the user chose which note version to keep); it becomes a fresh, unattempted save. */
 export async function replaceWalEntryOp(id: string, op: MutationOp, requests: WalRequest[]): Promise<void> {
     await mutate((entries) =>
         entries.map((e) =>
@@ -315,7 +274,6 @@ export async function removeWalEntry(id: string): Promise<void> {
     await mutate((entries) => entries.filter((e) => e.id !== id));
 }
 
-/** Drop this account's queued changes (sign-out after the user agreed to lose them). */
 export async function clearWal(): Promise<void> {
     await mutate(() => []);
 }
@@ -326,7 +284,6 @@ export async function retryFailedEntries(): Promise<void> {
     );
 }
 
-/** Run replay in one tab (or the service worker) at a time; others skip. */
 export function withReplayLock(fn: () => Promise<void>): Promise<void> {
     const owner = userId;
     if (!owner) return Promise.resolve();

@@ -7,7 +7,6 @@ import { createOnce } from "../../platform/idempotency";
 import { assertRowRoom } from "../../platform/storage-ceiling";
 import type { Tx } from "../../types/db";
 
-/** The contract's fields only: no owner, no timestamps. */
 const eventColumns = {
     id: personalEvents.id,
     label: personalEvents.label,
@@ -20,7 +19,6 @@ const eventColumns = {
 
 const owned = (userId: string, id: string) => and(eq(personalEvents.id, id), eq(personalEvents.userId, userId));
 
-/** Create an event. A replayed idempotency key returns the first one. */
 export async function createEvent(tx: Tx, userId: string, body: InsertPersonalEvent, idempotencyKey?: string) {
     return createOnce(
         tx,
@@ -47,7 +45,6 @@ export async function updateEvent(tx: Tx, userId: string, id: string, patch: Upd
     return row;
 }
 
-/** Update the caller's own reminder preference on a shared event via `cadence_set_event_notify`. */
 export async function setEventNotify(tx: Tx, eventId: string, notify: boolean): Promise<void> {
     const [row] = await tx
         .select({ ok: sql<boolean>`r.ok` })
@@ -55,7 +52,6 @@ export async function setEventNotify(tx: Tx, eventId: string, notify: boolean): 
     if (!row?.ok) throw new AppError(404, "NOT_FOUND", "Event not found");
 }
 
-/** Read one event with caller's resolved `notify` (owner or member). */
 export async function getEventForCaller(tx: Tx, userId: string, id: string) {
     const [row] = await tx
         .select({
@@ -69,7 +65,6 @@ export async function getEventForCaller(tx: Tx, userId: string, id: string) {
     return row;
 }
 
-/** In the order they were added, including events shared with the caller. */
 export async function listEvents(tx: Tx, userId: string): Promise<SharedEvent[]> {
     const rows = await tx
         .select({

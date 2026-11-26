@@ -4,26 +4,13 @@ import { unwrapResponse } from "../api/helpers";
 import { IS_DESKTOP_RUNTIME, type NotificationPermissionState } from "../../platform/runtime";
 import { isInstalledApp } from "../../platform/installed-app";
 
-/**
- * What this device can do about reminders, in the one vocabulary Settings, the
- * notification center and the dispatcher share:
- * - unsupported: this browser can't show notifications at all
- * - install: an iPhone/iPad tab; push works only from the Home Screen app
- * - denied: the browser/OS blocks Cadence (only the person can undo that)
- * - off: not enabled here, or switched off from here or another device
- * - connected: the server pushes reminders here, even with Cadence closed
- * - local: Cadence shows reminders itself, only while it is running
- */
 export type DeviceStatus = "unsupported" | "install" | "denied" | "off" | "connected" | "local";
 
 export interface DeviceFacts {
-    /** No Notification API (and not an iOS tab). */
     unsupported: boolean;
     iosTab: boolean;
     permission: NotificationPermissionState;
-    /** The account's master switch for device reminders. */
     accountOn: boolean;
-    /** This device's own row, once the server list has loaded. */
     thisDevice: Pick<Device, "enabled" | "push"> | undefined;
 }
 
@@ -36,13 +23,6 @@ export function deviceStatus(f: DeviceFacts): DeviceStatus {
     return f.thisDevice.push ? "connected" : "local";
 }
 
-/**
- * The only overlap Cadence can see but can't resolve: the desktop app alerts while it runs, and a
- * browser on the same computer is pushed to as well. Nothing tells the server they share a machine
- * (browsers expose no machine identity), so this only ever suggests — silently silencing one would
- * cost a reminder on a second computer, and a missed reminder is worse than a repeated one.
- * The app is the one to drop: a browser's push covers closed Cadence too.
- */
 export function duplicateRisk(
     devices: Device[],
     thisInstallId: string,
@@ -78,10 +58,6 @@ function storage<T>(fn: (s: Storage) => T, fallback: T): T {
     }
 }
 
-/**
- * This browser profile's (or app install's) stable identity. It survives a changed push endpoint,
- * so a device never turns into a second row in the person's list.
- */
 export function installId(): string {
     const saved = storage((s) => s.getItem(INSTALL_KEY), null);
     if (saved) return saved;
@@ -90,10 +66,6 @@ export function installId(): string {
     return fresh;
 }
 
-/**
- * Last known answer for "are reminders on here", so a cold start with no network still alerts
- * (a missed reminder is worse than one the person meant to silence). The server row is the truth.
- */
 export const readLocalEnabled = () =>
     typeof window !== "undefined" && storage((s) => s.getItem(ENABLED_KEY) !== "0", true);
 export const writeLocalEnabled = (enabled: boolean) =>
@@ -106,13 +78,11 @@ const isIosDevice = () =>
     (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
 
-/** iPhone/iPad outside the installed Home Screen app: no push, no Notification API. */
 export const isIosTab = () => isIosDevice() && !isInstalledApp();
 
 export const hasNotificationApi = () => typeof window !== "undefined" && "Notification" in window;
 export const canPush = () => hasNotificationApi() && "serviceWorker" in navigator && "PushManager" in window;
 
-/** Windows only: the one platform slice 4's background delivery was built and can be verified on. */
 export const isWindowsDesktop = () =>
     IS_DESKTOP_RUNTIME && typeof navigator !== "undefined" && /Windows/.test(navigator.userAgent);
 
@@ -138,7 +108,6 @@ function browserName(): string {
     return "Browser";
 }
 
-/** How this device introduces itself in the person's device list. */
 export function describeDevice(): { kind: DeviceKind; label: string } {
     if (IS_DESKTOP_RUNTIME) return { kind: "desktop-app", label: `Cadence app on ${osName()}` };
     const mobile = isIosDevice() || /Android/.test(navigator.userAgent);
@@ -154,7 +123,6 @@ const bytesOf = (text: string) => {
     return Uint8Array.from(atob(padded), (ch) => ch.charCodeAt(0));
 };
 
-/** The service worker registration, once active; null if there isn't one soon (dev builds, blocked workers). */
 export async function readyRegistration(timeoutMs = 8_000): Promise<ServiceWorkerRegistration | null> {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return null;
     const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs));
@@ -167,10 +135,6 @@ async function currentSubscription(): Promise<PushSubscription | null> {
     return (await registration?.pushManager.getSubscription().catch(() => null)) ?? null;
 }
 
-/**
- * This browser's Web Push subscription, resubscribing if the server's key changed.
- * "blocked" = the browser refused (Brave does this until its push setting is on).
- */
 async function subscribeHere(client: ApiClient): Promise<PushSubscription | "unavailable" | "blocked"> {
     if (!canPush() || Notification.permission !== "granted") return "unavailable";
     const { publicKey } = await unwrapResponse(await client.api.push.config.$get());
@@ -198,11 +162,6 @@ export type RegisterResult =
     | { devices: Device[]; push: "connected" | "unavailable" | "blocked" }
     | { devices: null; push: "failed" };
 
-/**
- * Registers this device and marks it seen, with a push subscription when the browser gives one.
- * A device without one is still listed and controllable; it just shows reminders itself while
- * Cadence runs. Never prompts: permission must already be granted.
- */
 export async function registerThisDevice(client: ApiClient): Promise<RegisterResult> {
     try {
         const subscription = IS_DESKTOP_RUNTIME ? ("unavailable" as const) : await subscribeHere(client);
@@ -237,7 +196,6 @@ export const forgetDevice = async (client: ApiClient, id: string): Promise<void>
     await client.api.push.devices[":id"].$delete({ param: { id } }).catch(() => {});
 };
 
-/** Stops this device getting the account's reminders, and drops its push subscription here. */
 export async function forgetThisDevice(client: ApiClient): Promise<void> {
     const id = installId();
     const subscription = await currentSubscription();
@@ -245,7 +203,6 @@ export async function forgetThisDevice(client: ApiClient): Promise<void> {
     await forgetDevice(client, id);
 }
 
-/** Asks the server to push one test to this device. */
 export async function sendServerTest(client: ApiClient): Promise<"accepted" | "gone" | "failed"> {
     try {
         return (await unwrapResponse(await client.api.push.test.$post({ json: { installId: installId() } }))).outcome;

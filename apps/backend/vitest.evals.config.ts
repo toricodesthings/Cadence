@@ -1,7 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { shared } from "./vitest.config";
 
-/** `pnpm eval` (all) or `eval:assistant|memory|decisions`: live-model evals, kept out of `pnpm test` (they spend tokens). */
 export default defineConfig({
     ...shared,
     test: {

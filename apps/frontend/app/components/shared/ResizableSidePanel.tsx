@@ -10,10 +10,6 @@ interface ResizableSidePanelProps {
     onWidthChange?: (width: number) => void;
 }
 
-/**
- * Resizable side panel wrapper — shared across Planner, Inbox, Upcoming, Completed, Trash.
- * Renders a drag handle + a panel container that spans full viewport height beside MainLayout.
- */
 export function ResizableSidePanel({
     children,
     defaultWidth = 320,
@@ -76,7 +72,6 @@ export function ResizableSidePanel({
 
     return (
         <>
-            {/* Resize handle */}
             <div
                 onMouseDown={handleMouseDown}
                 className="group relative z-10 w-1 shrink-0 cursor-col-resize transition-colors hover:bg-accent-primary/20 active:bg-accent-primary/30"
@@ -97,7 +92,6 @@ export function ResizableSidePanel({
                     }
                 }}
             >
-                {/* Carries the header's bottom border across the handle so it meets the panel's. */}
                 <div
                     aria-hidden="true"
                     className="pointer-events-none absolute inset-x-0 top-0 h-(--shell-header-h) border-b border-twilight-border"
@@ -105,7 +99,6 @@ export function ResizableSidePanel({
                 <div className="absolute inset-y-0 -left-0.5 w-1.5 rounded-full bg-accent-primary/25 opacity-0 transition-opacity group-hover:opacity-100" />
             </div>
 
-            {/* Panel container — spans full height (overtakes toolbar thanks to MainLayout flex) */}
             <div
                 className="h-full self-stretch shrink-0 overflow-hidden border-l border-twilight-border"
                 style={{ width: resolvedWidth }}

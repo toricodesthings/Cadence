@@ -12,7 +12,6 @@ export function useThoughtParse(text: string, dismissedEntityIds: string[] = [])
         projects,
         tags,
         dismissedEntityIds,
-        // Same fields as Capture: a reminder or hide-until typed in a thought is kept, not left in the title.
         capabilities: TASK_FIELDS,
         sourceSurface: "clarify_sheet",
         dateStyle: settings?.dateTime?.dateStyle,

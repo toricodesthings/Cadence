@@ -8,21 +8,18 @@ import { dayHeading, dayOfMonth, dayShortHeading, weekdayName } from "../../../l
 import { useToday } from "../../../lib/utils/user-zone";
 import { dayLoad, scheduleKind, splitDay } from "../../../lib/utils/calendar/schedule-day";
 import { loadWord } from "../../../lib/utils/task/day-load";
+import { useLoadShare } from "../../../hooks/sharing/use-load-share";
 import { ScheduleRow, type ScheduleRowHandlers } from "./ScheduleRow";
 
 const WEEKDAYS = weekdayLabels(1);
-/** Scrolling the list this far (wheel, keyboard) folds the month into the selected week. */
 const FOLD_AT = 12;
-/** A vertical finger move this far is intent: up folds, down at the list's top unfolds. */
 const INTENT = 8;
 
 export interface MonthFoldProps extends ScheduleRowHandlers {
     year: number;
     month: number;
     selectedIso: LocalDate;
-    /** Everything scheduled this month, routines included, by day. */
     groups: Map<LocalDate, Task[]>;
-    /** Holiday, birthday and personal-event names by day. */
     markers: Map<LocalDate, string[]>;
     routineEmoji: (task: Task) => string | null;
     onSelect: (iso: LocalDate) => void;
@@ -32,12 +29,6 @@ export interface MonthFoldProps extends ScheduleRowHandlers {
     reducedMotion?: boolean;
 }
 
-/**
- * Month on a phone: the grid navigates, the list below it is the content.
- * Scrolling the list folds the grid into the selected week; pulling down at
- * the top, or the handle, opens it again. Tap a day to start the list there;
- * tap it again (or its heading) to open the day.
- */
 export function MonthFold({
     year,
     month,
@@ -53,11 +44,10 @@ export function MonthFold({
     ...handlers
 }: MonthFoldProps) {
     const todayIso = useToday();
+    const shareOf = useLoadShare();
     const [folded, setFolded] = useState(false);
     const listRef = useRef<HTMLDivElement | null>(null);
-    /** Where the touch began, where it last was, and where the list first sat at its top. */
     const touch = useRef<{ x: number; y: number; lastY: number; topY: number | null; onGrid: boolean } | null>(null);
-    /** Last finger direction; a fling that coasts to the top keeps it after the finger lifts. */
     const direction = useRef<"up" | "down" | null>(null);
 
     const weeks = useMemo(() => {
@@ -67,13 +57,11 @@ export function MonthFold({
         return Array.from({ length: cells.length / 7 }, (_, i) => cells.slice(i * 7, i * 7 + 7));
     }, [month, year]);
 
-    // The list starts at the selected day, so a new selection starts at its top.
     useEffect(() => {
         direction.current = null;
         listRef.current?.scrollTo({ top: 0 });
     }, [selectedIso]);
 
-    /** Selected day onward: days with something get a heading, quiet runs collapse to one line. */
     const agenda = useMemo(() => {
         const blocks: Array<{ kind: "day"; iso: LocalDate } | { kind: "open"; from: LocalDate; to: LocalDate }> = [];
         const selectedDay = dayOfMonth(selectedIso);
@@ -94,7 +82,6 @@ export function MonthFold({
     const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
         const top = event.currentTarget.scrollTop;
         if (!folded && top > FOLD_AT) setFolded(true);
-        // A downward fling that coasts into the top opens the month as it lands.
         else if (folded && top <= 0 && direction.current === "down") setFolded(false);
     };
 
@@ -107,15 +94,13 @@ export function MonthFold({
         touch.current = { x, y, lastY: y, topY: onGrid || atTop() ? y : null, onGrid };
     };
 
-    // Reads intent from the finger, not the scroll: the first few pixels decide.
     const handleTouchMove = (event: React.TouchEvent) => {
         const t = touch.current;
         if (!t || dragActive) return;
         const { clientX: x, clientY: y } = event.touches[0];
         if (y !== t.lastY) direction.current = y < t.lastY ? "up" : "down";
         t.lastY = y;
-        if (Math.abs(y - t.y) <= Math.abs(x - t.x)) return; // sideways swipes change the period
-        // On the grid a pull always opens it; in the list only once the list is at its top.
+        if (Math.abs(y - t.y) <= Math.abs(x - t.x)) return;
         if (!t.onGrid && !atTop()) t.topY = null;
         else if (t.topY === null || direction.current === "up") t.topY = y;
         if (!folded && direction.current === "up" && t.y - y > INTENT) setFolded(true);
@@ -175,7 +160,7 @@ export function MonthFold({
                                                 <button
                                                     type="button"
                                                     onClick={() => handleCell(iso)}
-                                                    aria-label={`${dayHeading(iso)}${isToday ? ", today" : ""}${items.length ? `, ${loadWord(dayLoad(items))}` : ", open"}${marked ? `, ${markers.get(iso)!.join(", ")}` : ""}${selected ? ". Tap again to open the day" : ""}`}
+                                                    aria-label={`${dayHeading(iso)}${isToday ? ", today" : ""}${items.length ? `, ${loadWord(dayLoad(items, shareOf))}` : ", open"}${marked ? `, ${markers.get(iso)!.join(", ")}` : ""}${selected ? ". Tap again to open the day" : ""}`}
                                                     className="flex min-h-11 w-full cursor-pointer flex-col items-center justify-center gap-1 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 rounded-xl"
                                                 >
                                                     <span
@@ -276,7 +261,7 @@ export function MonthFold({
                                     <span className="text-[12px] text-accent-primary/90">{relation}</span>
                                 ) : null}
                                 <span className="min-w-0 flex-1 truncate text-[12px] text-twilight-text-soft">
-                                    {[items.length ? loadWord(dayLoad(items)) : null, ...dayMarkers]
+                                    {[items.length ? loadWord(dayLoad(items, shareOf)) : null, ...dayMarkers]
                                         .filter(Boolean)
                                         .join(" · ")}
                                 </span>

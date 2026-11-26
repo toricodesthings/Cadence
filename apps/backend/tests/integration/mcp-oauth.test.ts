@@ -18,7 +18,6 @@ const ORIGIN = "https://mcp.example.test";
 const REDIRECT = "https://claude.ai/api/mcp/auth_callback";
 const ctx = { waitUntil: () => {}, passThroughOnException: () => {} } as never;
 
-/** An in-memory KV with the calls the OAuth provider and our routes make (no expiry). */
 const kvStore = () => {
     const map = new Map<string, string>();
     return {
@@ -44,7 +43,6 @@ const s256 = async (verifier: string) => {
         .replace(/=+$/, "");
 };
 
-/** A deployment: fresh KV, the real provider, and a registered client (as Claude Code does via DCR). */
 async function setup() {
     const kv = kvStore();
     const env = { OAUTH_KV: kv, MCP_ORIGIN: ORIGIN, APP_ORIGIN: "https://app.example.test" } as any;
@@ -57,7 +55,6 @@ async function setup() {
     const send = (url: string, init?: RequestInit) => provider.fetch(new Request(url, init), env, ctx);
     const verifier = "v".repeat(64);
 
-    /** Step 1: the client's browser opens /authorize. */
     const authorize = async (over: Record<string, string> = {}) => {
         const url = new URL(`${ORIGIN}/authorize`);
         for (const [k, v] of Object.entries({
@@ -74,7 +71,6 @@ async function setup() {
             url.searchParams.set(k, v);
         return send(url.href);
     };
-    /** Step 3: the same browser (cookie) opens the callback. */
     const callback = (state: string, cookie: string, approval?: string) =>
         send(`${ORIGIN}/oauth/callback?state=${encodeURIComponent(state)}${approval ? `&approval=${approval}` : ""}`, {
             headers: { cookie },
@@ -87,14 +83,12 @@ async function setup() {
     return { kv, env, client, verifier, authorize, callback, token };
 }
 
-/** The request id and binding cookie the person's browser holds after /authorize. */
 function parseAuthorize(response: Response) {
     const location = new URL(response.headers.get("location")!);
     const cookie = (response.headers.get("set-cookie") ?? "").split(";")[0];
     return { state: location.searchParams.get("request")!, cookie, location };
 }
 
-/** /authorize, then the person approves in the app. Returns what the callback needs. */
 async function approved(t: Awaited<ReturnType<typeof setup>>, userId: string, scopes = ["cadence:read" as const]) {
     const { state, cookie } = parseAuthorize(await t.authorize());
     const redirectTo = new URL(await approveConnectRequest(t.env, userId, state, scopes));
@@ -118,7 +112,6 @@ describe("authorize", () => {
         const { state, cookie, location } = parseAuthorize(response);
         expect(location.origin + location.pathname).toBe("https://app.example.test/connect");
         expect(cookie).toMatch(/^__Host-/);
-        // The consent page can read what the person is approving: the client, its host, every scope ticked.
         expect(await readConnectRequest(t.env, state)).toMatchObject({
             clientName: "Claude",
             publisher: null,
@@ -165,7 +158,7 @@ describe("authorize", () => {
 
     it("answers 404 for other methods and paths on the MCP origin", async () => {
         const t = await setup();
-        expect((await t.callback("x", "")).status).toBe(400); // no binding cookie: nothing to finish
+        expect((await t.callback("x", "")).status).toBe(400);
         const post = await mcpProvider(t.env).fetch(new Request(`${ORIGIN}/authorize`, { method: "POST" }), t.env, ctx);
         expect([404, 405]).toContain(post.status);
     });
@@ -247,7 +240,6 @@ describe("approval and callback", () => {
         const wrong = await exchange("w".repeat(64));
         expect(wrong.status).toBe(400);
         expect(((await wrong.json()) as any).error).toBe("invalid_grant");
-        // A wrong guess doesn't spend the code; the right verifier works once, then the code is dead.
         expect((await exchange(t.verifier)).status).toBe(200);
         const replay = await exchange(t.verifier);
         expect(replay.status).toBe(400);
@@ -261,7 +253,7 @@ describe("approval and callback", () => {
         const attacker = await t.callback(state, "__Host-other=forged", approval);
         expect(attacker.status).toBe(400);
         expect(attacker.headers.get("location")).toBeNull();
-        expect(await rows(userId)).toEqual([]); // nothing recorded for someone else's browser
+        expect(await rows(userId)).toEqual([]);
     });
 
     it("an approval can be used once: a replay finds it gone and the client is told no", async () => {
@@ -271,7 +263,6 @@ describe("approval and callback", () => {
         expect((await t.callback(first.state, first.cookie, first.approval)).status).toBe(302);
         expect(await rows(userId)).toHaveLength(1);
 
-        // The request was consumed with it, so the replay can't even bind to a browser any more.
         const replay = await t.callback(first.state, first.cookie, first.approval);
         expect(new URL(replay.headers.get("location") ?? REDIRECT).searchParams.get("code")).toBeNull();
         expect(await rows(userId)).toHaveLength(1);
@@ -281,7 +272,7 @@ describe("approval and callback", () => {
         const t = await setup();
         const userId = await createUser();
         const mine = parseAuthorize(await t.authorize());
-        const theirs = await approved(t, userId); // approval bound to a different request hash
+        const theirs = await approved(t, userId);
         const response = await t.callback(mine.state, mine.cookie, theirs.approval);
         const location = new URL(response.headers.get("location")!);
         expect(location.searchParams.get("error")).toBe("access_denied");
@@ -302,14 +293,14 @@ describe("approval and callback", () => {
         expect(location.searchParams.get("error")).toBe("access_denied");
         expect(location.searchParams.get("state")).toBe("client-state");
         expect(await rows(userId)).toEqual([]);
-        expect(await readConnectRequest(t.env, state)).toBeNull(); // declining spends the request
+        expect(await readConnectRequest(t.env, state)).toBeNull();
     });
 
     it("an expired approval declines instead of granting", async () => {
         const t = await setup();
         const userId = await createUser();
         const { state, cookie, approval } = await approved(t, userId);
-        t.kv.map.delete(`cadence:mcp-approval:${approval}`); // its 5-minute TTL lapsed
+        t.kv.map.delete(`cadence:mcp-approval:${approval}`);
         const location = new URL((await t.callback(state, cookie, approval)).headers.get("location")!);
         expect(location.searchParams.get("error")).toBe("access_denied");
         expect(await rows(userId)).toEqual([]);
@@ -379,7 +370,7 @@ describe("grants after connecting", () => {
         expect([...(await liveConnectionIds(t.env, userId))!]).toEqual([id]);
         expect(await revokeConnection(t.env, userId, id)).toBe(true);
         expect([...(await liveConnectionIds(t.env, userId))!]).toEqual([]);
-        expect(await revokeConnection(t.env, userId, id)).toBe(false); // already disconnected
+        expect(await revokeConnection(t.env, userId, id)).toBe(false);
         expect((await rows(userId))[0].revoked).toBe(true);
     });
 
@@ -393,7 +384,7 @@ describe("grants after connecting", () => {
         const [mine] = await rows(alice);
         const [theirs] = await rows(bob);
 
-        expect(await revokeConnection(t.env, alice, theirs.id)).toBe(false); // RLS: not Alice's row
+        expect(await revokeConnection(t.env, alice, theirs.id)).toBe(false);
         expect((await rows(bob))[0].revoked).toBe(false);
         expect([...(await liveConnectionIds(t.env, bob))!]).toEqual([theirs.id]);
 

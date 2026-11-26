@@ -19,9 +19,9 @@ describe("routineTimeOn", () => {
     const gym = { targetTime: "18:00", targetTimes: { SA: "", MO: "07:00" } };
 
     it("uses the weekday override, the usual time, or none", () => {
-        expect(routineTimeOn(gym, "2026-09-21")).toBe("07:00"); // Monday
-        expect(routineTimeOn(gym, "2026-09-22")).toBe("18:00"); // Tuesday
-        expect(routineTimeOn(gym, "2026-09-26")).toBeNull(); // Saturday: any time
+        expect(routineTimeOn(gym, "2026-09-21")).toBe("07:00");
+        expect(routineTimeOn(gym, "2026-09-22")).toBe("18:00");
+        expect(routineTimeOn(gym, "2026-09-26")).toBeNull();
         expect(routineTimeOn({ targetTime: null }, "2026-09-21")).toBeNull();
     });
 });
@@ -50,11 +50,10 @@ describe("habitOccurrences", () => {
             "2026-09-23",
             "UTC",
         );
-        expect(days).toEqual(["2026-09-21", "2026-09-23"]); // not Tuesday the 22nd
+        expect(days).toEqual(["2026-09-21", "2026-09-23"]);
     });
 
     it("still lists days before the routine was created, whatever day that was", () => {
-        // Created on Wednesday the 23rd: the Monday before is still a Mon/Wed day.
         const days = habitOccurrences(
             "FREQ=WEEKLY;BYDAY=MO,WE",
             "2026-09-23T10:00:00.000Z",
@@ -63,14 +62,12 @@ describe("habitOccurrences", () => {
             "UTC",
         );
         expect(days).toEqual(["2026-09-21", "2026-09-23"]);
-        // A plain monthly rule keeps its day of the month.
         expect(habitOccurrences("FREQ=MONTHLY", "2026-09-15T10:00:00.000Z", "2026-07-01", "2026-08-31", "UTC")).toEqual(
             ["2026-07-15", "2026-08-15"],
         );
     });
 
     it("counts an every-N rule from the creation day in the user's zone", () => {
-        // 9 pm in New York on the 21st is the 22nd in UTC.
         const created = "2026-09-22T01:00:00.000Z";
         const window = ["2026-09-19", "2026-09-25"] as const;
         expect(habitOccurrences("FREQ=DAILY;INTERVAL=2", created, ...window, "America/New_York")).toEqual([
@@ -141,7 +138,7 @@ describe("routine at set times", () => {
         expect(timeProgress(times, timeMarksOn(times, log))).toEqual({ done: 2, skipped: 0, open: 1, total: 3 });
         log = applyTimeMark(times, log, { time: "20:00", status: "COMPLETED", at: at("23") });
         expect(log.status).toBe("COMPLETED");
-        expect(log.timeMarks?.["14:00"].at).toBe(at("18")); // each keeps its own instant
+        expect(log.timeMarks?.["14:00"].at).toBe(at("18"));
     });
 
     it("closes a mixed day without claiming completion", () => {
@@ -184,16 +181,16 @@ describe("routine at set times", () => {
             Object.fromEntries(t.map((x) => [x, { status: "COMPLETED" as const, at: null }]));
         expect(nextOpenTime(times, done("08:00"), "10:00")).toBe("14:00");
         expect(nextOpenTime(times, done("08:00"), "15:00")).toBe("20:00");
-        expect(nextOpenTime(times, done("08:00", "14:00"), "22:00")).toBe("20:00"); // late, still reachable
+        expect(nextOpenTime(times, done("08:00", "14:00"), "22:00")).toBe("20:00");
         expect(nextOpenTime(times, done("08:00", "14:00", "20:00"), "09:00")).toBeNull();
     });
 
     it("a done with no time takes the open time it clearly means, else none (ask)", () => {
         expect(likelyOpenTime(times, {}, "08:45")).toBe("08:00");
         expect(likelyOpenTime(times, {}, "13:00")).toBe("14:00");
-        expect(likelyOpenTime(times, {}, "11:00")).toBeNull(); // between doses
-        expect(likelyOpenTime(times, { "08:00": { status: "COMPLETED", at: null } }, "08:30")).toBeNull(); // that one's done
-        expect(likelyOpenTime(times, {}, null)).toBeNull(); // another day, three open
+        expect(likelyOpenTime(times, {}, "11:00")).toBeNull();
+        expect(likelyOpenTime(times, { "08:00": { status: "COMPLETED", at: null } }, "08:30")).toBeNull();
+        expect(likelyOpenTime(times, {}, null)).toBeNull();
         expect(
             likelyOpenTime(
                 times,

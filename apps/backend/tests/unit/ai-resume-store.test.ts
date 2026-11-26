@@ -17,7 +17,6 @@ const USER_KEY = "deadbeefdeadbeef";
 const SID = "stream_abc123";
 const META = { conversationId: "conv-1", userId: "user-1", messageId: "msg-1", model: "test-model" };
 
-// Drain a ReadableStream<Uint8Array> to a single decoded string.
 async function drain(stream: ReadableStream<Uint8Array>): Promise<string> {
     const reader = stream.getReader();
     const dec = new TextDecoder();
@@ -96,7 +95,6 @@ describe("resume-store", () => {
 
         await closeStream(redis as any, USER_KEY, SID, "done");
         expect(redis.strings.get(k.state)).toBe("done");
-        // Every expire issued by closeStream uses the short grace TTL.
         expect(expireCalls.length).toBeGreaterThan(0);
         for (const [, ttl] of expireCalls) expect(ttl).toBe(CLOSE_GRACE_S);
     });
@@ -129,7 +127,6 @@ describe("replay (buildResumeStream)", () => {
     });
 
     it("closes immediately when the log is missing/expired (orphan, §7.9/§10)", async () => {
-        // No openStream/flush — the state key never exists (or has expired).
         const text = await drain(buildResumeStream(redis as any, USER_KEY, SID));
         expect(text).toBe("");
     });
@@ -148,7 +145,7 @@ describe("replay (buildResumeStream)", () => {
         try {
             await openStream(redis as any, USER_KEY, SID, META);
             const done = drain(buildResumeStream(redis as any, USER_KEY, SID));
-            await vi.advanceTimersByTimeAsync(300); // first empty poll
+            await vi.advanceTimersByTimeAsync(300);
             vi.setSystemTime(Date.now() + 61_000);
             await vi.advanceTimersByTimeAsync(300);
             expect(await done).toBe("");
@@ -203,7 +200,7 @@ describe("abort-watcher", () => {
         const redis = new FakeRedis();
         await requestAbort(redis as any, USER_KEY, SID);
         const controller = new AbortController();
-        controller.abort(); // already done
+        controller.abort();
         const getSpy = vi.spyOn(redis, "get");
 
         startAbortWatcher({
@@ -216,12 +213,10 @@ describe("abort-watcher", () => {
         });
 
         await vi.advanceTimersByTimeAsync(5000);
-        // The very first tick sees signal.aborted and returns before polling.
         expect(getSpy).not.toHaveBeenCalled();
     });
 });
 
-/** Upstash answers differently by client setting; the store must read every shape the same way. */
 describe("resume-store reads Upstash's raw shapes", () => {
     const rawRedis = (xrange: unknown, state: string | null, hgetall: unknown = null) =>
         ({
@@ -235,9 +230,9 @@ describe("resume-store reads Upstash's raw shapes", () => {
     it("reads flat-array entries, the keyed-object form, and skips malformed ones", async () => {
         const flat = [
             ["1-0", ["f", "frame-A"]],
-            ["2-0", ["other", "ignored"]], // no frame field
-            ["3-0", ["f", 42]], // not a string
-            [7, ["f", "bad id"]], // not an entry
+            ["2-0", ["other", "ignored"]],
+            ["3-0", ["f", 42]],
+            [7, ["f", "bad id"]],
             ["4-0", ["f", "frame-B"]],
         ];
         expect((await readSince(rawRedis(flat, "active"), USER_KEY, SID, "-")).frames).toEqual([
@@ -262,7 +257,6 @@ describe("resume-store reads Upstash's raw shapes", () => {
         const expected = { conversationId: "c", userId: "u", messageId: "m", model: "x" };
         expect(await readMeta(rawRedis(null, null, flat), USER_KEY, SID)).toEqual(expected);
         expect(await readMeta(rawRedis(null, null, expected), USER_KEY, SID)).toEqual(expected);
-        // Odd or non-string entries are dropped, never half-read into another field.
         expect(await readMeta(rawRedis(null, null, [...flat, "dangling"]), USER_KEY, SID)).toEqual(expected);
         for (const none of [null, [], {}, ["conversationId", "c"], ["userId", 9], "garbage"]) {
             expect(await readMeta(rawRedis(null, null, none), USER_KEY, SID)).toBeNull();

@@ -19,6 +19,7 @@ import { useToday } from "../lib/utils/user-zone";
 import { slideVariants, SPRINGS } from "../lib/constants/motion";
 import { HabitsCanvas } from "../components/habits/HabitsCanvas";
 import { HabitsMonthView } from "../components/habits/HabitsMonthView";
+import { RoutinesMonthSkeleton, RoutinesWeekSkeleton } from "../components/habits/RoutinesSkeleton";
 import { RoutineTodayBand } from "../components/habits/RoutineTodayBand";
 import type { RoutineDay } from "../components/habits/RoutineWeekRow";
 import { EditSidePanel } from "../components/shared/EditSidePanel";
@@ -72,7 +73,6 @@ const ROUTINE_SORTS: { value: RoutineSort; label: string; icon: LucideIcon }[] =
     { value: "custom", label: "Custom", icon: GripVertical },
 ];
 
-/** The Routines ⋮, built like Today's (`shared/SortMenu`): the choices up top, then Sort by rows, streaks, and the scale. */
 type RoutinesMenuProps = {
     phone: boolean;
     display: DisplayMode;
@@ -164,17 +164,12 @@ function RoutinesMenu({
 
 type ViewMode = "active" | "archived";
 
-/** "Sep 27 – Oct 3", or "Sep 6 – 12" inside one month. */
 function weekRange(weekDays: LocalDate[]) {
     const [first, last] = [weekDays[0], weekDays[6]];
     const end = first.slice(5, 7) === last.slice(5, 7) ? String(Number(last.slice(8))) : formatShortDate(last);
     return `${formatShortDate(first)} – ${end}`;
 }
 
-/**
- * The week start comes from settings, never the global default, so the grid doesn't render
- * Monday-first and then jump once settings load. Blooms rest in low stimulation and reduced motion.
- */
 function useRoutineSettings() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();
@@ -206,7 +201,6 @@ type RoutinesHeaderProps = {
     menu: (phone: boolean) => React.ReactNode;
 };
 
-/** The phone header, or the page header with period nav (not on laptop: the dock has it) and Add (not on compact: the orb has it). */
 function RoutinesHeader({
     shell,
     titles,
@@ -261,7 +255,6 @@ type RoutinesFloatingProps = {
     onAdd: () => void;
 };
 
-/** What floats over the page: the laptop's period dock, the phone's Today pill, the compact add orb. */
 function RoutinesFloating({
     shell,
     periodWord,
@@ -285,7 +278,6 @@ function RoutinesFloating({
 const parseRoutineSort = (raw: string | null): RoutineSort | null =>
     ROUTINE_SORTS.find((option) => option.value === raw)?.value ?? null;
 
-/** On a desktop week the grid's today column already is today's check-in, so the band shows only where today is scattered (month cards, phone cards). */
 const showsTodayBand = (viewMode: ViewMode, displayMode: DisplayMode, compact: boolean) =>
     viewMode === "active" && (displayMode === "month" || compact);
 
@@ -303,7 +295,6 @@ type RoutinesPeriodProps = {
     weekStartsOn: (typeof WEEK_START_INDEX)[keyof typeof WEEK_START_INDEX];
 };
 
-/** The week grid or the month, sliding between periods (still when motion is calm). */
 function RoutinesPeriod({
     shared,
     displayMode,
@@ -352,7 +343,6 @@ type RoutineDetailOverlayProps = {
     onClose: () => void;
 };
 
-/** Below the wide layout, a routine's details open over the page. */
 function RoutineDetailOverlay({ habit, mode, onModeChange, onClose }: RoutineDetailOverlayProps) {
     return (
         <ResponsiveOverlayPanel
@@ -373,7 +363,6 @@ function RoutineDetailOverlay({ habit, mode, onModeChange, onClose }: RoutineDet
     );
 }
 
-/** A text field, a grid or a menu that wants the arrows keeps them. */
 function ownsArrows(target: EventTarget | null) {
     if (
         target instanceof HTMLInputElement ||
@@ -388,7 +377,6 @@ function ownsArrows(target: EventTarget | null) {
     );
 }
 
-/** ← / → change the period, as on Schedule. */
 function useArrowPeriods(onNavigate: (delta: number) => void) {
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
@@ -403,10 +391,6 @@ function useArrowPeriods(onNavigate: (delta: number) => void) {
     }, [onNavigate]);
 }
 
-/**
- * The header's month title, the period's name, and the phone title: what's on screen (the week, or
- * the month), with the year only when it isn't this one, so the header stays two lines like every other page.
- */
 function periodTitles(displayMode: DisplayMode, weekDates: LocalDate[], currentDate: LocalDate, todayIso: LocalDate) {
     const week = displayMode === "week";
     const headingDate = week ? weekDates[0] : currentDate;
@@ -424,7 +408,6 @@ type RoutinesPhoneHeaderProps = {
     menu: React.ReactNode;
 };
 
-/** Same as Schedule: Week/Month live under ⋮, Today floats bottom left. */
 function RoutinesPhoneHeader({ title, periodWord, onNavigate, menu }: RoutinesPhoneHeaderProps) {
     return (
         <PhonePageHeader
@@ -461,7 +444,6 @@ type RoutinesDesktopHeaderProps = {
     periodNav: React.ReactNode;
     displayMode: DisplayMode;
     onDisplayMode: (mode: DisplayMode) => void;
-    /** Null where the add orb stands in (compact). */
     onAdd: (() => void) | null;
     menu: React.ReactNode;
 };
@@ -517,10 +499,7 @@ export default function Routines() {
     const [displayMode, setDisplayMode] = useState<DisplayMode>("week");
     const [viewMode, setViewMode] = useState<ViewMode>("active");
 
-    // The week start comes from settings, never the global default, so the grid
-    // doesn't render Monday-first and then jump once settings load.
     const { settings, updateSettings, weekStartsOn, showStreaks, reducedMotion, bloom } = useRoutineSettings();
-    // The order is this device's own (a drag still saves the Custom order itself to the account).
     const [routineSort, setRoutineSort] = useUrlState<RoutineSort>("sort", {
         parse: parseRoutineSort,
         fallback: "created",
@@ -536,11 +515,12 @@ export default function Routines() {
             : getMonthDateRange(periodYear, periodMonth);
     const isCurrentPeriod = inRange(todayIso, range);
 
-    const { data: habits = [] } = useHabitsRange({
+    const { data: habits = [], isLoading: habitsLoading } = useHabitsRange({
         ...range,
         archived: viewMode === "archived",
         enabled: Boolean(settings),
     });
+    const isLoading = !settings || habitsLoading;
     const visibleHabits = useMemo(
         () => habits.filter((habit) => habit.archived === (viewMode === "archived")),
         [habits, viewMode],
@@ -583,7 +563,6 @@ export default function Routines() {
         setRailView("context");
     };
 
-    // `?routine=` (Schedule's "Open in Routines") selects once and leaves no trace; an unknown id is dropped below.
     const [searchParams, setSearchParams] = useSearchParams();
     useEffect(() => {
         const id = searchParams.get("routine");
@@ -620,7 +599,6 @@ export default function Routines() {
         setDisplayMode(mode);
     };
 
-    // One ⋮ on every size, the same menu as Today's: what to show, the order, streaks, and (desktop app) the scale.
     const menu = (phone: boolean) => (
         <RoutinesMenu
             phone={phone}
@@ -635,8 +613,6 @@ export default function Routines() {
         />
     );
 
-    // On a desktop week the grid's today column already is today's check-in, so
-    // the band shows only where today is scattered (month cards, phone cards).
     const lead =
         isCurrentPeriod && showsTodayBand(viewMode, displayMode, shell.isCompact) ? (
             <RoutineTodayBand
@@ -698,7 +674,25 @@ export default function Routines() {
                     />
 
                     <div className="flex min-w-0 flex-1 flex-col overflow-hidden pt-4">
-                        {settings ? (
+                        {isLoading ? (
+                            displayMode === "week" ? (
+                                <RoutinesWeekSkeleton
+                                    days={days}
+                                    today={todayIso}
+                                    stacked={shell.isPhone}
+                                    showWeekCount={shell.isWide}
+                                    showTodayBand={
+                                        isCurrentPeriod && showsTodayBand(viewMode, displayMode, shell.isCompact)
+                                    }
+                                />
+                            ) : (
+                                <RoutinesMonthSkeleton
+                                    showTodayBand={
+                                        isCurrentPeriod && showsTodayBand(viewMode, displayMode, shell.isCompact)
+                                    }
+                                />
+                            )
+                        ) : (
                             <RoutinesPeriod
                                 shared={shared}
                                 displayMode={displayMode}
@@ -712,7 +706,7 @@ export default function Routines() {
                                 month={periodMonth}
                                 weekStartsOn={weekStartsOn}
                             />
-                        ) : null}
+                        )}
                     </div>
                 </div>
 

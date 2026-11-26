@@ -13,14 +13,9 @@ import { ProfileCard } from "./ProfileCard";
 
 const STACK = 3;
 
-/** Accent ring = can edit (or owns); a quiet grey ring = view only. */
 export const roleRing = (role: string | undefined) =>
     role === "view" ? "!ring-[3px] !ring-twilight-border" : "!ring-[3px] !ring-accent-primary/40";
 
-/**
- * A list header's sharing control. An unshared list shows "Share"; any shared list (owner or member) shows the faces
- * of the people in it (three, then "+n"). Online people sit apart with a live dot; offline ones tuck behind each other.
- */
 export function ShareHeader({ project, onOpen }: { project: Project; onOpen: () => void }) {
     const owner = project.access === "owner";
     const shared = isSharedList(project);
@@ -56,7 +51,6 @@ export function ShareHeader({ project, onOpen }: { project: Project; onOpen: () 
         >
             {shown.map((person, index) => {
                 const here = onlineIds.has(person.userId);
-                // Two online faces sit apart so both dots read; anyone offline folds behind the face before it. Hover unfolds all.
                 const apart = spread || (here && onlineIds.has(shown[index - 1]?.userId ?? ""));
                 return (
                     <motion.span

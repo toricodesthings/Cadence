@@ -1,5 +1,3 @@
-// Desktop fetch interceptor — must be the first import so window.fetch is
-// patched before the auth client (or anything else) makes network requests.
 import "./platform/patch-desktop-fetch";
 
 import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
@@ -14,11 +12,7 @@ import { LOADING_BOOT_SCRIPT } from "./lib/themes/season";
 import { DEV_SERVICE_WORKER_CLEANUP_SCRIPT } from "./lib/dev-service-worker-cleanup";
 import { SESSION_PREFETCH_SCRIPT } from "./lib/auth/session-prefetch";
 import { RESUME_ROUTE_SCRIPT } from "./lib/resume-route";
-// One render-blocking stylesheet link; Vite updates its URL during HMR.
-// Do not also side-effect-import app.css, which would load a second copy.
 import appStylesHref from "./app.css?url";
-// The loading wordmark's face and the workspace's body face: fetched with the stylesheet, so neither
-// first paint (the scene, then the workspace the flight reveals) is the fallback swapping in.
 import outfitLatinHref from "@fontsource-variable/outfit/files/outfit-latin-wght-normal.woff2?url";
 import soraLatinHref from "@fontsource-variable/sora/files/sora-latin-wght-normal.woff2?url";
 import "@fontsource-variable/outfit";
@@ -40,27 +34,17 @@ export const links: LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
     return (
-        // The head boot scripts stamp theme/season attributes on <html> before hydration.
         <html lang="en" className="dark" suppressHydrationWarning>
             <head>
                 <meta charSet="utf-8" />
-                {/* viewport-fit=cover makes env(safe-area-inset-*) report the notch,
-            status bar and home indicator; the .safe-* utilities rely on it. */}
                 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
                 <meta name="theme-color" content="#0d0f14" />
                 {RUNTIME_TARGET !== "desktop" && (
                     <>
                         <meta name="mobile-web-app-capable" content="yes" />
-                        {/* Home-screen app on iOS: an opaque status bar. black-translucent sizes the
-                app one status bar short on iOS 26 (WebKit bug 301108), stranding a band at
-                the bottom, and blurs whatever scrolls under the status bar. */}
                         <meta name="apple-mobile-web-app-capable" content="yes" />
                         <meta name="apple-mobile-web-app-status-bar-style" content="black" />
                         <meta name="apple-mobile-web-app-title" content="Cadence" />
-                        {/* iOS zooms into any focused field under 16px and stays zoomed in
-                the home-screen app. maximum-scale stops that without blocking
-                pinch zoom on iOS; other platforms would lose pinch zoom, so iOS only. */}
-                        {/* nosemgrep */}
                         <script
                             dangerouslySetInnerHTML={{
                                 __html: `(function(){if(/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/.test(navigator.userAgent))){var v=document.querySelector('meta[name=viewport]');v&&v.setAttribute('content',v.content+', maximum-scale=1');}})()`,
@@ -68,23 +52,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         />
                     </>
                 )}
-                {/* Before the session check reads the path: a fresh launch of the installed app resumes its last screen. */}
-                {RUNTIME_TARGET !== "desktop" && ( // nosemgrep
-                    <script dangerouslySetInnerHTML={{ __html: RESUME_ROUTE_SCRIPT }} />
+                {RUNTIME_TARGET !== "desktop" && <script dangerouslySetInnerHTML={{ __html: RESUME_ROUTE_SCRIPT }} />}
+                {RUNTIME_TARGET !== "desktop" && !import.meta.env.DEV && (
+                    <script dangerouslySetInnerHTML={{ __html: SESSION_PREFETCH_SCRIPT }} />
                 )}
-                {/* Early in the head: the session check overlaps the bundle download. Deployed web
-            only, where /api/auth is the same-origin proxy (dev and desktop call Neon directly). */}
-                {RUNTIME_TARGET !== "desktop" &&
-                    !import.meta.env.DEV && ( // nosemgrep
-                        <script dangerouslySetInnerHTML={{ __html: SESSION_PREFETCH_SCRIPT }} />
-                    )}
                 <title>Cadence</title>
                 <meta
                     name="description"
                     content="Cadence is a calm, atmospheric planning workspace for tasks, routines, and weekly resets."
                 />
                 {import.meta.env.DEV && <script src="/redirect-localhost.js" />}
-                {import.meta.env.DEV && ( // nosemgrep
+                {import.meta.env.DEV && (
                     <script dangerouslySetInnerHTML={{ __html: DEV_SERVICE_WORKER_CLEANUP_SCRIPT }} />
                 )}
                 <script
@@ -92,14 +70,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         __html: `(function(){try{var d=document.documentElement,s=JSON.parse(localStorage.getItem('cadence-appearance')||'{}');if(s.theme==='daylight')d.setAttribute('data-theme','daylight');else if(s.theme==='system'&&window.matchMedia('(prefers-color-scheme:light)').matches)d.setAttribute('data-theme','daylight');if(s.palette&&s.palette!=='lantern')d.setAttribute('data-palette',s.palette);if(s.themePreset&&s.themePreset!=='default'&&s.themePreset!=='daylight-default')d.setAttribute('data-theme-preset',s.themePreset);}catch(e){}})()`,
                     }}
                 />
-                {/* nosemgrep */}
                 <script dangerouslySetInnerHTML={{ __html: LOADING_BOOT_SCRIPT }} />
                 <Meta />
                 <Links />
             </head>
             <body className="bg-twilight text-twilight-text">
                 {children}
-                {/* Here, not in each route: the Layout outlives hydration, so the boot shows one scene throughout. */}
                 <LoadingHost />
                 <ScrollRestoration />
                 <Scripts />
@@ -136,7 +112,6 @@ export function ErrorBoundary({ error }: { error: unknown }) {
             title={message}
             description={details}
             actions={
-                // A plain link: the router itself may be what failed.
                 <Button asChild size="md">
                     <a href="/">Go home</a>
                 </Button>

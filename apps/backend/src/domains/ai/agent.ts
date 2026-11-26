@@ -25,42 +25,22 @@ import { AppError } from "../../platform/errors";
 import { loadAgentSnapshot, loadWeekAhead, userClock } from "./turn";
 import type { RunDiagnostics } from "./run-diagnostics";
 
-/** Served by OpenRouter when the chat model is unavailable or rate-limited. */
 const FALLBACK_CHAT_MODEL = "google/gemini-3.7-flash";
 
-/**
- * Thinking budget. Turns are short planning chores (read a few rows, draft one
- * proposal). Fixed for every turn: a change invalidates the provider's cached history.
- */
 const REASONING_EFFORT = "medium";
 
-/** A provider prompt-cache breakpoint (5-minute TTL, refreshed by every hit). */
 const STATIC_CACHE_BREAKPOINT = { type: "ephemeral" } as const;
 const TURN_CACHE_BREAKPOINT = { type: "ephemeral" } as const;
 const HOUR_CACHE_BREAKPOINT = { type: "ephemeral", ttl: "1h" } as const;
 
-/** Isolated evaluation variants; longer TTLs carry a higher cold-write price. */
 export const CACHE_VARIANTS = ["5m-5m", "1h-5m", "1h-1h"] as const;
 export type CacheVariant = (typeof CACHE_VARIANTS)[number];
 export const DEFAULT_CACHE_VARIANT: CacheVariant = "5m-5m";
 
-/**
- * A Claude model. Anthropic caches only behind explicit breakpoints (the other chat models cache
- * prefixes implicitly), and Claude leaves unused tool fields out, so its schemas skip the nulls.
- */
 function isClaude(modelId: string): boolean {
     return modelId.startsWith("anthropic/");
 }
 
-/**
- * OpenRouter settings for one chat model. A basic model that fails over lands on the
- * standard model before the last-resort fallback. Each provider keeps its own prompt
- * cache, so the route is pinned (Anthropic's own endpoint for Claude, DeepInfra, the
- * cheapest, for the rest) and the ids carry no `:nitro`, whose throughput sort hops
- * providers. Fallbacks stay on: an outage costs the cache, not the turn. Claude also
- * gets the top-level automatic breakpoint, which follows the end of the conversation
- * so each tool-loop step reads the step before it from cache.
- */
 export function chatModelSettings(
     env: Env,
     modelId: string,
@@ -71,7 +51,6 @@ export function chatModelSettings(
     return {
         models: [...new Set([modelId, getModelId(env), FALLBACK_CHAT_MODEL])],
         reasoning: { effort: REASONING_EFFORT },
-        // PDFs: text only (free, ≈500–800 tokens a page); a scanned PDF yields none and the prompt says so.
         plugins: [{ id: "file-parser", pdf: { engine: "pdf-text" } }],
         provider: { order: [breakpoints ? "Anthropic" : "DeepInfra"], allow_fallbacks: true },
         user: userHash,
@@ -79,11 +58,6 @@ export function chatModelSettings(
     };
 }
 
-/**
- * The system prompt as the agent sends it. For Claude it carries an explicit cache
- * breakpoint: tools render before the system prompt, so this caches both (~15k
- * tokens, identical for every user and turn) whatever happens later in the messages.
- */
 export function chatInstructions(
     instructions: string,
     modelId: string,
@@ -99,34 +73,31 @@ export function chatInstructions(
     };
 }
 
-/** Language model via OpenRouter's native provider (Chat Completions, reasoning round-trip). */
 function getModel(env: Env, modelId: string, userHash: string, cacheVariant: CacheVariant) {
     const openrouter = createOpenRouter({ apiKey: env.OPENROUTER_API_KEY || "dummy" });
     return openrouter(modelId, chatModelSettings(env, modelId, userHash, cacheVariant));
 }
 
-/** Options resolved by the route before assembling the agent for one turn. */
 export interface AgentBuildOptions {
-    timezone: string; // users.time_zone, already synced for this turn (ai.route)
-    currentDate: string; // the client's current instant, ISO-8601 (usually UTC "Z")
+    timezone: string;
+    currentDate: string;
     locale?: string;
     approvalMode: ApprovalMode;
-    hasAttachments?: () => boolean; // the turn's recent context holds a photo or PDF (read at tool-call time): Full waits like Auto
-    surface?: ChatSurface; // an embedded chat (the Weekly Reset's): its own instructions and the week ahead instead of today
-    modelId?: string; // the router's pick for this turn (model-router.ts); default the standard model
-    nonce: string; // per-request data-fence nonce (safety/injection-policy)
-    queryText?: string; // the person's last two messages: what recall looks up
-    userTexts?: string[]; // the person's own recent messages: what `said` quotes are checked against
-    answeredField?: "priority" | "effort"; // this message answered that field's question (A2), so it may be quoted whole
-    requestId?: string; // tags the turn's side-call log lines (embedding)
+    hasAttachments?: () => boolean;
+    surface?: ChatSurface;
+    modelId?: string;
+    nonce: string;
+    queryText?: string;
+    userTexts?: string[];
+    answeredField?: "priority" | "effort";
+    requestId?: string;
     diagnostics?: RunDiagnostics;
-    reusedTurnContext?: Promise<string | undefined>; // server-validated continuation only
-    settings?: UserSettings; // authoritative row already loaded during zone synchronization
-    cacheVariant?: CacheVariant; // fixed per isolated evaluation conversation, never chosen by a chat request
-    waitUntil?: (promise: Promise<unknown>) => void; // keeps post-commit metrics alive
+    reusedTurnContext?: Promise<string | undefined>;
+    settings?: UserSettings;
+    cacheVariant?: CacheVariant;
+    waitUntil?: (promise: Promise<unknown>) => void;
 }
 
-/** Resolve the persona and week convention from one authoritative settings row. */
 function assistantContext(settings: UserSettings): {
     persona: AssistantPersona;
     weekStart: PromptRuntimeContext["weekStart"];
@@ -166,8 +137,6 @@ async function loadUserContext(
                 ? [{ settings }]
                 : await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
 
-        // No metrics row (or a null index) means no evidence yet — unknown, not a low score. Neither is a reading
-        // from weeks ago (the person hasn't chatted since): this turn treats it as unknown while it recomputes.
         const old = signalsStale(metricsRow?.lastCalculatedAt, Date.now() - 6 * SIGNALS_MAX_AGE_MS);
         return {
             burnoutIndex: old ? null : (metricsRow?.currentBurnoutIndex ?? null),
@@ -175,7 +144,6 @@ async function loadUserContext(
             ...assistantContext(userRow?.settings ?? {}),
         };
     });
-    // Signals are computed on read, not by a nightly pass: this turn uses the stored value, the next sees the fresh one.
     const { stale, ...rest } = context;
     if (stale && waitUntil) {
         waitUntil(
@@ -190,16 +158,8 @@ async function loadUserContext(
     return rest;
 }
 
-/** Skip the recall tier for a bare command with no conversation behind it ("ok", "done"): nothing to look up. */
 const MIN_RECALL_CHARS = 12;
 
-/**
- * What the model is told about the person this turn, in two tiers (no model call):
- *  1. the always-present profile: pinned facts, preferences, quirks, constraints, life facts coming up;
- *  2. hybrid recall for this turn: full-text + cosine over the facts, from the last two user messages.
- * Gated by the person's own mode; RLS-scoped. The query's embedding is an HTTP
- * call outside any transaction. A failure degrades to what could be read, never blocks the chat.
- */
 async function loadMemoryContext(
     env: Env,
     userId: string,
@@ -219,7 +179,6 @@ async function loadMemoryContext(
             measurePhase(diagnostics, "embedding", () => embedText(env, queryText!, { requestId, userHash })).catch(
                 () => null,
             );
-        // The coherent profile is checked first, so a fully covered memory makes no embedding request.
         const coverage = await measurePhase(diagnostics, "profile", () =>
             withRls(db, userId, (tx) => loadProfileCoverage(tx, userId, today, persona.memoryMode)),
         );
@@ -229,8 +188,6 @@ async function loadMemoryContext(
             profileFacts: profile.length,
         });
         if (!canRecall || !coverage.hasRecallCandidates) return profile;
-        // No DB transaction stays open during this HTTP call. Candidate-present memories keep
-        // hybrid recall and lexical fallback; the profile gate is an explicit measured dependency.
         const embedded = await embed();
         const recalled = await measurePhase(diagnostics, "recall", () =>
             withRls(db, userId, (tx) =>
@@ -253,7 +210,6 @@ async function loadMemoryContext(
 
 type ChatTools = Omit<ReturnType<typeof buildToolRegistry>, "get_habit_status_today">;
 
-/** Evals and MCP keep their existing uninstrumented path. */
 function measurePhase<T>(
     diagnostics: RunDiagnostics | undefined,
     name: Parameters<RunDiagnostics["measure"]>[0],
@@ -262,27 +218,14 @@ function measurePhase<T>(
     return diagnostics ? diagnostics.measure(name, work) : work();
 }
 
-/**
- * The chat model's tools: the registry less what Today at a glance already answers each turn
- * (today's routine statuses come with the snapshot; `get_habit_history` reads them after a change),
- * and the memory tools unless the person has memory on.
- */
 export function chatTools(tools: ReturnType<typeof buildToolRegistry>, memoryOn = false): ChatTools {
     const { get_habit_status_today: _snapshotOnly, ...rest } = tools;
     if (memoryOn) return rest;
-    // typed as present so tool calls stay typed; absent at runtime until memory is on
     return Object.fromEntries(Object.entries(rest).filter(([name]) => !isMemoryTool(name))) as ChatTools;
 }
 
-/** Per schema variant (Claude's tools skip the nulls) and tool set, computed once per isolate. */
 const promptHashes = new Map<string, Promise<string>>();
 
-/**
- * Fingerprint of everything the model sees besides the conversation: the prompt
- * blocks, the Cadence guide, and each tool's name, description and input schema. Stamped on every
- * assistant message so a behavior change can be traced to a prompt or tool edit.
- * Static per deploy and schema variant.
- */
 function getPromptHash(tools: ToolSet, variant: boolean, memoryOn: boolean): Promise<string> {
     const key = `${variant}:${memoryOn}`;
     let hash = promptHashes.get(key);
@@ -302,13 +245,6 @@ function getPromptHash(tools: ToolSet, variant: boolean, memoryOn: boolean): Pro
     return hash;
 }
 
-/**
- * Assemble the per-request agent: the static system prompt + the full RLS-scoped
- * tool surface. Returns the agent, the resolved model id, the prompt hash (for
- * message metadata / conversation.model) and the per-turn context, which the
- * caller appends to the last user message (`withTurnContext`).
- */
-/** A question that was asked ends the turn; one held back by the field-question back-off (`asked: false`) lets the reply go on. */
 const askedUser: StopCondition<ToolSet> = ({ steps }) =>
     steps
         .at(-1)
@@ -322,7 +258,6 @@ export async function getAgentInstance(
     userId: string,
     opts: AgentBuildOptions,
 ): Promise<{ agent: ToolLoopAgent<never, ChatTools>; modelId: string; promptHash: string; turnContext: string }> {
-    // Unsigned approvals would let an edited approval run; never in production.
     if (!env.TOOL_APPROVAL_SECRET && getDeploymentStage(env) === "production") {
         throw new AppError(500, "AUTH_MISCONFIGURED", "TOOL_APPROVAL_SECRET must be configured in production");
     }
@@ -333,9 +268,7 @@ export async function getAgentInstance(
     const userContext = measurePhase(opts.diagnostics, "settings", () =>
         loadUserContext(env, userId, opts.settings, opts.waitUntil),
     );
-    userContext.catch(() => {}); // construction can fail before Promise.all attaches below
-    // With authoritative settings already available, metrics need only finish before
-    // prompt composition. Independent profile/snapshot work can start immediately.
+    userContext.catch(() => {});
     const { persona, weekStart, settings } =
         opts.settings !== undefined ? assistantContext(opts.settings) : await userContext;
     const agentCtx: AgentContext = {
@@ -373,7 +306,7 @@ export async function getAgentInstance(
             ? undefined
             : measurePhase(opts.diagnostics, "snapshot", () =>
                   resetSurface
-                      ? loadWeekAhead(env, userId, agentCtx).catch(() => undefined) // a failed read is left out, as the snapshot's are
+                      ? loadWeekAhead(env, userId, agentCtx).catch(() => undefined)
                       : loadAgentSnapshot(env, userId, agentCtx, tools),
               ),
     ]);
@@ -402,11 +335,8 @@ export async function getAgentInstance(
         model: getModel(env, modelId, userHash, opts.cacheVariant ?? DEFAULT_CACHE_VARIANT),
         instructions: chatInstructions(instructions, modelId, opts.cacheVariant),
         tools: chatTools(tools, memoryOn),
-        // A question to the user ends the turn: their reply is the next message.
         stopWhen: [isStepCount(MAX_TOOL_STEPS), askedUser],
         maxOutputTokens: MAX_OUTPUT_TOKENS,
-        // Writes run here on the server; this decides which wait for the user's tap.
-        // Approvals are HMAC-signed at issue, so an edited or forged one fails closed.
         toolApproval: approvalFor(opts.approvalMode, { hasAttachments: opts.hasAttachments }),
         experimental_toolApprovalSecret: env.TOOL_APPROVAL_SECRET,
         ...opts.diagnostics?.hooks,

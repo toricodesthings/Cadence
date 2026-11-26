@@ -11,12 +11,9 @@ export interface TaskContextMenuWrapperProps {
     onAddSubtask?: () => void;
     onRename?: () => void;
     onOpen?: () => void;
-    /** When true, renders a simplified shallow menu for Holding context */
     holdingContext?: boolean;
 }
 
-/** Right-click context menu for task cards — uses the same TaskMenuItems
- *  as the three-dot dropdown, so both menus expose identical actions. */
 export function TaskContextMenuWrapper({
     task,
     children,
@@ -26,8 +23,6 @@ export function TaskContextMenuWrapper({
     holdingContext,
 }: TaskContextMenuWrapperProps) {
     const shell = useShellMode();
-    // Touch long-press would open the desktop menu and fight drag-to-reorder;
-    // compact shells reach the same actions through the card's action sheet.
     if (shell.isCompact) return <>{children}</>;
 
     return (

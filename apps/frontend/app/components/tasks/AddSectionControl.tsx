@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 
-/** "Add section": a quiet button that turns into a one-line name field. Enter or leaving the field with a name saves it; Escape cancels. */
 export function AddSectionControl({ onCreate }: { onCreate: (name: string) => void }) {
     const [name, setName] = useState("");
     const [adding, setAdding] = useState(false);

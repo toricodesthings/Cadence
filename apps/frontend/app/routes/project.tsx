@@ -20,7 +20,7 @@ import { useFocusViewStore } from "../stores/focus-view-store";
 import { SectionedTaskList } from "../components/tasks/SectionedTaskList";
 import { useSections } from "../hooks/sections/use-sections";
 import { KanbanBoard } from "../components/kanban/KanbanBoard";
-import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
+import { BoardSkeleton, TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { AddTaskInput } from "../components/tasks/AddTaskInput";
 import { PhoneTaskDetails, TaskDetailsRail } from "../components/shared/TaskDetailsPanels";
 import { useSortMode } from "../hooks/ui/use-sort-mode";
@@ -44,7 +44,6 @@ import { EditListDialog } from "../components/shared/EditListDialog";
 import { ContextualAddOrb } from "../components/shared/ContextualAddOrb";
 import { ProjectSectionsSheet, ProjectTaskSheet, UNSECTIONED_ID } from "../components/tasks/ProjectSheets";
 
-/* ── Actionable linked-habit row ── */
 function LinkedHabitRow({
     habit,
     targetDate,
@@ -108,7 +107,6 @@ export default function ProjectView() {
     const [activeSectionId, setActiveSectionId] = useState(UNSECTIONED_ID);
 
     const project = projects?.find((p) => p.id === projectId);
-    // A list someone else shared: add and change what the role allows; only its owner renames, deletes or shares it on.
     const access = useListAccess(projectId);
     const projectAccent = project ? resolveAccentColor(project.colorAccent) : "var(--accent-primary)";
 
@@ -183,7 +181,6 @@ export default function ProjectView() {
         <TaskDetailsRail selection={selection} ariaLabel="Resize task panel" minWidth={300} maxWidth={500} />
     );
 
-    /* ── Project not-found state ── */
     if (projects && !project) {
         return (
             <MainLayout requireAuth pageTitle="List not found">
@@ -322,9 +319,7 @@ export default function ProjectView() {
                 {view === "kanban" ? (
                     <div className="flex-1 min-h-0 min-w-0 flex flex-col">
                         {isLoading ? (
-                            <PageContent width="default">
-                                <TaskListSkeleton />
-                            </PageContent>
+                            <BoardSkeleton />
                         ) : (
                             <KanbanBoard
                                 tasks={tasks ?? []}

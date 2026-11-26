@@ -8,7 +8,6 @@ vi.mock("sonner", () => ({ toast: { dismiss } }));
 import { FindTimeToast, PlaceReceiptToast } from "../../../../app/components/tasks/FindTimeToast";
 import { setUserZone } from "../../../../app/lib/utils/user-zone";
 
-// Times are shown in the person's zone, whatever zone this machine is in.
 const zone = "America/Toronto";
 setUserZone(zone);
 const proposal = (start: string, end: string) => ({

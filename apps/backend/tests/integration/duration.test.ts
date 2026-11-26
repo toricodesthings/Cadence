@@ -25,7 +25,6 @@ const sql = async <T = any>(text: string, params: unknown[] = []): Promise<T[]> 
     asOwner(async (pg) => (await pg.query<T>(text, params)).rows);
 const setMode = (mode: "off" | "basic" | "full") => memory("POST", "/mode", { mode });
 
-/** A task that has been open for an hour, so asking about it is allowed. */
 async function newTask(title = "Write essay", extra = "") {
     const [{ id }] = await sql(
         `INSERT INTO tasks (user_id, title, order_index, created_at ${extra ? ", " + extra.split("=")[0] : ""}) VALUES ($1, $2, 1, now() - interval '1 hour' ${extra ? ", " + extra.split("=")[1] : ""}) RETURNING id`,
@@ -85,7 +84,6 @@ describe("completed_at", () => {
                 (r) => r.completed_at === null,
             ),
         ).toBe(true);
-        // The constraint is the backstop for anything that skips the trigger's rule.
         await expect(
             sql("ALTER TABLE tasks DISABLE TRIGGER tasks_completed_at")
                 .then(() => sql("UPDATE tasks SET state = 'COMPLETE' WHERE id = $1", [a]))
@@ -143,7 +141,7 @@ describe("POST /duration", () => {
         const first = (await complete(id)).completedAt;
         await memory("POST", "/duration", { taskId: id, completedAt: first, value: { kind: "point", minutes: 45 } });
         await reopen(id);
-        expect(await reports(id)).toEqual([]); // Undo took the answer with it
+        expect(await reports(id)).toEqual([]);
         const stale = await memory("POST", "/duration", {
             taskId: id,
             completedAt: first,
@@ -171,7 +169,6 @@ describe("POST /duration", () => {
                 })
             ).status,
         ).toBe(200);
-        // A task that is not Done has no completion to answer.
         await reopen(id);
         expect(
             (
@@ -189,7 +186,6 @@ describe("POST /duration", () => {
         const id = await newTask();
         const first = (await complete(id)).completedAt;
         await memory("POST", "/duration", { taskId: id, completedAt: first, value: { kind: "point", minutes: 45 } });
-        // A second row for the same task at another instant (a later completion of a series).
         await sql(
             "INSERT INTO duration_reports (user_id, task_id, completed_at, low_minutes, high_minutes, title, group_key, said_on) VALUES ($1, $2, now() - interval '3 days', 40, 40, 'Write essay', 'write essay', '2026-10-01')",
             [userId, id],
@@ -253,7 +249,7 @@ describe("the question budget", () => {
         const id = await newTask();
         await setMode("basic");
         await complete(id);
-        expect(await ask(id)).toEqual({ ask: false }); // not Full
+        expect(await ask(id)).toEqual({ ask: false });
         await setMode("full");
         const first = await ask(id);
         expect(first).toEqual({
@@ -273,9 +269,9 @@ describe("the question budget", () => {
             [userId],
         );
         await complete(quick);
-        expect(await ask(quick)).toEqual({ ask: false }); // completed seconds after creation
+        expect(await ask(quick)).toEqual({ ask: false });
         const open = await newTask("Open one");
-        expect(await ask(open)).toEqual({ ask: false }); // not Done
+        expect(await ask(open)).toEqual({ ask: false });
     });
 
     it("reports the person's own plan as the reference, never a guess", async () => {
@@ -295,7 +291,7 @@ describe("the question budget", () => {
         expect(await askState()).toMatchObject({ misses: 1, shownToken: token });
         await memory("POST", "/duration/shown", { token: "someone-else" });
         expect((await askState()).misses).toBe(1);
-        await memory("POST", "/duration", { taskId: id, completedAt, value: { kind: "point", minutes: 30 } }); // a Took-row edit: no token
+        await memory("POST", "/duration", { taskId: id, completedAt, value: { kind: "point", minutes: 30 } });
         expect((await askState()).misses).toBe(1);
         await memory("POST", "/duration", { taskId: id, completedAt, value: { kind: "point", minutes: 30 }, token });
         expect((await askState()).misses).toBe(0);
@@ -365,7 +361,6 @@ describe("evidence, Forget, Clear and the nightly prune", () => {
         expect((await reports())[0].forgotten_at).toBeTruthy();
         await memory("POST", `/${factId}/restore`);
         expect((await memory("GET", "/duration-evidence")).body.data).toHaveLength(1);
-        // Forgotten again and left past the window: the nightly scrub deletes the answers.
         await memory("DELETE", `/${factId}`);
         await sql("UPDATE duration_reports SET forgotten_at = now() - interval '11 minutes' WHERE user_id = $1", [
             userId,
@@ -416,7 +411,6 @@ describe("evidence, Forget, Clear and the nightly prune", () => {
             await sql("SELECT 1 FROM ai_memory_signals WHERE user_id = $1 AND \"on\" = '2026-01-01'", [userId]),
         ).toEqual([]);
         expect(await reports(id)).toHaveLength(1);
-        // Past the 365-day window they are kept but not read.
         await sql("UPDATE duration_reports SET said_on = (now() - interval '400 days')::date WHERE user_id = $1", [
             userId,
         ]);
@@ -521,9 +515,9 @@ describe("routine durations: 'Took 30 min' on a marked day", () => {
         await setMode("full");
         const id = await makeHabit({ times: ["08:00", "20:00"] });
         await mark(id, "COMPLETED", { time: "08:00", at: new Date().toISOString() });
-        expect((await took(id, 10)).status).toBe(409); // no time named
+        expect((await took(id, 10)).status).toBe(409);
         expect((await took(id, 10, "08:00")).body.data).toMatchObject({ time: "08:00" });
-        expect((await took(id, 10, "20:00")).status).toBe(409); // that time isn't done
+        expect((await took(id, 10, "20:00")).status).toBe(409);
         await mark(id, "PENDING", { time: "08:00" });
         expect(await rows()).toEqual([]);
     });

@@ -10,7 +10,6 @@ const root = fileURLToPath(new URL("../../../../", import.meta.url));
 const oxlint = join(root, "node_modules/.bin/oxlint");
 const plugin = join(root, "tools/oxlint-cadence.mjs");
 
-// One valid and one invalid fixture per rule; the value is the expected diagnostic count.
 const cases: Record<string, Record<string, [string, number]>> = {
     "ui-words": {
         valid: [
@@ -60,7 +59,7 @@ beforeAll(() => {
     try {
         out = execFileSync(oxlint, ["-c", ".oxlintrc.json", "--format", "json", "."], { cwd: dir, encoding: "utf8" });
     } catch (error) {
-        out = (error as { stdout: string }).stdout; // exit 1 when any rule reports
+        out = (error as { stdout: string }).stdout;
     }
     for (const d of JSON.parse(out).diagnostics as { filename: string; code: string }[]) {
         const file = d.filename.split(/[\\/]/).pop()!;

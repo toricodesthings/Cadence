@@ -1,12 +1,3 @@
-/**
- * The user's photo background: fetching it, uploading a new one, removing it.
- *
- * The photo lives in private storage and is only readable through an
- * authenticated request, so it is fetched as a blob, cached on the device, and
- * handed to the UI as an object URL. Colours are read from the compressed file
- * before upload, so the server never has to decode the image.
- */
-
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { useAuthState } from "../auth/use-auth-state";
@@ -29,7 +20,6 @@ async function unwrapImageResponse(response: UnwrappableResponse & { blob(): Pro
     return response.blob();
 }
 
-/** The current photo as an object URL, or null while it loads or if there is none. */
 export function useBackgroundImageUrl(imageId: string | null | undefined): string | null {
     const client = useApiClient();
     const { session, authReady, isAuthenticated } = useAuthState();
@@ -39,8 +29,7 @@ export function useBackgroundImageUrl(imageId: string | null | undefined): strin
         queryKey: queryKeys.appearance.backgroundImage(userId ?? null, imageId ?? null),
         enabled: Boolean(userId && imageId && authReady && isAuthenticated),
         staleTime: Infinity,
-        gcTime: 0, // Release inactive blobs; IndexedDB handles reuse.
-        // A Blob can't be dehydrated; the IndexedDB cache covers reloads instead.
+        gcTime: 0,
         meta: { persist: false },
         queryFn: async ({ signal }) => {
             const generation = backgroundCacheGeneration();
@@ -64,7 +53,6 @@ export function useBackgroundImageUrl(imageId: string | null | undefined): strin
     return useObjectUrl(data);
 }
 
-/** Compress, read colours from, and upload a new photo. Replaces any existing one. */
 export function useUploadBackgroundImage() {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -97,7 +85,6 @@ export function useUploadBackgroundImage() {
     });
 }
 
-/** Delete the stored photo and fall back to the theme background. */
 export function useDeleteBackgroundImage() {
     const client = useApiClient();
     const settingsCache = useSettingsCache();

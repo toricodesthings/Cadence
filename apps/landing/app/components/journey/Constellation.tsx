@@ -5,24 +5,8 @@ import { CONSTELLATION } from "~/lib/site";
 import { BoughSegment, mobileBoughSide, segmentHeight } from "./BoughSegment";
 import { ChapterWords } from "./Chapter";
 
-/*
- * The small things, done with care: a constellation chart (the game's, and the page's own vocabulary). Nine
- * named stars joined into one figure, drawn line by line as the section is read. The wide chart has a
- * faceted spine, satellite stars and quiet orbital traces; the portrait chart keeps its folded ribbon.
- *
- * The chart is the list: a real <ul>, read in order. On wide screens each item is a zero-size anchor at its
- * star, the glyph centred on it and the name set off to one side. Stars left of the figure's spine wear their
- * names on the left and right-hand stars on the right, and every line leaves its star inward, so no line
- * ever crosses a name. Narrow screens recompose the same stars into a tall figure with alternating labels
- * and a few companion stars: the drawing stays between the words, even when the glosses wrap.
- *
- * Units: both drawings are 100 wide, with heights of 88 and 300. Each line's dash is measured in its own
- * drawing (a non-scaling stroke would break `pathLength`, and the lines would draw in pieces).
- */
-
 type Side = "l" | "r";
 
-/** [x, y, side, bright], in the copy's order. Stars keep to x 36–64, so a name has room on its side at 1024. */
 const STARS: readonly (readonly [number, number, Side, boolean])[] = [
     [37, 7, "l", true],
     [63, 13, "r", false],
@@ -35,7 +19,6 @@ const STARS: readonly (readonly [number, number, Side, boolean])[] = [
     [56, 83, "r", false],
 ];
 
-/** Portrait coordinates: a folded ribbon of light, with room to read on either side. */
 const MOBILE_STARS: readonly (readonly [number, number, Side])[] = [
     [43, 12, "l"],
     [61, 45, "r"],
@@ -48,7 +31,6 @@ const MOBILE_STARS: readonly (readonly [number, number, Side])[] = [
     [44, 276, "l"],
 ];
 
-/** [x, y, first neighbour, second neighbour]: small facets around the main figure. */
 const COMPANIONS: readonly (readonly [number, number, number, number])[] = [
     [53, 3, 0, 1],
     [66, 27, 0, 1],
@@ -70,7 +52,6 @@ const WIDE_COMPANIONS: typeof COMPANIONS = [
     [46, 78, 7, 8],
 ];
 
-/** The figure, one line at a time, in the order it is drawn: the head, the neck, the body, the tail. */
 const EDGES: readonly (readonly [number, number])[] = [
     [0, 1],
     [1, 2],
@@ -84,7 +65,6 @@ const EDGES: readonly (readonly [number, number])[] = [
     [6, 8],
 ];
 
-/** Faint stars with no names, in the gaps between the names. */
 const DUST: readonly (readonly [number, number])[] = [
     [13, 8],
     [23, 3],
@@ -140,7 +120,6 @@ const CHARTS = [
     { name: "narrow", height: 300, stars: MOBILE_STARS, dust: MOBILE_DUST, companions: COMPANIONS },
 ] as const;
 
-/** Where the drawing runs in the section's scroll, and each line's share of it. */
 const DRAW_FROM = 0.14;
 const DRAW_SPAN = 0.46;
 

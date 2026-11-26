@@ -17,28 +17,22 @@ import {
 import { errorCodeSchema } from "@cadence/contracts/common";
 import { PERFORMANCE_CATEGORIES, type PerformanceSample } from "@cadence/contracts/events";
 
-/** This open copy of Cadence, on its requests and its live socket, so the server doesn't tell it about its own writes. */
 export const PAGE_ORIGIN = crypto.randomUUID();
 
 export interface AuthenticatedFetchOptions extends RequestInit {
     authenticated?: boolean;
 }
 
-// JWT token cache: avoids hitting /token on every single authenticated request.
-// The cache stores the token + expiry timestamp and deduplicates concurrent requests.
 let _cachedJwt: string | null = null;
 let _cachedJwtExpiry = 0;
 let _inflight: Promise<string | null> | null = null;
 let _authGeneration = 0;
-const JWT_CACHE_TTL_MS = 55_000; // 55 seconds — conservative under a typical 60s token lifetime
-// Weak signal should fail fast so the write can be queued, not hang for a minute.
+const JWT_CACHE_TTL_MS = 55_000;
 
-/** Cache only a live JWT for this account; the backend still verifies its signature. */
 export function seedAuthJwtCache(token: unknown, userId: string): boolean {
     startupMark("jwt.start");
     const expiry = Math.min(jwtExpiry(token, userId), Date.now() + JWT_CACHE_TTL_MS);
     if (typeof token !== "string" || expiry <= Date.now()) return false;
-    // A late /token response must not replace the seeded session.
     _inflight = null;
     _cachedJwt = token;
     _cachedJwtExpiry = expiry;
@@ -55,8 +49,6 @@ async function _fetchAuthJwtOnce(): Promise<string | null> {
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     }).catch(() => null);
 
-    // No answer, the auth service is down, or a captive portal's page: that says
-    // nothing about the session.
     if (!response || response.status >= 500 || response.headers.get("content-type")?.includes("text/html")) {
         log.warn("api-auth", `/token request failed (${response?.status ?? "network"})`);
         throw networkError();
@@ -74,10 +66,8 @@ async function _fetchAuthJwtOnce(): Promise<string | null> {
     return typeof token === "string" && jwtExpiry(token) > Date.now() ? token : null;
 }
 
-/** The current JWT for the live socket (cached like API calls). */
 export const getAuthJwt = () => fetchAuthJwt();
 
-/** Forget `token` if it is the cached one (the socket was refused with it). Unlike `clearAuthJwtCache`, aborts nothing in flight. */
 export function dropAuthJwt(token: string): void {
     if (_cachedJwt === token) {
         _cachedJwt = null;
@@ -86,12 +76,10 @@ export function dropAuthJwt(token: string): void {
 }
 
 async function fetchAuthJwt(): Promise<string | null> {
-    // Return cached token if still valid
     if (_cachedJwt && Date.now() < _cachedJwtExpiry) {
         return _cachedJwt;
     }
 
-    // Deduplicate: if a request is already in flight, piggyback on it
     if (_inflight) {
         return _inflight;
     }
@@ -100,7 +88,6 @@ async function fetchAuthJwt(): Promise<string | null> {
     const request = (async () => {
         let token = await _fetchAuthJwtOnce();
         if (!token && generation === _authGeneration) {
-            // get-session renews the cookie-backed session; /token alone does not.
             let result;
             try {
                 result = await readFreshSession();
@@ -130,7 +117,6 @@ async function fetchAuthJwt(): Promise<string | null> {
     return request;
 }
 
-/** Invalidate the JWT cache — call after auth recovery or sign-out. */
 export function clearAuthJwtCache(): void {
     _authGeneration++;
     _inflight = null;
@@ -138,8 +124,6 @@ export function clearAuthJwtCache(): void {
     _cachedJwtExpiry = 0;
 }
 
-// While a warm start shows the saved workspace ahead of the session check, API calls
-// wait here. The real session releases them (an account change aborts them instead).
 let sessionHold: ReturnType<typeof Promise.withResolvers<void>> | null = null;
 export function holdForSession(): void {
     sessionHold ??= Promise.withResolvers<void>();
@@ -148,10 +132,8 @@ export function releaseSessionHold(): void {
     sessionHold?.resolve();
     sessionHold = null;
 }
-/** True while the session check hasn't answered a provisional (warm) start. */
 export const isSessionHeld = () => sessionHold !== null;
 
-/** Cancelling one caller must not cancel the token request shared by other reads. */
 function withSignal<T>(work: Promise<T>, signal?: AbortSignal | null): Promise<T> {
     if (!signal) return work;
     return new Promise((resolve, reject) => {
@@ -162,12 +144,10 @@ function withSignal<T>(work: Promise<T>, signal?: AbortSignal | null): Promise<T
     });
 }
 
-/** Streams and uploads own their deadlines; everything else gets one. */
 function isBounded(url: string, body: BodyInit | null | undefined) {
     return !(body instanceof FormData || body instanceof Blob) && !url.includes("/stream") && !url.includes("/ai/chat");
 }
 
-/** One call's request, as each send and token read needs it. */
 interface Attempt {
     input: RequestInfo | URL;
     init: RequestInit;
@@ -177,8 +157,6 @@ interface Attempt {
     generation: number;
 }
 
-// Any rejection means no answer (the desktop transport rejects with its own errors),
-// except a caller's own abort, like stopping an assistant reply.
 function send(a: Attempt): Promise<Response> {
     return platformFetch(a.input instanceof Request ? (a.input.clone() as typeof a.input) : a.input, {
         ...a.init,
@@ -189,7 +167,6 @@ function send(a: Attempt): Promise<Response> {
     });
 }
 
-/** The JWT, unless the account changed, the caller left, or the deadline passed meanwhile. */
 async function acquireToken(a: Attempt): Promise<string | null> {
     if (a.callerSignal?.aborted) throw a.callerSignal.reason;
     let token: string | null;
@@ -205,10 +182,6 @@ async function acquireToken(a: Attempt): Promise<string | null> {
     return token;
 }
 
-/**
- * Retry an explicit auth rejection once, before any route work/stream began.
- * Concurrent rejections of the same token share the replacement request.
- */
 async function retryUnauthorized(a: Attempt, response: Response): Promise<Response> {
     const rejected = a.headers.get("Authorization")?.slice(7);
     if (_cachedJwt === rejected) {
@@ -225,21 +198,16 @@ async function retryUnauthorized(a: Attempt, response: Response): Promise<Respon
     return response;
 }
 
-/** Wait out a warm start's session check, start the deadline, then attach the JWT. */
 async function authorize(a: Attempt, method: string): Promise<void> {
     if (sessionHold) {
-        // Before the deadline starts: the wait is for the session, not this request.
         await withSignal(sessionHold.promise, a.callerSignal);
         if (a.generation !== _authGeneration) throw new DOMException("Account changed", "AbortError");
     }
-    // Streams and uploads own their deadlines. Ordinary reads always retain a deadline.
     if (a.bounded)
         a.init.signal = a.callerSignal
             ? AbortSignal.any([a.callerSignal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
             : AbortSignal.timeout(REQUEST_TIMEOUT_MS);
 
-    // The shared JWT cache is the common path. Session/keyring reads are
-    // fallbacks, not a prerequisite repeated before every API request.
     const token = await acquireToken(a);
     if (!token) {
         publishSessionExpiry();
@@ -254,7 +222,6 @@ async function authorize(a: Attempt, method: string): Promise<void> {
     if (method.toUpperCase() === "GET") a.init.cache = "no-store";
 }
 
-/** One try at a request: its own headers and signal (the request's unless the caller set them). */
 function attemptFor(
     input: RequestInfo | URL,
     request: Request | undefined,
@@ -284,16 +251,10 @@ export async function authenticatedFetch(
     let response = await send(attempt);
     if (response.status === 401 && attempt.generation === _authGeneration)
         response = await retryUnauthorized(attempt, response);
-    // A captive portal answers API calls with its own HTML page.
     if (response.headers.get("content-type")?.includes("text/html")) throw networkError();
     return response;
 }
 
-/**
- * The one typed Hono RPC client. `authenticatedFetch` reads the current JWT on
- * every call, so it never needs rebuilding when the session changes. Backend
- * routes mount under /api/v1/; `.api` is that subtree (`apiClient.api.tasks`).
- */
 export const apiClient = {
     api: hc<AppType>(API_BASE_URL, {
         fetch: async (input: RequestInfo | URL, requestInit?: RequestInit) => {
@@ -319,12 +280,10 @@ export const apiClient = {
             };
             try {
                 const response = await authenticatedFetch(input, { ...requestInit, authenticated: true });
-                // A capability probe's 403/404 is an expected "no", not a failed read.
                 const expected =
                     response.ok ||
                     (endpoint === "debug_capabilities" && (response.status === 403 || response.status === 404));
                 record(start, expected ? "ready" : "error", { status: response.status });
-                // Measure only the body's normal consumption; never clone/drain it or delay headers.
                 if (measured && startupCollecting()) {
                     const json = response.json.bind(response);
                     response.json = async () => {

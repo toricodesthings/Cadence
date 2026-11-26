@@ -86,7 +86,7 @@ describe("public holiday edge cache", () => {
         fetchMock.mockImplementation(async () => Response.json([]));
         expect((await api("GET", january)).body.data).toEqual([]);
         expect((await api("GET", january)).body.data).toEqual([]);
-        expect(fetchMock).toHaveBeenCalledTimes(2); // primary and fallback, once each
+        expect(fetchMock).toHaveBeenCalledTimes(2);
         expect(cache.put).toHaveBeenCalledTimes(1);
     });
 

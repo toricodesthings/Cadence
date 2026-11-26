@@ -91,7 +91,6 @@ describe("@cadence/nlp canonical behavior", () => {
         expect(filtered[0]?.id).toBe("1");
     });
 
-    // 0.30.0 (B13): short, easy, urgent and demanding are different qualities.
     it("keeps short, easy, urgent and demanding distinct", () => {
         expect(composeFocusView("short tasks").definition.durationMaxMinutes).toBe(30);
         expect(composeFocusView("short tasks").definition.effortMax).toBeNull();
@@ -147,10 +146,7 @@ describe("@cadence/nlp canonical behavior", () => {
     });
 });
 
-// ── §11.4 Parser Test Matrix ──
-
 describe("Parser test matrix", () => {
-    // ── Plain capture phrases ──
     describe("plain capture phrases", () => {
         it("returns no entities for plain text", () => {
             const result = parse({ input: "Buy groceries", sourceSurface: "inline_add", clock: CLOCK });
@@ -176,7 +172,6 @@ describe("Parser test matrix", () => {
         });
     });
 
-    // ── ADHD-style shorthand ──
     describe("ADHD-style shorthand", () => {
         it("treats a standalone !! as Urgent and removes it from the task title", () => {
             const result = parse({ input: "Call the plumber !!", sourceSurface: "holding_capture", clock: CLOCK });
@@ -198,7 +193,6 @@ describe("Parser test matrix", () => {
                 sourceSurface: "holding_capture",
                 clock: CLOCK,
             });
-            // Loose phrasing should produce 0 entities or non-high confidence
             if (result.entities.length > 0) {
                 expect(result.overallConfidence).not.toBe("high");
             } else {
@@ -231,7 +225,6 @@ describe("Parser test matrix", () => {
         });
     });
 
-    // ── Ambiguous dates by locale ──
     describe("ambiguous dates by locale", () => {
         it("parses MDY style by default", () => {
             const result = parse({
@@ -243,7 +236,6 @@ describe("Parser test matrix", () => {
             const dateEntity = result.entities.find((e) => e.type === "scheduled_start");
             expect(dateEntity).toBeDefined();
             const value = dateEntity!.normalizedValue as { date: string };
-            // 3/5 in MDY = March 5
             expect(value.date).toMatch(/2026-03-05/);
         });
 
@@ -257,12 +249,10 @@ describe("Parser test matrix", () => {
             const dateEntity = result.entities.find((e) => e.type === "scheduled_start");
             expect(dateEntity).toBeDefined();
             const value = dateEntity!.normalizedValue as { date: string };
-            // 3/5 in DMY = May 3
             expect(value.date).toMatch(/2026-05-03/);
         });
     });
 
-    // ── Quoted literals ──
     describe("quoted literals", () => {
         it("protects quoted text from NLP parsing", () => {
             const result = parse({
@@ -280,12 +270,10 @@ describe("Parser test matrix", () => {
                 sourceSurface: "inline_add",
                 clock: CLOCK,
             });
-            // The date inside quotes should NOT be parsed
             expect(result.cleanedTitle).toContain("Buy milk next Friday");
         });
     });
 
-    // ── Recurring patterns ──
     describe("recurring patterns", () => {
         it("parses daily recurrence", () => {
             const result = parse({ input: "Take vitamins daily", sourceSurface: "quick_add", clock: CLOCK });
@@ -324,7 +312,6 @@ describe("Parser test matrix", () => {
         });
     });
 
-    // ── Waiting-on language ──
     describe("waiting-on language", () => {
         it("parses 'waiting on [person]'", () => {
             const result = parse({ input: "waiting on John to review the PR", sourceSurface: "inbox", clock: CLOCK });
@@ -349,7 +336,6 @@ describe("Parser test matrix", () => {
         });
     });
 
-    // ── Duration phrases ──
     describe("duration phrases", () => {
         it("parses minutes", () => {
             const result = parse({ input: "Quick 15m task: reply to email", sourceSurface: "quick_add", clock: CLOCK });
@@ -407,7 +393,6 @@ describe("Parser test matrix", () => {
         });
     });
 
-    // ── False positives ──
     describe("false positives", () => {
         it("does not parse 'monthly report' as a date", () => {
             const result = parse({ input: "monthly report", sourceSurface: "quick_add", clock: CLOCK });
@@ -466,7 +451,6 @@ describe("Parser test matrix", () => {
         });
     });
 
-    // ── Warning codes ──
     describe("warning codes", () => {
         it("emits timed_deadline_needs_review for timed due dates", () => {
             const result = parse({ input: "Submit report by 5pm", sourceSurface: "inbox", clock: CLOCK });
@@ -493,7 +477,6 @@ describe("Parser test matrix", () => {
         });
     });
 
-    // ── Date expressions ──
     describe("date expressions", () => {
         it("parses 'tonight'", () => {
             const result = parse({
@@ -503,7 +486,6 @@ describe("Parser test matrix", () => {
             });
             const dateEntity = result.entities.find((e) => e.type === "scheduled_start");
             expect(dateEntity).toBeDefined();
-            // chrono-node recognizes "tonight" as a date reference
             const value = dateEntity!.normalizedValue as { date: string };
             expect(value.date).toMatch(/2026-03-20/);
         });
@@ -532,7 +514,7 @@ describe("Parser test matrix", () => {
             const result = parse({
                 input: "Clean the house this weekend",
                 sourceSurface: "quick_add",
-                clock: clockOf("2026-03-18"), // Wednesday
+                clock: clockOf("2026-03-18"),
             });
             const dateEntity = result.entities.find((e) => e.type === "scheduled_start");
             expect(dateEntity).toBeDefined();
@@ -575,7 +557,6 @@ describe("Parser test matrix", () => {
         });
     });
 
-    // ── Confidence trust rules ──
     describe("confidence trust rules", () => {
         it("high confidence for explicit date patterns", () => {
             const result = parse({

@@ -7,24 +7,12 @@ import { isLastWrite, refetchAfterWrites } from "./write-gate";
 
 type CacheSnapshot = Array<[QueryKey, unknown]>;
 
-/**
- * Creates a set of optimistic-update helpers (snapshot / rollback / invalidate / cancel)
- * scoped to one or more query-key prefixes.
- *
- * Usage:
- *   const taskCache = createOptimisticHelpers([queryKeys.tasks.all]);
- *   const habitCache = createOptimisticHelpers([
- *     queryKeys.habits.all,
- *     queryKeys.habits.weekly({}),  // prefix match
- *   ]);
- */
 export function createOptimisticHelpers<TItem = unknown>(cacheKeys: readonly QueryKey[]) {
     return {
         snapshot(qc: QueryClient): CacheSnapshot[] {
             return cacheKeys.map((key) => qc.getQueriesData({ queryKey: key }));
         },
 
-        /** Put the caches back, unless a later write is in flight: that would undo it too, and its refetch corrects this one. */
         rollback(qc: QueryClient, snapshots: CacheSnapshot[]) {
             if (!isLastWrite(qc)) return;
             for (const group of snapshots) {
@@ -34,12 +22,10 @@ export function createOptimisticHelpers<TItem = unknown>(cacheKeys: readonly Que
             }
         },
 
-        /** Refetch once no other write is in flight (`refetchAfterWrites`). */
         invalidate(qc: QueryClient) {
             return Promise.all(cacheKeys.map((key) => refetchAfterWrites(qc, key)));
         },
 
-        /** `onSettled`: refetch what the server ended with, unless the write was queued offline. */
         settle(qc: QueryClient, data: unknown, error: unknown) {
             if (!wasQueued(data, error)) void this.invalidate(qc);
         },
@@ -48,7 +34,6 @@ export function createOptimisticHelpers<TItem = unknown>(cacheKeys: readonly Que
             return Promise.all(cacheKeys.map((key) => qc.cancelQueries({ queryKey: key })));
         },
 
-        /** `onMutate`: stop in-flight reads, remember the caches, and show `edit` in every cached list. The result is the context `fail` rolls back. */
         async edit(qc: QueryClient, edit: (items: TItem[]) => TItem[]) {
             await this.cancel(qc);
             const snapshot = this.snapshot(qc);
@@ -58,14 +43,12 @@ export function createOptimisticHelpers<TItem = unknown>(cacheKeys: readonly Que
             return { snapshot };
         },
 
-        /** `onError` for `edit`: put the lists back, say what failed, and refetch. */
         fail(qc: QueryClient, err: unknown, context: { snapshot: CacheSnapshot[] } | undefined, message: string) {
             if (context?.snapshot) this.rollback(qc, context.snapshot);
             toastError(err, message);
             this.invalidate(qc);
         },
 
-        /** `onError` for a delete behind an Undo window: put the lists back; pressing Undo is not a failure to report. */
         undo(qc: QueryClient, err: unknown, context: { snapshot: CacheSnapshot[] } | undefined, message: string) {
             if (context) this.rollback(qc, context.snapshot);
             if (!isUndone(err)) toastError(err, message);

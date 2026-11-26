@@ -1,18 +1,6 @@
-/**
- * Primitive: Button
- *
- * Pre-themed Radix-slot-backed Button with Cadence's twilight aesthetic.
- * Domain components import from here — never use raw <button> for
- * styled interactive surfaces.
- *
- * Supports `asChild` via @radix-ui/react-slot so callers can render
- * links, motion components, etc. while inheriting all Button styles.
- */
 import { type ButtonHTMLAttributes } from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cn } from "../../lib/utils";
-
-/* ── Tokens ─────────────────────────────────────────────────────── */
 
 const base = [
     "inline-flex items-center justify-center gap-2",
@@ -44,19 +32,14 @@ const sizes = {
     card: "flex-col gap-3 p-4 rounded-2xl text-[13px] tracking-wide",
 } as const;
 
-/* ── Types ──────────────────────────────────────────────────────── */
-
 export type ButtonVariant = keyof typeof variants;
 export type ButtonSize = keyof typeof sizes;
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: ButtonVariant;
     size?: ButtonSize;
-    /** Merge props onto child element instead of rendering a <button>. */
     asChild?: boolean;
 }
-
-/* ── Component ──────────────────────────────────────────────────── */
 
 export const Button = ({
     variant = "primary",

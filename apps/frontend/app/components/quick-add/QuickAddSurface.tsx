@@ -26,11 +26,6 @@ const TABS = [
     },
 ] as const;
 
-/**
- * Quick Add: the task, thought, routine and event composers behind one type switch,
- * in the shared `Composer` (dialog on desktop, sheet on phones, in place in the
- * desktop quick-capture window). Each tab keeps its draft while you switch.
- */
 export function QuickAddSurface({
     open,
     onOpenChange,
@@ -42,7 +37,6 @@ export function QuickAddSurface({
     onOpenChange: (open: boolean) => void;
     initialTab?: QuickAddTab;
     mode?: "dialog" | "standalone";
-    /** Takes over the post-save navigation (the quick-capture window hands it to the main one). */
     onComplete?: (route: string) => void;
 }) {
     const [tab, setTab] = useState<QuickAddTab>(initialTab);
@@ -116,7 +110,6 @@ export function QuickAddSurface({
             open={open}
             inline={mode === "standalone"}
             {...active}
-            // Thoughts save on each return and the tab stays open, so leaving is "Done".
             closeLabel={tab === "capture" && mode !== "standalone" ? "Done" : undefined}
             switcher={
                 <ComposerTabs role="tablist" ariaLabel="What to add" value={tab} onChange={setTab} options={TABS} />

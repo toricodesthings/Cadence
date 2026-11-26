@@ -15,20 +15,14 @@ import type { PersonalEvent, SharedEvent } from "@cadence/contracts/personal-eve
 import { SharedEventMark } from "../sharing/SharedEventMark";
 
 export interface DayViewProps extends TimelineProps {
-    /** The LocalDate being shown */
     currentDate: string;
-    /** All tasks for this day */
     tasks: Task[];
     holidays?: HolidayRecord[];
-    /** Whether this day is the user's birthday */
     isBirthday?: boolean;
-    /** Personal events occurring on this day */
     personalEvents?: (PersonalEvent | SharedEvent)[];
-    /** The hour the timeline opens scrolled to. */
     startHour?: number;
 }
 
-/** Chips size to their words and wrap; two rows show, the rest sit behind "+N more". */
 function AllDayChips({
     tasks,
     sourceId,
@@ -121,7 +115,6 @@ export function DayView({
     startHour = 7,
 }: DayViewProps) {
     const isToday = currentDate === useToday();
-    // Open at the user's chosen hour (7 AM by default)
     const scrollRef = useOpenAtHour(startHour, currentDate);
 
     const { allDay, anytime, timed } = useMemo(() => {
@@ -138,9 +131,7 @@ export function DayView({
     return (
         <CalendarHoverContext.Provider value={hover}>
             <div className="surface-card m-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] sm:m-3">
-                {/* All-day area — date header suppressed; ScheduleHeader is the single source of truth */}
                 <div className="shrink-0 border-b border-twilight-border/30 flex gap-0">
-                    {/* Gutter with "All day" label */}
                     <div className="w-14 shrink-0 flex flex-col justify-end pb-2 pr-2.5">
                         <span className="text-[10px] text-twilight-text-muted/90 uppercase tracking-widest text-right select-none">
                             All day
@@ -189,7 +180,6 @@ export function DayView({
                     </AllDayDropLane>
                 </div>
 
-                {/* Scrollable time grid */}
                 <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-20">
                     <div className="flex" style={{ height: DAY_GRID_HEIGHT }}>
                         <TimeGutter hourHeight={HOUR_HEIGHT} />

@@ -33,7 +33,6 @@ import {
     type LucideIcon,
 } from "lucide-react";
 
-/** How the assistant's settings changes read on its card: one row per dotted path, with the Settings tabs' words. */
 export interface SettingLabel {
     label: string;
     icon: LucideIcon;
@@ -81,14 +80,12 @@ export const SETTING_LABELS: Record<string, SettingLabel> = {
     "assistant.resumeLastChat": { label: "Continue last conversation", icon: History },
 };
 
-/** Values the Settings screen words differently from the stored enum. */
 const VALUE_LABELS: Record<string, Record<string, string>> = {
     "tasks.defaultView": { list: "Rows", kanban: "Kanban" },
     "tasks.newTaskPlacement": { top: "Top of list", bottom: "Bottom of list" },
     "tasks.defaultPriority": { low: "On", none: "Off" },
 };
 
-/** A value as the card says it: On/Off, minutes, days, a time, a date. */
 export function formatSettingValue(path: string, value: unknown): string {
     const named = VALUE_LABELS[path]?.[String(value)];
     if (named) return named;
@@ -116,7 +113,6 @@ export function formatSettingValue(path: string, value: unknown): string {
     return /^\d{2}:\d{2}$/.test(text) ? text : text.charAt(0).toUpperCase() + text.slice(1).replace(/_/g, " ");
 }
 
-/** Every dotted path in `patch`, in order. */
 export function leafPaths(patch: unknown, prefix = ""): { path: string; value: unknown }[] {
     if (typeof patch !== "object" || patch === null || Array.isArray(patch)) return [{ path: prefix, value: patch }];
     return Object.entries(patch).flatMap(([key, value]) => leafPaths(value, prefix ? `${prefix}.${key}` : key));

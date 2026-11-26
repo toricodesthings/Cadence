@@ -25,7 +25,6 @@ it("a thought is captured, becomes a task, gets done, and can be taken out of th
     expect((await tasks("GET", `/${task.id}`)).body.data.state).toBe("COMPLETE");
     expect((await tasks("GET", "?state=ACTIVE")).body.data).toEqual([]);
 
-    // Trash, not erase: the task is still readable until Trash is emptied.
     await tasks("PATCH", "/batch/state", { taskIds: [task.id], state: "ARCHIVED" });
     expect((await tasks("GET", `/${task.id}`)).status).toBe(200);
     expect((await tasks("DELETE", "/trash")).body.data).toEqual({ deleted: 1 });

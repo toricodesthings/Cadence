@@ -14,7 +14,6 @@ import { useDurationGuesser } from "../ai/use-duration-guess";
 import { useSettings } from "../core/use-settings";
 import { tagIdsAfterMove } from "../../lib/utils/task/place-tags";
 
-/** Normalize date ranges so scheduledStart ≤ scheduledEnd */
 function normalizeDateRange<T extends Record<string, unknown>>(updates: T): T {
     const { scheduledStart, scheduledEnd } = updates as { scheduledStart?: string; scheduledEnd?: string };
     if (scheduledStart && scheduledEnd && scheduledStart > scheduledEnd) {
@@ -23,11 +22,6 @@ function normalizeDateRange<T extends Record<string, unknown>>(updates: T): T {
     return updates;
 }
 
-/**
- * Writes to one task run in order, and each sends the version the previous one
- * returned. Without this, a quick Undo races its own change and reads a stale
- * `updatedAt` from the cache, which the server rejects as a conflict.
- */
 const lastWriteById = new Map<string, Promise<Task | undefined>>();
 
 function afterPreviousWrite(id: string, write: (freshUpdatedAt: string | undefined) => Promise<Task>) {
@@ -42,7 +36,6 @@ function afterPreviousWrite(id: string, write: (freshUpdatedAt: string | undefin
     return next;
 }
 
-/** Update any task field with optimistic patching across all caches */
 export function useUpdateTask() {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -50,12 +43,9 @@ export function useUpdateTask() {
     const durationApi = useDurationApi();
     const guessOf = useDurationGuesser();
 
-    /** The newest version any cache holds: an inactive list (another range, a restored cache) can lag behind. */
     function getExpectedUpdatedAt(id: string): string | undefined {
         let latest: string | undefined;
         for (const [key, tasks] of queryClient.getQueriesData<Task[]>({ queryKey: queryKeys.tasks.all })) {
-            // Lists only (`["tasks", filters]`), the caches a server row reconciles: an optimistic create can seed an
-            // empty detail or note key with its client-clock copy, which would otherwise win as "latest" forever.
             if (typeof key[1] !== "object" || !Array.isArray(tasks)) continue;
             const task = tasks.find((item) => item.id === id);
             if (task?.updatedAt && (!latest || Date.parse(task.updatedAt) > Date.parse(latest)))
@@ -66,8 +56,6 @@ export function useUpdateTask() {
 
     return useMutation({
         mutationFn: withOfflineSupport<{ id: string } & UpdateTaskInput, Task>(
-            // A queued edit replays without a version check: it carries only the
-            // fields the user touched, so the later write wins field by field.
             ({ id, ...raw }) => ({ type: "update_task", id, payload: normalizeDateRange(raw) }),
             ({ id, ...raw }) =>
                 afterPreviousWrite(id, async (freshUpdatedAt) => {
@@ -86,7 +74,6 @@ export function useUpdateTask() {
         ),
 
         onMutate: async ({ id, ...raw }) => {
-            // `findTime` says how a placement came about; it is not a field of the task.
             const { findTime: _findTime, ...fields } = raw;
             const updates = normalizeDateRange(fields);
             const autoTag = settings?.tasks?.autoTag !== false;
@@ -103,7 +90,6 @@ export function useUpdateTask() {
                                     : t.tagIds;
                             return { ...t, tagIds, ...updates };
                         }
-                        // An app or website belongs to the whole series: its cached occurrences show it too.
                         if (t.seriesId === id && ("linkedAppId" in updates || "linkedUrl" in updates)) {
                             return {
                                 ...t,
@@ -120,8 +106,7 @@ export function useUpdateTask() {
         },
 
         onSuccess: (task, input) => {
-            if (!task) return; // Queued offline
-            // Full only; the server decides whether to ask. Never required.
+            if (!task) return;
             if (input.state === "COMPLETE")
                 void offerDuration(task, settings?.assistant?.memoryMode, durationApi, guessOf(task)?.minutes ?? null);
             if (input.effort !== undefined) void queryClient.invalidateQueries({ queryKey: queryKeys.effortEvidence });
@@ -133,8 +118,6 @@ export function useUpdateTask() {
         },
 
         onError: (err, input, context) => {
-            // A found time that lost to a change elsewhere is handled by Find a time, which looks again and says so itself.
-            // An Undo that loses still fails out loud: the person has to know the old block didn't come back.
             if (input.findTime && !input.findTime.undo && (err as { status?: number } | null)?.status === 409) {
                 if (context?.snapshot) taskCache.rollback(queryClient, context.snapshot);
                 taskCache.invalidate(queryClient);

@@ -16,22 +16,9 @@ interface SortableTaskCardProps {
     onSelect?: (id: string) => void;
     variant?: "list" | "board";
     rationaleLabel?: string | null;
-    /** False hides the grip where the list can't be reordered. */
     reorderable?: boolean;
 }
 
-/**
- * Thin dnd-kit sortable wrapper around TaskCard.
- *
- * Drag is scoped to an explicit grip handle inside TaskCard so that
- * the card body stays free for selection, text selection and right-click
- * context menus without competing with DnD pointer events.
- *
- * Completion animation (design manifesto §5):
- *  "Like a candle flame going out. No goofy bouncing or party effects."
- *  - immediate opacity fade to 0.4 over 300ms
- *  - 1.5s later the card collapses its height to 0
- */
 export function SortableTaskCard({
     task,
     tags = [],

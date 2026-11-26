@@ -12,9 +12,7 @@ export interface ControlsSheetSection {
     id: string;
     label: string;
     content: React.ReactNode;
-    /** Compact shells: "inline" sits in the popover, "drill" opens as a sub-panel. */
     display?: "inline" | "drill";
-    /** Current value shown on a drill row, e.g. "Smart order". */
     summary?: React.ReactNode;
 }
 
@@ -61,9 +59,6 @@ export function ControlsSheet({
     const activeSection = sections.find((section) => section.id === persisted) ?? sections[0];
 
     if (shell.isCompact) {
-        // A popover, not a sheet: these are two or three switches, so a full
-        // takeover costs more than it carries. Longer lists drill into a
-        // sub-panel that slides in the way iOS menus do.
         const drillSection = sections.find((section) => section.id === drillId) ?? null;
         const slide = (from: number) =>
             reduceMotion

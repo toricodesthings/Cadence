@@ -1,10 +1,3 @@
-/**
- * How the person plans (Full): when they like to do things, and which help they take.
- *
- * Everything here only ORDERS or OFFERS. Nothing moves, shortens or reprioritises a task, and every write is the
- * person's own tap. Records are written only from routes (never the assistant, MCP or an import), only for a choice
- * that was really compared, and kept 90 days (`planning_records`).
- */
 import { and, desc, eq, gt, inArray, isNull, lt, ne, sql } from "drizzle-orm";
 import type {
     FindTimeBody,
@@ -31,16 +24,12 @@ import { fenceMemoryState, planningOn, readMemoryState } from "./memory-mode";
 import { contentHash, usableBy } from "./memory-store";
 import type { DerivedFact } from "./signals";
 
-/** Records older than this are deleted nightly. */
 export const PLANNING_RETENTION_DAYS = 90;
-/** An offline change replayed later than this teaches nothing: the moment it was made is long gone. */
 const MAX_REPLAY_AGE_MS = 60 * 60_000;
 const MAX_EVIDENCE_RECORDS = 500;
 
-/** The group a slot pattern fact stands for: a list, or "all" lists. Forget on the fact hides these records. */
 export const slotGroup = (projectId: string | null) => `slot:${projectId ?? "all"}`;
 
-/** What a Not now was about: if the title, steps or what it waits on change, the offer may return. */
 async function fingerprintOf(tx: Tx, userId: string, taskId: string): Promise<string | null> {
     const [task] = await tx
         .select({ title: tasks.title, waitingOn: tasks.waitingOn })
@@ -65,21 +54,12 @@ export interface SlotChange {
         recurrenceRule: string | null;
     };
     findTime?: FindTimeBody;
-    /** When an offline change was first made, if it was replayed. */
     queuedAt?: string | null;
 }
 
-/**
- * A choice about when to do a task, as a record. Best-effort and silent (a record never blocks a write):
- * - Cadence proposed it (`findTime`): only a pick made after comparing at least two times of day teaches, and the
- *   latest pick of the day replaces the earlier ones, so stepping through proposals counts once. Undo deletes it.
- * - The person put an untimed task on a time themselves (a drag or the time field): that is the cleanest signal.
- *   It teaches only when another time of day also had room; a single free slot shows no preference.
- */
 export async function recordSlot(env: Env, userId: string, change: SlotChange, now: Date = new Date()): Promise<void> {
     try {
         await withRls(getDbClient(env), userId, async (tx) => {
-            // Fenced: a switch away from Full either committed first and is seen here, or waits for this write.
             const state = await fenceMemoryState(tx, userId);
             if (!planningOn(state) || change.after.recurrenceRule) return;
             const zone = await userZone(tx, userId);
@@ -103,10 +83,9 @@ export async function recordSlot(env: Env, userId: string, change: SlotChange, n
             let feasible: TimeOfDay[];
             if (change.findTime) {
                 feasible = [...new Set([...(change.findTime.shown ?? []), chosen])];
-                // The latest pick replaces the day's earlier ones for this task, even when it no longer compares.
                 await tx.delete(planningRecords).where(suggestedToday);
             } else {
-                if (change.before.scheduledStart) return; // moving a block isn't deciding when to start something
+                if (change.before.scheduledStart) return;
                 if (change.queuedAt && now.getTime() - Date.parse(change.queuedAt) > MAX_REPLAY_AGE_MS) return;
                 const day = dayOf(start, zone);
                 const [settings] = await tx
@@ -152,7 +131,6 @@ export async function recordSlot(env: Env, userId: string, change: SlotChange, n
     }
 }
 
-/** Not now (declined) or the offered action done (chosen). Full only; anything else stores nothing. */
 export async function recordOfferOutcome(
     tx: Tx,
     userId: string,
@@ -163,7 +141,6 @@ export async function recordOfferOutcome(
     const fingerprint = await fingerprintOf(tx, userId, body.taskId);
     if (!fingerprint) return;
     const today = todayIn(await userZone(tx, userId), now);
-    // One Not now per task and offer: pressing it again changes nothing.
     await tx
         .delete(planningRecords)
         .where(
@@ -184,7 +161,6 @@ export async function recordOfferOutcome(
     });
 }
 
-/** The tasks each offer may show on, after every rule and decline. Nothing outside Full. */
 export async function planningOffers(tx: Tx, userId: string, now: Date = new Date()): Promise<PlanningOffers> {
     const none = { steps: [], later: [] };
     if (!planningOn(await readMemoryState(tx, userId))) return none;
@@ -283,7 +259,6 @@ export async function planningOffers(tx: Tx, userId: string, now: Date = new Dat
     return eligibleOffers(candidates, { today, declines, avoid });
 }
 
-/** "Step lists stress me out": an `assist` fact tagged `avoid`, stopping that offer until it is forgotten. */
 async function avoidedOffers(tx: Tx, userId: string): Promise<PlanningOffer[]> {
     const rows = await tx
         .select({ avoid: sql<string | null>`${aiMemories.value} ->> 'avoid'` })
@@ -301,7 +276,6 @@ async function avoidedOffers(tx: Tx, userId: string): Promise<PlanningOffer[]> {
     ];
 }
 
-/** What Find a time orders by: the person's choices (Full) and what they said (whenever memory is on). */
 export async function planningEvidence(tx: Tx, userId: string, now: Date = new Date()): Promise<PlanningEvidence> {
     const state = await readMemoryState(tx, userId);
     const mode = state.mode === "off" ? null : state.mode;
@@ -364,11 +338,6 @@ const PHRASE: Record<TimeOfDay, string> = {
     late: "late at night",
 };
 
-/**
- * The patterns the records add up to, as facts the person can read and forget: "Often plans study in the evening (12
- * choices since August)". One for all lists, and one for a list only where its winner differs. Worded as a choice,
- * never as energy. Nothing is claimed below the rule in `learnedPreference`.
- */
 export async function slotPatterns(tx: Tx, userId: string, today: LocalDate): Promise<DerivedFact[]> {
     const rows = await tx
         .select({
@@ -432,7 +401,6 @@ export async function slotPatterns(tx: Tx, userId: string, today: LocalDate): Pr
     return out;
 }
 
-/** Nightly: records past 90 days go. */
 export async function prunePlanning(tx: Tx, userId: string, today: LocalDate): Promise<void> {
     await tx
         .delete(planningRecords)
@@ -444,7 +412,6 @@ export async function prunePlanning(tx: Tx, userId: string, today: LocalDate): P
         );
 }
 
-/** Clear all: every record, now. */
 export async function clearPlanning(tx: Tx, userId: string): Promise<void> {
     await tx.delete(planningRecords).where(eq(planningRecords.userId, userId));
 }

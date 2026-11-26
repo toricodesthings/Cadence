@@ -107,7 +107,6 @@ function photoCaption(photoActive: boolean, hasPhoto: boolean) {
     return hasPhoto ? "Use your saved photo" : "Choose or drop an image";
 }
 
-/** Cadence's backgrounds or your photo (dropping an image on it chooses that image). */
 function SourceChoice({ photoActive, hasPhoto, uploading, onCadence, onPhoto, onDropPhoto }: SourceChoiceProps) {
     return (
         <div className="grid grid-cols-2 gap-3" role="group" aria-label="Background source">
@@ -167,7 +166,6 @@ type CadenceBackgroundsProps = Pick<
     themePreset: ThemePresetId;
 };
 
-/** The theme's own background, gradient presets and solid colours (with a custom one). */
 function CadenceBackgrounds({
     backgroundMode,
     themePreset,
@@ -213,7 +211,6 @@ function CadenceBackgrounds({
                     />
                 ))}
             </div>
-            {/* Solid colors */}
             <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-1.5">
                     <Palette size={12} className="text-twilight-text-muted" />
@@ -231,7 +228,6 @@ function CadenceBackgrounds({
                             onSelect={() => onColorChange(c.hex)}
                         />
                     ))}
-                    {/* Custom color input */}
                     <label
                         className={cn(
                             "relative flex h-11 w-11 items-center justify-center rounded-xl cursor-pointer",

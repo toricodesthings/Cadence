@@ -17,13 +17,6 @@ import { today as getToday } from "../../lib/utils/user-zone";
 const PREFETCH_CONCURRENCY = 3;
 const rangeOf = ({ start, end }: { start: string; end: string }) => ({ from: start, to: end });
 
-/**
- * Keep the phone views' data saved for a week back and three weeks ahead, with
- * the same keys the views use, so they open offline even if not visited lately.
- * Batch task lists; warm at most three transports, skipping hour-fresh data.
- * No timer: a hidden desktop window can still say "visible", and an hourly warm-up kept the database awake
- * all night. It warms on start, on showing, on reconnecting, and after any read (a live refresh included).
- */
 export function useOfflineWindow() {
     const startupReady = useContext(StartupReadyContext);
     const queryClient = useQueryClient();
@@ -51,23 +44,22 @@ export function useOfflineWindow() {
             const weeks = [-7, 0, 7, 14, 21].map((days) => addDays(today, days));
             const routineWeeks = weeks.map((day) => getWeekDays(day, WEEK_START_INDEX[weekStart]));
             const taskFilters: Parameters<typeof prefetchTaskBatch>[2] = [
-                { state: "ACTIVE" }, // Upcoming, lists, tags
+                { state: "ACTIVE" },
                 { state: "WAITING" },
-                { state: "ACTIVE", effectiveOnOrBeforeDate: today }, // Today
-                { state: "ACTIVE", hasNoProject: true, hasNoDate: true }, // Capture
-                ...weeks.map((day) => ({ state: "ACTIVE" as const, range: rangeOf(getWeekDateRange(day)) })), // Schedule
+                { state: "ACTIVE", effectiveOnOrBeforeDate: today },
+                { state: "ACTIVE", hasNoProject: true, hasNoDate: true },
+                ...weeks.map((day) => ({ state: "ACTIVE" as const, range: rangeOf(getWeekDateRange(day)) })),
             ];
             const queries = [
-                habitsRangeQueryOptions(client, { start: today, end: today }), // Today
-                habitsRangeQueryOptions(client, { start: addDays(today, -30), end: addDays(today, 7) }), // Upcoming
-                ...weeks.map((day) => habitsRangeQueryOptions(client, getWeekDateRange(day))), // Schedule
-                ...routineWeeks.map((days) => habitsRangeQueryOptions(client, { start: days[0], end: days[6] })), // Routines
-                habitsRangeQueryOptions(client, monthRange(today)), // Routines month
+                habitsRangeQueryOptions(client, { start: today, end: today }),
+                habitsRangeQueryOptions(client, { start: addDays(today, -30), end: addDays(today, 7) }),
+                ...weeks.map((day) => habitsRangeQueryOptions(client, getWeekDateRange(day))),
+                ...routineWeeks.map((days) => habitsRangeQueryOptions(client, { start: days[0], end: days[6] })),
+                habitsRangeQueryOptions(client, monthRange(today)),
                 inboxQueryOptions(client),
                 projectsQueryOptions(client),
                 tagsQueryOptions(client),
             ];
-            // Each entry is typed by its own factory; together they're just queries to warm.
             const pending = [
                 () => prefetchTaskBatch(client, queryClient, taskFilters, controller.signal),
                 ...(queries as unknown as FetchQueryOptions[]).map(
@@ -82,7 +74,6 @@ export function useOfflineWindow() {
                 }
             };
             warming = true;
-            // Background reads must leave room for the view the person is opening.
             void Promise.all(Array.from({ length: PREFETCH_CONCURRENCY }, warm)).finally(() => {
                 warming = false;
             });
@@ -91,7 +82,6 @@ export function useOfflineWindow() {
         run();
         document.addEventListener("visibilitychange", run);
         window.addEventListener("online", run);
-        // A foreground read completing makes background work eligible again.
         const unsubscribe = queryClient.getQueryCache().subscribe(() => {
             queueMicrotask(run);
         });

@@ -10,7 +10,6 @@ import { liveMessageSchema, type LiveChange } from "@cadence/contracts/live";
 import { reconcileTaskInCaches, removeTaskFromCaches } from "../../lib/api/cache-sync";
 import { queryKeys } from "../../lib/api/query-keys";
 
-/** Query roots a change on another device can touch. Weather, holidays, location, appearance, auth and assistant data stay out. */
 const LIVE_ROOTS = new Set([
     "tasks",
     "projects",
@@ -31,19 +30,9 @@ const STABLE_MS = 60_000;
 
 const liveUrl = () => `${API_BASE_URL.replace(/^http/, "ws")}/api/v1/live`;
 const isLive = (q: { queryKey: readonly unknown[] }) => LIVE_ROOTS.has(String(q.queryKey[0]));
-/** What a list-level change (sections, who is in it) makes stale: the lists themselves, their sections, and every task read. */
 const isListRead = (q: { queryKey: readonly unknown[] }) =>
     ["projects", "sections", "tasks"].includes(String(q.queryKey[0]));
 
-/**
- * Cross-device freshness without polling. The server keeps one WebSocket per open copy of Cadence and sends
- * `{ v, changes? }` after any write of the account, or of a list shared with it: `v` is a counter, `changes` the rows
- * the write returned. The next `v` with its rows is applied straight to the caches; any other changed `v` (no rows,
- * a gap, the first after a reconnect, a write still in flight here) refetches what is on screen. So a routine logged
- * on the phone reaches the desktop at once, even hidden in the tray, and nothing asks the database on a timer. A dropped socket reconnects with backoff; an unchanged `v` after a reconnect costs no refetch.
- * A reconnect uses the ticket the server handed this page (kept in memory only): fetching a JWT, and the server
- * checking one, both reach Neon Auth, which wakes the database.
- */
 export function useLiveSync() {
     const queryClient = useQueryClient();
     const { authReady, isAuthenticated, session } = useAuthState();
@@ -53,8 +42,8 @@ export function useLiveSync() {
     useEffect(() => {
         if (!enabled) return;
         let disposed = false;
-        let gone = false; // the account was deleted: never again
-        let paused = false; // a second 4401: wait for a visible/online/wake/new-session signal
+        let gone = false;
+        let paused = false;
         let connecting = false;
         let socket: WebSocket | null = null;
         let lastV: number | null = null;
@@ -63,14 +52,13 @@ export function useLiveSync() {
         let attempt = 0;
         let authRetried = false;
         let openedAt = 0;
-        let notBefore = 0; // after a 4429, not even a wake reconnects sooner
+        let notBefore = 0;
         let retryTimer: number | undefined;
         let pingTimer: number | undefined;
         let pongTimer: number | undefined;
         let debounceTimer: number | undefined;
         let maxTimer: number | undefined;
 
-        // ── Refresh: wait out local writes, then refetch what's on screen once ──
         const writing = () =>
             queryClient.isMutating() > 0 || getWalSnapshot().some((entry) => entry.status !== "failed");
         const apply = (changes: LiveChange[]) => {
@@ -92,14 +80,11 @@ export function useLiveSync() {
         };
         const flush = () => {
             if (!pending) return;
-            // A refetch now could undo an edit on screen; stay pending and retry as writes settle.
             if (writing()) return;
             window.clearTimeout(debounceTimer);
             window.clearTimeout(maxTimer);
             debounceTimer = maxTimer = undefined;
             pending = false;
-            // Everything live is marked stale (a list opened next refetches on mount); only what's on screen refetches now.
-            // A refetch already running finishes rather than restarting.
             void queryClient.invalidateQueries({ predicate: isLive, refetchType: "active" }, { cancelRefetch: false });
         };
         const markPending = () => {
@@ -111,7 +96,6 @@ export function useLiveSync() {
         const unsubscribeMutations = queryClient.getMutationCache().subscribe(flush);
         const unsubscribeWal = subscribeWal(flush);
 
-        // ── Socket ──
         const stopTimers = () => {
             window.clearInterval(pingTimer);
             window.clearTimeout(pongTimer);
@@ -136,7 +120,7 @@ export function useLiveSync() {
                 return;
             }
             if (code === WS_CLOSE.badToken && sentToken === ticket) {
-                ticket = null; // expired or forgotten: sign in with a JWT once more, right away
+                ticket = null;
                 void connect();
                 return;
             }
@@ -144,7 +128,6 @@ export function useLiveSync() {
                 dropAuthJwt(sentToken);
                 getAuthJwt().then(
                     (fresh) => {
-                        // A wake may have reconnected meanwhile: then this answer is stale and must not pause the new socket.
                         if (disposed || socket || connecting) return;
                         if (fresh && fresh !== sentToken && !authRetried) {
                             authRetried = true;
@@ -152,7 +135,7 @@ export function useLiveSync() {
                         } else paused = true;
                     },
                     () => schedule(),
-                ); // no answer at all (offline, auth down) is not a bad token: try again later
+                );
                 return;
             }
             schedule(code === WS_CLOSE.rateLimited ? 60_000 : 0);
@@ -161,13 +144,10 @@ export function useLiveSync() {
             if (ws.readyState !== WebSocket.OPEN) return;
             ws.send("ping");
             window.clearTimeout(pongTimer);
-            // No answer: the connection is dead without saying so.
             pongTimer = window.setTimeout(() => {
                 try {
                     ws.close();
-                } catch {
-                    /* already closed */
-                }
+                } catch {}
                 closed(ws, 1006, "");
             }, PONG_WAIT_MS);
         };
@@ -201,12 +181,9 @@ export function useLiveSync() {
                     if (typeof message.ticket === "string") ticket = message.ticket;
                     const { v } = message;
                     if (typeof v !== "number") return;
-                    // Rows this build can't read are the same as no rows: refetch.
                     const parsed = liveMessageSchema.safeParse(message);
                     const changes = parsed.success ? parsed.data.changes : undefined;
                     authRetried = false;
-                    // A socket's first answer refreshes only if something changed while it was away, or a live read failed
-                    // then (startup offline, a dropped connection: nothing else refetches on reconnect). Startup itself already read.
                     const missed =
                         first &&
                         queryClient
@@ -215,25 +192,23 @@ export function useLiveSync() {
                             .some((q) => q.state.status === "error");
                     const wasFirst = first;
                     first = false;
-                    // The very next version, with its rows, and nothing of ours in flight: show them as they are.
                     if (changes?.length && !wasFirst && lastV !== null && v === lastV + 1 && !writing()) apply(changes);
                     else if ((lastV !== null && v !== lastV) || missed) markPending();
                     lastV = v;
                 };
                 ws.onclose = (event) => closed(ws, event.code, token);
             } catch {
-                schedule(); // the token couldn't be fetched (offline, auth down): retry with backoff, never give up silently
+                schedule();
             } finally {
                 connecting = false;
             }
         }
 
-        // A signal that the connection may have changed: check it now, or reconnect without waiting out a backoff.
         const wake = () => {
             if (disposed || gone) return;
             paused = false;
             if (socket) return ping(socket);
-            if (Date.now() < notBefore) return; // rate-limited: the scheduled retry stands
+            if (Date.now() < notBefore) return;
             window.clearTimeout(retryTimer);
             void connect();
         };
@@ -258,9 +233,7 @@ export function useLiveSync() {
             socket = null;
             try {
                 ws?.close(1000);
-            } catch {
-                /* already closed */
-            }
+            } catch {}
         };
     }, [enabled, userId, queryClient]);
 }

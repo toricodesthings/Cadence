@@ -11,8 +11,22 @@ import { SharedEventMark } from "../sharing/SharedEventMark";
 import type { EventActions } from "./EventCard";
 import { EventMenuItems } from "./EventMenuItems";
 
-/** Desktop: event · date · countdown · reminder · ⋮. */
-const COLUMNS = "grid grid-cols-[minmax(0,1fr)_7.5rem_8.5rem_2.75rem_2.75rem] items-center gap-2";
+export const EVENT_LIST_COLUMNS = "grid grid-cols-[minmax(0,1fr)_7.5rem_8.5rem_2.75rem_2.75rem] items-center gap-2";
+
+export function EventListHeader() {
+    return (
+        <div
+            aria-hidden="true"
+            className={`photo-shell-surface layer-shell-base sticky top-0 ${EVENT_LIST_COLUMNS} rounded-2xl bg-twilight-deep/75 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted backdrop-blur-xl`}
+        >
+            <span>Event</span>
+            <span>Date</span>
+            <span>Countdown</span>
+            <span className="text-center">Remind</span>
+            <span />
+        </div>
+    );
+}
 const ICON_BUTTON =
     "flex size-11 cursor-pointer items-center justify-center rounded-xl text-twilight-text-muted transition-colors hover:bg-[color-mix(in_srgb,var(--event-tone)_10%,transparent)] hover:text-[var(--event-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--event-tone)]/60 lg:size-9";
 
@@ -24,26 +38,11 @@ interface EventListProps extends EventActions {
     selectedEventId: string | null;
 }
 
-/**
- * Events as one list: a calendar you scan down, grouped under the month each one next comes round.
- * Each row wears its event's colour; the countdown is the one thing that stands out, brightest on the day.
- */
 export function EventList({ events, sort, today, stacked, selectedEventId, ...actions }: EventListProps) {
     const groups = groupPersonalEventsByMonth(events, sort, today);
     return (
         <div role="list" aria-label="Personal events" className="surface-card rounded-[24px] p-2">
-            {stacked ? null : (
-                <div
-                    aria-hidden="true"
-                    className={`photo-shell-surface layer-shell-base sticky top-0 ${COLUMNS} rounded-2xl bg-twilight-deep/75 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-muted backdrop-blur-xl`}
-                >
-                    <span>Event</span>
-                    <span>Date</span>
-                    <span>Countdown</span>
-                    <span className="text-center">Remind</span>
-                    <span />
-                </div>
-            )}
+            {stacked ? null : <EventListHeader />}
             {groups.map((group) => (
                 <div key={group.key} role="group" aria-label={group.label ?? undefined}>
                     {group.label ? (
@@ -177,7 +176,7 @@ function EventRow({
             role="listitem"
             data-event-row={event.id}
             style={eventToneStyle(event.color)}
-            className={`${COLUMNS} ${rowClass}`}
+            className={`${EVENT_LIST_COLUMNS} ${rowClass}`}
         >
             {identity}
             <span className="text-sm text-twilight-text-soft">{item.monthDayLabel}</span>

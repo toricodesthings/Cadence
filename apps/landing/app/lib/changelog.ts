@@ -2,12 +2,10 @@ import type { ChangelogEntry } from "../../../frontend/app/lib/constants/changel
 import { formatDay } from "~/components/legal/LegalPage";
 import type { LegalBlock, LegalDoc } from "~/lib/legal/types";
 
-// Injected at build time from the root CHANGELOG.md (vite.config.ts), newest first, [Unreleased] left out.
 declare const __CADENCE_CHANGELOG__: ChangelogEntry[];
 
 const KIND = { added: "Added", changed: "Changed", removed: "Removed", fixed: "Fixed" } as const;
 
-/** "v0.45.3 Beta" → "0.45" */
 const lineOf = (e: ChangelogEntry) => e.version.replace(/^v(\d+\.\d+).*/, "$1");
 
 function releaseBlocks(e: ChangelogEntry): LegalBlock[] {
@@ -21,10 +19,6 @@ function releaseBlocks(e: ChangelogEntry): LegalBlock[] {
     ];
 }
 
-/**
- * The changelog as a document for LegalPage: one section per minor line (0.45 holds 0.45.0–0.45.3),
- * titled by the release that opened it, so 120-odd releases read as a few dozen chapters.
- */
 export function changelogDoc(entries: ChangelogEntry[] = __CADENCE_CHANGELOG__): LegalDoc {
     const lines = new Map<string, ChangelogEntry[]>();
     for (const e of entries) lines.set(lineOf(e), [...(lines.get(lineOf(e)) ?? []), e]);

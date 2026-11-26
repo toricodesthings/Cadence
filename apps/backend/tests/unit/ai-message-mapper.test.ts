@@ -87,7 +87,6 @@ describe("uiMessageToRow", () => {
 });
 
 describe("dropForeignReasoning", () => {
-    // Signed, so dropUnsignedReasoning keeps it — only the model switch removes it.
     const meta = () => ({
         openrouter: {
             reasoning_details: [{ type: "reasoning.text", format: "google-gemini-v1", text: "t", signature: "sig" }],
@@ -104,7 +103,6 @@ describe("dropForeignReasoning", () => {
     it("drops signed reasoning left by a different model", () => {
         const [out] = dropForeignReasoning([msg("cheap/model")], "std/model");
         expect(details(out)).toEqual([]);
-        // Everything else in the provider metadata survives.
         expect((out.parts[0] as any).providerMetadata.openrouter.other).toBe(1);
     });
 
@@ -166,7 +164,6 @@ describe("compactOldReads", () => {
         parts: role === "assistant" ? [read, proposal] : [{ type: "text", text: "hi" }],
     });
 
-    /** `n` user/assistant exchanges, then the new user message. */
     const thread = (n: number) => [
         ...Array.from({ length: n }, () => [turn("user"), turn("assistant")]).flat(),
         turn("user"),
@@ -177,7 +174,7 @@ describe("compactOldReads", () => {
         const out = compactOldReads(messages);
         const from = recentStart(messages);
 
-        expect(from).toBe(2 * COMPACT_EVERY_TURNS); // the first COMPACT_EVERY_TURNS exchanges compacted
+        expect(from).toBe(2 * COMPACT_EVERY_TURNS);
         expect(out[1].parts[0]).toMatchObject({ output: { tasks: { count: 2, ids: ["a", "b"] }, count: 2 } });
         expect(out[1].parts[1]).toBe(proposal);
         expect(out[from + 1].parts[0]).toBe(read);
@@ -186,7 +183,6 @@ describe("compactOldReads", () => {
 
     it("moves the cut only once every few turns, always keeping the previous turn whole", () => {
         const cuts = Array.from({ length: 3 * COMPACT_EVERY_TURNS }, (_, n) => recentStart(thread(n)));
-        // Each cut holds for COMPACT_EVERY_TURNS turns in a row, so replayed history only grows between steps.
         expect(new Set(cuts).size).toBe(3);
         cuts.forEach((cut, n) => expect(cut).toBeLessThanOrEqual(Math.max(0, 2 * (n - 1))));
     });

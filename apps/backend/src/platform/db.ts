@@ -7,7 +7,6 @@ export function getDbClient(env: Env) {
     const client = postgres(env.HYPERDRIVE.connectionString, {
         prepare: true,
         fetch_types: false,
-        // Hyperdrive handles pooling externally, keep max small locally
         max: 5,
     });
     return drizzle(client, { schema });

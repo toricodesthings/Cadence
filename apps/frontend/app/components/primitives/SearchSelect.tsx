@@ -6,13 +6,8 @@ export interface SearchSelectOption {
     label: string;
 }
 
-/** Lowercase, accents and underscores dropped, so "turkiye" finds Türkiye and "new york" finds New_York. */
 const fold = (text: string) => text.normalize("NFD").replace(/\p{M}/gu, "").replace(/_/g, " ").toLowerCase();
 
-/**
- * A `Select` for lists too long to scan (countries, regions, time zones): a search box narrows it as you
- * type. `pinned` options lead the list ("Use my time zone"), and the chosen one stays listed while searching.
- */
 export function SearchSelect({
     value,
     onValueChange,
@@ -40,7 +35,6 @@ export function SearchSelect({
     const hits = needle ? all.filter((option) => fold(option.label).includes(needle)) : all;
     const shown = all.filter((option) => hits.includes(option) || option.value === value);
 
-    // Radix focuses the selected item on open; steal focus back for the search box one frame later.
     useEffect(() => {
         if (!open) {
             setQuery("");

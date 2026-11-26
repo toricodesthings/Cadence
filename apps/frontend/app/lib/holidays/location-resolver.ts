@@ -1,15 +1,11 @@
 import type { HolidaySubdivisionOption } from "@cadence/contracts/proxy";
 
-/** What a location source knows about the user's region, used to pick holiday subdivisions. */
 export interface RegionHint {
     subdivisionCode?: string | null;
     subdivisionName?: string | null;
 }
 
-// IANA zone → country for the zones people actually run. A zone missing here
-// yields null (the caller then tries the locale) rather than a wrong guess.
 const TIMEZONE_COUNTRY_MAP: Record<string, string> = {
-    // North America
     "America/Anchorage": "US",
     "America/Boise": "US",
     "America/Chicago": "US",
@@ -35,7 +31,6 @@ const TIMEZONE_COUNTRY_MAP: Record<string, string> = {
     "America/Monterrey": "MX",
     "America/Tijuana": "MX",
     "America/Cancun": "MX",
-    // Central & South America, Caribbean
     "America/Guatemala": "GT",
     "America/Costa_Rica": "CR",
     "America/Panama": "PA",
@@ -50,7 +45,6 @@ const TIMEZONE_COUNTRY_MAP: Record<string, string> = {
     "America/Sao_Paulo": "BR",
     "America/Bahia": "BR",
     "America/Manaus": "BR",
-    // Europe
     "Europe/London": "GB",
     "Europe/Dublin": "IE",
     "Europe/Lisbon": "PT",
@@ -86,7 +80,6 @@ const TIMEZONE_COUNTRY_MAP: Record<string, string> = {
     "Europe/Riga": "LV",
     "Europe/Tallinn": "EE",
     "Europe/Moscow": "RU",
-    // Africa & Middle East
     "Africa/Johannesburg": "ZA",
     "Africa/Lagos": "NG",
     "Africa/Nairobi": "KE",
@@ -96,7 +89,6 @@ const TIMEZONE_COUNTRY_MAP: Record<string, string> = {
     "Asia/Riyadh": "SA",
     "Asia/Jerusalem": "IL",
     "Asia/Tel_Aviv": "IL",
-    // Asia & Pacific
     "Asia/Karachi": "PK",
     "Asia/Kolkata": "IN",
     "Asia/Calcutta": "IN",
@@ -232,7 +224,6 @@ export function inferCountryFromTimezone(timezone: string | null | undefined) {
     return null;
 }
 
-/** Localized country name from the platform, no network needed ("CA" → "Canada"). */
 export function getCountryLabel(countryCode: string | null | undefined, locale: string) {
     if (!countryCode) return null;
     try {

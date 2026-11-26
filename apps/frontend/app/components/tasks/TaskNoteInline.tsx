@@ -19,10 +19,6 @@ import { CollabNoteStatus, NoteStatus } from "./note/NoteStatus";
 import { NoteConvertSheet } from "./note/NoteConvertSheet";
 import { copyNote } from "./note/note-export";
 
-/**
- * The note on the task panel: the same editor and session as the writing room, quieter. It is always
- * the document (no preview/edit switch); the formatting bar appears while writing; the full room is one tap away.
- */
 export function TaskNoteInline({
     taskId,
     onOpenRoom,
@@ -31,9 +27,7 @@ export function TaskNoteInline({
 }: {
     taskId: string;
     onOpenRoom?: () => void;
-    /** A list you can only view: the note reads and cannot be changed. */
     readOnly?: boolean;
-    /** False while the note is folded away: connected, but not shown to others as "here". */
     present?: boolean;
 }) {
     const { task, noteOwnerTask, session, state, status, isLoading, loadFailed } = useTaskNote(taskId);
@@ -47,10 +41,6 @@ export function TaskNoteInline({
     const [source, setSource] = useState(false);
     const [checked, setChecked] = useState(false);
 
-    /**
-     * The bar stays while focus is in it or one of its menus (text style, lists): those take focus from the
-     * editor, and hiding the bar then would unmount the menu the moment it opened.
-     */
     const trackFocus = (next: boolean) => {
         if (next) return setFocused(true);
         requestAnimationFrame(() => {
@@ -60,7 +50,6 @@ export function TaskNoteInline({
     };
 
     const body = state?.body ?? "";
-    // A note the visual editor can't carry whole is edited as Markdown, never trimmed.
     if (state?.loaded && !checked) {
         setChecked(true);
         if (!isFaithful(body) && !readOnly) setSource(true);
@@ -111,7 +100,6 @@ export function TaskNoteInline({
                                 onFocusChange={trackFocus}
                             />
                         )}
-                        {/* Save state sits in the note's own corner instead of a row of its own. */}
                         <div className="pointer-events-none absolute bottom-1 right-2 flex items-center gap-3 [&_button]:pointer-events-auto">
                             {collab ? (
                                 <CollabNoteStatus
@@ -132,7 +120,6 @@ export function TaskNoteInline({
                                     }
                                 />
                             )}
-                            {/* The counter only surfaces near the limit: no running tally to watch. */}
                             {near && (
                                 <span
                                     className="text-[13px] tabular-nums text-accent-primary"
@@ -143,12 +130,10 @@ export function TaskNoteInline({
                             )}
                         </div>
                     </div>
-                    {/* Below the text, so opening it never pushes what's being read. */}
                     <Reveal open={focused && !source}>
                         <NoteToolbar editor={editor} onLink={() => setLinkOpen(true)} more={null} />
                     </Reveal>
                     {editor && <NoteLinkPopover editor={editor} open={linkOpen} onOpenChange={setLinkOpen} />}
-                    {/* The writing room and the subtask sheet both edit: a viewer only reads. */}
                     {lines > 0 && !readOnly && (
                         <button
                             type="button"

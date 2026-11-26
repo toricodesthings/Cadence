@@ -42,7 +42,6 @@ import {
 const PILL =
     "inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-twilight-text-soft";
 
-/** Which build this is, by UA: the Tauri app, a phone/tablet browser (incl. iPadOS, which reports as a Mac), or a desktop browser. */
 function detectPlatform() {
     if (IS_DESKTOP_RUNTIME) return { label: "Desktop app", Icon: Monitor };
     const mobile =
@@ -64,7 +63,6 @@ function DesktopUpdatePanel() {
     const update = useAvailableDesktopUpdate();
     const lastChecked = useLastUpdateCheck();
     const [checking, setChecking] = useState(false);
-    // An update found at startup opens its dialog straight away (the header chip lands here).
     const [dialogOpen, setDialogOpen] = useState(!!update);
 
     const check = async () => {
@@ -130,7 +128,6 @@ function DesktopUpdatePanel() {
     );
 }
 
-/** Tucked away: only for when something looks stale or wrong. Unsynced changes are never touched. */
 function RepairCache() {
     const [repairing, setRepairing] = useState(false);
     return (

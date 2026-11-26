@@ -14,17 +14,6 @@ import {
 } from "~/components/hero/HeroLandscapeScene";
 import { cssVars, n1, pt, risingEdges, yAt, type Pt } from "~/lib/geometry";
 
-/*
- * The finale's valley: the hero's valley from its other end, hours later, and the page's warmest picture. The
- * same massifs stand behind it, mirrored, their lit faces turned east with the moon; the shrine light is the
- * hero's beacon. A still lake in the middle distance holds the lights, with the village on the west bank, a
- * hamlet of lit houses on the east (the loading screen's cottages: warm windows, a string of lights between the
- * eaves, smoke off two chimneys), two lantern boats out on the water, and tall firs closing both corners. A shared 1920×300 canvas keeps
- * the painting and its lights aligned as the closer mobile crop follows the hamlet. The lamps wake one by one
- * on the valley's view timeline (journey.css), in a sibling <svg>, so the flicker never repaints the hills; the boats drift, the smoke
- * rises and each reflection shimmers in a layer of its own, so nothing that moves shares a box with the hills.
- */
-
 const FAR = ridgeLine([
     [0, 150],
     [220, 132],
@@ -37,7 +26,6 @@ const FAR = ridgeLine([
     [1740, 160],
     [1920, 138],
 ]);
-/** The mid hills stop at the water on either side of the lake. */
 const MID_W = ridgeLine([
     [0, 186],
     [180, 176],
@@ -55,7 +43,6 @@ const MID_E = ridgeLine([
     [1680, 196],
     [1920, 180],
 ]);
-/** The water line: the lake covers everything under it between the banks. */
 const WATER = 208;
 const NEAR_W = ridgeLine([
     [0, 236],
@@ -90,7 +77,6 @@ const MID_TREES =
     grove(MID_W, 610, 10, 135, 15, 97) +
     grove(MID_E, 1220, 9, 100, 15, 101) +
     grove(MID_E, 1560, 20, 240, 18, 67);
-/* Tall firs close both corners, as in the hero: scale is the last depth cue */
 const NEAR_TREES =
     grove(NEAR_W, 196, 8, 130, 56, 71) +
     grove(NEAR_W, 610, 5, 56, 21, 73) +
@@ -99,7 +85,6 @@ const NEAR_TREES =
     grove(NEAR_E, 1630, 6, 64, 28, 107) +
     grove(NEAR_E, 1730, 8, 130, 58, 79);
 
-/** The far village on the west bank: small, staggered in depth, seen across the water. */
 const VILLAGE = [
     house(NEAR_W, 300, 20, 9, 2, 1),
     house(NEAR_W, 330, 26, 12, 5, 1),
@@ -109,7 +94,6 @@ const VILLAGE = [
     house(NEAR_W, 474, 16, 8, 3, 1),
 ];
 
-/** The hamlet on the near east bank: the houses you could walk to, lit and lived in. */
 const HAMLET = [
     house(NEAR_E, 1330, 30, 16, 2, 2),
     house(NEAR_E, 1390, 42, 22, 0, 3),
@@ -120,10 +104,6 @@ const HAMLET = [
 
 const HOUSES = [...VILLAGE, ...HAMLET];
 
-/**
- * The string of lights over the hamlet's lane: a sagging line between two eaves with bulbs along it.
- * Sampled from the quadratic through the sag, so the bulbs hang where the wire does.
- */
 const STRING = { a: [1352, 246] as Pt, b: [1530, 240] as Pt, sag: 5 };
 const STRING_WIRE = `M${pt(...STRING.a)}Q${pt((STRING.a[0] + STRING.b[0]) / 2, (STRING.a[1] + STRING.b[1]) / 2 + STRING.sag * 2)} ${pt(...STRING.b)}`;
 const BULBS: Pt[] = Array.from({ length: 7 }, (_, i) => {
@@ -136,44 +116,34 @@ const BULBS: Pt[] = Array.from({ length: 7 }, (_, i) => {
     ];
 });
 
-/** The bulbs as the lamps layer can't hold them: each glimmers on its own clock, so each is an HTML box. */
 const BULB_AT = BULBS.map(([x, y], k) => ({
     dx: n1(((x - W / 2) / W) * 100),
     b: n1(((H - y) / H) * 100),
     k,
 }));
 
-/** Shore lanterns, each just above the water on its own bank. */
 const SHORE: readonly Pt[] = [
     [720, yAt(MID_W, 720) - 4],
     [1262, yAt(MID_E, 1262) - 4],
 ];
 const SHRINE: Pt = [W - BEACON[0], BEACON[1]];
 
-/** Every fixed light in the valley, in the order it wakes: [x, y, r]. The boats carry their own. */
 const LIGHTS: readonly (readonly [number, number, number])[] = [
     [SHRINE[0], SHRINE[1], 1.3],
     ...VILLAGE.flatMap((c) => c.windows.map(([x, y]) => [x, y, 1.4] as const)),
     ...SHORE.map(([x, y]) => [x, y, 1.4] as const),
 ];
 
-/** Where a light touches the water, its reflection: a soft streak straight down from the water line. */
 const REFLECTIONS: readonly (readonly [number, number])[] = [
     [SHORE[0][0], 22],
     [SHORE[1][0], 22],
 ];
 
-/** The two boats: [x, y, scale, the layer's class]. The near one is out under the moon, the far one upstream. */
 const BOATS = [
     { x: 1011, y: 232, s: 1, cls: "fl-boat-near" },
     { x: 902, y: 222, s: 0.7, cls: "fl-boat-far" },
 ];
 
-/**
- * Smoke off the hamlet's chimneys, in a CSS layer so the hills never repaint. Placed the way the band is
- * anchored (`xMidYMax`): out from the centre, up from the bottom edge, so it stays on its chimney as the
- * band crops.
- */
 const SMOKE = HAMLET.filter((h) => h.chimney).map(({ chimney }, k) => ({
     dx: n1(((chimney![0] - W / 2) / W) * 100),
     b: n1(((H - chimney![1]) / H) * 100),
@@ -223,7 +193,6 @@ export function FinaleLandScene() {
                     </defs>
 
                     <Massifs id="fl" flip cloud={0.6} />
-                    {/* The moon's wash on the haze under it: east now */}
                     <ellipse cx="1500" cy="130" rx="320" ry="56" fill="url(#fl-moonwash)" />
                     <path d={ridgeFill(FAR) + FAR_TREES} fill="url(#fl-far)" />
                     <path
@@ -238,12 +207,9 @@ export function FinaleLandScene() {
 
                     <path d={bankFill(MID_W) + bankFill(MID_E) + MID_TREES} fill="url(#fl-mid)" />
 
-                    {/* The lake: still water in front of the mid hills from the water line down, hidden at the sides by the
-              near banks, so its only edge is the shore. It holds the first light and a few ripples */}
                     <rect y={WATER} width={W} height={H - WATER + 2} fill="url(#fl-lake)" />
                     <ellipse cx="1000" cy={WATER + 6} rx="380" ry="12" fill="url(#fl-dawn)" />
                     <ellipse cx="1110" cy="251" rx="175" ry="33" fill="url(#fl-hearth)" />
-                    {/* A breath of mist on the water, no more (the blur is the massifs' cloud filter) */}
                     <ellipse
                         cx="980"
                         cy="215"
@@ -261,7 +227,6 @@ export function FinaleLandScene() {
                         opacity=".2"
                     />
 
-                    {/* The moon broken on the water under it */}
                     <path
                         d="M1088,213.5H1132M1150,215.5H1206M1112,217.5H1168M1196,212.5H1232"
                         stroke="var(--hero-moon)"
@@ -274,7 +239,6 @@ export function FinaleLandScene() {
                         d={bankFill(NEAR_W) + bankFill(NEAR_E) + NEAR_TREES + HOUSES.map((c) => c.body).join("")}
                         fill="url(#fl-near)"
                     />
-                    {/* Local pools of lamplight tie the windows to the ground around their homes. */}
                     <ellipse cx="390" cy="242" rx="155" ry="45" fill="url(#fl-hearth)" />
                     <ellipse cx="1435" cy="244" rx="190" ry="60" fill="url(#fl-hearth)" />
                     <path
@@ -284,7 +248,6 @@ export function FinaleLandScene() {
                         strokeWidth="1.2"
                         opacity=".18"
                     />
-                    {/* The moon on the near roofs, the same rim the ridges take */}
                     <path
                         d={HAMLET.map((c) => c.ridge).join("")}
                         fill="none"
@@ -293,7 +256,6 @@ export function FinaleLandScene() {
                         strokeLinecap="round"
                         opacity=".3"
                     />
-                    {/* The lane's string of lights: the wire here, its bulbs with the other lamps */}
                     <path d={STRING_WIRE} fill="none" stroke="var(--hero-land-near)" strokeWidth=".9" opacity=".8" />
                     <path d={bankFill(KNOLL)} fill="url(#fl-knoll)" />
                 </svg>
@@ -311,7 +273,6 @@ export function FinaleLandScene() {
                             <circle cx={x} cy={y} r={r} fill="var(--hero-lamp)" />
                         </g>
                     ))}
-                    {/* The hamlet's windows: squares of warm light, each in its own spill, waking after the far village */}
                     {HAMLET.flatMap((c, i) =>
                         c.windows.map(([x, y], j) => (
                             <g key={`${i}-${j}`} className="fl-lamp" style={cssVars({ "--k": LIGHTS.length + i })}>
@@ -329,15 +290,12 @@ export function FinaleLandScene() {
                     )}
                 </svg>
 
-                {/* The string's bulbs glimmer on their own clocks. HTML boxes, not SVG children: an animated SVG child
-            repaints its whole <svg> every frame, a box's opacity is composited */}
                 <div className="fl-bulbs">
                     {BULB_AT.map(({ dx, b, k }) => (
                         <span key={k} style={cssVars({ "--dx": `${dx}%`, "--b": `${b}%`, "--k": k })} />
                     ))}
                 </div>
 
-                {/* Each boat drifts in its own box, carrying its lamp and the streak it lays on the water */}
                 {BOATS.map(({ x, y, s, cls }) => (
                     <div key={cls} className={`fl-boat ${cls}`}>
                         <svg {...BAND}>
@@ -360,8 +318,6 @@ export function FinaleLandScene() {
                     </div>
                 ))}
 
-                {/* The reflections flicker with the lamps (the wrapper) and shimmer on their own clocks, each in its own
-            <svg>: an animated SVG child repaints on the main thread every frame, an <svg> box fades composited */}
                 <div className="fl-reflect hero-lamps">
                     {REFLECTIONS.map(([x, len], k) => (
                         <svg key={x} {...BAND} className="fl-shimmer" style={cssVars({ "--k": k })}>
@@ -378,7 +334,6 @@ export function FinaleLandScene() {
                     ))}
                 </div>
 
-                {/* Chimney smoke: three soft puffs per chimney, rising and thinning. CSS, so the hills never repaint */}
                 <div className="fl-smoke">
                     {SMOKE.flatMap(({ dx, b, k }) =>
                         [0, 1, 2].map((i) => (

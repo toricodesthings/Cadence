@@ -26,7 +26,6 @@ export function AssistantHeader({
     assistantName: string;
     threadTitle: string | null;
     link: AssistantLink;
-    /** Set only where the panel can go full screen (the phone sheet). */
     fullscreen?: boolean;
     onNewChat: () => void;
     onHistory: () => void;
@@ -35,7 +34,6 @@ export function AssistantHeader({
 }) {
     const reduceMotion = useReducedMotion();
     const status = LINK[link];
-    // A thread's title takes the line only while the connection is fine; a problem is said instead.
     const title = link === "active" ? threadTitle : null;
     return (
         <header className="flex h-(--shell-header-h) shrink-0 items-center justify-between gap-2 border-b border-twilight-border px-3">
@@ -53,7 +51,6 @@ export function AssistantHeader({
                         className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-twilight-deep ${status.dot}`}
                     />
                 </div>
-                {/* Name and status together are the avatar's height. */}
                 <div className="flex h-9 min-w-0 flex-col justify-center">
                     <h2 className="truncate font-display text-[17px] leading-5 font-semibold tracking-tight text-twilight-text">
                         {assistantName}
@@ -93,7 +90,6 @@ export function AssistantHeader({
 function HeaderAction({ label, onClick, icon }: { label: string; onClick: () => void; icon: ReactNode }) {
     return (
         <Tip label={label} side="bottom">
-            {/* 44px with a 20px icon, as every sheet's X: a squircle on a mouse, the phone's glass circle on touch. */}
             <button
                 type="button"
                 onClick={onClick}

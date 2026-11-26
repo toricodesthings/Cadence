@@ -1,10 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-/** Which pane the shared right rail is showing. The rail is mutually exclusive:
- * the contextual side panel (review / calendar / task editor) and the Cadence
- * assistant never appear at once. A segmented toggle flips this when both are
- * available; opening/closing the assistant drives it automatically. */
 export type RailView = "context" | "assistant";
 
 interface RightPanelState {

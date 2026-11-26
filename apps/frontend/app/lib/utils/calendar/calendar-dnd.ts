@@ -34,12 +34,10 @@ export function parseCalendarTimedDropId(dropId: string) {
     return { dateStr, minutes };
 }
 
-/** `HH:MM` for minutes after midnight. */
 export function minutesToWallTime(minutes: number): WallTime {
     return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
-/** An hour-slot drop: the slot's day, its minutes, and the instant at that wall time on that day in the user's zone. */
 export function getDateFromTimedDropId(dropId: string): { iso: Instant; date: LocalDate; minutes: number } {
     const parsed = parseCalendarTimedDropId(dropId);
     if (!parsed) {

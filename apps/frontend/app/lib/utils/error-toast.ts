@@ -6,9 +6,7 @@ function isNetworkError(error: unknown) {
     return navigator.onLine === false || isNetworkFailure(error);
 }
 
-/** Why it failed, in plain words from the kind of failure, never the raw server or browser text. */
 export function reason(error: unknown): string {
-    // Everyday changes are queued offline, so anything reaching here needs the server.
     if (isNetworkError(error)) return "This needs a connection. Try again once you're back online.";
     if (!(error instanceof ApiErrorResponse) || error.status >= 500 || error.code === "UNPARSEABLE_ERROR") {
         return "Something went wrong on our end. Try again.";
@@ -21,14 +19,8 @@ export function reason(error: unknown): string {
     return "Check the details and try again.";
 }
 
-/**
- * The toast for a failed action: `title` says what didn't happen ("Couldn't create task"),
- * the description says why in plain words, and Copy details hands the user an `errorRef`
- * to send to support.
- */
 export function toastError(error: unknown, title: string) {
     if (error instanceof ApiErrorResponse && error.isRateLimited) {
-        // One toast per burst: repeats replace it instead of stacking.
         toast.error("You're doing that too fast. Wait a moment and try again.", { id: "rate-limit" });
         return;
     }

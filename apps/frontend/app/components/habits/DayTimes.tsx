@@ -12,7 +12,6 @@ const DAY_LABELS: Record<(typeof HABIT_WEEKDAYS)[number], string> = {
     SU: "Sun",
 };
 
-/** Per-weekday times: empty = the usual time, "Any time" = no time that day. */
 export function DayTimes({
     value,
     usualTime,

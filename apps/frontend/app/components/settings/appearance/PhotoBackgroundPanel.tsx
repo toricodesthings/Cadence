@@ -14,9 +14,7 @@ import { toastError } from "../../../lib/utils/error-toast";
 
 interface PhotoBackgroundPanelProps {
     image: BackgroundImage;
-    /** True while a confirmed crop is being compressed and uploaded. */
     uploading: boolean;
-    /** Opens the crop dialog — with a dropped file, or the file browser when omitted. */
     onChoosePhoto: (file?: File) => void;
     onAdjust: (adjustments: Partial<Pick<BackgroundImage, "accent" | "blur" | "brightness">>) => void;
 }
@@ -131,7 +129,6 @@ export function PhotoBackgroundPanel({ image, uploading, onChoosePhoto, onAdjust
         </p>
     );
 
-    // ── Stored photo ──
     const blur = blurPixels(image.blur);
 
     return (
@@ -148,7 +145,6 @@ export function PhotoBackgroundPanel({ image, uploading, onChoosePhoto, onAdjust
                     )}
                     {uploading && <BusyOverlay label="Preparing your photo…" />}
 
-                    {/* Controls */}
                     <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/45 p-1 backdrop-blur-md">
                         <Tip label="Replace photo" side="top">
                             <button

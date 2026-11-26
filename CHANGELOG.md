@@ -6,6 +6,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Place a thought or task on any day with one tap in the Place panel, now on phones, tablets and narrow windows too.
+
+### Changed
+
+- Main pages, task details and the assistant panel open immediately with layout skeletons while loading.
+- Place shows one calm week and says when each day frees up, like "Free after 4:00 PM", instead of busy dots.
+- Place shows each day's events and routines with their own emoji; routines never make a day look full there.
+- In shared lists, tasks you took and your share of untaken ones now count toward how full your days look.
+- Opening a share link without an account starts on sign-up and says it's to see what was shared with you.
+
+### Fixed
+
+- Closing a side panel or sheet puts focus back on the button that opened it.
+- The icon rail scrolls on short windows, so every button stays reachable.
+
 ## [2.7.0] - 2026-11-25
 
 ### Added

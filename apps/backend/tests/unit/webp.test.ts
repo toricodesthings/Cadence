@@ -26,7 +26,6 @@ function webp(...chunks: number[][]): Uint8Array {
     );
 }
 
-/** VP8L payload: signature, 14-bit (w-1), 14-bit (h-1), then filler bits. */
 function vp8l(width: number, height: number): number[] {
     const bits = ((width - 1) & 0x3fff) | (((height - 1) & 0x3fff) << 14);
     return [0x2f, ...u32(bits), 0, 0, 0];
@@ -67,8 +66,8 @@ describe("sanitizeStillWebp", () => {
         const output = clean(input);
 
         expect(chunkTypes(output)).toEqual(["VP8X", "ICCP", "VP8L"]);
-        expect(output[20] & 0x0c).toBe(0); // EXIF + XMP flags cleared
-        expect(output[20] & 0x20).toBe(0x20); // ICC flag kept
+        expect(output[20] & 0x0c).toBe(0);
+        expect(output[20] & 0x20).toBe(0x20);
         const riffSize = output[4] | (output[5] << 8) | (output[6] << 16) | (output[7] << 24);
         expect(riffSize).toBe(output.length - 8);
     });

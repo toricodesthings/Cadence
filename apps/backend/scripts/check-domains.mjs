@@ -1,23 +1,20 @@
-// Domain-boundary guard (AGENTS.md). One domain may import another only through its
-// `*.service.ts` or a module listed in PUBLIC; anything else is a reach into internals.
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, resolve, dirname } from "node:path";
 
 const ROOT = "src/domains";
-/** Non-service modules other domains may use, as `<domain>/<file>`. Keep it short. */
 const PUBLIC = [
-    "ai/tools/", // the MCP server and debug scenarios publish the assistant's tools
+    "ai/tools/",
     "ai/turn",
     "decisions/effort-guess",
     "decisions/placement",
     "decisions/did-you-mean",
     "mcp/oauth",
-    "mcp/code-mode", // account deletion drops the person's Code Mode history
-    "notes/note-collab", // assistant note writes and membership/account changes reset or evict collab rooms
-    "push/reminder-clock", // writes elsewhere (chat, MCP, account deletion) ask the person's reminder clock to rebuild or forget
+    "mcp/code-mode",
+    "notes/note-collab",
+    "push/reminder-clock",
     "settings/background-image",
     "settings/focus-presets",
-    "sharing/list-presence", // list/account deletion evicts open presence sockets
+    "sharing/list-presence",
     "tasks/task-nlp",
 ];
 

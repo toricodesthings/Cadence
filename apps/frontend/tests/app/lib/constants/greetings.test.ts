@@ -10,11 +10,9 @@ describe("getTimeBasedGreeting", () => {
 
     it("follows the part of the day in the user's zone and holds steady within it", () => {
         setUserZone("America/Toronto");
-        // 09:00 and 11:30 Toronto: the same morning line both times.
         const morning = getTimeBasedGreeting(new Date("2026-10-06T13:00:00Z"), "Tori");
         expect(getTimeBasedGreeting(new Date("2026-10-06T15:30:00Z"), "Tori")).toBe(morning);
         expect(withName(GREETINGS.morning)).toContain(morning);
-        // Same instant, Tokyo is at 22:00: a night line.
         setUserZone("Asia/Tokyo");
         expect(withName(GREETINGS.night)).toContain(getTimeBasedGreeting(new Date("2026-10-06T13:00:00Z"), "Tori"));
     });

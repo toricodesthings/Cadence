@@ -78,7 +78,6 @@ describe("declines", () => {
         expect(
             eligibleOffers([slipping("a"), task("w", { state: "WAITING", waitingOn: "S" })], ctx(three)).later,
         ).toEqual(["w"]);
-        // Three Nots on the same task are one task.
         expect(
             eligibleOffers(
                 [slipping("a")],

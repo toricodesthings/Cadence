@@ -50,20 +50,17 @@ describe("who hears of a write", () => {
 
         const byRecipient = Object.fromEntries(events.map((event) => [event.to, event]));
         expect(Object.keys(byRecipient).sort()).toEqual([editorId, ownerId, viewerId].sort());
-        // The writer's own other devices: the row, no tags (the owner's), and the writing tab is named so it isn't pinged.
         expect(byRecipient[editorId]).toMatchObject({ kind: "replan", origin: "tab-1" });
         expect(byRecipient[editorId].changes?.[0]).toMatchObject({
             type: "task",
             task: { id: task.id, title: "Paint it blue", tagIds: [] },
         });
-        // The owner: their clock replans (reminders may have changed) and the row carries their tags.
         expect(byRecipient[ownerId]).toMatchObject({ kind: "replan" });
         expect(byRecipient[ownerId].changes?.[0].task).toMatchObject({
             title: "Paint it blue",
             tagIds: [tag.id],
             updatedBy: editorId,
         });
-        // Another member: a ping with the row carrying only their own tags, never the owner's.
         expect(byRecipient[viewerId]).toMatchObject({ kind: "ping" });
         expect(byRecipient[viewerId].changes?.[0].task).toMatchObject({
             title: "Paint it blue",
@@ -90,7 +87,6 @@ describe("who hears of a write", () => {
     });
 });
 
-/** One person's client over every route that matters, with the live middleware as in `index.ts`. */
 function liveAsWithMiddleware(userId: string, events: Event[]) {
     const clocks = {
         idFromName: (name: string) => name,

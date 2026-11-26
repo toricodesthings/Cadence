@@ -167,7 +167,7 @@ describe("offline window background requests", () => {
 
     it("warms windows from today in the user's zone, keyed by LocalDates only", async () => {
         vi.useFakeTimers({ toFake: ["Date"] });
-        vi.setSystemTime(new Date("2026-03-26T03:00:00Z")); // still Wed 03-25 in Toronto
+        vi.setSystemTime(new Date("2026-03-26T03:00:00Z"));
         setUserZone("America/Toronto");
         read.mockResolvedValue([]);
         const { queryClient, unmount } = setup();

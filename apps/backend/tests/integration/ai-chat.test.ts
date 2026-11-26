@@ -1,8 +1,3 @@
-/**
- * One chat turn through the real route with a scripted model: what the model is
- * sent, what is streamed back, and what is saved. Persistence is mocked; the
- * repo's own SQL is covered in ai-conversation-repo-scoping.
- */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MockLanguageModelV4 } from "ai/test";
 import { APICallError, RetryError, tool, ToolLoopAgent } from "ai";
@@ -41,7 +36,6 @@ import {
 import { getAgentInstance } from "../../src/domains/ai/agent";
 import { aiRoutes } from "../../src/domains/ai/ai.route";
 
-/** No budget store in these tests: run as development (production refuses to run unmetered). */
 const DEV = { DEPLOYMENT_STAGE: "development" };
 
 const CONV_ID = "22222222-2222-4222-8222-222222222222";
@@ -59,7 +53,6 @@ beforeEach(() => {
     vi.mocked(getAgentInstance).mockImplementation(async () => agentOf(model, { turnContext: "Today is Tuesday." }));
 });
 
-/** One turn; returns the drained SSE text and the saved reply. */
 async function chat(extra: Record<string, unknown> = {}, text = "hello there") {
     const { status, response } = await apiAs(
         TEST_USER_ID,
@@ -79,7 +72,6 @@ async function chat(extra: Record<string, unknown> = {}, text = "hello there") {
     return { sse, reply: reply as any, opts: opts as any };
 }
 
-/** The text of each prompt message the model received, by role. */
 const sentToModel = () =>
     model.doStreamCalls[0].prompt.map((m) => [
         m.role,

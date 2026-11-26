@@ -1,10 +1,6 @@
 import { useEffect, useRef, type HTMLAttributes } from "react";
 import { cn } from "../../lib/utils";
 
-/**
- * A horizontal row of chips. Touch scrolls natively; a mouse can wheel it
- * sideways or drag it, and a drag never lands as a click on the chip under it.
- */
 export function ChipScroller({ className, children, ...rest }: HTMLAttributes<HTMLDivElement>) {
     const ref = useRef<HTMLDivElement>(null);
     const drag = useRef<{ x: number; left: number; moved: boolean } | null>(null);
@@ -13,7 +9,6 @@ export function ChipScroller({ className, children, ...rest }: HTMLAttributes<HT
     useEffect(() => {
         const el = ref.current;
         if (!el) return;
-        // Non-passive so a vertical wheel over the row scrolls it instead of the page.
         const onWheel = (e: WheelEvent) => {
             if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || el.scrollWidth <= el.clientWidth) return;
             e.preventDefault();
@@ -47,7 +42,6 @@ export function ChipScroller({ className, children, ...rest }: HTMLAttributes<HT
             }}
             onPointerUp={(e) => {
                 if (drag.current?.moved && ref.current) {
-                    // Swallow the click this drag produces, if any, but never a later one.
                     suppressClick.current = true;
                     setTimeout(() => {
                         suppressClick.current = false;

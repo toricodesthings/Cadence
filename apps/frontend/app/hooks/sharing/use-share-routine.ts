@@ -123,7 +123,6 @@ export function useStopSharingRoutine() {
     });
 }
 
-/** Send a quiet in-app cheer for today, after the undo window closes (R7). */
 export function useCheer() {
     const client = useApiClient();
     const queryClient = useQueryClient();

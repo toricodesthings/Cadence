@@ -130,11 +130,14 @@ A toast answers "where did it go?"
 - Entered text survives a failure, with a clear way to recover.
 - "Saved on this device" and "synced" are different states.
 
-## Startup
+## Startup & Loading
 
 - Startup waits only for the entry route's missing first-screen data (`FIRST_SCREEN` in `use-workspace-startup.ts`).
 - Never wait on decoration, the assistant or optional panels.
 - On-demand UI mounts through `DeferredMount`. Visible lazy content uses `StartupSuspense`.
+- **Instant page switch + layout skeleton:** every main route and side panel (`EditSidePanel`, `AssistantSidePanel`) opens immediately and loads chunks/data asynchronously — never block navigation on data (`clientLoader` data fetches or `useSuspenseQuery`), and never render blank (`fallback={null}` or an empty shell) or `EmptyState` while loading.
+- Primary navigation `<Link>`s use `prefetch="intent"` so route chunks load before click.
+- While loading, every main page and lazy panel renders a `Skeleton` (`components/primitives/Skeleton.tsx`) matching the exact layout of its active view (`list`, `kanban`, `week`, `month`, `day`, `year`, `cards`, detail editor, assistant thread), keeping the outer shell, header and geometry intact to prevent layout shift.
 
 ## Browser E2E
 

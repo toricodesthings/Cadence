@@ -17,7 +17,6 @@ import { shareRoleSchema } from "@cadence/contracts/sharing";
 
 beforeAll(startTestDb);
 
-/** An owner with a list called "Our House", and a way to act as anyone on the sharing routes. */
 async function house() {
     const owner = await createUser({ name: "Ada", image: "data:image/png;base64,AAAA" });
     const list = (await apiAs(owner, "/projects", projectRoutes)("POST", "", { name: "Our House", emoji: "🏠" })).body
@@ -73,7 +72,12 @@ describe("invite links", () => {
         const { list, owner, as, link, join } = await house();
         const url = await link();
         await asOwner((pg) => pg.query("UPDATE share_invites SET expires_at = now() - interval '1 minute'"));
-        expect((await join(await createUser(), url)).status).toBe(410);
+        const late = await join(await createUser(), url);
+        expect(late.status).toBe(410);
+        expect(late.body.error).toMatchObject({
+            code: "LINK_EXPIRED",
+            message: "This link has expired or was reset. Ask for a new one.",
+        });
         expect((await as(await createUser())("GET", `/invite-preview?token=${tokenOf(url)}`)).status).toBe(410);
         await as(owner)("POST", `/${list.id}/invites`);
         const rows = await asOwner(
@@ -127,7 +131,7 @@ describe("joining", () => {
         ]);
         await as(owner)("PATCH", `/${list.id}/members/${me}`, { role: "edit" });
         await as(me)("POST", "/join", { token: tokenOf(url) });
-        expect((await projects("GET", "")).body.data[0].access).toBe("edit"); // a re-join never demotes
+        expect((await projects("GET", "")).body.data[0].access).toBe("edit");
     });
 
     it("makes the person an editor when the link was made for editing", async () => {
@@ -162,7 +166,7 @@ describe("joining", () => {
                 await pg.query("INSERT INTO list_members (list_id, user_id) VALUES ($1, $2)", [list.id, id]);
             }
         });
-        expect((await join(await createUser())).status).toBe(200); // the 20th person
+        expect((await join(await createUser())).status).toBe(200);
         const over = await join(await createUser());
         expect(over.status).toBe(413);
         expect(over.body.error.code).toBe("SHARE_LIMIT");
@@ -228,9 +232,9 @@ describe("people and roles", () => {
         expect((await as(ben)("DELETE", `/${list.id}/members/${cy}`)).status).toBe(403);
         expect((await as(owner)("DELETE", `/${list.id}/members/${ben}`)).status).toBe(200);
         expect((await as(ben)("GET", `/${list.id}/people`)).status).toBe(404);
-        expect((await as(cy)("DELETE", `/${list.id}/members/${cy}`)).status).toBe(200); // Leave
+        expect((await as(cy)("DELETE", `/${list.id}/members/${cy}`)).status).toBe(200);
         expect((await as(cy)("GET", `/${list.id}/people`)).status).toBe(404);
-        expect((await as(owner)("DELETE", `/${list.id}/members/${owner}`)).status).toBe(403); // the owner stops sharing instead
+        expect((await as(owner)("DELETE", `/${list.id}/members/${owner}`)).status).toBe(403);
     });
 
     it("stops sharing: everyone out, every link dead, the list still the owner's", async () => {
@@ -279,7 +283,6 @@ describe("transferring ownership", () => {
         await ownerNotes("PATCH", `/tasks/${task.id}/note`, { body: "Check gasket", expectedVersion: 0 });
         await benTasks("PATCH", `/${task.id}`, { reminderAt: benRem });
 
-        // Seed learning rows for the old owner.
         await asOwner(async (pg) => {
             await pg.query("INSERT INTO task_metrics (task_id, user_id) VALUES ($1, $2)", [task.id, owner]);
             await pg.query(
@@ -292,16 +295,13 @@ describe("transferring ownership", () => {
             ]);
         });
 
-        // Non-owner -> 403; non-member -> 404.
         expect((await as(ben)("POST", `/${list.id}/transfer`, { userId: owner })).status).toBe(403);
         expect((await as(owner)("POST", `/${list.id}/transfer`, { userId: outsider })).status).toBe(404);
 
-        // Transfer to Ben.
         const res = await as(owner)("POST", `/${list.id}/transfer`, { userId: ben });
         expect(res.status).toBe(200);
         expect(res.body.data).toEqual({ listId: list.id });
 
-        // Every row is now Ben's, old owner is an editor, reminders moved both ways.
         expect((await benTasks("GET", `/${task.id}`)).body.data).toMatchObject({
             userId: ben,
             reminderAt: benRem,
@@ -317,7 +317,6 @@ describe("transferring ownership", () => {
             expect.objectContaining({ userId: owner, role: "edit" }),
         ]);
 
-        // Learning rows are gone and invites are cleared.
         const counts = await asOwner(async (pg) => ({
             metrics: (await pg.query("SELECT 1 FROM task_metrics WHERE task_id = $1", [task.id])).rows.length,
             nlp: (await pg.query("SELECT 1 FROM task_nlp_metadata WHERE task_id = $1", [task.id])).rows.length,

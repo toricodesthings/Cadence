@@ -13,15 +13,10 @@ import { today as getToday } from "../../lib/utils/user-zone";
 import { linkedAppIdSchema, parseWebsite, type LinkedAppId } from "@cadence/contracts/app-link";
 import { toastError } from "../../lib/utils/error-toast";
 
-/**
- * The saved app to carry across a conversion. An id this build can't send would drop the choice, so the
- * conversion stops first, before anything is created or trashed.
- */
 function appToCarry(
     stored: string | null | undefined,
     url: string | null | undefined,
 ): { ok: true; id: LinkedAppId | null; url: string | null } | { ok: false } {
-    // A website the check refuses was never valid to store; it is not carried.
     const website = url ? parseWebsite(url) : null;
     if (!stored) return { ok: true, id: null, url: website };
     const parsed = linkedAppIdSchema.safeParse(stored);
@@ -30,7 +25,6 @@ function appToCarry(
     return { ok: false };
 }
 
-/** Fixed happens to you, a Routine lets go when missed, a Task carries over. */
 export type RepeatKind = "fixed" | "routine" | "task";
 
 export function getTaskRepeatKind(task: Pick<Task, "interactionMode">): RepeatKind {
@@ -39,11 +33,6 @@ export function getTaskRepeatKind(task: Pick<Task, "interactionMode">): RepeatKi
 
 const DEFAULT_BLOCK_MINUTES = 60;
 
-/**
- * Moves a repeating item between kinds that live in different tables (task ⇄
- * routine). The new item is created first and the old one is only trashed or
- * archived afterwards, so a failure never loses anything; one toast offers Undo.
- */
 export function useConvertRepeat() {
     const client = useApiClient();
     const queryClient = useQueryClient();

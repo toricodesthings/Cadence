@@ -15,7 +15,6 @@ const env = {} as any;
 
 beforeAll(startTestDb);
 
-/** Cron connects as api_worker, under RLS, like every other Worker path (the test DB's default role). */
 const runCron = (job: (env: any) => Promise<unknown>) => job(env);
 
 async function sql<T = any>(text: string, params: unknown[] = []): Promise<T[]> {
@@ -43,7 +42,6 @@ const overdueLoad = async (userId: string) => {
         ?.overdue_carry_load;
 };
 
-// Overdue is judged on read now (workload signals), by the same rule the old 04:00 pass used.
 describe("workload signals' overdue load", () => {
     it("counts only open, one-off, non-Fixed tasks whose day is before the user's today", async () => {
         const userId = await createUser();
@@ -59,7 +57,7 @@ describe("workload signals' overdue load", () => {
     it("judges by the user's today in their zone, and a timed task by its start", async () => {
         const userId = await createUser();
         await setZone(userId, "Pacific/Kiritimati");
-        const today = new Date(Date.now() + 14 * 3600_000).toISOString().slice(0, 10); // ponytail: test-only day of a +14 zone
+        const today = new Date(Date.now() + 14 * 3600_000).toISOString().slice(0, 10);
         await task(userId, "today", today);
         await task(userId, "timed past", null, { start: new Date(Date.now() - 3 * 24 * 3600_000).toISOString() });
         expect(await overdueLoad(userId)).toBe(1);
@@ -108,11 +106,7 @@ describe("pruning", () => {
             (await sql("SELECT content FROM ai_memories WHERE user_id = $1 ORDER BY content", [userId])).map(
                 (r) => r.content,
             ),
-        ).toEqual([
-            "ended yesterday", // the day after it ended is still inside the grace
-            "ends today",
-            "no end",
-        ]);
+        ).toEqual(["ended yesterday", "ends today", "no end"]);
     });
 
     it("drops usage events past the 90-day retention and keeps newer ones", async () => {

@@ -1,15 +1,12 @@
 import type { CSSProperties } from "react";
 import { cosR, n1, pt, rad, rng, sinR } from "@cadence/geometry";
 
-/* The loading scene's own shapes; the shared deterministic math lives in @cadence/geometry. */
-
 export * from "@cadence/geometry";
 
 export const cssVars = (vars: Record<string, string | number>): CSSProperties => vars as CSSProperties;
 
 const SHAPE_TOKEN = /[A-Za-z]|-?\d*\.?\d+/g;
 
-/** Re-emits an absolute-command path (M/L/Q/C/Z) scaled, rotated and moved to (cx, cy). */
 export function placeShape(shape: string, cx: number, cy: number, scale: number, rotDeg: number): string {
     const a = rad(rotDeg);
     const cos = cosR(a) * scale;
@@ -33,11 +30,6 @@ export function placeShape(shape: string, cx: number, cy: number, scale: number,
     return parts.join(" ");
 }
 
-/**
- * Anime cumulus: a low dome under overlapping puffs that swell toward the middle, plus a small crown.
- * Base puffs are circles cut at the base line (flat underside, no seams); every subpath winds
- * clockwise, so one nonzero-filled path is the whole cloud.
- */
 export function cloud(cx: number, base: number, w: number, h: number, seed: number): string {
     const rand = rng(seed);
     const left = cx - w / 2;
@@ -49,12 +41,10 @@ export function cloud(cx: number, base: number, w: number, h: number, seed: numb
         const swell = 1 - Math.abs(t - 0.5) * 2;
         const r = rEnd + h * 0.26 * swell * (0.8 + rand() * 0.4);
         const x = left + 0.8 * rEnd + (w - 1.6 * rEnd) * t + (rand() - 0.5) * h * 0.12;
-        // Centre 0.6r above the base, so the circle meets the base line 0.8r either side.
         d += `M${pt(x - 0.8 * r, base)}A${n1(r)},${n1(r)} 0 1,1 ${pt(x + 0.8 * r, base)}Z`;
     }
     const crowns = 2 + Math.floor(rand() * 2);
     for (let k = 0; k < crowns; k++) {
-        // Sunk well into the middle puffs so the crown swells out of the body instead of perching on it.
         const x = cx + (k - (crowns - 1) / 2) * h * 0.5 + (rand() - 0.5) * h * 0.15;
         const y = base - h * (0.78 + rand() * 0.08);
         const r = h * (0.28 + rand() * 0.08);
@@ -63,7 +53,6 @@ export function cloud(cx: number, base: number, w: number, h: number, seed: numb
     return d;
 }
 
-/** Leaf details for the falling sprites: the right half (shaded to read as a folded surface) and the veins. */
 export const MAPLE_HALF = "M0,-10L1.6,-5.2L4.4,-6.8L4,-3L8,-5L6.4,-0.8L9.2,2.6L4.6,2.4L4.2,5.6L1,3.6L0.4,4L0,4Z";
 export const MAPLE_VEINS = "M0,4L0,-8.6M0,2.6L6.8,-4.2M0,2.6L-6.8,-4.2M0.2,3.2L8,2.4M-0.2,3.2L-8,2.4";
 export const GINKGO_HALF = "M0,-7L0.8,-9.5C3,-10.5 7,-9 9.5,-6C8,-2 3,1.5 0.3,2.5L0,2.5Z";
@@ -73,8 +62,6 @@ export const MAPLE_LEAF =
     "M0,-10 L1.6,-5.2 L4.4,-6.8 L4,-3 L8,-5 L6.4,-0.8 L9.2,2.6 L4.6,2.4 L4.2,5.6 L1,3.6 L0.4,4 L0.6,9.6 L-0.6,9.6 L-0.4,4 L-1,3.6 L-4.2,5.6 L-4.6,2.4 L-9.2,2.6 L-6.4,-0.8 L-8,-5 L-4,-3 L-4.4,-6.8 L-1.6,-5.2 Z";
 export const GINKGO_LEAF =
     "M-0.4,9 L-0.3,2.5 C-3,1.5 -8,-2 -9.5,-6 C-7,-9 -3,-10.5 -0.8,-9.5 L0,-7 L0.8,-9.5 C3,-10.5 7,-9 9.5,-6 C8,-2 3,1.5 0.3,2.5 L0.4,9 Z";
-
-/* ── Shared shapes: drawn in the near landscape and cut out of the water masks ── */
 
 export const WATER_D = "M0,985 Q480,965 960,985 T1920,985 L1920,1080 L0,1080 Z";
 

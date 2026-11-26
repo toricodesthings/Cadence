@@ -28,7 +28,6 @@ export function SiteHeader({ className }: { className?: string }) {
                     height={40}
                     className="size-9 drop-shadow-[0_0_10px_var(--accent-glow)] sm:size-10"
                 />
-                {/* The smallest phones show the mark alone; the name stays for screen readers */}
                 <span className="max-[359px]:sr-only">{SITE_NAME}</span>
             </a>
             <nav aria-label="Primary" className="flex items-center gap-1 sm:gap-2">
@@ -37,7 +36,6 @@ export function SiteHeader({ className }: { className?: string }) {
                 </ButtonLink>
                 <ButtonLink href={SIGN_UP_URL} data-cloud="" className="max-sm:px-3.5">
                     {SIGN_UP_LABEL}
-                    {/* Phones drop the arrow so the header stays on one line */}
                     <ArrowIcon className="button-icon button-arrow max-sm:hidden" />
                 </ButtonLink>
             </nav>

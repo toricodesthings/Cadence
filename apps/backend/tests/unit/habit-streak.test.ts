@@ -2,14 +2,12 @@ import { describe, expect, it } from "vitest";
 import { rrulestr } from "rrule";
 import { computeCurrentStreak, scanStreak } from "../../src/domains/habits/habits.service";
 
-/** Expand all occurrence date-strings for a rule between creation and `asOf`, ascending. */
 function occurrences(recurrenceRule: string, createdAt: string, asOf: string): string[] {
     const dtstart = new Date(`${createdAt}T00:00:00.000Z`);
     const rule = rrulestr(recurrenceRule, { dtstart });
     return rule.between(dtstart, new Date(`${asOf}T23:59:59.999Z`), true).map((d) => d.toISOString().substring(0, 10));
 }
 
-/** Completed days (and optionally skipped ones) as the date → status map the scan reads. */
 function done(completed: Iterable<string>, skipped: Iterable<string> = []) {
     return new Map<string, "COMPLETED" | "SKIPPED">([
         ...[...skipped].map((d) => [d, "SKIPPED"] as const),
@@ -17,7 +15,6 @@ function done(completed: Iterable<string>, skipped: Iterable<string> = []) {
     ]);
 }
 
-/** Build a `loadResolved` lookup backed by in-memory completed (and skipped) dates. */
 function lookup(completed: Iterable<string>, skipped: Iterable<string> = []) {
     const map = done(completed, skipped);
     return async (dates: string[]) => new Map(dates.filter((d) => map.has(d)).map((d) => [d, map.get(d)!]));
@@ -89,15 +86,15 @@ describe("computeCurrentStreak (cadence-agnostic, bounded)", () => {
         ["bi-weekly", "FREQ=WEEKLY;INTERVAL=2", "2026-01-05", "2026-06-01"],
     ])("builds a multi-step streak for %s habits", async (_name, rule, created, asOf) => {
         const occ = occurrences(rule, created, asOf);
-        expect(occ.length).toBeGreaterThan(1); // sanity: spans many steps
+        expect(occ.length).toBeGreaterThan(1);
 
         const streak = await computeCurrentStreak(rule, created, asOf, lookup(occ));
-        expect(streak).toBe(occ.length); // every occurrence completed → full streak
+        expect(streak).toBe(occ.length);
     });
 
     it("counts long daily streaks across multiple fetch batches", async () => {
         const created = "2026-01-01";
-        const asOf = "2026-04-10"; // 100 days inclusive
+        const asOf = "2026-04-10";
         const occ = occurrences("FREQ=DAILY", created, asOf);
         expect(occ.length).toBe(100);
 
@@ -106,13 +103,10 @@ describe("computeCurrentStreak (cadence-agnostic, bounded)", () => {
     });
 
     it("preserves the prior run when the most recent occurrence is un-completed", async () => {
-        // Simulates the user clearing today's completion: the latest occurrence is
-        // no longer in the completed set. The streak must reflect the prior run,
-        // not collapse to 0.
         const created = "2025-01-15";
         const asOf = "2026-06-15";
         const occ = occurrences("FREQ=MONTHLY", created, asOf);
-        const withoutLatest = occ.slice(0, -1); // drop the most recent occurrence
+        const withoutLatest = occ.slice(0, -1);
 
         const streak = await computeCurrentStreak("FREQ=MONTHLY", created, asOf, lookup(withoutLatest));
         expect(streak).toBe(occ.length - 1);
@@ -122,7 +116,6 @@ describe("computeCurrentStreak (cadence-agnostic, bounded)", () => {
         const created = "2026-01-05";
         const asOf = "2026-06-01";
         const occ = occurrences("FREQ=WEEKLY", created, asOf);
-        // Miss the 3rd-most-recent occurrence; only the two newest count.
         const completed = occ.filter((d) => d !== occ[occ.length - 3]);
 
         const streak = await computeCurrentStreak("FREQ=WEEKLY", created, asOf, lookup(completed));

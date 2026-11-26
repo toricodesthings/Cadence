@@ -38,15 +38,6 @@ interface ManualLocationPatch {
 const APPROXIMATE_STALE_MS = 6 * 60 * 60 * 1000;
 const APPROXIMATE_GC_MS = 24 * 60 * 60 * 1000;
 
-/**
- * The one answer to "where is the user", shared by weather, holidays, and the
- * Location settings tab.
- *
- * Nothing leaves the device until the server copy of settings has loaded, so an
- * empty or stale local cache can never trigger a lookup the user turned off. The
- * browser permission prompt only ever appears from `setMode("precise")` or
- * `requestPrecise()`, which the UI calls from a click.
- */
 export function useUserLocation() {
     const { data: settings, isFetched: settingsFetched } = useSettings();
     const updateSettings = useUpdateSettings();
@@ -84,8 +75,6 @@ export function useUserLocation() {
         [lookupRegion],
     );
 
-    // Precise mode refreshes quietly, and only while the browser already grants
-    // the permission. It never raises the prompt by itself.
     useEffect(() => {
         if (!ready || mode !== "precise") return;
         if (device.permissionState !== "granted" || device.isLocating || device.failed) return;
@@ -103,8 +92,6 @@ export function useUserLocation() {
         requestPrecise,
     ]);
 
-    // Precise mode leans on the approximate location whenever the device can't
-    // (or won't) answer, instead of asking again.
     const preciseFallback =
         mode === "precise" &&
         !device.place &&
@@ -161,8 +148,6 @@ export function useUserLocation() {
               ? new Date(approximateQuery.dataUpdatedAt).toISOString()
               : null;
 
-    // Every explicit choice also records the dismissal, so the one-time notice
-    // can never come back after the user has decided something.
     const saveLocation = useCallback(
         async (patch: { mode?: LocationMode } & ManualLocationPatch) => {
             try {
@@ -184,8 +169,6 @@ export function useUserLocation() {
     const setMode = useCallback(
         async (next: LocationMode) => {
             if (next !== "precise") forgetDevicePlace();
-            // Start the device request before awaiting the save so the permission
-            // prompt stays attached to the click that asked for it.
             const request = next === "precise" ? requestPrecise() : null;
             await saveLocation({ mode: next });
             return request ? request : null;

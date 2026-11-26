@@ -4,10 +4,6 @@ import { Button } from "../primitives/Button";
 import { CardPage } from "./CardPage";
 import { ErrorDetails } from "./ErrorDetails";
 
-/**
- * Default ErrorBoundary export for routes, so a failing view shows a calm
- * recovery card instead of collapsing to the root fallback.
- */
 export function RouteErrorBoundary({ error }: { error: unknown }) {
     const navigate = useNavigate();
 

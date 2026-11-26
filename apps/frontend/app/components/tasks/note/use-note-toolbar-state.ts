@@ -2,7 +2,6 @@ import type { Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
 import { markState, type MarkState } from "./note-commands";
 
-/** A mark's `aria-pressed`: on, off, or mixed across the selection. */
 export const markPressed = (m: MarkState): boolean | "mixed" => (m === "mixed" ? "mixed" : m === "on");
 
 export interface ToolbarState {
@@ -44,7 +43,6 @@ const IDLE: ToolbarState = {
     canRedo: false,
 };
 
-/** Toolbar state from the editor, recomputed per transaction but re-rendering only when a value changed. */
 export function useNoteToolbarState(editor: Editor | null): ToolbarState {
     return (
         useEditorState({

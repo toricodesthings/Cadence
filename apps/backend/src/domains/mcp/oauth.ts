@@ -18,30 +18,13 @@ import { appOrigin, type Env } from "../../types/env";
 import { forgetCodeMode } from "./code-mode";
 import { serveMcp } from "./server";
 
-/**
- * Cadence as an OAuth authorization server for outside assistants (MCP clients).
- *
- * Neon Auth still signs the person in; it never issues these tokens. The flow:
- * 1. The client opens `/authorize` here. We validate it, bind the request to this
- *    browser (`beginUpstream`: a `__Host-` cookie + `state`), and send the browser
- *    to the web app's `/connect?request=<state>`.
- * 2. The signed-in person reviews and approves there; the app's JWT route
- *    (`connections.route.ts`) stores a five-minute approval and hands back
- *    `/oauth/callback?state=…&approval=…`, which the same browser opens.
- * 3. The callback needs that browser's cookie (`finishUpstream`), so an approval
- *    made through someone else's link can't finish in the attacker's browser.
- *    It records the connection row, then `completeAuthorization` issues the grant.
- */
-
 export type McpProps = { userId: string; connectionId: string };
 
 type Approval = { userId: string; requestHash: string; scopes: McpScope[] };
 
 const DEFAULT_MCP_ORIGIN = "https://mcp.cadenceapp.cloud";
-const REQUEST_TTL = 600; // matches the provider's binding cookie
+const REQUEST_TTL = 600;
 const APPROVAL_TTL = 300;
-
-// ── Utility ─────────────────────────────────────────────────────────────────
 
 export const mcpOrigin = (env: Env) => (env.MCP_ORIGIN ?? DEFAULT_MCP_ORIGIN).replace(/\/$/, "");
 const requestKey = (hash: string) => `cadence:mcp-request:${hash}`;
@@ -55,7 +38,6 @@ function oauthOptions(env: Env): OAuthProviderOptions<Env> {
         defaultHandler: { fetch: (request, handlerEnv) => authorizationPages(request, handlerEnv as Env) },
         authorizeEndpoint: "/authorize",
         tokenEndpoint: "/oauth/token",
-        // Claude Code registers itself (DCR); claude.ai can also use CIMD.
         clientRegistrationEndpoint: "/oauth/register",
         clientIdMetadataDocumentEnabled: true,
         scopesSupported: [...MCP_SCOPES],
@@ -66,12 +48,8 @@ function oauthOptions(env: Env): OAuthProviderOptions<Env> {
             bearer_methods_supported: ["header"],
             resource_name: "Cadence",
         },
-        // A dynamically registered client expires 90 days after it was last used (the provider refreshes it on use).
         clientRegistrationTTL: 90 * 24 * 60 * 60,
-        // A connection lasts while it's used: each refresh moves expiry 30 days out.
         refreshTokenIdleTTL: 30 * 24 * 60 * 60,
-        // Tokens are only issued while the connection row is active, so a disconnect whose KV
-        // revoke was missed, or a deleted account, ends the grant at its next refresh.
         tokenExchangeCallback: async ({ userId, grantId, props }) => {
             const connectionId = (props as McpProps).connectionId;
             const [row] = await withRls(getDbClient(env), userId, (tx) =>
@@ -98,7 +76,6 @@ function oauthOptions(env: Env): OAuthProviderOptions<Env> {
 
 const providers = new Map<string, OAuthProvider<Env>>();
 
-/** The provider for this deployment's origin, built once per isolate. */
 export function mcpProvider(env: Env): OAuthProvider<Env> {
     const origin = mcpOrigin(env);
     let provider = providers.get(origin);
@@ -111,7 +88,6 @@ export function mcpProvider(env: Env): OAuthProvider<Env> {
 
 export const oauthApi = (env: Env) => getOAuthApi(oauthOptions(env), env);
 
-/** Paths the MCP origin serves; everything else on the Worker is the app API. */
 const MCP_PATH = /^\/(mcp(\/|$)|authorize$|oauth\/|\.well-known\/oauth-)/;
 
 export function isMcpRequest(request: Request, env: Env): boolean {
@@ -131,7 +107,6 @@ const text = (message: string, status = 400) =>
         headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
     });
 
-/** Expected OAuth failures: redirect only once the client's redirect URI is validated, else render. */
 function authorizationFailure(error: unknown): Response {
     if (error instanceof AuthorizationError && error.redirectUri) {
         const redirect = new URL(error.redirectUri);
@@ -159,9 +134,6 @@ function declined(request: AuthRequest, headers: Headers): Response {
     return new Response(null, { status: 302, headers });
 }
 
-// ── Create ──────────────────────────────────────────────────────────────────
-
-/** Store the person's approval for the callback; returns the URL their browser opens next. */
 export async function approveConnectRequest(
     env: Env,
     userId: string,
@@ -177,18 +149,12 @@ export async function approveConnectRequest(
     return `${mcpOrigin(env)}/oauth/callback?state=${encodeURIComponent(request)}&approval=${id}`;
 }
 
-/** Where the browser goes to tell the client "no": the callback without an approval. */
 export const declineConnectUrl = (env: Env, request: string) =>
     `${mcpOrigin(env)}/oauth/callback?state=${encodeURIComponent(request)}`;
 
-// ── Read ────────────────────────────────────────────────────────────────────
-
-/** The consent page's view of a waiting request, or null once it expired or finished. */
 export async function readConnectRequest(env: Env, request: string): Promise<McpConnectRequest | null> {
     return requireKv(env).get<McpConnectRequest>(requestKey(await hashIdentifier(request)), "json");
 }
-
-// ── Authorization pages (MCP origin, no app JWT) ────────────────────────────
 
 async function authorizationPages(request: Request, env: Env): Promise<Response> {
     const { pathname } = new URL(request.url);
@@ -215,12 +181,9 @@ async function authorize(request: Request, env: Env): Promise<Response> {
         publisher,
         redirectHost,
         localRedirect: /^(localhost|127(\.\d{1,3}){3}|\[::1\])$/.test(redirectHost),
-        // Everything starts ticked (clients differ in what they ask for); the person unticks what they don't want.
         scopes: [...MCP_SCOPES],
     };
 
-    // Consent happens in the web app before anything is issued; this only binds the
-    // request to the browser so the callback can prove it's the same one.
     const { state, headers } = await oauth.beginUpstream(authRequest);
     await kv.put(requestKey(await hashIdentifier(state)), JSON.stringify(view), { expirationTtl: REQUEST_TTL });
     headers.set("Location", `${appOrigin(env)}/connect?request=${encodeURIComponent(state)}`);
@@ -265,12 +228,6 @@ async function callback(request: Request, env: Env): Promise<Response> {
     }
 }
 
-/**
- * One active row per app installation: reconnecting replaces the old row, as the
- * provider replaces the old grant. A registered (DCR) client is one installation
- * whatever its redirect (Claude Code picks a new loopback port each time); a CIMD
- * client id (an https URL) is shared by every installation, told apart by redirect URI.
- */
 async function recordConnection(
     env: Env,
     userId: string,
@@ -297,13 +254,6 @@ async function recordConnection(
     });
 }
 
-// ── Read ────────────────────────────────────────────────────────────────────
-
-/**
- * Connections that still hold a live grant, or null when KV can't say. A row can
- * outlive its grant (the client revoked its token, 30 idle days passed, it
- * re-registered, or consent never finished); only the grant proves it still works.
- */
 export async function liveConnectionIds(env: Env, userId: string): Promise<Set<string> | null> {
     if (!env.OAUTH_KV) return null;
     try {
@@ -319,14 +269,10 @@ export async function liveConnectionIds(env: Env, userId: string): Promise<Set<s
     }
 }
 
-// ── Delete ──────────────────────────────────────────────────────────────────
-
-/** Account deletion: drops every grant this person has given, so no assistant's tokens can refresh (best effort, like `revokeConnection`). */
 export async function revokeAllGrants(env: Env, userId: string): Promise<void> {
     await revokeGrants(env, userId, () => true);
 }
 
-/** Revokes this person's KV grants that `which` picks, so their tokens stop refreshing. Best effort: failures are logged. */
 async function revokeGrants(
     env: Env,
     userId: string,
@@ -345,11 +291,6 @@ async function revokeGrants(
     }
 }
 
-/**
- * Disconnect. The row is what every MCP call checks, so this holds at once; the
- * KV grant is removed too so its tokens stop refreshing (best effort: KV is
- * eventually consistent, and the row already blocks them).
- */
 export async function revokeConnection(env: Env, userId: string, connectionId: string): Promise<boolean> {
     const [row] = await withRls(getDbClient(env), userId, (tx) =>
         tx

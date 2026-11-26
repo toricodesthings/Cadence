@@ -18,7 +18,6 @@ const STATUS_COPY: Record<DeviceStatus, (desktop: boolean) => string> = {
     unsupported: () => "This browser can't show notifications.",
 };
 
-// The browser refused background push; say how to allow it instead of silently staying local.
 const blockedPushCopy = () =>
     isBrave()
         ? "Brave blocks background reminders by default. Turn on “Use Google services for push messaging” in brave://settings/privacy, restart Brave, then try again."
@@ -29,7 +28,6 @@ const MISSING_HELP =
 
 const DEVICE_ICON = { phone: Smartphone, computer: Monitor, "desktop-app": Laptop } as const;
 
-/** What happened to the last test, in words, with the two answers that tell us if it truly arrived. */
 function TestFeedback() {
     const { test, confirmTest, error } = useDeviceDelivery();
     return (
@@ -63,10 +61,6 @@ function TestFeedback() {
     );
 }
 
-/**
- * The overlap Cadence can see but can't resolve on its own: the desktop app and a browser on the
- * same computer both alerting. It says so and offers the one-tap fix rather than guessing.
- */
 function DuplicateHint() {
     const { duplicateHint, setEnabled, disable } = useDeviceDelivery();
     if (!duplicateHint) return null;
@@ -89,7 +83,6 @@ function DuplicateHint() {
     );
 }
 
-/** Notifications on this device: the one place to enable, test and turn off delivery. */
 export function DeviceDeliveryRow() {
     const { status, desktop, busy, test, enable, disable, recheck, runTest, pushIssue } = useDeviceDelivery();
     const blocked = status === "local" && pushIssue === "blocked";
@@ -173,7 +166,6 @@ function DeviceLine({ device, isThis, setEnabled, forget }: { device: Device; is
     );
 }
 
-/** Every device that can show this account's reminders, controllable from any one of them. */
 export function DeviceList() {
     const { devices, thisInstallId, setEnabled, forget } = useDeviceDelivery();
     if (devices.length === 0) return null;
@@ -198,7 +190,6 @@ export function DeviceList() {
     );
 }
 
-/** The quiet offer at the top of the notification center: one tap to enable, or wave it away for good. */
 export function DeviceOffer() {
     const { offerEnable, busy, enable, dismissOffer, desktop } = useDeviceDelivery();
     if (!offerEnable) return null;

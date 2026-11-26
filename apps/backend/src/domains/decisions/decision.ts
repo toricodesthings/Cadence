@@ -1,12 +1,3 @@
-/**
- * Decision adapter: one request of named questions (`choice` or `score`) to an OpenRouter decision model.
- *
- * A decision model returns probabilities over options the app supplies, never text, so it can only
- * pick among the user's real ids. This NEVER throws: no model, a timeout, an error or
- * a low probability all resolve to "no choice" and the caller shows today's screen.
- *
- * Nothing user-written is logged: the `ai_decision` line carries only kind, model, tokens, cost, ms and outcome.
- */
 import { eq } from "drizzle-orm";
 import { users } from "../../db/schema";
 import { addDailySpend, spendWithinCap, withinDailyBudget } from "../../platform/daily-budget";
@@ -23,17 +14,9 @@ export type DecisionKind =
     | "reset_disposition";
 export type DecisionOutcome = "chose" | "abstained" | "below_threshold" | "timeout" | "error";
 
-/** Shown only when the top option's probability is at least this. Used for a model with no entry below. */
 const UNCALIBRATED_THRESHOLD = 0.9;
 
-/**
- * Thresholds per pinned model ID and kind, filled in from the evaluation (tests/evals/decisions.eval.ts).
- * A model with no entry is "uncalibrated" and uses the conservative fallback.
- */
 export const DECISION_THRESHOLDS: Record<string, Partial<Record<DecisionKind, number>>> = {
-    // 2026-10-25 eval (2 passes, held-out confirmed): each the lowest swept threshold above every wrong answer seen.
-    // placement 88% coverage, 0 wrong (0.5 showed 6% wrong); search 97% / 0; priority_said 79% / 0 invented;
-    // effort 83% / 0 guesses where their choices show none.
     "microsoft/microsoft-decision-1-20261009": {
         placement: 0.8,
         search: 0.6,
@@ -46,7 +29,6 @@ export const DECISION_THRESHOLDS: Record<string, Partial<Record<DecisionKind, nu
 const ENDPOINT = "https://openrouter.ai/api/alpha/decisions";
 const MAX_OPTIONS = 255;
 const TIMEOUT_MS = 6_000;
-/** Model decisions per person per day, all kinds together. Past it the app shows today's screen without the suggestion. */
 export const DAILY_DECISIONS = 200;
 
 export function decisionModel(env: Env): string | null {
@@ -54,8 +36,6 @@ export function decisionModel(env: Env): string | null {
     return env.AI_DECISION_MODEL?.trim() || null;
 }
 
-/** The switch in Settings › Tasks & Routines: on unless it is exactly `false`. */
-/** `settings.tasks.intelligence`: the switches every model decision reads first. */
 export async function intelligenceOf(tx: Tx, userId: string) {
     const [user] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId)).limit(1);
     return user?.settings?.tasks?.intelligence;
@@ -67,14 +47,11 @@ export async function smartPlacementOn(tx: Tx, userId: string): Promise<boolean>
 
 export interface DecisionCandidate {
     id: string;
-    /** What the model reads for this option. Short. */
     label: string;
 }
 
 export interface DecisionResult {
-    /** The chosen candidate's id; null when the model abstained or fell short of the threshold. */
     id: string | null;
-    /** The option the model liked best even when it fell short of the threshold (null when "none" won). For calibration. */
     top?: string | null;
     probability: number;
     model: string;
@@ -85,12 +62,10 @@ export interface DecisionResult {
 
 export type DecisionQuestion =
     | { type: "choice"; instructions: string; candidates: DecisionCandidate[] }
-    /** An ordered rubric, lowest first. The result's `id` is the winning level's index as a string ("0"…). */
     | { type: "score"; instructions: string; levels: string[] };
 
 type Answer = { choice?: unknown; probabilities?: Record<string, number> };
 
-/** The winner is the largest probability; fall back to the answer's own `choice` when none are given. */
 function winner(answer: { choice?: unknown; probabilities?: Record<string, number> } | undefined) {
     let best = typeof answer?.choice === "string" ? answer.choice : null;
     let probability = best && answer?.probabilities ? (answer.probabilities[best] ?? 0) : 0;
@@ -100,10 +75,6 @@ function winner(answer: { choice?: unknown; probabilities?: Record<string, numbe
     return { best, probability };
 }
 
-/**
- * Asks every question in one request: one network call, one budget unit, one log line. Each question has its own
- * kind (its own threshold). A question that can't be asked, or a whole request that fails, resolves to null / a non-"chose" outcome.
- */
 export async function decide(
     env: Env,
     input: {
@@ -123,7 +94,6 @@ export async function decide(
     );
     if (!model || names.length === 0) return out;
     if (!(await spendWithinCap(env))) return out;
-    // Counted before the fetch so a flood can't spend tokens. No userHash = not a person's call (the eval).
     if (input.userHash && !(await withinDailyBudget(env, "decision", input.userHash, DAILY_DECISIONS))) return out;
 
     const startedAt = Date.now();
@@ -161,7 +131,6 @@ export async function decide(
         return out;
     };
 
-    // Opaque keys: the model never sees an id, and the user's labels never double as keys.
     const asked = Object.fromEntries(
         names.map((name) => {
             const q = input.questions[name];
@@ -178,7 +147,6 @@ export async function decide(
             headers: { Authorization: `Bearer ${env.OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
             body: JSON.stringify({
                 model,
-                // No fallback providers: the model that answers is the one calibrated above.
                 provider: { allow_fallbacks: false },
                 state: input.state,
                 questions: asked,
@@ -224,7 +192,6 @@ export async function decide(
     }
 }
 
-/** One `choice` question: placement and search. */
 export async function decideChoice(
     env: Env,
     input: {

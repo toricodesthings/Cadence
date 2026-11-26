@@ -5,7 +5,6 @@ import { isSharedEvent, useEventPeople } from "../../hooks/sharing/use-share-eve
 import { Tip } from "../primitives/Tooltip";
 import { AvatarFace, ProfileFace } from "./PersonAvatar";
 
-/** Plain-language summary of who a date is shared with (Decision 8). */
 export function eventShareLabel(
     event: Partial<Pick<SharedEvent, "access" | "members">>,
     people: ListPerson[] | undefined,
@@ -51,7 +50,6 @@ function SharedEventMarkContent({
     );
 }
 
-/** One quiet shared mark for yearly events (Decision 8 & 17): `Users` icon, plus owner avatar when shared with you. */
 export function SharedEventMark({
     event,
     size = 16,
@@ -74,7 +72,6 @@ function EventPeopleLineContent({
 }) {
     const { data: people } = useEventPeople(event);
     const mine = (event.access ?? "owner") === "owner";
-    // The other side: an owner sees who they shared with; someone it was shared with sees the owner.
     const faces = (people ?? []).filter((p) => (p.role === "owner") !== mine).slice(0, 3);
     return (
         <span
@@ -94,7 +91,6 @@ function EventPeopleLineContent({
     );
 }
 
-/** Who a shared date is with: the other people's faces (profile card on hover or tap) and the plain label. */
 export function EventPeopleLine({
     event,
     className = "",

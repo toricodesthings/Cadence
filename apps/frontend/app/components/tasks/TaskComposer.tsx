@@ -34,7 +34,6 @@ import { buildTypedTaskInput } from "../../lib/utils/task/typed-task-input";
 import { trackUsageEvent } from "../../lib/api/track-event";
 import type { Task, TaskPriority } from "@cadence/contracts/task";
 
-/** Id the project board uses for tasks without a section. */
 export const UNSECTIONED_ID = "ungrouped";
 
 export const tasksIn = (tasks: Task[], sectionId: string) =>
@@ -51,12 +50,6 @@ const REPEAT_CHOICES = REPEAT_PRESETS.map((p) => ({ value: p.rrule ?? "", label:
 
 const INITIAL_WHEN = { date: "", allDay: true, start: "09:00", end: "10:00" };
 
-/**
- * The task composer: a parsed title, then when, notes and weight under More.
- * Inside a project it adds a section band; elsewhere a project and tag tray.
- */
-
-/** A timed block sends instants only; an all-day task sends its day, else the default due day. */
 function draftSchedule(fields: NlpParseOutput["fields"], defaultDueDate: Parameters<typeof resolveDefaultDueDate>[0]) {
     const start = fields.scheduledStart;
     return {
@@ -75,14 +68,10 @@ export function useTaskComposer({
     onSubmitted,
 }: {
     open: boolean;
-    /** Siblings for the order index: the project's tasks, or every task. */
     tasks: Task[];
     project?: { id: string; name: string; sectionId: string; onSectionChange: (id: string) => void };
-    /** The tag page it's added from: always applied, can't be untoggled. */
     lockedTag?: { id: string; name: string };
     onSaved: (created: Task | null | undefined) => void;
-    /** Right after submit, before the server answers: the task is already on screen, so a sheet can close.
-     * The draft stays until the save lands, so a failed one reopens with it. */
     onSubmitted?: () => void;
 }): ComposerDraft {
     const { data: sections = [] } = useSections(project?.id);
@@ -110,7 +99,6 @@ export function useTaskComposer({
         return () => cancelAnimationFrame(frame);
     }, [open]);
 
-    // "Send deck Fri 3pm": a typed day and time fill the when, until a field is touched.
     const intelligence = settings?.tasks?.intelligence;
     const dateStyle = settings?.dateTime?.dateStyle ?? "mdy";
     const typedWhen = useTypedWhen(INITIAL_WHEN);
@@ -164,7 +152,6 @@ export function useTaskComposer({
 
     const submit = async () => {
         if (!title.trim() || createTask.isPending) return;
-        // Enter saves what is on screen; only a still-loading parser makes it wait, then re-reads the same text.
         if (!nlp.ready) {
             const draft = await nlp.finalize();
             return send(draft);

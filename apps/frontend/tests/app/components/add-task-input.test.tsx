@@ -2,7 +2,6 @@ import { fireEvent, render, screen, waitFor, configure } from "@testing-library/
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AddTaskInput } from "../../../app/components/tasks/AddTaskInput";
 
-// Real parser and real composers: under four parallel zone runs a wait needs more than the 1s default.
 configure({ asyncUtilTimeout: 5000 });
 
 const createTaskMutateMock = vi.fn();
@@ -59,7 +58,6 @@ function renderInput(projectId?: string) {
     return render(<AddTaskInput tasks={[]} projectId={projectId} />);
 }
 
-// The real parser runs here: the draft that saves is the one on screen.
 const submitText = async (text: string, projectId?: string) => {
     renderInput(projectId);
     const input = screen.getByLabelText("New task title");
@@ -148,7 +146,7 @@ describe("AddTaskInput", () => {
         const input = screen.getByLabelText("New task title");
         fireEvent.focus(input);
         const date = await screen.findByLabelText("Add task date");
-        const tags = screen.getByRole("button", { name: /List/ }); // default quick add shows List, not Tags
+        const tags = screen.getByRole("button", { name: /List/ });
         expect(date.closest(".flex-wrap")).toBe(tags.closest(".flex-wrap"));
         expect(input.closest("form")!.querySelector(":scope > button")).toBeNull();
         fireEvent.change(input, { target: { value: "Pay rent friday" } });

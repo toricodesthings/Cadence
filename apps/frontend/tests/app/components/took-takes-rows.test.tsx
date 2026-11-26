@@ -68,7 +68,6 @@ describe("TookRow", () => {
         rerender(<TookRow taskId="t1" completedAt={null} enabled />);
         fireEvent.click(screen.getByRole("button", { name: "Retry" }));
         expect(mocks.save.mutate).toHaveBeenCalledWith(variables);
-        // A failed Clear (variables null) still offers Retry.
         Object.assign(mocks.save, { variables: null });
         rerender(<TookRow taskId="t1" completedAt={null} enabled />);
         fireEvent.click(screen.getByRole("button", { name: "Retry" }));

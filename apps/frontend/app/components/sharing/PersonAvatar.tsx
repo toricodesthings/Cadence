@@ -13,7 +13,6 @@ const SIZES = {
     32: "size-8 text-xs",
 } as const;
 
-/** The picture, or the first letter of the name, or a quiet person glyph while who they are is loading. */
 export function AvatarFace({
     person,
     size,
@@ -33,10 +32,6 @@ export function AvatarFace({
     );
 }
 
-/**
- * Someone's face as a button: hover (or keyboard focus) shows their profile card, a tap or Enter opens it (a popover,
- * or a sheet on a phone). The 44px touch target is padding around the small face. A `tip` string replaces the hover card.
- */
 export function ProfileFace({
     person,
     userId,
@@ -87,7 +82,6 @@ export function ProfileFace({
     );
 }
 
-/** One person in a shared list. `userId` null = whoever owns the list. */
 export function PersonAvatar({
     projectId,
     userId,
@@ -116,7 +110,6 @@ export function PersonAvatar({
     );
 }
 
-/** A list's owner as a small, non-interactive face (the sidebar's "Shared with me" rows). */
 export function ListOwnerFace({ project, size = 16 }: { project: Project; size?: keyof typeof SIZES }) {
     const { data: people } = useListPeople(project);
     return <AvatarFace person={people?.find((person) => person.userId === project.userId)} size={size} />;

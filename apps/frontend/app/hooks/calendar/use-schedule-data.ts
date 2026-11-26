@@ -13,6 +13,7 @@ import { SETTINGS_DEFAULTS } from "../../types/settings";
 import { applyCalendarClutterFilters, recordByDay, scheduleRanges } from "../../lib/utils/calendar/schedule-model";
 import { canDragScheduleTask } from "../../lib/utils/calendar/schedule-drop";
 import { dayLoad, groupByDate, scheduleKind, taskDays } from "../../lib/utils/calendar/schedule-day";
+import { useLoadShare } from "../sharing/use-load-share";
 import { getDaysInMonth, getWeekDays, isoDay, WEEK_START_INDEX } from "../../lib/utils/date-format";
 import { parseYMD } from "../../lib/utils/calendar/calendar-math";
 import { isPassiveTimetableTask } from "../../lib/utils/task/task-scheduling";
@@ -36,25 +37,21 @@ export function useScheduleData({
     const weekStartsOn = WEEK_START_INDEX[userSettings?.dateTime?.weekStart ?? "Sunday"];
     const ranges = useMemo(() => scheduleRanges(currentDate, weekStartsOn), [currentDate, weekStartsOn]);
     const periodRange = ranges[viewMode];
-    // Phone Day keeps the week strip populated. The query key stays the same as before.
     const queryRange = isPhoneDay ? ranges.week : periodRange;
-    const { data: tasks = EMPTY_TASKS } = useTasks({
+    const { data: tasks = EMPTY_TASKS, isLoading: tasksLoading } = useTasks({
         state: "ACTIVE",
         range: { from: queryRange.start, to: queryRange.end },
     });
-    // From settings, never the module default, so the grid and the header read one week.
     const weekDates = useMemo(() => getWeekDays(currentDate, weekStartsOn), [currentDate, weekStartsOn]);
     const holidayOverlay = useHolidayOverlay({ ...queryRange, viewMode });
     const calendarClutter = userSettings?.calendar?.clutter ?? SETTINGS_DEFAULTS.calendar.clutter;
     const birthdayDate = useMemo<LocalDate | null>(() => {
         const bd = userSettings?.profile?.birthday;
         if (!bd || !isLocalDate(bd)) return null;
-        // bd is a LocalDate: keep its month and day, in the viewed year (Feb 29 falls on Feb 28 in common years)
         const { m, d } = parseYMD(bd);
         return isoDay(year, m, Math.min(d, getDaysInMonth(year, m)));
     }, [userSettings?.profile?.birthday, year]);
 
-    // ── Personal events overlay ────────────────────────────────────────────
     const personalEvents = usePersonalEvents(year, month);
 
     const personalEventsByDateRecord = useMemo<
@@ -69,18 +66,16 @@ export function useScheduleData({
         );
     }, [personalEvents.eventsByDate]);
 
-    // Year has no routines; the other views share the active task range.
     const habitRange = viewMode === "year" ? { start: "", end: "", enabled: false } : { ...queryRange, enabled: true };
     const virtualHabitTasks = useVirtualHabitTasks(habitRange);
-    const { data: rawHabits = [] } = useHabitsRange(habitRange);
+    const { data: rawHabits = [], isLoading: habitsLoading } = useHabitsRange(habitRange);
+    const isLoading = tasksLoading || (habitRange.enabled && habitsLoading);
     const habitById = useMemo(() => new Map(rawHabits.map((habit) => [habit.id, habit])), [rawHabits]);
     const visibleTasks = useMemo(() => applyCalendarClutterFilters(tasks, calendarClutter), [tasks, calendarClutter]);
     const visibleHabitTasks = useMemo(
         () => (calendarClutter.showHabitAnchors === false ? EMPTY_TASKS : virtualHabitTasks),
         [calendarClutter.showHabitAnchors, virtualHabitTasks],
     );
-    // ── Group month tasks by LocalDate ──────────────────────────────────────
-    // Habits are intentionally NOT injected into tasksByDay for month view (Routines has its own month).
     const { datesWithTasks, tasksByDay } = useMemo(() => {
         const byDay = recordByDay(visibleTasks);
         const withTasks = new Set<LocalDate>(Object.keys(byDay));
@@ -94,7 +89,6 @@ export function useScheduleData({
         return Object.fromEntries(holidayOverlay.holidaysByDate.entries());
     }, [holidayOverlay.holidaysByDate]);
 
-    // ── Group week tasks by LocalDate ───────────────────────────────────────
     const weekTasksByDate = useMemo(
         () => recordByDay([...visibleTasks, ...visibleHabitTasks]),
         [visibleHabitTasks, visibleTasks],
@@ -104,13 +98,11 @@ export function useScheduleData({
         () => new Map([...visibleTasks, ...visibleHabitTasks].map((task) => [task.id, task])),
         [visibleTasks, visibleHabitTasks],
     );
-    // ── Phone surface: one grouping (routines included) for marks and lists ─
     const phoneGroups = useMemo(() => {
         if (!isPhone || viewMode === "year") return new Map<LocalDate, Task[]>();
         return groupByDate([...visibleTasks, ...visibleHabitTasks]);
     }, [isPhone, viewMode, visibleHabitTasks, visibleTasks]);
 
-    /** Holiday, birthday and personal-event names by ISO day, for the phone surface. */
     const phoneMarkers = useMemo(() => {
         const map = new Map<LocalDate, string[]>();
         if (!isPhone) return map;
@@ -134,9 +126,10 @@ export function useScheduleData({
         isPhone,
     ]);
 
+    const shareOf = useLoadShare();
     const weekLoads = useMemo(
-        () => new Map(weekDates.map((day) => [day, dayLoad(phoneGroups.get(day) ?? [])])),
-        [phoneGroups, weekDates],
+        () => new Map(weekDates.map((day) => [day, dayLoad(phoneGroups.get(day) ?? [], shareOf)])),
+        [phoneGroups, weekDates, shareOf],
     );
 
     const routineEmoji = useCallback(
@@ -153,7 +146,6 @@ export function useScheduleData({
     });
     const readyTasks = useMemo(() => holdingTasks.filter((task) => !isPassiveTimetableTask(task)), [holdingTasks]);
 
-    /** Today's open, movable tasks: what "Lighten today" may offer. Never fixed blocks or routines. */
     const lightenCandidates = useMemo(
         () =>
             (phoneGroups.get(todayIso) ?? []).filter(
@@ -163,6 +155,7 @@ export function useScheduleData({
     );
 
     return {
+        isLoading,
         visibleTasks,
         visibleHabitTasks,
         allVisibleTasks,

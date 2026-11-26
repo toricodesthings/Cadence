@@ -1,10 +1,8 @@
 import type { ChatStatus, UIMessage } from "ai";
 import { CHAT_IMAGE_MEDIA_TYPE, CHAT_PDF_MEDIA_TYPE, chatImageUrl, parseChatImageUrl } from "@cadence/contracts/ai";
 
-/** A photo or PDF a message carries, by id and kind. */
 export type ChatFileRef = { id: string; mediaType: typeof CHAT_IMAGE_MEDIA_TYPE | typeof CHAT_PDF_MEDIA_TYPE };
 
-/** Image ids a message's file parts reference. */
 export function imageIdsOf(message: UIMessage): string[] {
     return message.parts.flatMap((part) => {
         const id = part.type === "file" ? parseChatImageUrl(part.url) : null;
@@ -12,7 +10,6 @@ export function imageIdsOf(message: UIMessage): string[] {
     });
 }
 
-/** The photos and PDFs a message's file parts reference. */
 export function fileRefsOf(message: UIMessage): ChatFileRef[] {
     return message.parts.flatMap((part) => {
         const id = part.type === "file" ? parseChatImageUrl(part.url) : null;
@@ -30,21 +27,18 @@ export function fileRefsOf(message: UIMessage): ChatFileRef[] {
     });
 }
 
-/** The file part a chat turn carries for an uploaded photo or PDF: a reference, never bytes or a filename. */
 export const imageFilePart = (id: string, mediaType: ChatFileRef["mediaType"] = CHAT_IMAGE_MEDIA_TYPE) => ({
     type: "file" as const,
     mediaType,
     url: chatImageUrl(id),
 });
 
-/** The `status` metadata a persisted assistant turn may carry (§8.3). */
 export function messageStatus(message: UIMessage): string | undefined {
     const meta = message.metadata;
     if (!meta || typeof meta !== "object" || !("status" in meta)) return undefined;
     return typeof meta?.status === "string" ? meta.status : undefined;
 }
 
-/** Only static tool parts participate in Cadence's tool registry. */
 export type AssistantToolPart = Extract<UIMessage["parts"][number], { type: `tool-${string}` }>;
 
 export function isAssistantToolPart(part: UIMessage["parts"][number]): part is AssistantToolPart {
@@ -58,7 +52,6 @@ export function lastMessageIndex(messages: readonly UIMessage[], role: UIMessage
     return -1;
 }
 
-/** Receipts reflect actual reply parts; typing remains until visible reply text arrives. */
 export function describeThread(messages: readonly UIMessage[], status: ChatStatus) {
     const lastUserIndex = lastMessageIndex(messages, "user");
     const lastAssistantIndex = lastMessageIndex(messages, "assistant");

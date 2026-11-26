@@ -13,30 +13,17 @@ import { RoutineTimeChecklist } from "./RoutineTimes";
 import { timeMarksOn, timeProgress } from "@cadence/domain/repeats";
 
 const LONG_PRESS_MS = 450;
-/** Pointer hover on a routine at set times: a beat before opening, and grace to cross into the card. */
 const HOVER_OPEN_MS = 150;
 const HOVER_CLOSE_MS = 200;
 
 const SIZE = {
     md: "h-11 w-11",
     sm: "aspect-square w-full max-w-10",
-    /** Month grids: grows with its column up to the full 44 px. */
     fit: "aspect-square w-full max-w-11",
 } as const;
 
-/** Small cells keep a bigger tap area than they draw, without touching their neighbours. */
 const SM_HIT = "before:absolute before:-inset-[3px] before:rounded-full before:content-['']";
 
-/**
- * One routine on one day. Done is the brightest state (filled with the
- * routine's tone); an open past day rests as a dot and shows its ring on hover
- * or focus, so a missed week isn't a wall of empties; days ahead are faint and
- * can't be logged yet. Click/tap toggles done (touch adds Undo); right-click or
- * long-press opens the day menu (Done · Skip · Clear, then the steps one by one
- * when the routine has them). A partly done day shows "2/3" (the date in month
- * grids) in the open look. A routine at set times opens its time checklist
- * instead (a mouse just hovers it): a whole-day tap would otherwise check off times that haven't come. Keys: Space toggles, S skips, E opens the routine.
- */
 export function RoutineDayCell({
     habit,
     date,
@@ -56,17 +43,12 @@ export function RoutineDayCell({
     log?: HabitLog;
     today: string;
     size?: keyof typeof SIZE;
-    /** Shown in quiet states instead of the mark (the day number in month grids). */
     label?: ReactNode;
-    /** False under low stimulation: no completion bloom. */
     bloom?: boolean;
-    /** Month grids: a week with nothing due greys its dates; weeks with something due read brighter. */
     quiet?: boolean;
     tabIndex?: number;
-    /** Row/column in a roving-focus grid. */
     gridPosition?: { row: number; col: number };
     onEdit?: () => void;
-    /** A look back (Weekly Reset): an open earlier day shows a soft ring in the routine's tone instead of resting as a dot. */
     openRing?: boolean;
 }) {
     const { mutate: resolve } = useResolveHabit(habit.id);
@@ -90,7 +72,6 @@ export function RoutineDayCell({
     const style = { "--routine-tone": routineTone(habit.colorAccent) } as CSSProperties;
     const shape = `${SIZE[size]} relative flex shrink-0 items-center justify-center rounded-full`;
 
-    // Not due that day, paused, or not yet reachable: nothing to log.
     if (!log || date > today) {
         const paused = !log && isRoutinePaused(habit, date);
         return (
@@ -113,7 +94,7 @@ export function RoutineDayCell({
     const set = (next: HabitStatus, undoable = isTouch) => {
         if (timed) return setMenuOpen(true);
         const previous = status ?? "PENDING";
-        if (next === previous && (next !== "PENDING" || !log.stepStatus)) return; // clearing still drops a partly done day's steps
+        if (next === previous && (next !== "PENDING" || !log.stepStatus)) return;
         const previousSteps = log.stepStatus ?? undefined;
         resolve({ targetDate: date, status: next });
         if (next === "COMPLETED" && bloom) setBlooming(true);
@@ -128,7 +109,6 @@ export function RoutineDayCell({
     };
     const toggle = () => set(status === "COMPLETED" ? "PENDING" : "COMPLETED");
 
-    // Hover opens without taking focus and closes on leave; a click or key open stays until dismissed.
     const hoverProps =
         timed && !isTouch
             ? {
@@ -249,7 +229,6 @@ export function RoutineDayCell({
                     className={`${shape} ${look} ${blooming ? "routine-bloom" : ""} ${size === "md" ? "touch-target" : SM_HIT} cursor-pointer select-none ${size === "fit" ? "text-xs" : "text-[11px]"} tabular-nums transition-colors [-webkit-touch-callout:none] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--routine-tone)] focus-visible:ring-offset-2 focus-visible:ring-offset-twilight-void`}
                 >
                     {label != null && (status === "COMPLETED" || status === "SKIPPED") ? (
-                        // Month grids keep the date; a small corner mark says done or skipped.
                         <>
                             <span className={status === "COMPLETED" ? "font-semibold" : ""}>{label}</span>
                             <span

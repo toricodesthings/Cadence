@@ -1,11 +1,5 @@
 import { cosR, cssVars, MAPLE_LEAF, placeShape, pt, rad, rng, sinR, type Pt } from "./loading-geometry";
 
-/*
- * Foreground vantage (autumn only): maple boughs from the top corners and
- * susuki grass at the bottom corners, anchored to the viewport. Depth-of-field
- * blur is baked with SVG filters; sway animates whole SVG boxes.
- */
-
 const LIMB: readonly (readonly [number, number, number])[] = [
     [-30, 20, 17],
     [30, 34, 14],
@@ -65,7 +59,6 @@ function bough(seed: number, mirror: boolean) {
         lower.push(pt(mx(x - ox), y - oy));
     });
     const wood = `M${upper.join("L")}L${lower.reverse().join("L")}Z`;
-    // Twigs as thin filled quads (one fill with the limb) so the bough is a single path.
     const twigsFill = TWIGS.map(([a, b, c]) => {
         const w = 1.3;
         return `M${pt(mx(a[0] - w), a[1])}Q${pt(mx(c[0] - w), c[1])} ${pt(mx(b[0]), b[1])}Q${pt(mx(c[0] + w), c[1])} ${pt(mx(a[0] + w), a[1])}Z`;
@@ -144,7 +137,6 @@ const BOUGH_TR = bough(53, true);
 const GRASS_BL = susuki(61);
 const GRASS_BR = susuki(67);
 
-/** Only the moon-side (top-left) bough gets lit leaves and a rim; the top-right one hangs in shadow. */
 function Bough({ art, side }: { art: ReturnType<typeof bough>; side: "tl" | "tr" }) {
     const moonSide = side === "tl";
     return (
@@ -196,7 +188,6 @@ function Grass({
     );
 }
 
-/** Winter only: a small fir in the bottom-left, snow on its moon-side boughs, a few coloured lights and a star. */
 const FIR_TIERS = "M60,22 L86,66 L34,66 Z M60,44 L94,100 L26,100 Z M60,74 L102,138 L18,138 Z";
 const FIR_SNOW = "M60,22 L38,60 L48,58 Z M60,44 L30,94 L44,90 Z M60,74 L22,132 L40,126 Z";
 const FIR_LIGHTS: readonly (readonly [number, number, string])[] = [
@@ -214,7 +205,6 @@ function XmasTree() {
         <div className="ls-xmas ls-par ls-par-frame" aria-hidden="true">
             <svg viewBox="0 0 120 170">
                 <rect x="55" y="136" width="10" height="24" fill="var(--loading-building-back-base)" />
-                {/* The boughs ruffle in the wind about the trunk base; the trunk stays put */}
                 <g className="ls-xmas-body">
                     <path d={FIR_TIERS} fill="var(--ls-fir)" />
                     <path d={FIR_SNOW} fill="var(--loading-particle-color)" opacity=".7" />

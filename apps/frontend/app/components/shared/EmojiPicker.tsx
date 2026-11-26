@@ -2,7 +2,6 @@ import { useLayoutEffect, useRef } from "react";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
 
-/** emoji-mart reads its colours as "r, g, b" triplets; these Cadence tokens fill them, so it follows every theme and palette. */
 const THEME = {
     "--rgb-background": "var(--color-panel-raised)",
     "--rgb-input": "var(--color-panel)",
@@ -10,7 +9,6 @@ const THEME = {
     "--rgb-accent": "var(--accent-primary)",
 };
 
-/** A resolved CSS colour as a triplet: `rgb(…)` or Chromium's `color(srgb …)` for color-mix tokens. */
 export const toTriplet = (resolved: string): string => {
     const numbers = (resolved.match(/[\d.]+/g) ?? []).map(Number);
     const [r, g, b] = resolved.startsWith("color(") ? numbers.map((n) => Math.round(n * 255)) : numbers;

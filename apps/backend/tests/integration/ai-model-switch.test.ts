@@ -1,9 +1,3 @@
-/**
- * The model is chosen per turn, but only upward: a conversation that opens on the
- * cheap model moves to the standard one the moment the user asks for something
- * complex, and stays there (each model keeps its own prompt cache). Drives the
- * real route with a scripted model.
- */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { agentOf, textModel } from "../helpers/ai";
 import { apiAs, TEST_USER_ID } from "../helpers/app";
@@ -45,13 +39,11 @@ beforeEach(() => {
     vi.mocked(loadConversationMessages).mockResolvedValue([]);
     vi.mocked(truncateMessagesAfter).mockResolvedValue(false);
     vi.mocked(getAgentInstance).mockResolvedValue(agentOf(textModel()));
-    // The thread remembers the model its last turn touched it with.
     vi.mocked(getConversation).mockImplementation(
         async () => ({ model: vi.mocked(touchConversation).mock.calls.at(-1)?.[3]?.model ?? null }) as never,
     );
 });
 
-/** Send one user turn on the shared conversation; returns the model it was built, saved and touched with. */
 async function turn(text: string) {
     const api = apiAs(TEST_USER_ID, "/ai", aiRoutes, ENV);
     const { status } = await api("POST", "/chat", {

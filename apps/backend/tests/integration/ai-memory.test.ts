@@ -4,7 +4,6 @@ import { asOwner, createUser, startTestDb } from "../helpers/db";
 
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
-// The model, the embedding service and consolidation are scripted: no provider is called.
 const model = vi.hoisted(() => ({
     reply: '{"facts":[]}',
     match: null as string | null,
@@ -24,7 +23,6 @@ vi.mock("ai", async (importOriginal) => ({
 }));
 vi.mock("../../src/domains/ai/memory/embedding", async (importOriginal) => ({
     ...(await importOriginal<typeof import("../../src/domains/ai/memory/embedding")>()),
-    // One distinct, deterministic unit-ish vector per text: same text → same vector.
     embedTexts: async (_env: unknown, texts: string[]) => {
         if (model.embedFails) throw new Error("embedding service down");
         return texts.map((text) =>
@@ -32,7 +30,6 @@ vi.mock("../../src/domains/ai/memory/embedding", async (importOriginal) => ({
         );
     },
 }));
-// Consolidation is scripted: "first" names whichever known fact it is offered, otherwise the given id.
 vi.mock("../../src/domains/ai/memory/consolidate", () => ({
     consolidate: async (_env: unknown, _hash: string, items: { near: { id: string }[] }[]) =>
         items.map((item) =>
@@ -99,7 +96,6 @@ const insertFact = (user: string, content: string, source = "chat", extra = "") 
 
 beforeAll(startTestDb);
 beforeEach(async () => {
-    // A test that scripted the model itself must not leak into the next.
     vi.mocked((await import("ai")).generateText).mockImplementation(scriptedReply as never);
     userId = await createUser({ zone: "America/Toronto" });
     memory = apiAs(userId, "/memory", memoryRoutes, env);
@@ -187,7 +183,7 @@ describe("forget and undo", () => {
         expect((await memory("DELETE", `/${id}`)).status).toBe(200);
         let page = (await memory("GET", "")).body.data;
         expect(page.facts).toEqual([]);
-        expect(page.forgotten).toEqual([{ id, label: "Sister Maya's wedding is 2027-06-14" }]); // still inside the Undo window
+        expect(page.forgotten).toEqual([{ id, label: "Sister Maya's wedding is 2027-06-14" }]);
 
         expect((await memory("POST", `/${id}/restore`)).body.data).toMatchObject({
             id,
@@ -222,7 +218,6 @@ describe("forget and undo", () => {
 });
 
 describe("memory's delayed messages (nothing polls)", () => {
-    /** A queue that records what was sent, and the batch the consumer would get. */
     function queue() {
         const sent: Array<{ body: any; delaySeconds?: number }> = [];
         const queueEnv = {
@@ -269,12 +264,12 @@ describe("memory's delayed messages (nothing polls)", () => {
     it("a reading comes back later while the chat is still going, and ends once it has been read", async () => {
         await setMode("basic");
         const q = queue();
-        const lastAt = new Date(Date.now() - 2 * 60_000).toISOString(); // still talking 2 minutes ago
+        const lastAt = new Date(Date.now() - 2 * 60_000).toISOString();
         const chat = await seedChat(userId, ["I have night shifts Tuesday and Thursday."], lastAt);
         q.sent.push({ body: { kind: "learn", userId, at: new Date().toISOString() } });
         await q.deliver();
         expect(q.sent).toEqual([expect.objectContaining({ body: expect.objectContaining({ kind: "learn" }) })]);
-        expect(q.sent[0].delaySeconds).toBeGreaterThan(8 * 60); // 10 idle minutes after the last message, plus margin
+        expect(q.sent[0].delaySeconds).toBeGreaterThan(8 * 60);
         expect(q.sent[0].delaySeconds).toBeLessThanOrEqual(9 * 60);
 
         await sql("UPDATE ai_conversations SET last_message_at = now() - interval '11 minutes' WHERE id = $1", [chat]);
@@ -286,7 +281,7 @@ describe("memory's delayed messages (nothing polls)", () => {
         });
         await q.deliver();
         expect(await facts(userId)).toEqual([expect.objectContaining({ content: "Works night shifts" })]);
-        expect(q.sent).toEqual([]); // the sitting is done: nothing comes back
+        expect(q.sent).toEqual([]);
     });
 
     it("a note save queues a reading under Full only", async () => {
@@ -336,7 +331,7 @@ describe("memory's delayed messages (nothing polls)", () => {
 });
 
 describe("learning from a chat", () => {
-    const now = new Date("2026-10-01T11:00:00Z"); // 07:00 in Toronto, an hour after the chat went quiet
+    const now = new Date("2026-10-01T11:00:00Z");
 
     it("saves a stated fact with the day it was said, then does nothing until there is something new", async () => {
         await setMode("basic");
@@ -394,7 +389,7 @@ describe("learning from a chat", () => {
         const admit = vi.fn(async () => true);
         expect(await learnFromConversation(env, userId, chat, now, admit)).toMatchObject({ saved: 1 });
         expect(await learnFromConversation(env, userId, chat, now, admit)).toMatchObject({ skipped: true });
-        expect(admit).toHaveBeenCalledTimes(1); // nothing new the second time: not counted
+        expect(admit).toHaveBeenCalledTimes(1);
     });
 
     it("drops what the model flags, what cites a message that isn't the person's, and instruction-shaped text", async () => {
@@ -425,7 +420,6 @@ describe("learning from a chat", () => {
         const chat = await seedChat(userId, ["I work afternoons now"]);
         model.reply = JSON.stringify({ facts: [{ from: "m1", kind: "life", text: "Works afternoons", flags: [] }] });
         model.match = id;
-        // The scripted embeddings are unrelated, so the match counts as a change (not a restatement).
         await sql("UPDATE ai_memories SET embedding_model = $2 WHERE id = $1", [id, "qwen/qwen3-embedding-8b"]);
         const vec = `[${Array.from({ length: 512 }, () => 0.1).join(",")}]`;
         await sql("UPDATE ai_memories SET embedding = $2::halfvec WHERE id = $1", [id, vec]);
@@ -450,7 +444,6 @@ describe("learning from a chat", () => {
         };
         expect(await learnFromConversation(env, userId, racing, now)).toMatchObject({ saved: 0 });
         expect(await facts(userId)).toHaveLength(0);
-        // Not advanced: the next run re-reads the same messages.
         expect(
             (await sql("SELECT metadata ? 'memoryCursor' AS has FROM ai_conversations WHERE id = $1", [racing]))[0].has,
         ).toBe(false);
@@ -473,7 +466,6 @@ describe("learning from a chat", () => {
         await memory("DELETE", `/${id}`);
         const chat = await seedChat(userId, ["I work mornings"]);
         model.reply = JSON.stringify({ facts: [{ from: "m1", kind: "life", text: "Works mornings", flags: [] }] });
-        // content_hash is set by the app, not by this raw insert: give the tombstone the same hash the app would.
         await sql("UPDATE ai_memories SET content_hash = $2 WHERE id = $1", [
             id,
             await (await import("../../src/domains/ai/memory/memory-store")).contentHash("Works mornings"),
@@ -496,7 +488,7 @@ describe("learning from a chat", () => {
         model.reply = JSON.stringify({
             facts: [{ from: "m1", kind: "life", text: "Starts work at six", validThrough: null, flags: [] }],
         });
-        model.match = id; // consolidation would rewrite the fact above if learning went on without vectors
+        model.match = id;
         const cursor = async () =>
             (await sql("SELECT metadata ->> 'memoryCursor' AS c FROM ai_conversations WHERE id = $1", [chat]))[0].c;
 
@@ -504,7 +496,7 @@ describe("learning from a chat", () => {
         expect(await learnFromConversation(env, userId, chat, now)).toMatchObject({ failed: true, saved: 0 });
         expect(await cursor()).toBeNull();
         const [kept] = await facts(userId);
-        expect(kept).toMatchObject({ content: "Works mornings", no_embedding: false }); // the vector is not wiped
+        expect(kept).toMatchObject({ content: "Works mornings", no_embedding: false });
 
         model.embedFails = false;
         const retry = await learnFromConversation(env, userId, chat, now);
@@ -533,7 +525,6 @@ describe("learning from a chat", () => {
         await setMode("basic");
         const chat = await seedChat(userId, ["I have night shifts Tuesday and Thursday."]);
         model.reply = JSON.stringify({ facts: [{ from: "m1", kind: "life", text: "Works night shifts", flags: [] }] });
-        // The second run starts and finishes while the first is still waiting on the model.
         model.beforeWrite = async () => {
             model.beforeWrite = undefined;
             await learnFromConversation(env, userId, chat, now);
@@ -581,7 +572,7 @@ describe("the job's work list", () => {
             [[busy, quiet]],
         );
         await seedChat(busy, ["hello"], "2026-10-01T10:00:00Z");
-        await seedChat(quiet, ["hello"], "2026-10-01T10:58:00Z"); // idle for only 2 minutes
+        await seedChat(quiet, ["hello"], "2026-10-01T10:58:00Z");
         const rows = await sql<{ id: string }>("SELECT id FROM memory_user_ids($1::timestamptz) AS t(id)", [
             "2026-10-01T11:00:00Z",
         ]);
@@ -615,7 +606,6 @@ describe("the remember tool", () => {
         await run({ action: "save", kind: "constraint", text: "Friday evenings stay free" }, call);
         expect(await facts(userId)).toHaveLength(1);
 
-        // Said again in another turn: already known, so the receipt has nothing to undo (Undo of a save deletes the row).
         expect(await run({ action: "save", kind: "constraint", text: "Friday evenings stay free" })).toMatchObject({
             ok: true,
             action: "kept",
@@ -805,7 +795,6 @@ describe("recall", () => {
         await add("life", "An old exam on 2026-09-01", { validThrough: "2026-09-01" });
 
         const lines = (await profile()).map((l) => l.content);
-        // The first group in some order, then the filler; never a pattern, never what has ended.
         expect(lines.slice(0, 5).sort()).toEqual([
             "Exam on 2026-10-20",
             "Friday evenings stay free",
@@ -911,7 +900,7 @@ describe("search_past_chats and recall tools", () => {
 });
 
 describe("the nightly pass", () => {
-    const now = new Date("2026-10-12T07:30:00Z"); // 03:30 in Toronto
+    const now = new Date("2026-10-12T07:30:00Z");
     const same = `[${Array.from({ length: 512 }, () => 0.1).join(",")}]`;
     const add = async (
         content: string,
@@ -1023,7 +1012,7 @@ describe("Full: learning from what the person does", () => {
 
     it("records a reschedule and a completion the person makes, with where it was planned, only in Full", async () => {
         const tasksApi = apiAs(userId, "/tasks", taskRoutes, env);
-        const id = await newTask("2026-10-13T12:30:00Z"); // Tuesday 08:30 in Toronto
+        const id = await newTask("2026-10-13T12:30:00Z");
 
         await setMode("basic");
         await tasksApi("PATCH", `/${id}`, { scheduledStart: "2026-10-14T12:30:00Z" });
@@ -1101,14 +1090,12 @@ describe("Full: learning from what the person does", () => {
             )[0],
         ).toMatchObject({ source: "activity", confidence: "observed" });
 
-        // Same signals, same facts: nothing changes. Forget one: it is not added back.
         expect(await nightlyForUser(env, userId, new Date("2026-10-12T07:30:00Z"))).toMatchObject({ activity: 0 });
         const [{ id }] = await sql("SELECT id FROM ai_memories WHERE user_id = $1 AND kind = 'pattern'", [userId]);
         await memory("DELETE", `/${id}`);
         expect(await nightlyForUser(env, userId, new Date("2026-10-12T07:30:00Z"))).toMatchObject({ activity: 0 });
         expect((await facts(userId)).filter((f) => f.status === "active").map((f) => f.kind)).toEqual(["duration"]);
 
-        // The counts move: the forgotten pattern still stays forgotten, and the duration is reworded in place.
         await sql(
             "INSERT INTO ai_memory_signals (user_id, kind, \"on\", bucket) VALUES ($1, 'complete', '2026-10-10', 'evening')",
             [userId],
@@ -1173,13 +1160,11 @@ describe("Full: learning from task notes", () => {
         ]);
         expect(n).toBe(2);
 
-        // Unchanged: nothing is read, so the model isn't asked.
         const { generateText } = await import("ai");
         vi.mocked(generateText).mockClear();
         expect(await learnFromNote(env, userId, taskId, now)).toBeNull();
         expect(generateText).not.toHaveBeenCalled();
 
-        // One new line: only it goes through.
         await sql("UPDATE task_notes SET body = body || E'\\nMy sister prefers early flights' WHERE task_id = $1", [
             taskId,
         ]);
@@ -1195,7 +1180,6 @@ describe("Full: the 90-day catch-up", () => {
     const now = new Date("2026-10-12T07:30:00Z");
 
     it("starts on choosing Full, reads old chats newest first and skips what the live job already covered, then finishes", async () => {
-        // The page names "Done" for a week after: the clock has to be the night's, not today's.
         vi.useFakeTimers({ toFake: ["Date"] });
         vi.setSystemTime(now);
         await setMode("basic");
@@ -1225,7 +1209,7 @@ describe("Full: the 90-day catch-up", () => {
         expect(read).toContain("Thursdays");
         expect(read).not.toContain("Already read this one");
         expect(read).not.toContain("before the 90 days");
-        expect(read.indexOf("peanuts")).toBeLessThan(read.indexOf("Thursdays")); // newest first
+        expect(read.indexOf("peanuts")).toBeLessThan(read.indexOf("Thursdays"));
         expect((await memory("GET", "")).body.data.catchUp).toMatchObject({ progress: 1, doneAt: now.toISOString() });
         const [{ b }] = await sql("SELECT settings #> '{assistant,memoryBackfill}' AS b FROM users WHERE id = $1", [
             userId,
@@ -1307,7 +1291,6 @@ describe("0.37.0: Basic by default and consent", () => {
             (await sql("SELECT u AS id FROM memory_user_ids(now() + interval '15 minutes') AS u")).map((r) => r.id);
         expect(await listed()).toContain(userId);
 
-        // The migration stamps accounts that never chose with the release time.
         await sql(
             `UPDATE users SET settings = jsonb_set(settings, '{assistant}', COALESCE(settings -> 'assistant', '{}'::jsonb) || jsonb_build_object('memoryLearningNotBefore', $2::text)) WHERE id = $1`,
             [userId, new Date(Date.now() + 60_000).toISOString()],
@@ -1359,7 +1342,6 @@ describe("0.37.0: memory that keeps what matters", () => {
         await runMemoryJob(env, new Date());
         expect((await facts(userId))[0]).toMatchObject({ status: "forgotten", no_embedding: false });
 
-        // Same meaning, other words: the scripted embedding is a function of the text, so use the tombstone's own vector.
         const [{ e }] = await sql("SELECT embedding::text AS e FROM ai_memories WHERE id = $1", [id]);
         const vector = JSON.parse(e);
         vi.mocked((await import("../../src/domains/ai/memory/embedding")).embedTexts as any);
@@ -1384,7 +1366,6 @@ describe("0.37.0: memory that keeps what matters", () => {
         });
         expect((await facts(userId)).filter((f) => f.status === "active")).toEqual([]);
 
-        // remember says so too.
         const tools = memoryTools(env, userId, {
             timezone: "America/Toronto",
             currentDate: "2026-10-12T14:00:00Z",
@@ -1461,7 +1442,6 @@ describe("0.37.0: memory that keeps what matters", () => {
         expect(await learnFromConversation(env, userId, before, new Date("2026-10-12T11:00:00Z"))).toMatchObject({
             saved: 0,
         });
-        // Saying it again teaches it again.
         await sql(
             "INSERT INTO ai_messages (id, conversation_id, user_id, role, parts, order_index, created_at) VALUES ($1, $2, $3, 'user', $4::jsonb, 9, now() + interval '1 minute')",
             [crypto.randomUUID(), before, userId, JSON.stringify([{ type: "text", text: "I teach on Thursdays" }])],

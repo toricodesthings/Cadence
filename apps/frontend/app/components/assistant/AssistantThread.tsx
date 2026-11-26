@@ -13,7 +13,6 @@ import { fileRefsOf, messageStatus, describeThread } from "../../lib/ai/messages
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 import type { AssistantConversation } from "../../hooks/ai/use-assistant-conversation";
 
-/** Three soft bouncing dots — the "assistant is typing…" affordance. */
 function TypingDots({ name }: { name: string }) {
     return (
         <span className="flex items-center gap-1 py-0.5" aria-label={`${name} is typing`}>
@@ -34,10 +33,8 @@ const STARTERS = [
     { prompt: "Tidy my inbox", icon: Inbox },
 ];
 
-/** Errors where the same turn can go again without its images. */
 const IMAGE_BLOCKED_CODES = new Set(["AI_IMAGE_LIMITED", "IMAGE_NOT_FOUND"]);
 
-/** How an image error can be got past: resend without the images, or share them again. */
 function imageErrorFix(code: string | null | undefined): "drop" | "share" | null {
     if (!code || code === "AI_RATE_LIMITED" || code === "AI_SPEND_CAPPED") return null;
     return IMAGE_BLOCKED_CODES.has(code) ? "drop" : "share";
@@ -47,7 +44,6 @@ function EmptyThread({ assistantName }: { assistantName: string }) {
     return (
         <div className="flex flex-col items-center px-6 text-center">
             <div className="relative mb-5">
-                {/* A soft pool of accent light behind the sigil. */}
                 <span
                     aria-hidden
                     className="pointer-events-none absolute -inset-10 rounded-full opacity-35 blur-2xl"
@@ -67,7 +63,6 @@ function EmptyThread({ assistantName }: { assistantName: string }) {
     );
 }
 
-/** Starter prompts above the message box on an empty thread: the first act, one tap away. Each maps to a real capability. */
 export function StarterPrompts({ submitText }: { submitText: (text: string) => void }) {
     return (
         <div className="flex shrink-0 flex-col items-start px-3">
@@ -86,19 +81,15 @@ export function StarterPrompts({ submitText }: { submitText: (text: string) => v
     );
 }
 
-/**
- * The last conversation on its way back: its shape (their lines left, yours right) instead of the welcome screen.
- * Fades in only after a beat, so a quick load never flashes it.
- */
 function RestoringThread({ reduceMotion }: { reduceMotion: boolean | null }) {
     const lines = (widths: string[]) => widths.map((w) => <Skeleton key={w} className={`h-3 rounded-full ${w}`} />);
     return (
         <motion.div
             role="status"
             aria-label="Loading your last conversation"
-            initial={{ opacity: 0 }}
+            initial={reduceMotion ? false : { opacity: 0.6 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: reduceMotion ? 0 : 0.15, duration: reduceMotion ? 0 : 0.4, ease: EASE_OUT_EXPO }}
+            transition={{ duration: reduceMotion ? 0 : 0.2, ease: EASE_OUT_EXPO }}
             className="flex flex-col gap-6 pt-2"
         >
             <div className="flex items-start gap-2.5">
@@ -125,7 +116,6 @@ function MessageSegment({
     seg: Segment;
     stale: boolean;
     reply: AssistantConversation["replyToQuestion"] | undefined;
-    /** Set only while this reply's approvals can still be answered. */
     answerApproval: AssistantConversation["answerApproval"] | undefined;
 }) {
     if (seg.kind === "text") return <AssistantText text={seg.text} />;
@@ -176,12 +166,9 @@ function ThreadMessage({
     const isLastAssistant = index === lastAssistantIndex;
     const isLatestUser = isUser && index === lastUserIndex;
     const failed = isUser && messageStatus(message) === "failed";
-    // Only the latest reply can still be answered, and not mid-turn.
     const live = isLastAssistant && !isStreaming;
     const answerable = live && index === messages.length - 1;
 
-    // Failed-turn recovery after reload (§8.3); otherwise the latest
-    // user turn carries the read receipt under its avatar.
     const meta = failed ? (
         <span className="text-[11px] text-twilight-text-muted">
             Didn’t send ·{" "}
@@ -244,7 +231,6 @@ export function AssistantThread({
     contentRef: Ref<HTMLDivElement>;
     showJump: boolean;
     scrollToBottom: () => void;
-    /** What an empty thread shows instead of the panel's welcome (the Weekly Reset's greeting). */
     empty?: ReactNode;
 }) {
     const { messages, status, handleRetry, streamError, imageError, sendWithoutImages, shareImages } = conversation;
@@ -281,7 +267,6 @@ export function AssistantThread({
                             ))}
                         </AnimatePresence>
 
-                        {/* Typed error bubble (mid-stream or pre-stream), persists in the thread */}
                         {streamError ? (
                             <ChatErrorBubble
                                 error={streamError}
@@ -291,7 +276,6 @@ export function AssistantThread({
                             />
                         ) : null}
 
-                        {/* Typing indicator while Cadence composes its reply */}
                         <AnimatePresence>
                             {awaitingReply ? (
                                 <motion.div
@@ -315,7 +299,6 @@ export function AssistantThread({
                 </ScrollArea.Scrollbar>
             </ScrollArea.Root>
 
-            {/* The welcome sits centred in the space, outside the scroll (it has nothing to scroll). */}
             {!conversation.restoring && messages.length === 0 && !empty ? (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
                     <EmptyThread assistantName={assistantName} />

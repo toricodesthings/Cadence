@@ -7,7 +7,7 @@ export { RouteErrorBoundary as ErrorBoundary } from "../components/shared/RouteE
 import { MainLayout } from "../components/layout/MainLayout";
 import { LocationNotice } from "../components/location/LocationNotice";
 import { PageContent } from "../components/layout/PageLayout";
-import { TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
+import { BoardSkeleton, TaskListSkeleton } from "../components/tasks/TaskListSkeleton";
 import { Composer } from "../components/shared/Composer";
 import { ContextualAddOrb } from "../components/shared/ContextualAddOrb";
 import { CaptureInput, useCaptureComposer } from "../components/holding/CaptureInput";
@@ -35,10 +35,8 @@ import { SortMenu } from "../components/shared/SortMenu";
 export default function HomeRoute() {
     const shell = useShellMode();
     const { view, setView } = useRouteViewMode("capture");
-    // Board is a desktop layout; compact shells always get rows.
     const board = view === "kanban";
     const [captureOpen, setCaptureOpen] = useState(false);
-    // The draft lives with the page, so closing the sheet keeps it and needs no discard prompt.
     const { reset: _resetCapture, ...captureComposer } = useCaptureComposer({
         onSaved: () => undefined,
     });
@@ -59,7 +57,6 @@ export default function HomeRoute() {
         [captureFeed.inboxItems, captureFeed.notes],
     );
     const tasksLoading = captureFeed.isLoading;
-    // When Capture is completely empty (New, No day yet, Older, and Notes), the greeting and weather move below.
     const allClear = !tasksLoading && captureFeed.isEmpty;
     const { holdingPanelOpen, holdingPanelWidth, setHoldingPanelWidth, toggleHoldingPanel, railView } =
         useRightPanelStore();
@@ -74,13 +71,11 @@ export default function HomeRoute() {
         },
     });
 
-    // Find the selected inbox item for ClarifySheet
     const selectedInboxItem = useMemo(
         () => inboxItems.find((i) => i.id === selectedInboxItemId) ?? null,
         [inboxItems, selectedInboxItemId],
     );
 
-    // Determine which panel content to show
     const hasPanelContent = selectedTaskId || selectedInboxItem || holdingPanelOpen;
 
     const clearSelection = useCallback(() => {
@@ -88,7 +83,6 @@ export default function HomeRoute() {
         setSelectedInboxItemId(null);
     }, [setSelectedTaskId]);
 
-    /* ── Side panel — ClarifySheet for captures, EditSidePanel for tasks, Overview fallback ── */
     const sidePanel = (
         <EditSidePanelRail
             ariaLabel="Resize Place panel"
@@ -115,7 +109,6 @@ export default function HomeRoute() {
         </EditSidePanelRail>
     );
 
-    // Opening the open task or capture again closes it (and the compact sheet).
     const handleClarifyInboxItem = (itemId: string) => {
         const next = itemId === selectedInboxItemId ? null : itemId;
         setSelectedTaskId(null);
@@ -126,15 +119,6 @@ export default function HomeRoute() {
         }
     };
 
-    /* ── Header: panel toggle for desktop; planner shortcut for mobile ──
-       The arrow collapses/expands whichever pane the shared rail is currently
-       showing — Cadence when it holds the rail, the Review panel otherwise — so
-       it stays in sync with the rail's mutual exclusivity. */
-    // Mirror MainLayout's `assistantInRail`: Cadence holds the rail when it owns
-    // the active tab OR when there's no contextual panel for it to defer to.
-    // Without the second clause the closer mis-fires when the assistant snapped
-    // back into an empty rail (railView still "context") — toggling the calendar
-    // instead of closing Cadence.
     const railShowsAssistant = assistantPanelOpen && (railView === "assistant" || !hasPanelContent);
     const railOpen = Boolean(railShowsAssistant || hasPanelContent);
     const toggleRail = () => {
@@ -164,7 +148,7 @@ export default function HomeRoute() {
                 )}
             </Button>
         </Tip>
-    ) : shell.isCompact ? null : (
+    ) : (
         <Tip label="Place" side="bottom">
             <Button
                 variant="ghost"
@@ -187,7 +171,11 @@ export default function HomeRoute() {
     );
 
     const feed = tasksLoading ? (
-        <TaskListSkeleton />
+        board ? (
+            <BoardSkeleton />
+        ) : (
+            <TaskListSkeleton />
+        )
     ) : (
         <HoldingFeed
             onSelectTask={handleSelectTask}
@@ -210,7 +198,6 @@ export default function HomeRoute() {
                         <StartupSuspense fallback={null}>
                             <LazyFocusViewBar capture />
                         </StartupSuspense>
-                        {/* The right-panel toggle ends the row on wide; elsewhere the menu does. */}
                         {shell.isWide ? null : headerRight}
                         <SortMenu view={view} onViewChange={setView} />
                         {shell.isWide ? headerRight : null}
@@ -257,7 +244,6 @@ export default function HomeRoute() {
                 {shell.isTouch && (
                     <>
                         <ContextualAddOrb directCapture onOpen={() => setCaptureOpen(true)} />
-                        {/* Every return already saved, so closing is "Done", not a discard. */}
                         <Composer
                             open={captureOpen}
                             onClose={() => setCaptureOpen(false)}
@@ -268,7 +254,6 @@ export default function HomeRoute() {
                     </>
                 )}
 
-                {/* ── Mobile overlay — ClarifySheet / EditSidePanel / Overview (C4 fix) ── */}
                 {!shell.isWide && (
                     <ResponsiveOverlayPanel
                         ariaLabel={selectedInboxItem ? "Clarify capture" : selectedTaskId ? "Task details" : "Place"}

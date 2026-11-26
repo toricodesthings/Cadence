@@ -1,7 +1,3 @@
-/**
- * Markdown transform helpers — shared between inline editor and note room.
- */
-
 export type MarkdownAction =
     | "bold"
     | "italic"
@@ -20,9 +16,6 @@ export interface TransformResult {
     selectionEnd: number;
 }
 
-/**
- * Applies a markdown formatting action to a text value given a selection range.
- */
 export function applyMarkdownAction(
     value: string,
     start: number,
@@ -30,24 +23,20 @@ export function applyMarkdownAction(
     action: MarkdownAction,
 ): TransformResult {
     const selected = value.slice(start, end);
-    /** Replaces the selection with `text`, selecting `from`..`to` within it. */
     const insert = (text: string, from: number, to: number): TransformResult => ({
         value: value.slice(0, start) + text + value.slice(end),
         selectionStart: start + from,
         selectionEnd: start + to,
     });
-    /** Drops the `n`-character marks either side of the selection, keeping it selected. */
     const unwrap = (n: number): TransformResult => ({
         value: value.slice(0, start - n) + selected + value.slice(end + n),
         selectionStart: start - n,
         selectionEnd: start - n + selected.length,
     });
-    /** Wraps the selection (or `placeholder`) in `mark`, selecting the words inside. */
     const wrap = (mark: string, placeholder: string) => {
         const inner = selected || placeholder;
         return insert(mark + inner + mark, mark.length, mark.length + inner.length);
     };
-    /** Prefixes each selected line (or one `placeholder` line), selecting from after the first prefix. */
     const lines = (prefix: (i: number) => string, placeholder: string) => {
         const text = selected
             ? selected
@@ -60,12 +49,10 @@ export function applyMarkdownAction(
 
     switch (action) {
         case "bold":
-            // Toggle: unwrap if already bold
             return start >= 2 && value.slice(start - 2, start) === "**" && value.slice(end, end + 2) === "**"
                 ? unwrap(2)
                 : wrap("**", "bold");
         case "italic": {
-            // Toggle: unwrap if already italic (but not bold **)
             const charBefore = start >= 1 ? value[start - 1] : "";
             const charAfter = end < value.length ? value[end] : "";
             const twoBefore = start >= 2 ? value[start - 2] : "";
@@ -75,7 +62,6 @@ export function applyMarkdownAction(
                 : wrap("*", "italic");
         }
         case "code":
-            // Toggle: unwrap if already in backticks
             return start >= 1 && value[start - 1] === "`" && end < value.length && value[end] === "`"
                 ? unwrap(1)
                 : wrap("`", "code");
@@ -102,10 +88,6 @@ export function applyMarkdownAction(
     }
 }
 
-/**
- * Extracts actionable bullet/checklist/numbered lines from markdown.
- * Returns cleaned text suitable for subtask/task creation.
- */
 export function extractActionableLines(markdown: string): string[] {
     if (!markdown) return [];
     return markdown

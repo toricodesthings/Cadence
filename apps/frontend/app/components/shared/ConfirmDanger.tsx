@@ -3,7 +3,6 @@ import * as AlertDialog from "../primitives/AlertDialog";
 import { Button } from "../primitives/Button";
 
 interface ConfirmDangerProps {
-    /** The control that opens the confirm (rendered as the dialog's trigger). */
     trigger: ReactNode;
     title: ReactNode;
     description: ReactNode;
@@ -13,7 +12,6 @@ interface ConfirmDangerProps {
     onOpenChange?: (open: boolean) => void;
 }
 
-/** A "this can't be undone" confirm: say what goes, then Cancel or the red action. */
 export function ConfirmDanger({
     trigger,
     title,

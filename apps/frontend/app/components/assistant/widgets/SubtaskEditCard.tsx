@@ -13,7 +13,6 @@ interface SubtaskEdit {
 
 type ChecklistRow = { label: string; text: string; remove: boolean };
 
-/** "tick off, rename to “New”" */
 function changeText(change: NonNullable<SubtaskEdit["update"]>[number]) {
     return [
         change.isComplete === true ? "tick off" : change.isComplete === false ? "untick" : null,
@@ -23,7 +22,6 @@ function changeText(change: NonNullable<SubtaskEdit["update"]>[number]) {
         .join(", ");
 }
 
-/** One row per change: adds, edits, removals, then a reorder. */
 function checklistRows(input: SubtaskEdit, nameOf: (id: string) => string): ChecklistRow[] {
     const edits = (input.update ?? []).map((change) => {
         const text = `${nameOf(change.subtaskId)}: ${changeText(change)}`;
@@ -41,7 +39,6 @@ function checklistRows(input: SubtaskEdit, nameOf: (id: string) => string): Chec
 
 const onlyAdds = (input: SubtaskEdit) => !input.update?.length && !input.remove?.length && !input.order?.length;
 
-/** A card that only removes steps reads as a delete. */
 const REMOVE_LOOK = {
     tone: "danger" as const,
     primaryGlyph: Trash2,
@@ -54,11 +51,6 @@ function primaryLabelFor(onlyAdds: boolean, onlyRemoves: boolean, kept: number) 
     return onlyRemoves ? `Remove ${kept}` : "Update checklist";
 }
 
-/**
- * Card for `edit_subtasks`: one checklist diff for a task. New steps are marked +,
- * ticks and renames say what changes, removed steps are struck through. Every row
- * can be unticked before approving.
- */
 export function SubtaskEditCard({ ctx }: { ctx: ToolRenderContext<"edit_subtasks"> }) {
     const input: SubtaskEdit = ctx.part?.input ?? {};
     const taskId = input.taskId ?? "";

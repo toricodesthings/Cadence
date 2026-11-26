@@ -1,15 +1,3 @@
-/**
- * RLS-scoped repository for AI conversation / message persistence.
- *
- * Every function takes a `tx: Tx` — the CALLER (the route) wraps these in
- * `withRls` so they all compose inside a single RLS transaction. We never call
- * `withRls`/`getDbClient` here. Queries are additionally scoped with
- * `eq(table.userId, userId)` defensively, matching existing domain style, even
- * though RLS already enforces ownership.
- *
- * We persist UIMessage fidelity only (see message-mapper.ts) — never
- * ModelMessages. See docs/ai_upgrade/08.
- */
 import { and, asc, desc, eq, gt, inArray, isNull, lt, sql } from "drizzle-orm";
 import { aiConversations, aiImages, aiMessages } from "../../../db/schema";
 import type { Tx } from "../../../types/db";
@@ -21,13 +9,9 @@ import { historyWindowStart, MAX_HISTORY_TURNS } from "../safety/input-guard";
 import { nextOrderIndex, uiMessageToRow, type MessageStatus, type StoredMessage } from "./message-mapper";
 import { assertRowRoom } from "../../../platform/storage-ceiling";
 
-/** Default page size when loading a thread's messages. */
 const DEFAULT_MESSAGE_LIMIT = 100;
-/** Hard cap so a malicious/large `limit` cannot fetch an unbounded thread. */
 const MAX_MESSAGE_LIMIT = 500;
-/** Default page size when listing a user's conversations. */
 const DEFAULT_CONVERSATION_LIMIT = 50;
-/** Hard cap for conversation listing. */
 const MAX_CONVERSATION_LIMIT = 100;
 
 function clampLimit(requested: number | undefined, fallback: number, max: number): number {
@@ -36,19 +20,12 @@ function clampLimit(requested: number | undefined, fallback: number, max: number
     return Math.min(Math.floor(requested), max);
 }
 
-/**
- * Resolve an existing conversation (asserting ownership) or create a new one.
- * Throws 404 if a provided `conversationId` does not resolve to an owned row.
- * Returns the row's current `title` so the caller can decide whether to auto-title
- * (a freshly created row, or an existing untitled one, → title is null).
- */
 export async function resolveOrCreateConversation(
     tx: Tx,
     userId: string,
     args: { conversationId?: string; model?: string },
 ): Promise<{ id: string; created: boolean; title: string | null; activeStreamId?: string | null }> {
     if (args.conversationId) {
-        // Locked, so two turns on one thread persist one after the other (no shared order index).
         const [existing] = await tx
             .select({
                 id: aiConversations.id,
@@ -62,9 +39,6 @@ export async function resolveOrCreateConversation(
         if (existing)
             return { id: existing.id, created: false, title: existing.title, activeStreamId: existing.activeStreamId };
 
-        // Create-if-absent with the client-chosen id (still ownership-scoped by
-        // userId) so the client can own the thread id — needed for the sidebar /
-        // load-by-id flow where the frontend mints a UUID before the first turn.
         await assertRowRoom(tx, userId, "conversations");
         const [created] = await tx
             .insert(aiConversations)
@@ -72,8 +46,6 @@ export async function resolveOrCreateConversation(
             .onConflictDoNothing()
             .returning({ id: aiConversations.id });
 
-        // No row back means the id exists but RLS hides it: another user's thread.
-        // Never adopt it, or this user's turns would be written under their id.
         if (!created) throw new AppError(404, "NOT_FOUND", "Conversation not found");
         return { id: created.id, created: true, title: null, activeStreamId: null };
     }
@@ -87,7 +59,6 @@ export async function resolveOrCreateConversation(
     return { id: row.id, created: true, title: null, activeStreamId: null };
 }
 
-/** Lock a thread's row and return its stream pointer (null when idle or not the caller's). */
 export async function lockActiveStream(tx: Tx, userId: string, conversationId: string): Promise<string | null> {
     const [row] = await tx
         .select({ activeStreamId: aiConversations.activeStreamId })
@@ -97,12 +68,6 @@ export async function lockActiveStream(tx: Tx, userId: string, conversationId: s
     return row?.activeStreamId ?? null;
 }
 
-/**
- * Load a thread's messages ordered by `orderIndex` ASC, mapped to
- * StoredMessage. Paginates forward by `beforeOrderIndex` (exclusive). Applies a
- * sane default + max limit. `historyWindow` instead loads what the model replays:
- * the latest rows from {@link historyWindowStart}, at most {@link MAX_HISTORY_TURNS}.
- */
 export async function loadConversationMessages(
     tx: Tx,
     userId: string,
@@ -150,7 +115,6 @@ export async function loadConversationMessages(
     }));
 }
 
-/** Highest `orderIndex` in a thread, or null when empty. */
 async function getLastOrderIndex(tx: Tx, conversationId: string): Promise<number | null> {
     const [row] = await tx
         .select({ orderIndex: aiMessages.orderIndex })
@@ -162,16 +126,6 @@ async function getLastOrderIndex(tx: Tx, conversationId: string): Promise<number
     return row?.orderIndex ?? null;
 }
 
-/**
- * Append an incoming user message idempotently. If a row with this `id` already
- * exists, the insert no-ops (onConflictDoNothing on the PK) and we return
- * `deduped: true` so retries don't duplicate. Status is 'complete'.
- *
- * SECURITY: client-supplied `metadata` is intentionally DISCARDED — a crafted
- * turn could otherwise persist spoofed fields (e.g. `status: "failed"`, forged
- * usage numbers) that the client and model later read back as truth. The only
- * metadata a user row carries is the server-chosen idempotency token.
- */
 export async function appendUserMessage(
     tx: Tx,
     userId: string,
@@ -196,15 +150,9 @@ export async function appendUserMessage(
         .onConflictDoNothing({ target: aiMessages.id })
         .returning({ id: aiMessages.id });
 
-    // No row returned → the PK already existed → this is a deduped retry.
     return { id: msg.id, deduped: inserted.length === 0 };
 }
 
-/**
- * Keep the turn context a user message was sent with (`metadata.turnContext`), so
- * later turns replay that message byte-identical and the provider's prompt cache
- * holds. Server-written only; never sent to the client (`toClientMessage`).
- */
 export async function setTurnContext(
     tx: Tx,
     userId: string,
@@ -225,14 +173,6 @@ export async function setTurnContext(
         );
 }
 
-/**
- * Server-side truncation for the regenerate / edit flows. When the incoming user
- * message id ALREADY exists in the thread, the client is re-running that turn —
- * every row after it (the superseded assistant reply, any later turns the client
- * locally discarded) must be deleted, or a reload resurrects them and the model
- * sees a forked history. Returns true when the anchor message was found (and any
- * later rows were removed).
- */
 export async function truncateMessagesAfter(
     tx: Tx,
     userId: string,
@@ -264,22 +204,12 @@ export async function truncateMessagesAfter(
     return true;
 }
 
-/**
- * Delete every message in a thread (first-message edit — the thread restarts
- * from the new turn). Owner-scoped; the conversation row itself is kept.
- */
 export async function deleteAllMessages(tx: Tx, userId: string, conversationId: string): Promise<void> {
     await tx
         .delete(aiMessages)
         .where(and(eq(aiMessages.conversationId, conversationId), eq(aiMessages.userId, userId)));
 }
 
-/**
- * Upsert the assistant UIMessage row. onConflictDoUpdate on the PK allows status
- * transitions (complete/failed/aborted) and part/metadata refreshes across `onFinish`
- * saves. With `onlyIfAbsent` it only creates the row (a Stop snapshot never overwrites
- * the producer's authoritative save). Order index is placed after the latest message.
- */
 export async function saveAssistantMessage(
     tx: Tx,
     userId: string,
@@ -309,8 +239,6 @@ export async function saveAssistantMessage(
         .values(row)
         .onConflictDoUpdate({
             target: aiMessages.id,
-            // Keep the original orderIndex on update so a re-save (streaming →
-            // complete) does not shuffle the message to the end of the thread.
             set: {
                 parts: row.parts,
                 metadata: row.metadata,
@@ -319,10 +247,6 @@ export async function saveAssistantMessage(
         });
 }
 
-/**
- * Best-effort bump of conversation activity. Failures are logged (`ai_persist_failed`)
- * and swallowed — a touch failure must never break an already-streamed response.
- */
 export async function touchConversation(
     tx: Tx,
     userId: string,
@@ -354,12 +278,6 @@ export async function touchConversation(
     }
 }
 
-/**
- * Set the conversation title ONLY if it is still empty (auto-titler). The
- * `title IS NULL` guard makes this idempotent and concurrency-safe: a retry, a
- * race between turns, or a user's manual rename are all preserved — we never
- * clobber an existing title. Failures are caller-swallowed (titling is best-effort).
- */
 export async function setTitleIfEmpty(tx: Tx, userId: string, conversationId: string, title: string): Promise<void> {
     await tx
         .update(aiConversations)
@@ -373,7 +291,6 @@ export async function setTitleIfEmpty(tx: Tx, userId: string, conversationId: st
         );
 }
 
-/** List a user's conversations, most recent first (nulls last), paginated. */
 export async function listConversations(
     tx: Tx,
     userId: string,
@@ -382,7 +299,6 @@ export async function listConversations(
     const limit = clampLimit(opts?.limit, DEFAULT_CONVERSATION_LIMIT, MAX_CONVERSATION_LIMIT);
 
     const conditions = [eq(aiConversations.userId, userId)];
-    // Cursor paginates by lastMessageAt (older than the cursor timestamp).
     if (opts?.cursor) {
         conditions.push(lt(aiConversations.lastMessageAt, opts.cursor));
     }
@@ -401,7 +317,6 @@ export async function listConversations(
         .limit(limit);
 }
 
-/** Fetch a single owned conversation's metadata, or null if not found. */
 export async function getConversation(
     tx: Tx,
     userId: string,
@@ -414,13 +329,9 @@ export async function getConversation(
             model: aiConversations.model,
             lastMessageAt: aiConversations.lastMessageAt,
             archived: aiConversations.archived,
-            // The client's `resume` needs to know a stream is live.
             activeStreamId: aiConversations.activeStreamId,
-            // …and the most recently finished stream, so a slightly-late re-attach can
-            // grace-replay its still-alive chunk-log instead of popping in the DB text.
             lastStreamId: aiConversations.lastStreamId,
             lastStreamStatus: aiConversations.lastStreamStatus,
-            // "Don't learn from this chat" (metadata.learn = false): memory skips the thread.
             learn: sql<boolean>`coalesce(${aiConversations.metadata} ->> 'learn', 'true') <> 'false'`,
         })
         .from(aiConversations)
@@ -429,7 +340,6 @@ export async function getConversation(
     return row ?? null;
 }
 
-/** Ids and kinds of the images and PDFs attached in a thread (to delete their stored bytes first). */
 export async function listConversationImageIds(tx: Tx, userId: string, conversationId: string) {
     return tx
         .select({ id: aiImages.id, mediaType: aiImages.mediaType })
@@ -437,14 +347,12 @@ export async function listConversationImageIds(tx: Tx, userId: string, conversat
         .where(and(eq(aiImages.userId, userId), eq(aiImages.conversationId, conversationId)));
 }
 
-/** The caller's archived threads, as a subquery. */
 const archivedIds = (tx: Tx, userId: string) =>
     tx
         .select({ id: aiConversations.id })
         .from(aiConversations)
         .where(and(eq(aiConversations.userId, userId), eq(aiConversations.archived, true)));
 
-/** Ids of the images in every archived thread (to delete their stored bytes first). */
 export async function listArchivedImageIds(tx: Tx, userId: string) {
     return tx
         .select({ id: aiImages.id, mediaType: aiImages.mediaType })
@@ -452,10 +360,6 @@ export async function listArchivedImageIds(tx: Tx, userId: string) {
         .where(and(eq(aiImages.userId, userId), inArray(aiImages.conversationId, archivedIds(tx, userId))));
 }
 
-/**
- * Mark a conversation as having a live producing stream. Set when production
- * starts so the resume GET can find the in-flight chunk-log (doc Update 4 §7.6).
- */
 export async function setActiveStream(tx: Tx, userId: string, conversationId: string, streamId: string): Promise<void> {
     await tx
         .update(aiConversations)
@@ -463,14 +367,6 @@ export async function setActiveStream(tx: Tx, userId: string, conversationId: st
         .where(and(eq(aiConversations.id, conversationId), eq(aiConversations.userId, userId)));
 }
 
-/**
- * Compare-and-finalize the active stream pointer: only acts if it still points at
- * *this* stream, so a producer finishing late never clobbers a newer turn's pointer
- * (doc Update 4 §7.6). In one UPDATE it clears `active_stream_id` AND records this
- * stream as `last_stream_id` + its terminal `last_stream_status`, so a slightly-late
- * re-attach can still grace-replay the just-finished chunk-log. The producer's
- * onFinish is the authoritative finalize.
- */
 export async function finalizeActiveStream(
     tx: Tx,
     userId: string,
@@ -490,7 +386,6 @@ export async function finalizeActiveStream(
         );
 }
 
-/** Rename and/or archive a conversation. Throws 404 if not owned/found. */
 export async function renameOrArchiveConversation(
     tx: Tx,
     userId: string,
@@ -510,11 +405,9 @@ export async function renameOrArchiveConversation(
         .returning({ id: aiConversations.id });
 
     if (updated.length === 0) throw new AppError(404, "NOT_FOUND", "Conversation not found");
-    // Switched off: what only this chat taught goes (anything seen again elsewhere stays).
     if (patch.learn === false) await dropChatFacts(tx, userId, [conversationId]);
 }
 
-/** Delete a thread, its messages (cascade) and its image rows; 404 if not theirs. Storage is the caller's job, before this. */
 export async function deleteConversation(tx: Tx, userId: string, conversationId: string): Promise<void> {
     await dropChatFacts(tx, userId, [conversationId]);
     await tx.delete(aiImages).where(and(eq(aiImages.userId, userId), eq(aiImages.conversationId, conversationId)));
@@ -526,7 +419,6 @@ export async function deleteConversation(tx: Tx, userId: string, conversationId:
     if (deleted.length === 0) throw new AppError(404, "NOT_FOUND", "Conversation not found");
 }
 
-/** Delete every archived thread, their messages (cascade) and image rows. Storage is the caller's job, before this. */
 export async function deleteArchivedConversations(tx: Tx, userId: string): Promise<number> {
     await dropChatFacts(tx, userId, archivedIds(tx, userId));
     await tx
@@ -539,7 +431,6 @@ export async function deleteArchivedConversations(tx: Tx, userId: string): Promi
     return deleted.length;
 }
 
-/** The person's last `count` user messages in a thread: what "yes, do that" refers to. Their own words only (`search_text`). */
 export async function lastUserTexts(tx: Tx, userId: string, conversationId: string, count = 1): Promise<string[]> {
     const rows = await tx
         .select({ text: aiMessages.searchText })

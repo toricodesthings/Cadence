@@ -1,7 +1,3 @@
-/**
- * Prompt caching on the wire: what the real OpenRouter provider sends for each
- * chat model, and how the cache usage it reports comes back for metering.
- */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { generateText, tool, type ModelMessage } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
@@ -19,7 +15,6 @@ const usage = {
     prompt_tokens_details: { cached_tokens: 15_000, cache_write_tokens: 500 },
 };
 
-/** Run one call through the real provider; returns the request body it sent and the SDK's usage. */
 async function send(
     modelId: string,
     variant?: CacheVariant,
@@ -93,7 +88,6 @@ describe("prompt caching on the wire", () => {
             expect(body.reasoning).toEqual({ effort: "medium" });
             expect(body.plugins).toEqual([{ id: "file-parser", pdf: { engine: "pdf-text" } }]);
             expect(body.tools.map((t: any) => t.function.name)).toEqual(["get_tasks"]);
-            // One explicit system breakpoint, then the advancing automatic tail: long TTL precedes short TTL.
             expect(body.messages.at(-1).role).toBe("user");
         },
     );
@@ -134,10 +128,8 @@ describe("prompt caching on the wire", () => {
                     .flatMap((m: any) => (Array.isArray(m.content) ? m.content : []))
                     .filter((p: any) => p.cache_control),
             ).toHaveLength(0);
-            // One explicit system breakpoint + the automatic tail = 2 of the 4 slots.
             expect(JSON.stringify(body).match(/"cache_control":/g)).toHaveLength(2);
             expect(body.messages.at(-1).content).toBe("continue");
-            // Wire preservation only: provider lookup/hit behavior is measured by eval:cache.
         },
     );
 
@@ -145,9 +137,7 @@ describe("prompt caching on the wire", () => {
         const { usage: reported, responseBody } = await send("anthropic/claude-haiku-5.5");
 
         expect(reported.inputTokenDetails).toMatchObject({ cacheReadTokens: 15_000, cacheWriteTokens: 500 });
-        // 4,500 plain + 1,500 read + 625 written + 10 out, not the raw 20,010.
         expect(readMeteredTokens({ metadata: { totalUsage: reported } })).toBe(6_635);
-        // The paid cache probe needs the raw allowlisted usage/provider fields; SDK bodies are opt-in.
         expect(responseBody).toMatchObject({
             provider: "Anthropic",
             usage: { prompt_tokens_details: { cache_write_tokens: 500 } },

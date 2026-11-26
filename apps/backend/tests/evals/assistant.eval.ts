@@ -1,15 +1,3 @@
-/**
- * Assistant evals: the real agent (prompt, tools, model) against a real database,
- * from one-line adds to multi-step chains. Each scenario seeds its own user
- * through the tools, sends one or more turns in Full approval mode (writes run),
- * then checks the calls the model chained and the data they left behind.
- *
- * Costs model tokens, so it never runs with `pnpm test`: `pnpm eval:assistant`
- * (needs OPENROUTER_API_KEY in the environment or `.dev.vars`; AI_CHAT_MODEL
- * picks another model; iteration runs each scenario once; `pnpm eval:full`
- * restores repeated checks; `-t "<name>"` picks scenarios). Prints a summary with each scenario's
- * cached share and cost, and writes root `output/evals/assistant-<profile>.json`.
- */
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -30,11 +18,9 @@ import { todayIn } from "@cadence/domain/time";
 import { suggestSteps } from "../../src/domains/ai/steps";
 
 const TZ = "America/Toronto";
-/** Wednesday 2026-09-23, 10:00 in Toronto. */
 const NOW = "2026-09-23T14:00:00.000Z";
 const TODAY = "2026-09-23";
 
-/** `.dev.vars` values, for a local run without exported variables. */
 const vars = evaluationVars();
 const evaluation = evaluationOptions(vars);
 const optimization = optimizationOptions(vars);
@@ -47,7 +33,6 @@ const env = {
     AI_CHAT_MODEL: vars.AI_CHAT_MODEL,
     AI_CHAT_MODEL_BASIC: vars.AI_CHAT_MODEL_BASIC ?? "deepseek/deepseek-v4.1-flash",
 } as unknown as Env;
-/** Iteration defaults to one pass; full restores each scenario's repeat count. */
 const maxRuns = evaluation.assistantRuns;
 
 type Call = { step: number; name: string; input: any; output: any };
@@ -74,21 +59,14 @@ interface Scenario {
     smoke?: boolean;
     memoryMode?: "basic" | "full";
     seed?: (t: Tools) => Promise<Record<string, any>>;
-    /** A function reads the calls so far: a reply to the card the model just showed. */
     turns: (string | { text: string; image: string } | ((calls: Call[]) => string))[];
-    /** The user's clock for this scenario (default: NOW). */
     now?: string;
-    /** Pick each turn's model with the router, as the chat route does (default: always the standard model). */
     routed?: boolean;
-    /** The chat is embedded there (the Weekly Reset's closing chat). */
     surface?: "weekly_reset";
-    /** Model runs to repeat, all of which must pass (luna is not deterministic; the time scenarios run 3). */
     runs?: number;
-    /** Problems found, empty when it passed. */
     check: (run: Run, t: Tools, seeded: Record<string, any>) => Promise<string[]>;
 }
 
-/** Routines made by a seed exist from the start of the month, so past days count as due. */
 const backdateRoutines = (userId: string) =>
     withRls(getTestDb(), userId, (tx: any) =>
         tx.update(habits).set({ createdAt: "2026-09-01T12:00:00.000Z" }).where(eq(habits.userId, userId)),
@@ -134,19 +112,16 @@ async function converse(
     const said: string[] = [];
     for (const turn of turns) {
         const request = typeof turn === "function" ? turn(calls) : typeof turn === "string" ? turn : turn.text;
-        const imageName = typeof turn === "object" ? turn.image : undefined; // a photo or a PDF
+        const imageName = typeof turn === "object" ? turn.image : undefined;
         const image = imageName ? readFileSync(join(__dirname, "../fixtures/ai", imageName)) : null;
-        // Like turnSettings: this message settles a waiting field question, and `said` quotes are checked against their recent messages.
         const answeredField = await withRls(getTestDb(), userId, async (tx: any) => {
             const [row] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId));
             return settleFieldQuestion(tx, userId, row?.settings, request);
         });
         said.push(request);
-        // Like the chat route: the thread's model so far decides whether it may still go basic.
         const modelId = routed
             ? pickChatModel(env, { text: request, attachmentCount: image ? 1 : 0 }, models.at(-1))
             : getModelId(env);
-        // Like dropForeignReasoning: a model never replays another model's reasoning.
         if (models.length && models.at(-1) !== modelId) {
             for (const m of messages)
                 if (m.role === "assistant" && Array.isArray(m.content))
@@ -164,8 +139,6 @@ async function converse(
             userTexts: [...new Set(said.slice(-4))],
             answeredField,
         });
-        // Like production: each user message keeps the context it was sent with, so later turns replay
-        // it unchanged and read the earlier ones from the prompt cache.
         const textContent = `${request}\n\n${turnContext}`;
         messages.push({
             role: "user",
@@ -193,20 +166,16 @@ async function converse(
         outputTokens += result.totalUsage?.outputTokens ?? 0;
         cached += result.totalUsage?.inputTokenDetails?.cacheReadTokens ?? 0;
         written += result.totalUsage?.inputTokenDetails?.cacheWriteTokens ?? 0;
-        // What OpenRouter billed, per step.
         for (const step of result.steps) {
             servedModels.push(step.response.modelId ?? "unknown");
             const observed = (step.providerMetadata as any)?.openrouter?.usage?.cost;
             if (typeof observed === "number" && Number.isFinite(observed)) cost += observed;
             else unknownCostSteps++;
         }
-        // A question asked with `ask_user` reads like one the reply typed: its question and options.
         const asked = calls
             .filter((c) => c.name === "ask_user" && c.step >= steps - result.steps.length)
             .map((c) => `${c.input?.question ?? ""} ${(c.input?.options ?? []).map((o: any) => o.label).join(" / ")}`);
         text = [result.text, ...asked].filter(Boolean).join("\n");
-        // Every step's calls and results, as production replays them from the stored parts: in ai v7
-        // `result.response.messages` is the last step only, which left later turns without the ids.
         messages.push(...result.steps.flatMap((step) => step.response.messages));
     }
     return {
@@ -227,12 +196,10 @@ async function converse(
     };
 }
 
-// ── Checks ──────────────────────────────────────────────────────────────────
 const called = (run: Run, name: string) => run.calls.filter((c) => c.name === name);
 const failedCalls = (run: Run) =>
     run.calls.filter((c) => c.output?.ok === false).map((c) => `${c.name} failed: ${c.output.error}`);
 const need = (ok: boolean, problem: string) => (ok ? [] : [problem]);
-/** Reads that could have gone together but came one step after another. */
 function serialReads(run: Run) {
     const readSteps = [...new Set(run.calls.filter((c) => c.name.startsWith("get_")).map((c) => c.step))];
     return readSteps.length;
@@ -325,7 +292,6 @@ const SCENARIOS: Scenario[] = [
         check: async (run, t) => {
             const [task] = await openTasks(t);
             const detail = await t("get_task_detail", { taskId: task.id });
-            // Either read gives the note: get_task_detail, or get_tasks with details.
             const read =
                 called(run, "get_task_detail")[0] ??
                 called(run, "get_tasks").find(
@@ -919,7 +885,6 @@ const SCENARIOS: Scenario[] = [
         name: "set times: a plain done near a dose takes it",
         level: "simple",
         runs: 3,
-        // 10:00 in Toronto: 9:30 is clearly the one.
         seed: async (t) =>
             t("create_habit", { title: "Pills", recurrenceRule: "FREQ=DAILY", times: ["09:30", "15:00", "21:00"] }),
         turns: ["took my pills"],
@@ -936,7 +901,6 @@ const SCENARIOS: Scenario[] = [
         name: "set times: between doses, ask which",
         level: "simple",
         runs: 3,
-        // 10:00 in Toronto: three hours from 7:00 and from 13:00.
         seed: async (t) =>
             t("create_habit", { title: "Pills", recurrenceRule: "FREQ=DAILY", times: ["07:00", "13:00", "19:00"] }),
         turns: ["took my pills"],
@@ -963,7 +927,6 @@ const SCENARIOS: Scenario[] = [
                 await t("create_habit", { title: "Workout", recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,TU,TH,FR" }),
             ];
             await backdateRoutines(t.userId!);
-            // Streaks look healthy: days done before the two asked about.
             for (const day of ["2026-09-17", "2026-09-18", "2026-09-19", "2026-09-20"]) {
                 await t("log_habit", { habitId: calories.habitId, status: "COMPLETED", targetDate: day });
                 await t("log_habit", { habitId: anki.habitId, status: "COMPLETED", targetDate: day });
@@ -1036,7 +999,6 @@ const SCENARIOS: Scenario[] = [
             });
             return { target: created[0].taskId, decoy: created[1].taskId };
         },
-        // No title holds "comp"; the section does. "yesterday" is wrong: it's due today.
         turns: ["finished my comp assignment that was due yesterday i think"],
         check: async (run, t, { target, decoy }) => {
             const done = (await t("get_tasks", { state: "COMPLETE" })).tasks as any[];
@@ -1046,7 +1008,6 @@ const SCENARIOS: Scenario[] = [
                     "COMP3005 Assignment 1 marked done",
                 ),
                 ...need(!done.some((task) => task.id === decoy), "COMP2000 Assignment 1 left open"),
-                // A wrong day ("yesterday") earns one search before the pick.
                 ...need(run.steps <= 4, `≤4 steps (took ${run.steps})`),
                 ...failedCalls(run).filter((p) => p.startsWith("get_")),
             ];
@@ -1072,7 +1033,6 @@ const SCENARIOS: Scenario[] = [
         },
         turns: ["done with the comp assignment due today"],
         check: async (run, t) => [
-            // A held set_task_state changes nothing, so check the data, not the calls.
             ...need(!(await t("get_tasks", { state: "COMPLETE" })).tasks.length, "nothing marked done on a guess"),
             ...need(
                 called(run, "ask_user").length === 1 && /3005/.test(run.text) && /2000/.test(run.text),
@@ -1140,7 +1100,6 @@ const SCENARIOS: Scenario[] = [
             ];
         },
     },
-    // ── Time model (0.26.3): a deadline is a day; a time means a timed block or a reminder ──
     {
         name: "deadline with a time is a day plus a reminder",
         level: "simple",
@@ -1167,7 +1126,7 @@ const SCENARIOS: Scenario[] = [
         name: "what's due today, at 11:30 PM",
         level: "simple",
         runs: 3,
-        now: "2026-09-24T03:30:00.000Z", // 11:30 PM Wednesday 2026-09-23 in Toronto, already Thursday in UTC
+        now: "2026-09-24T03:30:00.000Z",
         seed: async (t) => {
             await t("create_tasks", {
                 tasks: [
@@ -1193,7 +1152,7 @@ const SCENARIOS: Scenario[] = [
         name: "move a class across the DST change",
         level: "medium",
         runs: 3,
-        now: "2026-10-30T14:00:00.000Z", // Friday 10:00 AM EDT; clocks go back on Sunday 2026-11-01
+        now: "2026-10-30T14:00:00.000Z",
         seed: async (t) => {
             await t("create_tasks", {
                 tasks: [
@@ -1256,7 +1215,6 @@ const SCENARIOS: Scenario[] = [
         ],
     },
     {
-        // 0.37.0 H: Find a time reads the calendar and proposes; placing is a separate, approved write.
         name: "find a time tomorrow uses find_time and writes nothing unasked",
         level: "medium",
         runs: 3,
@@ -1298,7 +1256,6 @@ const SCENARIOS: Scenario[] = [
         },
     },
     {
-        // 0.38.0 F2: "plan my day" lays the day out as a card (fit_day) and places nothing; the card's Place is the person's tap.
         name: "plan my day uses fit_day, writes nothing and never moves timed tasks",
         level: "medium",
         runs: 3,
@@ -1342,7 +1299,6 @@ const SCENARIOS: Scenario[] = [
             ];
         },
     },
-    // 0.42.0: the Weekly Reset's closing chat. Short replies, one fit_day for the week, nothing written unasked.
     ...((): Scenario[] => {
         const sentences = (text: string) => text.split(/[.!?](\s|$)/).filter((p) => p.trim().length > 1).length;
         const week = async (t: Tools) => {
@@ -1357,7 +1313,6 @@ const SCENARIOS: Scenario[] = [
             await t("create_habit", { title: "Gym", recurrenceRule: "FREQ=WEEKLY;BYDAY=TU,TH" });
             return {};
         };
-        // The reply alone: a question asked with ask_user (and its options) is appended to run.text by converse.
         const reply = (run: Run) =>
             called(run, "ask_user")
                 .reduce((text, c) => text.replace(String(c.input?.question ?? ""), ""), run.text)
@@ -1489,7 +1444,6 @@ const SCENARIOS: Scenario[] = [
         ];
     })(),
     {
-        // 0.38.0 F2: one task at one time stays find_time; the whole-day card is for the whole day.
         name: "put the essay in tonight uses find_time, not fit_day",
         level: "simple",
         runs: 3,
@@ -1548,7 +1502,6 @@ const SCENARIOS: Scenario[] = [
             ];
         },
     },
-    // ── 0.39.0: priority and effort only from their words; field questions (A2) ──
     {
         name: "priority from words: asap is Urgent with its quote, a deadline sets none",
         level: "simple",
@@ -1780,7 +1733,6 @@ const SCENARIOS: Scenario[] = [
     },
 ];
 
-// ── Runner ──────────────────────────────────────────────────────────────────
 type Totals = Pick<
     Run,
     | "steps"
@@ -1807,14 +1759,11 @@ const report: ({
 } & Totals)[] = [];
 const warmups: Run[] = [];
 let failedWarmups = 0;
-/** The share of input read from the prompt cache (input includes cached tokens). */
 const cachedShare = (r: Totals) => (r.tokens ? `${Math.round((r.cached / r.tokens) * 100)}%`.padStart(4) : "  -");
 
 describe.skipIf(!env.OPENROUTER_API_KEY)("assistant evals", () => {
     beforeAll(async () => {
         await startTestDb();
-        // One turn first writes the static prefix (tools + system prompt, the same for every
-        // scenario) to the prompt cache; otherwise the concurrent first turns all miss and each pays to write it.
         for (const variant of variants) {
             try {
                 warmups.push(await converse(await createUser({ zone: TZ }), ["hi"], NOW, false, variant));
@@ -1948,7 +1897,6 @@ describe.skipIf(!env.OPENROUTER_API_KEY)("assistant evals", () => {
         }
 });
 
-/** 0.38.0 F3: Suggest steps against the configured chat model, each case three times. */
 const STEP_CASES = [
     {
         name: "a concrete task",

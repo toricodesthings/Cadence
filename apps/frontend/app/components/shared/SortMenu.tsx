@@ -14,12 +14,10 @@ interface SortMenuAction {
     onSelect: () => void;
     icon: typeof Sparkles;
     danger?: boolean;
-    /** Shown in place, greyed out with this reason, rather than hidden: the menu keeps its shape. */
     disabledReason?: string;
 }
 
 interface SortMenuProps {
-    /** Omit on routes that sort elsewhere (Capture orders from its Focus menu). */
     mode?: SortMode;
     onModeChange?: (mode: SortMode) => void;
     view?: ViewMode;

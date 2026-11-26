@@ -7,18 +7,6 @@ import { Button, type ButtonVariant } from "../../primitives/Button";
 import { Skeleton } from "../../primitives/Skeleton";
 import { EASE_OUT_EXPO } from "../../../lib/constants/motion";
 
-/**
- * The shared proposal-card shell (design §3). Every `propose_*` card is the same
- * sanctuary "room": eyebrow + Sparkles-class glyph, an archetype body slot, a
- * two-button action row, and the five states (streaming-skeleton / interactive /
- * resolving / resolved-locked / write-error).
- *
- * Token notes per design §3.2 + §11:
- *  - accent regions use `--accent-primary` indirection (recolor under [data-palette]),
- *  - `glow-accent` not `glow-lantern` so non-Lantern palettes glow in-hue,
- *  - danger/complete swap the frame tint and drop the glow.
- */
-
 export type ProposalCardState = "input-streaming" | "input-available" | "resolving" | "output-available";
 
 export type CardTone = "accent" | "danger" | "success";
@@ -35,7 +23,6 @@ const TONE_EYEBROW: Record<CardTone, string> = {
     success: "text-feedback-success",
 };
 
-/** Streaming-skeleton state (§3.3 A) — keeps layout stable, no interaction yet. */
 function SkeletonCard() {
     return (
         <div className="mt-2 w-full rounded-2xl border border-twilight-border bg-twilight-deep/50 p-3" aria-busy="true">
@@ -52,7 +39,6 @@ function SkeletonCard() {
     );
 }
 
-/** Resolved / locked footer (§3.3 D) — italic, muted, never interactive. */
 function ResolvedFooter({ committed, text }: { committed: boolean; text: string }) {
     return (
         <div className="mt-2 flex w-full items-center gap-1.5 rounded-xl border border-twilight-border bg-twilight-surface p-3 text-xs italic text-twilight-text-muted">
@@ -94,9 +80,7 @@ export function ProposalCard({
     primaryGlyph?: LucideIcon;
     primaryVariant?: ButtonVariant;
     declineLabel?: string;
-    /** True while the REST confirm write is in flight (§3.3 C). */
     resolving?: boolean;
-    /** A calm inline line when the REST write failed (§3.3 E); offers a retry. */
     writeError?: string | null;
     resolvedCommitted?: boolean;
     resolvedText?: string;
@@ -115,9 +99,6 @@ export function ProposalCard({
         exit: reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 },
     };
 
-    // A single `layout` parent morphs height as the card moves between phases
-    // (streaming skeleton → interactive → resolved footer), so the thread never
-    // jumps when a proposal settles. AnimatePresence crossfades the contents.
     return (
         <motion.div layout={!reduceMotion} transition={{ duration: 0.26, ease: EASE_OUT_EXPO }}>
             <AnimatePresence mode="wait" initial={false}>
@@ -191,10 +172,6 @@ export function ProposalCard({
     );
 }
 
-/**
- * Identity block (§3.2, P8) — an object glyph + canonical title with the accent
- * left-rule so the user always knows *what* they're approving.
- */
 export function IdentityBlock({
     title,
     subtitle,
@@ -205,7 +182,6 @@ export function IdentityBlock({
     title: string;
     subtitle?: React.ReactNode;
     tone?: CardTone;
-    /** Small glyph before the title (e.g. priority level) — same spot TaskCard marks it. */
     icon?: LucideIcon;
     iconClassName?: string;
 }) {
@@ -228,7 +204,6 @@ export function IdentityBlock({
     );
 }
 
-/** A small meta pill (date / duration / project), design §3.2. */
 export function MetaPill({ icon: Icon, children }: { icon: LucideIcon; children: React.ReactNode }) {
     return (
         <span className="flex items-center gap-1 rounded bg-twilight-elevated px-1.5 py-0.5 text-[11px] text-twilight-text-soft">
@@ -238,15 +213,12 @@ export function MetaPill({ icon: Icon, children }: { icon: LucideIcon; children:
     );
 }
 
-/** One field a card shows, as a pill. */
 export interface Pill {
     icon: LucideIcon;
     label: React.ReactNode;
 }
-/** A pill, or nothing for a field left alone. */
 export type MaybePill = Pill | null | false | 0 | "" | undefined;
 
-/** Pills in order; a field left alone shows nothing. */
 export function MetaPills({ pills }: { pills: MaybePill[] }) {
     return (
         <>
@@ -261,7 +233,6 @@ export function MetaPills({ pills }: { pills: MaybePill[] }) {
     );
 }
 
-/** A tag in its own colour; `mark` shows it being added or removed. */
 export function TagPill({ tag, mark }: { tag: Tag; mark?: "add" | "remove" }) {
     const color = resolveTagColor(tag.color, "var(--color-twilight-text-soft)");
     const Mark = mark === "remove" ? Minus : Plus;

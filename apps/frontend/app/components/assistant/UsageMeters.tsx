@@ -10,10 +10,6 @@ import { cn } from "../../lib/utils";
 
 const ICONS: Record<UsageMeter["id"], LucideIcon> = { "5h": Hourglass, "7d": CalendarRange, images: Image };
 
-/**
- * The assistant's limits as filling bars (5-hour, weekly, photos). No shell of
- * its own: the panel's usage overlay and Settings › Assistant both host it.
- */
 export function UsageMeters({
     usage,
     isLoading,
@@ -24,7 +20,6 @@ export function UsageMeters({
     className?: string;
 }) {
     const reduceMotion = useReducedMotionSetting();
-    // Re-render on a slow tick so "Resets in 2 hours 14 minutes" keeps counting down.
     const [now, setNow] = useState(() => Date.now());
     useEffect(() => {
         const t = window.setInterval(() => setNow(Date.now()), 30_000);

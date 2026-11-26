@@ -22,6 +22,7 @@
         "./task-length": "./src/task-length.ts",
         "./find-time": "./src/find-time.ts",
         "./fit-day": "./src/fit-day.ts",
+        "./load-share": "./src/load-share.ts",
         "./slot-preference": "./src/slot-preference.ts",
         "./planning-offers": "./src/planning-offers.ts",
         "./auto-tag": "./src/auto-tag.ts",

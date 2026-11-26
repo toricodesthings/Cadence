@@ -28,7 +28,6 @@ interface TaskListProps {
     cardVariant?: "list" | "board";
     className?: string;
     rationaleByTaskId?: Record<string, string | null | undefined>;
-    /** False where a manual order means nothing (Today, Upcoming, tag pages): no drag, no grip. */
     reorderable?: boolean;
 }
 
@@ -54,20 +53,17 @@ function mergeTasksPreservingLocalOrder(current: Task[], incoming: Task[]) {
     return merged;
 }
 
-/** The list after dropping `activeId` on `overId`, the moved task and its new fractional order index; null when either is gone. */
 function reorderedBy(tasks: Task[], activeId: UniqueIdentifier, overId: UniqueIdentifier) {
     const oldIndex = tasks.findIndex((t) => t.id === activeId);
     const newIndex = tasks.findIndex((t) => t.id === overId);
     if (oldIndex === -1 || newIndex === -1) return null;
     const reordered = arrayMove(tasks, oldIndex, newIndex);
     const moved = reordered[newIndex];
-    // Compute fractional order index
     const prev = reordered[newIndex - 1]?.orderIndex;
     const next = reordered[newIndex + 1]?.orderIndex;
     return { reordered, moved, orderIndex: computeMidpointIndex(prev, next, moved.orderIndex) };
 }
 
-/** The card under the finger while it moves. */
 function DragPreview(props: Omit<React.ComponentProps<typeof TaskCard>, "isDragging">) {
     return (
         <div className="w-[min(100%,44rem)] cursor-grabbing">
@@ -85,7 +81,6 @@ function DragPreview(props: Omit<React.ComponentProps<typeof TaskCard>, "isDragg
     );
 }
 
-/** DnD-enabled sortable task list */
 export function TaskList({
     tasks: initialTasks,
     selectedTaskId,
@@ -125,7 +120,6 @@ export function TaskList({
 
     const sensors = useSortSensors();
 
-    /** A card's tags, subtasks and why it is here. */
     const cardData = (task: Task) => ({
         tags: tagsByTaskId[task.id] ?? [],
         subtasks: subtasksByTaskId[task.id] ?? [],
@@ -156,7 +150,6 @@ export function TaskList({
         const move = reorderedBy(tasks, active.id, over.id);
         if (!move) return;
 
-        // Optimistically reorder in local state
         setTasks(move.reordered);
         reorderTask.mutate({
             id: move.moved.id,

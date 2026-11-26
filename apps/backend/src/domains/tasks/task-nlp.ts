@@ -28,7 +28,6 @@ export async function loadNlpRuntime(tx: Tx, userId: string) {
     return {
         settings,
         zone,
-        // The user's today and clock, from their zone: the parser never reads the machine's.
         clock: { today: todayIn(zone), now: wallTimeOf(new Date(), zone), weekStart },
         context: {
             projects: projectRows,
@@ -38,11 +37,6 @@ export async function loadNlpRuntime(tx: Tx, userId: string) {
     };
 }
 
-/**
- * What the parse adds to a task, in the stored shapes (`zone` is the user's): a date alone is a day
- * (`dueDate`), a date with a time is a timed start (`atLocal`). A deadline is a day, so a time on a
- * "due" date is dropped. Anything the caller sent explicitly wins.
- */
 export function inferTaskFieldsFromParse(
     parsed: CanonicalNlpSnapshot,
     explicit: {
@@ -52,7 +46,6 @@ export function inferTaskFieldsFromParse(
         durationEstimate?: number | null;
         waitingOn?: string | null;
         recurrenceRule?: string | null;
-        /** Any of these given (even null) means the caller placed the task itself. */
         dueDate?: string | null;
         scheduledStart?: string | null;
         scheduledEnd?: string | null;
@@ -61,7 +54,6 @@ export function inferTaskFieldsFromParse(
     zone: Zone,
 ) {
     const found = readEntities(parsed, zone);
-    // Any placement field given (even null) means the caller placed the task itself.
     const placed = [explicit.dueDate, explicit.scheduledStart, explicit.scheduledEnd, explicit.scheduledDay].some(
         (field) => field !== undefined,
     );
@@ -79,7 +71,6 @@ export function inferTaskFieldsFromParse(
     };
 }
 
-/** Every confident entity the parse found, in stored shapes; a later one of a kind replaces an earlier one. */
 function readEntities(parsed: CanonicalNlpSnapshot, zone: Zone) {
     const found: {
         tagIds: Set<string>;
@@ -125,7 +116,6 @@ function readEntities(parsed: CanonicalNlpSnapshot, zone: Zone) {
 
 const idOf = (value: Record<string, unknown>) => (value.resolvedId ?? value.id) as string | undefined;
 
-/** A date alone is a day; a scheduled date with a time is a timed start. */
 function temporalOf(type: "due_date" | "scheduled_start", value: Record<string, unknown>, zone: Zone) {
     const { date, time, hasTime } = value as { date: string; time: string | null; hasTime: boolean };
     return type === "scheduled_start" && hasTime && time
@@ -133,7 +123,6 @@ function temporalOf(type: "due_date" | "scheduled_start", value: Record<string, 
         : { dueDate: date };
 }
 
-/** An explicit value, even null, wins over a parsed one. */
 function given<T, P>(explicit: T | undefined, parsed: P): T | P {
     return explicit !== undefined ? explicit : parsed;
 }

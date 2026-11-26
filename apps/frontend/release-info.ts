@@ -1,24 +1,14 @@
 import { readFileSync } from "node:fs";
 import type { ChangelogEntry, ChangelogGroup } from "./app/lib/constants/changelog.ts";
 
-// Build-time release info. The version lives only in the root package.json and the release
-// notes only in the root CHANGELOG.md (Keep a Changelog); vite.config.ts injects both.
-
 const VERSION_HEADING = /^\[?(\d+\.\d+\.\d+)\]?(?:\s*-\s*(\d{4}-\d{2}-\d{2}))?/;
 const MAX_BULLET_LENGTH = 120;
 const GROUP_KINDS = new Set<ChangelogGroup["kind"]>(["added", "changed", "removed", "fixed"]);
 
-/** "0.9.1" → "v0.9.1 Beta" while Cadence is pre-1.0. */
 function formatVersionLabel(version: string): string {
     return version.startsWith("0.") ? `v${version} Beta` : `v${version}`;
 }
 
-/**
- * One entry per released version, newest first. `[Unreleased]` is skipped.
- * Title = the summary line under the heading; groups = the bullets under each `###` section.
- * Glyph: Added/Removed → release, Changed → tune, otherwise fix.
- * Throws when any bullet (including Unreleased) runs past one line, so the page stays scannable.
- */
 export function parseChangelog(markdown: string): ChangelogEntry[] {
     const tooLong = markdown
         .split(/\r?\n/)
@@ -32,7 +22,6 @@ export function parseChangelog(markdown: string): ChangelogEntry[] {
     return markdown.split(/^## /m).slice(1).flatMap(parseRelease);
 }
 
-/** One release block: its version heading, then the summary line and the `###` groups' bullets. */
 function parseRelease(block: string): ChangelogEntry[] {
     const [heading = "", ...lines] = block.split("\n");
     const [, version, date] = VERSION_HEADING.exec(heading) ?? [];
@@ -49,7 +38,6 @@ function parseRelease(block: string): ChangelogEntry[] {
     ];
 }
 
-/** The bullets under each known `###` kind, and the first plain line as the summary. */
 function readSections(lines: string[]) {
     const groups: ChangelogGroup[] = [];
     let summary: string | undefined;
@@ -67,7 +55,6 @@ function readSections(lines: string[]) {
     return { groups, summary };
 }
 
-/** Added/Removed → release, Changed → tune, otherwise fix. */
 function glyphOf(groups: ChangelogGroup[]): ChangelogEntry["glyph"] {
     const kinds = new Set(groups.map((group) => group.kind));
     if (kinds.has("added") || kinds.has("removed")) return "release";

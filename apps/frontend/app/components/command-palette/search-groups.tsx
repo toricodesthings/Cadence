@@ -30,7 +30,6 @@ export const GROUP_LABELS: Record<string, string> = {
 
 export const GROUP_ORDER = ["pages", "tasks", "habits", "captures", "projects", "focusViews"] as const;
 
-/** The result's kind icon, or a note icon when it jumps into a note heading. */
 export function SearchResultIcon({ result, size }: { result: SearchResult; size: number }) {
     const Icon = result.noteAction ? StickyNote : KIND_ICON[result.kind];
     return <Icon size={size} aria-hidden="true" />;

@@ -83,7 +83,7 @@ describe("picker search", () => {
     it("one or two letters match name prefixes only", () => {
         expect(hits("sp")).toEqual(["spotify"]);
         expect(hits("wh")).toEqual(["whatsapp"]);
-        expect(hits("e")).not.toContain("gmail"); // "e" is in its terms ("email") but not a name prefix
+        expect(hits("e")).not.toContain("gmail");
     });
 
     it("a blank query returns nothing (the ordered list shows instead)", () => expect(hits("  ")).toEqual([]));
@@ -109,7 +109,7 @@ describe("launch resolution", () => {
         expect(resolveAppLaunch(appEntry("outlook")!)).toMatchObject({ href: "ms-outlook://", opens: "app" });
         expect(resolveAppLaunch(appEntry("apple-mail")!)).toEqual({ href: "message://", opens: "app", website: null });
         ua.mockRestore();
-        expect(resolveAppLaunch(appEntry("apple-mail")!)).toBeNull(); // no website elsewhere: left out of the picker
+        expect(resolveAppLaunch(appEntry("apple-mail")!)).toBeNull();
     });
 
     it("a website route says it opens a website", () => {

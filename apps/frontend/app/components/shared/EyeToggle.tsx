@@ -1,7 +1,6 @@
 import { Eye, EyeOff } from "lucide-react";
 import { Tip } from "../primitives";
 
-/** Show/hide for a board column: a quiet moonlit eye on the header, 44px hit area around a 16px glyph. */
 export function EyeToggle({ hidden, label, onToggle }: { hidden: boolean; label: string; onToggle: () => void }) {
     return (
         <Tip label={label} side="bottom">

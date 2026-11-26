@@ -6,13 +6,6 @@ import { resolveZone, setUserZone } from "../../lib/utils/user-zone";
 import { useSettings } from "./use-settings";
 import { WAKE_EVENT } from "./use-wake-refresh";
 
-/**
- * Keeps the app's zone and `users.time_zone` equal to the device's (or the zone Settings pins).
- * Checks on start, when the page becomes visible again (a laptop that crossed zones, the desktop app
- * resuming from sleep) and when the pin changes, but only calls when the zone differs from the last one
- * this app instance stored, or an hour has passed (another device in another zone may have stored its own since;
- * the device in use wins). A failed call is retried on the next trigger.
- */
 const RESYNC_MS = 60 * 60_000;
 let synced: { userId: string | undefined; zone: string; at: number } | null = null;
 
@@ -31,9 +24,7 @@ export function useZoneSync() {
         try {
             await unwrapResponse(await client.api.me["time-zone"].$put({ json: { timeZone: zone } }));
             synced = { userId, zone, at: Date.now() };
-        } catch {
-            // Offline or a blip: the next start / visibility change tries again.
-        }
+        } catch {}
     }, [client, authReady, isAuthenticated, session?.user.id, setting]);
 
     useEffect(() => {
@@ -43,8 +34,8 @@ export function useZoneSync() {
         };
         document.addEventListener("visibilitychange", onVisible);
         window.addEventListener("online", sync);
-        window.addEventListener("focus", onVisible); // the desktop app resuming from sleep
-        window.addEventListener(WAKE_EVENT, onVisible); // ...or waking while hidden in the tray
+        window.addEventListener("focus", onVisible);
+        window.addEventListener(WAKE_EVENT, onVisible);
         return () => {
             window.removeEventListener(WAKE_EVENT, onVisible);
             document.removeEventListener("visibilitychange", onVisible);

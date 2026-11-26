@@ -28,13 +28,10 @@ export const cheerSchema = z.object({ targetDate: localDateSchema });
 export const habitStatusSchema = z.enum(["COMPLETED", "SKIPPED", "PENDING"]);
 export type HabitStatus = z.infer<typeof habitStatusSchema>;
 
-/** RRULE weekday keys, Monday first. */
 export const HABIT_WEEKDAYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
 const habitTimeSchema = z.union([wallTimeSchema, z.literal("")]);
-/** Per-weekday time overrides; a day without a key uses `targetTime`, "" means any time. */
 export const habitTargetTimesSchema = z.partialRecord(z.enum(HABIT_WEEKDAYS), habitTimeSchema);
 
-/** A routine's ordered steps ("water → stretch → journal"); ids are made by the client. */
 export const MAX_ROUTINE_STEPS = 12;
 export const routineStepSchema = z.object({ id: z.string().min(1).max(64), title: z.string().trim().min(1).max(200) });
 export type RoutineStep = z.infer<typeof routineStepSchema>;
@@ -42,19 +39,16 @@ export const routineStepsSchema = z
     .array(routineStepSchema)
     .max(MAX_ROUTINE_STEPS)
     .refine((steps) => new Set(steps.map((step) => step.id)).size === steps.length, "Step ids must be unique");
-/** One day's steps, by step id: done or skipped. A step without a key is still open. */
 export const stepStatusSchema = z
     .record(z.string().max(64), z.enum(["COMPLETED", "SKIPPED"]))
     .refine((marks) => Object.keys(marks).length <= MAX_ROUTINE_STEPS, "Too many steps");
 export type StepStatus = z.infer<typeof stepStatusSchema>;
 
-/** A routine at set times: its daily WallTimes, ascending. A time is its own id in a day's `timeMarks`. */
 export const MAX_ROUTINE_TIMES = 12;
 export const routineTimesSchema = z
     .array(z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Times are HH:MM, 24h"))
     .max(MAX_ROUTINE_TIMES)
     .refine((times) => new Set(times).size === times.length, "Times must be unique");
-/** One day's marks by time: done or skipped, and the Instant it happened (null when the day was logged whole). A time without a key is still open. */
 export const timeMarkSchema = z.object({ status: z.enum(["COMPLETED", "SKIPPED"]), at: instantSchema.nullable() });
 export type TimeMark = z.infer<typeof timeMarkSchema>;
 export const timeMarksSchema = z
@@ -62,10 +56,7 @@ export const timeMarksSchema = z
     .refine((marks) => Object.keys(marks).length <= MAX_ROUTINE_TIMES, "Too many times");
 export type TimeMarks = z.infer<typeof timeMarksSchema>;
 
-// No .default()s on create schemas: an omitted field takes its DB column default, and
-// a default here would leak into the .partial() update schema and overwrite data.
 export const insertHabitSchema = z.object({
-    /** Client-chosen id, so a routine made offline can be logged before it syncs. */
     id: z.uuid().optional(),
     title: z.string().trim().min(1).max(255),
     description: z.string().max(10_000).nullable().optional(),
@@ -82,18 +73,13 @@ export const insertHabitSchema = z.object({
     sortOrder: z.number().optional(),
     pausedUntil: z.string().nullable().optional(),
     steps: routineStepsSchema.nullable().optional(),
-    /** Set times each day; null/absent = the usual single `targetTime`. Replaces `targetTime` and `targetTimes` when set. */
     times: routineTimesSchema.nullable().optional(),
-    /** The one app this routine opens; null removes it, omitted leaves it. */
     linkedAppId: linkedAppIdSchema.nullable().optional(),
-    /** Or the one website it opens (https only); the client keeps at most one of the two. */
     linkedUrl: linkedUrlSchema.nullable().optional(),
 });
 export type InsertHabit = z.input<typeof insertHabitSchema>;
 
 export const updateHabitSchema = insertHabitSchema.omit({ id: true }).partial().extend({
-    // Any timestamp text, like task/note updates: the server compares instants, so
-    // an equivalent form (or a value cached before timestamps were unified) still matches.
     expectedUpdatedAt: z.string().optional(),
 });
 export type UpdateHabit = z.input<typeof updateHabitSchema>;
@@ -101,11 +87,8 @@ export type UpdateHabit = z.input<typeof updateHabitSchema>;
 export const resolveHabitActionSchema = z.object({
     targetDate: localDateSchema,
     status: habitStatusSchema,
-    /** A routine with steps: the day's step marks. The server derives `status` from them (see `stepDayStatus`). */
     stepStatus: stepStatusSchema.optional(),
-    /** A routine at set times: change just this time (`status` PENDING clears it); other times are kept. */
     time: wallTimeSchema.optional(),
-    /** When it happened, for a late or corrected check-in; the server's clock when absent. */
     at: instantSchema.optional(),
 });
 export type ResolveHabitAction = z.infer<typeof resolveHabitActionSchema>;
@@ -128,7 +111,6 @@ export const habitListQuerySchema = z.object({
         .transform((v) => v === "true"),
 });
 
-// ── Row schema (exact DB columns) ──
 export const habitRowSchema = z.object({
     id: z.uuid(),
     userId: z.uuid(),
@@ -161,7 +143,6 @@ export const habitRowSchema = z.object({
 });
 export type HabitRow = z.infer<typeof habitRowSchema>;
 
-// ── HabitLog row + entity ──
 export const habitLogStepStatusSchema = z.record(z.string(), z.enum(["COMPLETED", "SKIPPED"]));
 
 export const habitLogRowSchema = z.object({
@@ -177,7 +158,6 @@ export const habitLogRowSchema = z.object({
     createdAt: instantSchema,
 });
 
-/** Optimistic logs carry a temp id and skip server-only columns. */
 export const habitLogSchema = habitLogRowSchema.extend({
     id: z.string(),
     userId: z.uuid().optional(),
@@ -188,11 +168,8 @@ export const habitLogSchema = habitLogRowSchema.extend({
 });
 export type HabitLog = z.infer<typeof habitLogSchema>;
 
-// ── Habit entity — row + weekly-endpoint enrichment ──
 export const habitSchema = habitRowSchema.extend({
-    /** Absent on data cached before the field existed. */
     linkedAppId: z.string().nullable().optional(),
-    /** Re-checked with `parseWebsite` before any link renders. */
     linkedUrl: z.string().nullable().optional(),
     shareMode: routineShareModeSchema.nullable().optional(),
     turnOrder: z.array(z.uuid()).nullable().optional(),

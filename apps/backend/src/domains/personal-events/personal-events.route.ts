@@ -18,7 +18,6 @@ import {
 
 export const personalEventRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
 
-    // ── Create ──
     .post("/", apiValidator("json", insertPersonalEventSchema), async (c) => {
         const body = c.req.valid("json");
         const idempotencyKey = getIdempotencyKey(c);
@@ -26,7 +25,6 @@ export const personalEventRoutes = new Hono<{ Bindings: Env; Variables: AuthVari
         return c.json({ data }, 201);
     })
 
-    // ── Update ──
     .patch(
         "/:id",
         apiValidator("param", uuidParamSchema),
@@ -57,13 +55,11 @@ export const personalEventRoutes = new Hono<{ Bindings: Env; Variables: AuthVari
         },
     )
 
-    // ── Read (List) ──
     .get("/", async (c) => {
         const data = await withCallerRls(c, listEvents);
         return c.json({ data });
     })
 
-    // ── Delete ──
     .delete("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
         const { data, access } = await withCallerRls(c, async (tx, userId) => {

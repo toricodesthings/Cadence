@@ -20,12 +20,10 @@ import { uuidParamSchema } from "@cadence/contracts/common";
 import { replanReminders } from "./reminder-clock";
 import { hasValidPushKeys, isAllowedPushEndpoint, sendWebPush, vapidConfigured } from "./web-push";
 
-/** A person's devices: past this, the oldest registration is dropped. */
 const MAX_DEVICES = 15;
 
 type DeviceRow = typeof devices.$inferSelect;
 
-/** What the client may see: never an endpoint or a key. */
 const toDevice = (row: DeviceRow): Device => ({
     installId: row.installId,
     kind: row.kind as Device["kind"],
@@ -44,22 +42,15 @@ const listDevices = (tx: Parameters<Parameters<typeof withRls>[2]>[0], userId: s
         .orderBy(desc(devices.lastSeenAt), desc(devices.createdAt));
 
 export const pushRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
-    // The public VAPID key the browser subscribes with. No key = push is off and devices stay local.
     .get("/config", (c) => {
         const config: PushConfig = { publicKey: vapidConfigured(c.env) ? c.env.VAPID_PUBLIC_KEY! : null };
         return c.json({ data: config }, 200);
     })
-    // Every device the account has, so any one of them can turn another off.
     .get("/devices", async (c) => {
         const userId = c.get("userId");
         const rows = await withRls(getDbClient(c.env), userId, (tx) => listDevices(tx, userId));
         return c.json({ data: rows.map(toDevice) }, 200);
     })
-    /**
-     * Registers or refreshes the calling device, and marks it seen. A device may register without a
-     * subscription (the desktop app, or a browser whose push the user hasn't allowed): it then shows
-     * reminders itself while Cadence runs, and the server sends it nothing.
-     */
     .put("/devices", apiValidator("json", deviceRegistrationSchema), async (c) => {
         const { installId, kind, label, subscription } = c.req.valid("json");
         if (subscription && (!isAllowedPushEndpoint(subscription.endpoint) || !hasValidPushKeys(subscription.keys))) {
@@ -77,7 +68,6 @@ export const pushRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         let released: string[] = [];
         const rows = await withRls(getDbClient(c.env), userId, async (tx) => {
             if (subscription) {
-                // One account at a time per browser endpoint, and never two rows of this user for one endpoint.
                 const owners = await tx
                     .select({ id: sql<string | null>`r.id` })
                     .from(sql`push_release_endpoint(${subscription.endpoint}, ${userId}::uuid) AS r(id)`);
@@ -97,7 +87,6 @@ export const pushRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 .values({ userId, installId, kind, label, lastSeenAt: seenAt, ...push })
                 .onConflictDoUpdate({
                     target: [devices.userId, devices.installId],
-                    // Registering again never silently re-enables a device the person turned off.
                     set: { kind, label, lastSeenAt: seenAt, failureCount: 0, ...push },
                 });
             await tx.execute(sql`
@@ -106,12 +95,10 @@ export const pushRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                     ORDER BY coalesce(last_seen_at, created_at) DESC LIMIT ${MAX_DEVICES})`);
             return listDevices(tx, userId);
         });
-        // The accounts this endpoint was taken from must stop sending to it (this account's clock replans after every write).
         if (released.length > 0)
             c.executionCtx.waitUntil(Promise.all(released.map((id) => replanReminders(c.env, id))));
         return c.json({ data: rows.map(toDevice) }, 200);
     })
-    // Turn a device on or off from anywhere, including this one.
     .patch(
         "/devices/:id",
         apiValidator("param", uuidParamSchema),
@@ -129,7 +116,6 @@ export const pushRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             return c.json({ data: toDevice(row) }, 200);
         },
     )
-    // Forget a device entirely (signing out, or clearing one from the list).
     .delete("/devices/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const userId = c.get("userId");
         await withRls(getDbClient(c.env), userId, (tx) =>
@@ -137,7 +123,6 @@ export const pushRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         );
         return c.json({ data: { removed: true } }, 200);
     })
-    // One explicit test through this device's real delivery path. It ignores quiet hours and saved preferences.
     .post("/test", apiValidator("json", pushTestSchema), async (c) => {
         const [device] = await withCallerRls(c, (tx, userId) =>
             tx

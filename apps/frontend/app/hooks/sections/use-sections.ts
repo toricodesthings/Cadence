@@ -16,7 +16,6 @@ function sectionsKey(projectId?: string | null) {
     return ["sections", projectId ?? "__none__"] as const;
 }
 
-/** `onMutate` for a section change: stop in-flight reads, remember the list, and show `edit` (kept in order) in it. */
 async function beginEdit(
     queryClient: QueryClient,
     key: ReturnType<typeof sectionsKey>,
@@ -39,7 +38,6 @@ function revertEdit(
     if (context?.previous && isLastWrite(queryClient)) queryClient.setQueryData(key, context.previous);
 }
 
-/** A `beginEdit` mutation's ends: put the list back on failure, then refetch unless it was queued offline. */
 const editEnds = (queryClient: QueryClient, key: ReturnType<typeof sectionsKey>) => ({
     onError: (_err: unknown, _vars: unknown, context: { previous?: TaskSection[] } | undefined) =>
         revertEdit(queryClient, key, context),
@@ -63,7 +61,6 @@ export function useSections(projectId?: string | null) {
     });
 }
 
-/** Every list's sections (same cache as `useSections`), for naming a section in words. Loads only while `enabled`. */
 export function useAllSections(projectIds: string[], enabled = true): TaskSection[] {
     const client = useApiClient();
     const { authReady, isAuthenticated } = useAuthState();
@@ -138,7 +135,6 @@ export function useDeleteSection(projectId?: string | null) {
     const key = sectionsKey(projectId);
 
     return useMutation({
-        // The section disappears at once; the server hears about it only once Undo's window closes.
         mutationFn: async ({ id, name }: { id: string; name: string }) => {
             await undoWindow(`Deleted ${name}`, { description: "Its tasks stay in the list." });
             const res = await client.api.sections[":id"].$delete({
@@ -148,7 +144,6 @@ export function useDeleteSection(projectId?: string | null) {
         },
         onMutate: async ({ id }) => {
             const { previous } = await beginEdit(queryClient, key, (items) => items.filter((s) => s.id !== id));
-            // The server sets the section's tasks to unsectioned; mirror it so they stay visible.
             const tasks = await taskCache.edit(queryClient, (items) =>
                 items.map((t) => (t.sectionId === id ? { ...t, sectionId: null } : t)),
             );

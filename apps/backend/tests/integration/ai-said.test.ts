@@ -122,7 +122,6 @@ describe("field-question back-off", () => {
         expect(await ask()).toEqual({ asked: true });
         await settle("move the dentist instead");
         expect((await ask()).asked).toBe(false);
-        // A retry without `field` is the same question.
         expect(
             (
                 await run(["what first?"], "ask_user", {

@@ -57,7 +57,6 @@ interface UpcomingViewerItem {
     title: string;
     dueDate: LocalDate;
     dateLabel: "Due" | "Scheduled";
-    /** Epoch ms: when it sits in the day (all-day items at noon). */
     sortAt: number;
     timeLabel: string | null;
     projectId: string | null;
@@ -109,15 +108,12 @@ function getTaskSortAt(task: Task, day: LocalDate) {
 
 type Compare = (a: UpcomingViewerItem, b: UpcomingViewerItem) => number;
 
-/** Soonest first, then by title. */
 const byTime: Compare = (a, b) => (a.sortAt !== b.sortAt ? a.sortAt - b.sortAt : a.title.localeCompare(b.title));
-/** Highest priority first, then soonest. */
 const byPriority: Compare = (a, b) => {
     const pa = a.task?.priority ?? 0;
     const pb = b.task?.priority ?? 0;
     return pa !== pb ? pb - pa : byTime(a, b);
 };
-/** The list's own order. */
 const byManual: Compare = (a, b) => (a.task?.orderIndex ?? 0) - (b.task?.orderIndex ?? 0);
 
 function getUpcomingComparator(mode: SortMode): Compare {
@@ -125,7 +121,6 @@ function getUpcomingComparator(mode: SortMode): Compare {
     return mode === "manual" ? byManual : byTime;
 }
 
-/** Each bucket in its order: ranked when Smart is chosen, else by the chosen comparator. */
 function sortBuckets(grouped: Buckets, smart: boolean, sortMode: SortMode, guessOf: GuessOf) {
     const buckets = Object.keys(grouped) as UpcomingBucketKey[];
     if (smart) {
@@ -170,7 +165,6 @@ function taskItem(task: Task, day: LocalDate, project: Project | undefined): Upc
     };
 }
 
-/** A routine's open days, today and tomorrow only: a missed routine lets go, it never shows as overdue. */
 function habitItems(
     habit: RangeHabit,
     week: { today: LocalDate; tomorrow: LocalDate; nextWeek: LocalDate },
@@ -183,7 +177,6 @@ function habitItems(
                 ? classifyUpcomingBucket(day, week.today, week.tomorrow, week.nextWeek)
                 : null;
         if (bucket !== "today" && bucket !== "tomorrow") return [];
-        // A routine at set times lists at its next open time (its first on a later day).
         const times = habit.times?.length ? habit.times : null;
         const time = times
             ? nextOpenTime(
@@ -218,7 +211,6 @@ function habitItems(
     });
 }
 
-/** Smart sort: ranked tasks first, each with its reason, then routines in their place. */
 function rankBucket(items: UpcomingViewerItem[], guessOf: GuessOf): UpcomingViewerItem[] {
     const tasks = items.filter(
         (item): item is UpcomingViewerItem & { task: Task } => item.kind === "task" && Boolean(item.task),
@@ -322,7 +314,6 @@ export default function Upcoming() {
         guessOf,
     ]);
 
-    // Past the week: Further out (tasks only; routines and yearly events keep to the week).
     const furtherItems = useMemo(
         () =>
             tagFilteredTasks.flatMap((task): FurtherOutItem[] => {
@@ -348,8 +339,6 @@ export default function Upcoming() {
 
     const openHabits = () => navigate("/routines");
 
-    // Same shape as Today: the real task cards first, then pending routines
-    // under a divider, so a task reads identically on both routes.
     const renderUpcomingBucket = (
         title: string,
         bucketKey: UpcomingBucketKey,
@@ -406,7 +395,6 @@ export default function Upcoming() {
         );
     };
 
-    // Each event sits in its day's section or column.
     const dayEvents: Record<UpcomingBucketKey, DayEvent[]> = { overdue: [], today: [], tomorrow: [], nextWeek: [] };
     for (const { event, dateStr } of upcomingEvents) {
         const bucket = classifyUpcomingBucket(dateStr, todayISO, tomorrowISO, nextWeekISO);

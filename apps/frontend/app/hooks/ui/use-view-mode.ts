@@ -3,18 +3,6 @@ import { useSettings, useUpdateSettings } from "../core/use-settings";
 
 export type ViewMode = "list" | "kanban";
 
-/**
- * Reads/writes the preferred view mode via `tasks.defaultView`.
- *
- * Persistence strategy:
- * 1. localStorage — fast read on mount (no flash)
- * 2. Backend `users.settings` JSONB — cross-device sync
- *
- * The view mode is global: switching to kanban on Today keeps it
- * when navigating to Upcoming, Completed, etc.
- *
- * Legacy `preferredView` is migrated to `tasks.defaultView` by the backend.
- */
 export function useViewMode() {
     const { data: settings } = useSettings();
     const updateSettings = useUpdateSettings();

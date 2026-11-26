@@ -50,7 +50,7 @@ Within each group, the primary resource comes before sub-resources.
 - Never `drizzle-kit push`.
 - Primary keys use `id()` (`db/schema/columns.ts`, UUIDv7). Never read time from an id; `created_at` is the record.
 - Generated columns say `STORED` or `VIRTUAL` explicitly (PG18+ defaults to VIRTUAL, which can't be indexed).
-- Tests run on PGlite (PostgreSQL 18): no PG19-only SQL (e.g. `ON CONFLICT DO SELECT`) until it reports 19.
+- Tests run on PGlite (PostgreSQL 19), the same major as Neon.
 - Keep everything, checks included, in the schema files. Hand-write SQL only for data, extensions or grants.
 
 ## Background work

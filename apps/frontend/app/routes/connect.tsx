@@ -14,10 +14,8 @@ import { useAnswerConnectRequest, useConnectRequest } from "../hooks/core/use-co
 import { useReducedMotionSetting } from "../hooks/ui/use-reduced-motion";
 import { MCP_SCOPE_COPY } from "../lib/constants/mcp";
 
-/** How long the drawn check stays up before the browser returns to the assistant. */
 const SUCCESS_HOLD_MS = 1500;
 
-/** Where the consent page is: waiting for the account or request, a dead link, done, or asking. */
 function connectStage(
     signedIn: boolean,
     request: string | null,
@@ -29,11 +27,6 @@ function connectStage(
     return approved ? "done" : "ask";
 }
 
-/**
- * Consent for an outside assistant (MCP). The assistant sent the browser here from
- * the MCP origin with `?request=`; this page needs a signed-in account, shows who is
- * asking and what they'd get, then sends the browser back to the MCP origin.
- */
 export default function ConnectRoute() {
     useDocumentTitle("Connect an assistant · Cadence");
     const { search, pathname } = useLocation();
@@ -122,7 +115,6 @@ type ConnectAskProps = {
     respond: (approve: boolean) => void;
 };
 
-/** Who is asking, what it could do (each scope switchable), and Allow or Deny. */
 function ConnectAsk({ client, email, chosen, setScopes, leaving, failed, respond }: ConnectAskProps) {
     return (
         <>
@@ -237,7 +229,6 @@ function ConnectAsk({ client, email, chosen, setScopes, leaving, failed, respond
     );
 }
 
-/** Approved: a ring and check draw themselves, then the page hands back to the assistant. */
 function Connected({ clientName }: { clientName: string }) {
     return (
         <div className="flex flex-col items-center py-4 text-center" role="status">

@@ -26,7 +26,6 @@ describe("useZoneSync", () => {
     });
 
     it("writes once per zone and user, however often the window wakes; a failed write is retried", async () => {
-        // A fresh module state per test comes from using distinct zones/users.
         zone = "Europe/Paris";
         userId = "u1";
         const { unmount } = renderHook(() => useZoneSync());
@@ -41,7 +40,6 @@ describe("useZoneSync", () => {
         expect(put).toHaveBeenCalledTimes(1);
         unmount();
 
-        // Changed zone → write; another user → write.
         zone = "Asia/Tokyo";
         renderHook(() => useZoneSync()).unmount();
         await waitFor(() => expect(put).toHaveBeenCalledTimes(2));
@@ -49,7 +47,6 @@ describe("useZoneSync", () => {
         renderHook(() => useZoneSync()).unmount();
         await waitFor(() => expect(put).toHaveBeenCalledTimes(3));
 
-        // A failed PUT leaves it unsynced, so the next trigger tries again.
         zone = "Australia/Sydney";
         put.mockRejectedValueOnce(new Error("offline"));
         const { unmount: u3 } = renderHook(() => useZoneSync());

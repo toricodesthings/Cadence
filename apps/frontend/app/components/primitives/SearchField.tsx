@@ -1,16 +1,3 @@
-/**
- * Primitive: SearchField
- *
- * The one search box. Every free-text search or find in the app (command palette, notifications,
- * settings, tags, city lookup, find in note) renders this, so the icon, clear button, keyboard
- * hints, focus ring and sizes stay identical everywhere.
- *
- *   <SearchField>      the input. `variant="field"` is a bordered box, `variant="bare"` is a
- *                      borderless title-row input (palette, phone search sheet).
- *   <SearchTrigger>    a button dressed as a search box, for surfaces that open search elsewhere.
- *
- * Not for pickers: the search inside a long `Select` is `SearchSelect`.
- */
 import {
     useImperativeHandle,
     useRef,
@@ -39,19 +26,13 @@ export interface SearchFieldProps extends Omit<
 > {
     value: string;
     onValueChange: (value: string) => void;
-    /** Required: a search box has no visible label. */
     "aria-label": string;
     variant?: SearchFieldVariant;
     size?: SearchFieldSize;
-    /** Shows a spinner in place of the clear button while a lookup runs. */
     loading?: boolean;
-    /** False hides the Clear button, for a surface that offers its own Clear action beside the field. */
     clearable?: boolean;
-    /** Runs after the clear button empties the box (focus returns to the input first). */
     onClear?: () => void;
-    /** Extra controls inside the box, after the clear button (match counts, shortcut hints). */
     trailing?: ReactNode;
-    /** Classes for the outer box (width, margins, `flex-1`). */
     className?: string;
 }
 
@@ -76,7 +57,6 @@ export function SearchField({
 
     return (
         <div
-            // The bordered box shows focus itself, so the input skips the global ring inside it.
             data-focus-container={variant === "field" ? "" : undefined}
             className={cn(
                 "flex min-w-0 items-center",
@@ -134,14 +114,11 @@ export function SearchField({
 }
 
 export interface SearchTriggerProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
-    /** What the faux box says while empty. */
     label?: string;
     size?: SearchFieldSize;
-    /** A key hint on the right, e.g. "⌘K". */
     shortcut?: string;
 }
 
-/** A button that looks like a `SearchField` and opens search elsewhere. */
 export function SearchTrigger({
     label = "Search…",
     size = "md",

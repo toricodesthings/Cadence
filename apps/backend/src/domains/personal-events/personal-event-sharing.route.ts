@@ -19,7 +19,6 @@ import {
 } from "../sharing/sharing.service";
 
 export const personalEventSharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
-    // ── Create ──
     .post("/:id/invites", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
         const { token, expiresAt } = await withCallerRls(c, async (tx, userId) => {
@@ -29,7 +28,6 @@ export const personalEventSharingRoutes = new Hono<{ Bindings: Env; Variables: A
         return inviteCreated(c, token, expiresAt);
     })
 
-    // ── Read ──
     .get("/:id/people", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
         return peopleResponse(c, async (tx, userId) => {
@@ -38,7 +36,6 @@ export const personalEventSharingRoutes = new Hono<{ Bindings: Env; Variables: A
         });
     })
 
-    // ── Delete ──
     .delete("/:id/invites", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
         return resetInvitesResponse(c, (tx, userId) => eventAccess(tx, userId, id), { eventId: id }, "event");

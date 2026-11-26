@@ -41,7 +41,6 @@ const TaskNoteInline = lazy(() => import("./TaskNoteInline").then((m) => ({ defa
 
 type Fact = { icon: ElementType; label: string; value: string; tone?: string };
 
-/** What's set on the task, in the order the editor shows it. Nothing set, nothing listed. */
 function useFacts(task: Task): Fact[] {
     const { data: sections = [] } = useSections(task.projectId);
     const schedule = getTaskScheduleSummary(task);
@@ -86,7 +85,6 @@ type TaskViewPanelProps = {
     onDetailModeChange?: (mode: "peek" | "focus") => void;
 };
 
-/** A task in a list you can only view: everything it holds, shown as facts, with nothing that looks editable. */
 export function TaskViewPanel({ task, onClose, detailMode = "peek", onDetailModeChange }: TaskViewPanelProps) {
     const [open, setOpen] = useState<"notes" | "subtasks" | null>(null);
     const facts = useFacts(task);
@@ -98,8 +96,6 @@ export function TaskViewPanel({ task, onClose, detailMode = "peek", onDetailMode
     const done = subtasks.filter((s) => s.isComplete).length;
     const subtaskSummary = subtasks.length ? `${done}/${subtasks.length} complete` : "No subtasks";
     const noteSummary = words ? `${words.toLocaleString()} word${words === 1 ? "" : "s"}` : "No notes";
-    // A note that exists opens itself once per task; after that the viewer decides. The editor stays mounted
-    // (hidden) once opened, so closing the accordion never refetches or re-seeds it.
     const [autoOpened, setAutoOpened] = useState<string | null>(null);
     const [noteMounted, setNoteMounted] = useState(false);
     useEffect(() => {

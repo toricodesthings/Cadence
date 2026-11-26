@@ -51,7 +51,6 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         const { token } = c.req.valid("json");
         const { joined, access } = await withCallerRls(c, async (tx, userId) => {
             const joined = await joinInvite(tx, userId, token);
-            // Read after joining, so the audience includes the new person.
             if (joined.kind === "list") {
                 return { joined, access: await listAccess(tx, userId, joined.listId) };
             }
@@ -91,7 +90,6 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
         async (c) => {
             const { id } = c.req.valid("param");
             const { role } = c.req.valid("json");
-            // No Idempotency-Key: a retry mints another link, which is harmless and capped.
             const { token, expiresAt } = await withCallerRls(c, async (tx, userId) => {
                 requireOwner(await listAccess(tx, userId, id));
                 return createInvite(tx, userId, { listId: id }, role);
@@ -109,7 +107,6 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
             const callerId = c.get("userId");
             const db = getDbClient(c.env);
 
-            // Check owner, membership and list size first.
             const { taskCount } = await withRls(db, callerId, async (tx) => {
                 const access = await listAccess(tx, callerId, id);
                 requireOwner(access);
@@ -121,7 +118,6 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
                 return { taskCount: n };
             });
 
-            // Check the new owner's account ceilings under their own RLS.
             await withRls(db, toUserId, async (tx) => {
                 await assertRowRoom(tx, toUserId, "lists", 1);
                 if (taskCount > 0) await assertRowRoom(tx, toUserId, "tasks", taskCount);
@@ -177,7 +173,7 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
     .get("/:id/people", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
         return peopleResponse(c, async (tx, userId) => {
-            await listAccess(tx, userId, id); // 404 unless the caller is in the list
+            await listAccess(tx, userId, id);
             return listPeople(tx, id);
         });
     })
@@ -188,7 +184,6 @@ export const sharingRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables 
     .delete("/:id/members/:userId", apiValidator("param", listMemberParamSchema), async (c) => {
         const { id, userId: memberId } = c.req.valid("param");
         const { access, taskIds } = await withCallerRls(c, async (tx, userId) => {
-            // Read first: the person removed hears of it too.
             const access = await listAccess(tx, userId, id);
             assertCanRemoveMember(access, userId, memberId, "list");
             const rows = await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, id));

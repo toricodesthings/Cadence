@@ -18,10 +18,25 @@ describe("day load", () => {
             start,
             3,
         );
-        // No effort set counts as middling (2), not light.
         expect([...loads.values()]).toEqual([3, 3, 1]);
         expect(lightestDay(loads)).toBe("2026-09-23");
         expect(lightestDay(dayLoads([], start))).toBe("2026-09-21");
+    });
+
+    it("weighs each task by its load share, never a routine", () => {
+        const day = { dueDate: start, scheduledStart: null, scheduledEnd: null, effort: 2 as const, isHabit: false };
+        const loads = dayLoads(
+            [
+                { ...day, share: 0.5 },
+                { ...day, share: 0 },
+                { ...day, share: 0, isHabit: true },
+            ],
+            start,
+            1,
+            undefined,
+            (t) => t.share,
+        );
+        expect(loads.get(start)).toBe(2);
     });
 
     it("weighs a timed block by its hours, so a long class is not light", () => {

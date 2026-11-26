@@ -5,7 +5,6 @@ import { asOwner, createUser, startTestDb } from "../helpers/db";
 
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 const redis = vi.hoisted(() => ({ tries: 0 }));
-// Counts presence tries like the real budget does; `set` (the deleted-account flag) is best effort and absent here.
 vi.mock("../../src/platform/redis", () => ({
     getRedis: () => null,
     getRateLimitRedis: () => ({ incr: async () => ++redis.tries, expire: async () => 1 }),
@@ -28,7 +27,6 @@ const env = {
 };
 const BODY = { confirmation: "delete my account", password: "pw" };
 
-/** Neon Auth answers the password check as `signsInAs`; the Neon admin API answers `adminStatus`. */
 function neon(signsInAs: string, adminStatus = 200) {
     const fetchMock = vi.fn(async (url: string) => {
         if (url.endsWith("/sign-in/email")) return Response.json({ user: { id: signsInAs } });

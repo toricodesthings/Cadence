@@ -24,7 +24,6 @@ describe("parseStreamErrorText", () => {
         expect(err.code).toBe("AI_TIMEOUT");
         expect(err.isRetryable).toBe(true);
         expect(err.requestId).toBe("req_123");
-        // Calm copy table wins over the raw backend message.
         expect(err.message).toBe(errorCodeToLine("AI_TIMEOUT"));
         expect(err.message).not.toBe("raw upstream message");
     });

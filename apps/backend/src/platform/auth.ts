@@ -16,7 +16,6 @@ import { tracing } from "cloudflare:workers";
 let jwksCache: ReturnType<typeof createRemoteJWKSet> | null = null;
 let cachedUrl = "";
 
-/** Maximum clock skew tolerance for JWT exp/nbf validation (seconds). */
 const CLOCK_TOLERANCE_SECONDS = 30;
 
 export type AuthVariables = {
@@ -25,9 +24,7 @@ export type AuthVariables = {
     requestId: string;
     requestStartedAt: number;
     errorCode?: string;
-    /** Everyone who should hear of this write (the owner and members of a list it touched). See `noteAudience`. */
     liveAudience?: string[];
-    /** Rows this write returned, pushed live to people who can read them. See `noteChange`. */
     liveChanges?: LiveChange[];
 };
 
@@ -57,12 +54,10 @@ export function isAdminUser(env: Env, identity: { userId: string; email?: string
 function classifyAuthFailure(error: unknown) {
     const message = (error instanceof Error ? error.message : "Invalid token").toLowerCase();
 
-    // First: a key-set outage ("Expected 200 OK from the JSON Web Key Set…", a timeout) is no reason to sign in again.
     if (isTransientKeyFailure(error)) {
         return new AppError(503, "AUTH_PROVIDER_UNAVAILABLE", "Authentication provider unavailable", true);
     }
 
-    // jose names the claim in quotes; a bare "exp" also matches `unexpected "iss" claim value`.
     if (message.includes('"exp"') || message.includes("expired")) {
         return new AppError(401, "TOKEN_EXPIRED", "Session expired");
     }
@@ -78,7 +73,6 @@ function classifyAuthFailure(error: unknown) {
     return new AppError(401, "UNAUTHORIZED", "Invalid token");
 }
 
-/** Build the standard JSON error response for an AppError and record its code. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 function respondWithError(c: Context<any>, error: AppError) {
     setRequestErrorCode(c, error.code);
@@ -95,31 +89,18 @@ function respondWithError(c: Context<any>, error: AppError) {
     );
 }
 
-/**
- * Users whose row this isolate already ensured, so a hit skips a whole transaction on every later write.
- * Account deletion removes its entry (`markAccountDeleted`).
- */
 const ensuredUsers = new Set<string>();
 
-/** How long a deleted account's still-valid JWTs are refused: longer than any token lives. */
 const DELETED_TTL_S = 60 * 60;
 const deletedKey = (userHash: string) => `deleted:${userHash}`;
 
-/** After account deletion: another device replaying its offline queue must not recreate the `users` row. Best effort. */
 export async function markAccountDeleted(env: Env, userId: string): Promise<void> {
     ensuredUsers.delete(userId);
     try {
         await getRateLimitRedis(env)?.set(deletedKey(await hashIdentifier(userId)), "1", { ex: DELETED_TTL_S });
-    } catch {
-        // the JWT expires on its own within the hour
-    }
+    } catch {}
 }
 
-/**
- * Ensures a `users` row exists for the authenticated subject before a write's
- * handler runs, preventing FK violations. Once per user per isolate; a just-deleted
- * account is refused (401) instead of recreated.
- */
 async function ensureUserExists(env: Env, userId: string) {
     const deleted = await getRateLimitRedis(env)
         ?.get(deletedKey(await hashIdentifier(userId)))
@@ -137,7 +118,6 @@ async function ensureUserExists(env: Env, userId: string) {
     ensuredUsers.add(userId);
 }
 
-/** The remote key set for this URL, kept across requests. */
 function keySetFor(jwksUrl: string) {
     if (!jwksCache || cachedUrl !== jwksUrl) {
         jwksCache = createRemoteJWKSet(new URL(jwksUrl), {
@@ -149,7 +129,6 @@ function keySetFor(jwksUrl: string) {
     return jwksCache;
 }
 
-/** A failure fetching the key set is worth retrying; a bad token is not. */
 function isTransientKeyFailure(err: unknown) {
     const { code, message } = (err ?? {}) as { code?: string; message?: string };
     return (
@@ -161,7 +140,6 @@ function isTransientKeyFailure(err: unknown) {
 
 const MAX_VERIFY_ATTEMPTS = 3;
 
-/** Verify the token, retrying a transient key-set failure with backoff (200ms, then 400ms). */
 async function verifyToken(token: string, keySet: ReturnType<typeof createRemoteJWKSet>, options: JWTVerifyOptions) {
     for (let attempt = 1; ; attempt++) {
         try {
@@ -173,7 +151,6 @@ async function verifyToken(token: string, keySet: ReturnType<typeof createRemote
     }
 }
 
-/** Verify an app JWT (issuer, expiry) and return who it names. Throws an `AppError` (401 for a bad token). */
 export async function verifyAppToken(env: Env, token: string): Promise<{ userId: string; email?: string }> {
     try {
         const jwksUrl = env.NEON_AUTH_JWKS_URL;
@@ -183,16 +160,13 @@ export async function verifyAppToken(env: Env, token: string): Promise<{ userId:
             throw new AppError(500, "INTERNAL_ERROR", "Missing NEON_AUTH_JWKS_URL");
         }
 
-        // Fail closed outside development: tokens MUST be bound to this API's
-        // trusted issuer. Without it, jwtVerify degrades into a bare signature
-        // check. Neon Auth tokens carry no `aud` claim, so there is none to check.
         if (getDeploymentStage(env) !== "development" && !expectedIssuer) {
             throw new AppError(500, "AUTH_MISCONFIGURED", "JWT_ISSUER must be configured outside development");
         }
 
         const payload = await verifyToken(token, keySetFor(jwksUrl), {
             ...(expectedIssuer && { issuer: expectedIssuer }),
-            algorithms: ["EdDSA"], // Neon Auth signs with Ed25519; nothing else is accepted
+            algorithms: ["EdDSA"],
             clockTolerance: CLOCK_TOLERANCE_SECONDS,
         });
 
@@ -223,19 +197,16 @@ export const authMiddleware = createMiddleware<{
             c.set("userEmail", email);
         }
 
-        // Synchronous user bootstrap on write requests to prevent FK race conditions (F02)
-        // Account deletion is exempt from the user-row check: its retry (after a failed last step) must reach the route.
         const isWrite = c.req.method !== "GET" && c.req.method !== "HEAD" && c.req.path !== "/api/v1/account/delete";
         if (isWrite) {
             try {
                 await tracing.enterSpan("auth.user.ensure", () => ensureUserExists(c.env, userId));
             } catch (dbErr) {
-                if (dbErr instanceof AppError) throw dbErr; // a deleted account: refused, never recreated
+                if (dbErr instanceof AppError) throw dbErr;
                 logger.error("auth", "user_sync_failed", {
                     userHash: await hashIdentifier(userId),
                     issues: issuesFromError(dbErr),
                 });
-                // Non-fatal: the user row may already exist. Let the route attempt proceed.
             }
         }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary

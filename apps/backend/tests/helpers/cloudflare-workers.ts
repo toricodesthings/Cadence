@@ -1,4 +1,3 @@
-/** Test stand-in for the Workers runtime module (`cloudflare:workers`). */
 export class WorkerEntrypoint {}
 
 const span = {
@@ -12,7 +11,6 @@ export const tracing = {
     },
 };
 
-/** Durable Object base: tests pass their own `ctx` (storage + alarm fakes) and env. */
 export class DurableObject<E = unknown> {
     constructor(
         protected ctx: any,

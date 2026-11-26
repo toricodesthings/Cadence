@@ -3,25 +3,10 @@ import { Fragment } from "react";
 import { generateBough, type Bough, type BoughSpec, type Limb } from "~/lib/branch";
 import { cssVars, n1 } from "~/lib/geometry";
 
-/*
- * One glowing bough per wrapper, anchored to a viewport edge by hero.css.
- * Five stacked <svg>s share the box, back to front:
- * 1. halo: a wide ember stroke along every spine, blurred (CSS filter);
- * 2. wood: thick limbs as smooth tapered outlines (moon rim, grain), each
- *    revealed by a mask stroked along its own spine; fine twigs as stacked,
- *    narrowing strokes revealed by their own dashes (no mask);
- * 3. heart: the same narrowing strokes in bright amber, lightly blurred, so
- *    every limb glows from inside and the light melts into the bark;
- * 4. buds; 5. blossoms and the leading ember.
- * Filters are painted into the bough's layer, not composited, so the wind
- * moves a finished texture and only the intro repaints.
- */
-
 const LAND: readonly [number, number] = [900, 700];
 const PORT: readonly [number, number] = [600, 640];
 
 const SPECS = {
-    // Rises from the left edge and reaches toward the wordmark's left rule.
     l: {
         id: "hb-l",
         seed: 101,
@@ -65,7 +50,6 @@ const SPECS = {
             { t: 0.9, side: 1, len: 0.14 },
         ],
     },
-    // Hangs from the right edge just under the header and reaches toward the wordmark's right rule.
     r: {
         id: "hb-r",
         seed: 211,
@@ -187,16 +171,12 @@ const BOUGHS = Object.fromEntries(Object.entries(SPECS).map(([name, spec]) => [n
 >;
 
 const PETAL = "M0,0C-6.5,-3.5 -8,-13 0,-18C8,-13 6.5,-3.5 0,0Z";
-/** Inner-glow width as a share of the limb's width, by depth. */
 export const HEART = [0, 0.4, 0.45, 0.55, 0.6];
 
 const timing = (limb: Limb) => cssVars({ "--start": `${limb.start}ms`, "--dur": `${limb.dur}ms` });
-/** One growing stroke carries its own class and timing... */
 const grow = (limb: Limb) => (limb.depth > 1 ? "hero-grow hero-twig" : "hero-grow");
-/** ...a stack of them shares its group's: one animation per limb, and every child <use> inherits the dash. */
 const grows = (limb: Limb) => (limb.depth > 1 ? "hero-grows hero-twig" : "hero-grows");
 
-/** Plum blossom (ume): five rounded petals, the two lower ones shaded, warm stamens. */
 export function Ume({ id }: { id: string }) {
     return (
         <symbol id={id} viewBox="-20 -20 40 40" overflow="visible">
@@ -226,7 +206,6 @@ export function HeroBoughLayers({ name }: { name: BoughName }) {
     const spine = (i: number) => `#${id}-s${i}`;
     const step = (limb: Limb, i: number, k: number) => (limb.steps[k].d === null ? spine(i) : `#${id}-t${i}-${k}`);
     const main = limbs[0];
-    // Twigs first and trunk last, so every parent's wood covers its children's bases.
     const order = limbs.map((limb, i) => [limb, i] as const).reverse();
     const [vw, vh] = viewBox.split(" ").slice(2).map(Number);
 
@@ -248,7 +227,6 @@ export function HeroBoughLayers({ name }: { name: BoughName }) {
 
             <svg className="hero-bough-wood" viewBox={viewBox} focusable="false">
                 <defs>
-                    {/* Wood grain: lit toward the moon (upper left), shaded away from it */}
                     <linearGradient id={`${id}-grain`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={vw} y2={vh}>
                         <stop offset="0" stopColor="var(--hero-wood-lit)" />
                         <stop offset="1" stopColor="var(--hero-wood)" />
@@ -262,7 +240,6 @@ export function HeroBoughLayers({ name }: { name: BoughName }) {
                             {limb.outline && (
                                 <>
                                     <path id={`${id}-o${i}`} d={limb.outline} />
-                                    {/* Default region (the limb's box plus 10%); alpha type, set in hero.css */}
                                     <mask id={`${id}-m${i}`}>
                                         <use
                                             href={spine(i)}
@@ -283,7 +260,6 @@ export function HeroBoughLayers({ name }: { name: BoughName }) {
                 {order.map(([limb, i]) =>
                     limb.outline ? (
                         <g key={i} mask={`url(#${id}-m${i})`}>
-                            {/* Moon rim: the outline nudged toward the key light, showing past the wood's upper-left edge */}
                             <use href={`#${id}-o${i}`} fill="var(--hero-wood-rim)" transform="translate(-1.2 -1.2)" />
                             <use href={`#${id}-o${i}`} fill={`url(#${id}-grain)`} />
                         </g>
@@ -316,10 +292,8 @@ export function HeroBoughLayers({ name }: { name: BoughName }) {
                 </g>
             </svg>
 
-            {/* Buds: their own layer, so the idle breath is a composited fade */}
             <svg className="hero-buds" viewBox={viewBox} focusable="false">
                 <defs>
-                    {/* An ember dot with a faint glow and a white-hot core */}
                     <EmberBud id={`${id}-bud`} />
                 </defs>
                 {buds.map((bud) => (
@@ -346,7 +320,6 @@ export function HeroBoughLayers({ name }: { name: BoughName }) {
                         </g>
                     </g>
                 ))}
-                {/* Leading ember riding the main limb's growth front (omitted without CSS motion-path support) */}
                 <g
                     className="hero-ember"
                     fill="var(--hero-ember)"
@@ -359,7 +332,6 @@ export function HeroBoughLayers({ name }: { name: BoughName }) {
     );
 }
 
-/** An ember dot with a faint glow and a white-hot core, for `<use>` by id (the boughs' buds). */
 export function EmberBud({ id }: { id: string }) {
     return (
         <g id={id}>
@@ -370,7 +342,6 @@ export function EmberBud({ id }: { id: string }) {
     );
 }
 
-/** The leading ember's glow, body and core; the parent `<g>` sets its fill and motion path. */
 export function EmberCore() {
     return (
         <>

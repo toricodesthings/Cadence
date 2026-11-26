@@ -39,8 +39,6 @@ describe("proxy route contracts", () => {
         vi.clearAllMocks();
     });
 
-    // ── Weather ──
-
     describe("GET /proxy/weather", () => {
         it("returns only the current conditions from upstream", async () => {
             const upstream = {
@@ -102,8 +100,6 @@ describe("proxy route contracts", () => {
             expect(res.status).toBe(400);
         });
     });
-
-    // ── Geocode ──
 
     describe("GET /proxy/geocode/reverse", () => {
         it("returns country and subdivision from upstream", async () => {
@@ -198,8 +194,6 @@ describe("proxy route contracts", () => {
         });
     });
 
-    // ── Approximate location ──
-
     describe("GET /proxy/geo/approximate", () => {
         function requestWithEdgeGeo(cf: Record<string, unknown> | undefined) {
             const req = new Request("http://localhost/proxy/geo/approximate");
@@ -254,8 +248,6 @@ describe("proxy route contracts", () => {
         });
     });
 
-    // ── Holiday Countries ──
-
     describe("GET /proxy/holidays/countries", () => {
         it("merges countries from both providers", async () => {
             const openHolidays = [{ isoCode: "DE", name: [{ language: "EN", text: "Germany" }] }];
@@ -269,10 +261,8 @@ describe("proxy route contracts", () => {
 
             expect(res.status).toBe(200);
             const body: any = await res.json();
-            // OpenHolidays should override Nager for DE
             const de = body.data.find((c: any) => c.code === "DE");
             expect(de.label).toBe("Germany");
-            // US should come from Nager
             const us = body.data.find((c: any) => c.code === "US");
             expect(us.label).toBe("United States");
         });
@@ -297,8 +287,6 @@ describe("proxy route contracts", () => {
             expect(fetchMock.mock.calls[0][0]).toContain("languageIsoCode=EN");
         });
     });
-
-    // ── Holiday Subdivisions ──
 
     describe("GET /proxy/holidays/subdivisions", () => {
         it("returns subdivisions from OpenHolidays", async () => {
@@ -343,8 +331,6 @@ describe("proxy route contracts", () => {
         });
     });
 
-    // ── Holidays ──
-
     describe("GET /proxy/holidays", () => {
         it("returns holidays from OpenHolidays", async () => {
             const upstream = [
@@ -367,9 +353,7 @@ describe("proxy route contracts", () => {
         });
 
         it("falls back to Nager when OpenHolidays returns empty", async () => {
-            // OpenHolidays returns no holidays (nationwide only, none match)
             fetchMock.mockResolvedValueOnce(jsonResponse([]));
-            // Nager fallback
             fetchMock.mockResolvedValueOnce(
                 jsonResponse([
                     {

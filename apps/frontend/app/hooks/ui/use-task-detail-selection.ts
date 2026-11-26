@@ -2,10 +2,6 @@ import { useState } from "react";
 import { useShellMode } from "./use-shell-mode";
 import { useTaskDetailsRequest } from "./use-task-details-request";
 
-/**
- * Which task's details are open, shared by every task list route: tap again to close, and below wide
- * widths the details open as a sheet. `onPick` lets a route clear its own other selection.
- */
 export function useTaskDetailSelection(onPick?: () => void) {
     const shell = useShellMode();
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);

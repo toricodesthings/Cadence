@@ -6,7 +6,6 @@ import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 import { onNoteSaved } from "../../lib/notes/note-channel";
 
-/** One compact snapshot while search is open, rather than one full-note request per task. */
 export function useSearchNotes(enabled: boolean) {
     const api = useApiClient();
     const { authReady, isAuthenticated, session } = useAuthState();

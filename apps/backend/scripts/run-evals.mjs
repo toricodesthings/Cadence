@@ -15,7 +15,6 @@ const suites = {
 };
 if (!Object.hasOwn(suites, preset)) throw new Error(`Unknown evaluation preset: ${preset}`);
 const profile = preset === "full" ? "full" : preset === "smoke" ? "smoke" : "iteration";
-// --list collects tests without running paid callbacks or hooks.
 const list = args.includes("--list");
 const filters = args.filter((arg) => arg !== "--list");
 const child = spawn(

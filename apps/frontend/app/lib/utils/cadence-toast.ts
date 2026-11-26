@@ -2,7 +2,6 @@ import { isValidElement, type CSSProperties, type ReactNode } from "react";
 import { toast as sonnerToast, type ExternalToast } from "sonner";
 
 export const CADENCE_TOAST_DURATION = 4200;
-/** A toast carrying an Undo stays long enough to notice it and reach the button. */
 export const CADENCE_UNDO_DURATION = 7000;
 
 const CADENCE_TOAST_PATCHED = Symbol.for("cadence.frontend.toast-patched");
@@ -42,7 +41,6 @@ function withCadenceToastOptions(options?: ExternalToast, fallbackDuration = CAD
     const undoable = isUndoAction(options?.action);
     const duration =
         options?.duration ?? (undoable ? Math.max(fallbackDuration, CADENCE_UNDO_DURATION) : fallbackDuration);
-    // The close button and a lone action share the top-right grid cell, so buttoned toasts skip it.
     const shouldShowCloseButton =
         options?.closeButton ?? (Boolean(options?.description) && !options?.action && !options?.cancel);
 

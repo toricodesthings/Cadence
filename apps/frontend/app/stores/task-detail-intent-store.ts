@@ -1,16 +1,10 @@
 import { create } from "zustand";
 
-/**
- * "Break into steps" says where to go, not what to write: the task's subtask field takes focus wherever that task's
- * subtasks are shown (its row, or its details). Whoever shows them consumes the intent, once.
- */
 interface TaskDetailIntentState {
     addStepsFor: string | null;
-    /** Tasks whose first step is the offered action: writing it is what the server records as "chosen". */
     offered: Record<string, true>;
     askForSteps: (taskId: string) => void;
     consume: (taskId: string) => void;
-    /** True once per offer: the person has now written a step. */
     stepWritten: (taskId: string) => boolean;
 }
 

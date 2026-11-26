@@ -57,7 +57,6 @@ export const meta: Route.MetaFunction = () => [
 ];
 
 export default function Home() {
-    // Idle loops rest while the tab is hidden or the window is in the background (lib/away.ts)
     useEffect(() => watchAway(), []);
 
     return (

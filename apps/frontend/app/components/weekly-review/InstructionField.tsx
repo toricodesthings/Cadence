@@ -17,7 +17,6 @@ import { useSettings } from "../../hooks/core/use-settings";
 import { getUserZone } from "../../lib/utils/user-zone";
 import { previewParts } from "../../lib/utils/task/instruction-preview";
 
-/** What an instruction may change; never the title or notes. */
 const INSTRUCTION_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>([
     "dueDate",
     "scheduledStart",
@@ -29,10 +28,6 @@ const INSTRUCTION_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>([
     "priority",
 ]);
 
-/**
- * One line to say what should change ("Friday 3pm for 30 min", "keep waiting until Monday", "put in Work").
- * It shows the change before anything is saved; Apply is the one commit.
- */
 export function InstructionField({
     placeholder,
     applyLabel,
@@ -46,7 +41,6 @@ export function InstructionField({
     disabled?: boolean;
     onApply: (patch: InstructionPatch) => void | Promise<void>;
     autoFocus?: boolean;
-    /** The list of the one task this changes: a section name shared by several lists means this list's. */
     listId?: string | null;
 }) {
     const [text, setText] = useState("");
@@ -57,9 +51,7 @@ export function InstructionField({
         projects.map((p) => p.id),
         Boolean(text.trim()),
     );
-    // A named section is read first and blanked for the parser, so "Later This Week" is a place, not a date.
     const parse = useParseModule(Boolean(text.trim()));
-    // The whole name is a day ("Today", "Monday"); "Later This Week" is a place that merely contains one.
     const namesADay = (name: string) =>
         Boolean(
             parse?.({ input: name, sourceSurface: "task_edit_title", clock: nlpClock() }).entities.some(
@@ -89,7 +81,6 @@ export function InstructionField({
             getUserZone(),
             resolveSection(mention, fields.projectId ?? listId),
         );
-        // A section name that matched more than one list (or not the named one) is shown as not read, never guessed.
         return mention && !resolveSection(mention, fields.projectId ?? listId)
             ? { ...result, unread: `${result.unread} ${text.slice(mention.start, mention.end)}`.trim() }
             : result;

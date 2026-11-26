@@ -53,7 +53,6 @@ export function calendarTone(task: Task): string {
     return `var(--color-${priorities[task.priority ?? 0]})`;
 }
 
-/** One opacity decision: done/past and hover dimming never compound below 50%. */
 export function useCalendarItemPresentation(tasks: readonly Task[]) {
     const { series } = useContext(CalendarHoverContext);
     const done = tasks.every((task) => task.state === "COMPLETE");
@@ -69,7 +68,6 @@ export function useCalendarItemPresentation(tasks: readonly Task[]) {
     };
 }
 
-/** The routine's kind mark is its check-off, including one particular time slot. */
 export function RoutineRing({ task, size = 24 }: { task: Task; size?: number }) {
     const { resolveRoutine } = useContext(CalendarChipActionsContext);
     const done = task.state === "COMPLETE";
@@ -107,7 +105,6 @@ export function RoutineRing({ task, size = 24 }: { task: Task; size?: number }) 
     );
 }
 
-/** A visible details path beside a check-off mark; also serves as a popover trigger. */
 export const RoutineDetailsButton = ({
     label,
     children,
@@ -126,7 +123,6 @@ export const RoutineDetailsButton = ({
     </Tip>
 );
 
-/** "Routine · 7:00", "Fixed · Tue 9–10", "Task · due Mar 8": what it is and when. */
 function chipKindLine(task: Task) {
     const kind = scheduleKind(task);
     const start = task.scheduledStart;
@@ -172,7 +168,6 @@ function ChipHoverCard({ task, tasks }: { task: Task; tasks: readonly Task[] }) 
     );
 }
 
-/** Every calendar shape shares its preview and labelled menu; dragging suppresses the preview. */
 export function CalendarItem({
     task,
     tasks = [task],

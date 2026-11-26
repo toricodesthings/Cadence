@@ -10,13 +10,10 @@ import { useEditableProjects } from "../../../hooks/projects/use-own-projects";
 import { toDay, formatShortDate, formatShortDateTime } from "../../../lib/utils/date-format";
 import { storedSuggestion } from "../../../lib/utils/task/suggested-placement";
 import { ResolvingRow, StepEmpty, StepShell } from "../StepShell";
+import { ReviewCardsSkeleton } from "../WeeklyReviewSkeleton";
 import { dayActions, ReviewListItem, type ReviewAction, type ReviewActions } from "./shared";
 import type { useWeekRoom } from "../../../hooks/core/use-week-room";
 
-/**
- * A capture row. The primary is the day its words name (today's words only), else the model's guess, else Today.
- * A list the server already suggested shows as a chip; tapping it puts the task in that list on placement.
- */
 export function CaptureReviewRow({
     item,
     guess,
@@ -37,7 +34,6 @@ export function CaptureReviewRow({
         useList && suggestion
             ? { projectId: suggestion.projectId, ...(suggestion.sectionId && { sectionId: suggestion.sectionId }) }
             : {};
-    // A capture from an earlier day: its "tomorrow" is not today's, so no day is proposed from its words.
     const fresh = toDay(item.createdAt) === today();
     const start = fresh ? parse.scheduledStart : null;
     const day = fresh ? parse.dueDate : null;
@@ -104,22 +100,25 @@ export function CaptureReviewRow({
     );
 }
 
-/* ─── Step 1 · Captures ─── */
 export function InboxStep({
     review,
     guesses,
     dayFor,
+    isLoading,
     titleInHeader,
 }: {
     review: ReviewActions;
     guesses: Record<string, ResetDisposition>;
     dayFor: ReturnType<typeof useWeekRoom>["dayFor"];
+    isLoading?: boolean;
     titleInHeader?: boolean;
 }) {
     const { inboxItems } = review;
     return (
-        <StepShell step={1} count={inboxItems.length} titleInHeader={titleInHeader}>
-            {inboxItems.length > 0 ? (
+        <StepShell step={1} count={isLoading ? undefined : inboxItems.length} titleInHeader={titleInHeader}>
+            {isLoading ? (
+                <ReviewCardsSkeleton label="Loading thoughts" />
+            ) : inboxItems.length > 0 ? (
                 <div className="grid gap-2 @5xl:grid-cols-2">
                     <AnimatePresence initial={false}>
                         {inboxItems.map((item) => (

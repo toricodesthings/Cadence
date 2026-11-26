@@ -64,7 +64,6 @@ describe("Habit cache isolation", () => {
             for (const targetDate of days) result.current.mutate({ targetDate, status: "COMPLETED" });
         });
         await waitFor(() => expect(resolve).toHaveBeenCalledTimes(2));
-        // The first answer knows nothing of the second check-in: reading it back would flash the second undone.
         await act(async () => first.resolve(response({ habit: { ...habit, logs: [] } })));
         const statuses = () => client.getQueryData<Habit[]>(weeklyKey)?.[0].logs?.map((log) => log.status);
         expect(statuses()).toEqual(["COMPLETED", "COMPLETED"]);

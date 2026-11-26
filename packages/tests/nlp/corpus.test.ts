@@ -33,7 +33,6 @@ function run(c: Case) {
     );
 }
 
-/** Does the applied value equal what the case expects (events compare only the month and day)? */
 function same(c: Case, key: keyof DraftFields, got: unknown, want: unknown) {
     if (c.surface === "event" && key === "dueDate") return typeof got === "string" && got.endsWith(want as string);
     return JSON.stringify(got) === JSON.stringify(want);
@@ -87,7 +86,6 @@ describe("corpus shape", () => {
         expect(CORPUS.filter((c) => c.negative).length).toBeGreaterThanOrEqual(50);
         expect(CORPUS.filter((c) => c.combined).length).toBeGreaterThanOrEqual(50);
         expect(heldOut.length).toBeGreaterThanOrEqual(100);
-        // Families never straddle the split.
         const splits = new Map<string, Set<string>>();
         for (const c of CORPUS) splits.set(c.family, (splits.get(c.family) ?? new Set()).add(c.split));
         expect([...splits.values()].every((s) => s.size === 1)).toBe(true);

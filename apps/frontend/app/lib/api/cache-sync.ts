@@ -9,7 +9,6 @@ import { transformListCache } from "./cache-guards";
 import { isOnlyWriteTo, refetchAfterWrites } from "./write-gate";
 import { getTaskEffectiveAnchor, isRecurringTask, isRecurringTaskInstance } from "../utils/task/task-scheduling";
 
-/** State, list and the no-list / no-date filters. */
 function matchesBasics(task: Task, filters: Record<string, unknown>) {
     if (filters.state && task.state !== filters.state) return false;
     if (filters.projectId && task.projectId !== filters.projectId) return false;
@@ -17,10 +16,8 @@ function matchesBasics(task: Task, filters: Record<string, unknown>) {
     return !(filters.hasNoDate === true && (task.dueDate || task.scheduledStart || task.scheduledEnd));
 }
 
-/** The day filters: a range, or "on or before" a day. */
 function matchesDays(task: Task, filters: Record<string, unknown>) {
     if (filters.range && typeof filters.range === "object") {
-        // Anchors and bounds are both LocalDates (inclusive): plain string compare.
         const range = filters.range as { from?: string; to?: string };
         const anchor = getTaskEffectiveAnchor(task);
         if (!anchor) return false;
@@ -38,7 +35,6 @@ function matchesTaskList(task: Task, filters: Record<string, unknown>) {
     return matchesBasics(task, filters) && matchesDays(task, filters);
 }
 
-/** Shows a write's server row, unless a later write to the same task is in flight (its row would flash that one off). */
 export function reconcileTaskInCaches(queryClient: QueryClient, task: Task, replaceId?: string) {
     if (isRecurringTask(task) || isRecurringTaskInstance(task)) {
         void refetchAfterWrites(queryClient, queryKeys.tasks.all);
@@ -49,7 +45,6 @@ export function reconcileTaskInCaches(queryClient: QueryClient, task: Task, repl
     const taskLists = queryClient
         .getQueriesData<Task[]>({ queryKey: queryKeys.tasks.all })
         .filter(([key]) => typeof key[1] === "object");
-    // Write responses are bare rows: keep what only list reads carry (tagIds).
     const cached = taskLists
         .flatMap(([, list]) => (Array.isArray(list) ? list : []))
         .find((entry) => entry.id === task.id || entry.id === replaceId);
@@ -80,7 +75,6 @@ export function removeTaskFromCaches(queryClient: QueryClient, taskId: string) {
 export function reconcileHabitInCaches(queryClient: QueryClient, habit: Habit, replaceId?: string) {
     queryClient.setQueryData(queryKeys.habits.detail(habit.id), habit);
 
-    // Helper: update habit in-place to preserve array order
     const updateInPlace = (items: Habit[]): Habit[] => {
         const idx = items.findIndex((entry) => entry.id === habit.id || entry.id === replaceId);
         if (idx >= 0) {

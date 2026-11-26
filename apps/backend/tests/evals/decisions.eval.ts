@@ -1,18 +1,3 @@
-/**
- * Decision-model evals and threshold calibration: S1 placement and `priority_said` (asked together, as a capture
- * asks them), E3 `effort` (persona histories, held-out titles, beside `priority_said` as a capture with E3 asks it) and
- * S2 did-you-mean and the Weekly Reset's `reset_disposition` (8 rows per request), against a real decision model. The questions come from the production builders. Every kind is asked at
- * threshold 0 and swept afterwards: a threshold is chosen on the tuning split (70%) and confirmed on the held-out split (30%).
- * Pass 2 (full) re-cases and reshuffles labels, lowercases the text and reverses Effort's levels, so position or
- * spelling bias shows up. Answers are cached by request in root `output/evals/decisions-cache.json`, so a re-run asks only
- * new cases (delete it to ask again). `AI_DECISION_MODEL=<dated id> pnpm eval:decisions` (OPENROUTER_API_KEY in env or
- * `.dev.vars`); writes root `output/evals/decisions-<model>-<profile>.json`.
- *
- * Gates: placement wrong ≤ 5% of shown, coverage ≥ 60%; search right ≥ 70% where one exists, wrong ≤ 10% where none does;
- * priority_said nothing invented and wrong ≤ 5% of shown; effort off by two ≤ 2% and wrong (a guess where their choices show
- * none) ≤ 5% of shown, coverage ≥ 40% of the titles; reset_disposition no wrong guess shown, coverage ≥ 30%
- * `suggestEffort` left open. The local parser and `suggestEffort` are scored on the same cases for free.
- */
 import { afterAll, describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -56,7 +41,6 @@ const TODAY = "2026-10-25";
 const DIR = join(__dirname, "../../../../output/evals");
 const SWEEP = [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 0.98, 0.99];
 
-// ── Answers cached by request body (it names the model), so only new or changed cases cost a call ──
 const CACHE = join(DIR, "decisions-cache.json");
 const cache: Record<string, unknown> = existsSync(CACHE) ? JSON.parse(readFileSync(CACHE, "utf8")) : {};
 const spent = { calls: 0, cached: 0, costUsd: 0 };
@@ -68,7 +52,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     if (key in cache) spent.cached++;
     else {
         const response = await realFetch(input, init);
-        if (!response.ok) return response; // not cached: asked again next run
+        if (!response.ok) return response;
         cache[key] = await response.json();
         spent.calls++;
         spent.costUsd += (cache[key] as { usage?: { cost?: number } }).usage?.cost ?? 0;
@@ -76,7 +60,6 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     return new Response(JSON.stringify(cache[key]), { status: 200, headers: { "Content-Type": "application/json" } });
 }) as typeof fetch;
 
-/** A seeded shuffle, so a run is repeatable. */
 function shuffled<T>(items: T[], seed: number): T[] {
     const out = [...items];
     let state = seed || 1;
@@ -88,7 +71,6 @@ function shuffled<T>(items: T[], seed: number): T[] {
     return out;
 }
 const heldOut = (text: string) => createHash("sha256").update(text).digest()[0] % 10 < 3;
-/** Pass 2's texting register: lowercase, no closing full stop. */
 const casual = (text: string) => text.toLowerCase().replace(/\.\s*$/, "");
 
 async function pool<T>(items: T[], size: number, work: (item: T) => Promise<void>) {
@@ -100,7 +82,6 @@ async function pool<T>(items: T[], size: number, work: (item: T) => Promise<void
     );
 }
 
-// ── Rows: one per question answered. `ok` holds every acceptable answer ("none" where abstaining is right) ──
 type Row = {
     kind: string;
     text: string;
@@ -143,7 +124,6 @@ function push(
 }
 const levelsOk = (ok: number[]) => ok.map((n) => (n === 0 ? "none" : String(n)));
 
-/** One capture: placement and/or priority_said in one request, as `suggestPlacement` asks them. */
 async function capture(
     text: string,
     pass: number,
@@ -179,7 +159,6 @@ function statsAt(set: Row[], threshold: number) {
         shown: shown.length,
         coverage: rate(shown.filter((r) => r.ok.includes(r.got!)).length, answerable.length),
         wrongOfShown: rate(wrong.length, shown.length),
-        /** Shown where abstaining was acceptable and the answer was not: a priority the words never stated. */
         invented: wrong.filter((r) => r.ok.includes("none")).length,
         shownWhereNone: rate(
             answered.filter((r) => r.ok.length === 1 && r.ok[0] === "none").filter((r) => shown.includes(r)).length,
@@ -212,7 +191,6 @@ function summarize(kind: string, gate: Gate) {
         heldOutAtChosen: chosen === null ? null : { ...statsAt(test, chosen), meetsGate: gate(statsAt(test, chosen)) },
         allAtChosen: chosen === null ? null : statsAt(all, chosen),
         sweep: SWEEP.map((t) => statsAt(all, t)),
-        // Every shown-and-wrong answer at 0.5, for reading by eye.
         wrong: all
             .filter((r) => r.got && r.got !== "none" && r.probability >= 0.5 && !r.ok.includes(r.got))
             .map((r) => ({
@@ -237,7 +215,7 @@ const RAW: Partial<Record<DecisionKind, number>> = {
 
 describe.skipIf(!live)("decisions", () => {
     it("S1: placement and priority_said, one request per capture", async () => {
-        DECISION_THRESHOLDS[model] = RAW; // raw top choice; thresholds are swept below
+        DECISION_THRESHOLDS[model] = RAW;
         const jobs = [
             ...PLACEMENT_CASES.map((c, i) => ({
                 text: c.text,
@@ -382,7 +360,6 @@ describe.skipIf(!live)("decisions", () => {
             priority_said: summarize("priority_said", (s) => s.invented === 0 && s.wrongOfShown <= 0.05),
             effort: summarize("effort", (s) => s.offByTwo <= 0.02 && s.wrongOfShown <= 0.05 && s.coverage >= 0.4),
             search: summarize("search", (s) => s.coverage >= 0.7 && s.shownWhereNone <= 0.1),
-            // A wrong guess only moves a button, but it must stay rare: no wrong shown, some coverage.
             reset_disposition: summarize("reset_disposition", (s) => s.wrongOfShown === 0 && s.coverage >= 0.3),
             parser: localScore("parser"),
             suggestEffort: localScore("suggestEffort"),

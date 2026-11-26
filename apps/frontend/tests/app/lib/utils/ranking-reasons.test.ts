@@ -1,6 +1,3 @@
-/**
- * §13.1 Acceptance: Ranking reason labels and materiality
- */
 import { describe, it, expect } from "vitest";
 import { getMaterialRankingLabel } from "../../../../app/lib/utils/ranking-reasons";
 

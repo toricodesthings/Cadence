@@ -6,7 +6,6 @@ import { useTaskDetailsRequest } from "../ui/use-task-details-request";
 import { parseVirtualHabitId } from "../habits/use-virtual-habit-tasks";
 import { getTaskSeriesId } from "../../lib/utils/task/task-scheduling";
 
-/** What the detail panel shows: a task, or a routine on the day that was clicked. */
 export type SelectedItem = { kind: "task"; id: string } | { kind: "habit"; id: string; day: LocalDate } | null;
 
 export function useScheduleSelection(
@@ -25,7 +24,6 @@ export function useScheduleSelection(
     const handleSelectTask = useCallback(
         (taskId: string) => {
             const habit = parseVirtualHabitId(taskId);
-            // Opening the open item again closes it.
             if (habit) {
                 setSelected((current) =>
                     current?.kind === "habit" && current.id === habit.habitId && current.day === habit.day

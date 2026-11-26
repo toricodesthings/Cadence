@@ -9,20 +9,6 @@ export function reportError(error: unknown, kind: ClientError["kind"]) {
     errorReporter?.(error, kind);
 }
 
-/**
- * The app's one console logger.
- *
- *   debug · warn → dev only, with full detail (timings, recoveries, fallbacks)
- *   error        → always; in production one plain sentence plus the `errorRef`
- *                  a user can copy to support, never the raw error object
- *
- * Anything that breaks for the user is an `error`; everything else is dev-only.
- */
-
-/**
- * `code · requestId · v0.22.0`, what a user copies when reporting a failure.
- * The requestId finds the matching backend `request_failed` line.
- */
 export function errorRef(error: unknown): string {
     const { code, requestId } = (error ?? {}) as { code?: unknown; requestId?: unknown };
     const what =

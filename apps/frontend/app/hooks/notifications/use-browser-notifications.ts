@@ -11,7 +11,6 @@ import { useDeviceDelivery, useDeviceDeliverySync } from "./use-device-delivery"
 const FIRED_KEY = "cadence_alerted_occurrences";
 const FIRED_LIMIT = 300;
 
-/** Occurrences this device already alerted, per account, so a reload never repeats one. */
 function loadFired(userId: string): Set<string> {
     try {
         const saved = JSON.parse(window.localStorage.getItem(FIRED_KEY) ?? "null") as {
@@ -27,17 +26,9 @@ function loadFired(userId: string): Set<string> {
 function saveFired(userId: string, fired: Set<string>) {
     try {
         window.localStorage.setItem(FIRED_KEY, JSON.stringify({ userId, keys: [...fired].slice(-FIRED_LIMIT) }));
-    } catch {
-        // Best effort: a reload may repeat an alert, never lose one.
-    }
+    } catch {}
 }
 
-/**
- * Local reminder alerts for a device the server can't reach (Cadence shows them itself while it is
- * running): desktop, and browsers without a saved push registration. A connected device is served by
- * the server's push, so this stays silent there. Same policy as the server: `dueAlert`. While it alerts
- * by itself it reads the cached data that live sync (`useLiveSync`) keeps fresh.
- */
 export function useBrowserNotifications(notifications: AppNotification[]) {
     useDeviceDeliverySync();
     const { status } = useDeviceDelivery();
@@ -69,10 +60,8 @@ export function useBrowserNotifications(notifications: AppNotification[]) {
             });
             if (!due || fired.has(due.key)) continue;
 
-            // Claim before sending so overlapping runs can't double up; a failed send gives the claim back.
             fired.add(due.key);
             saveFired(userId, fired);
-            // The occurrence key is the tag the server pushes with, so a local alert and a pushed one collapse into one.
             sendPlatformNotification({
                 title: n.title,
                 body: n.body,

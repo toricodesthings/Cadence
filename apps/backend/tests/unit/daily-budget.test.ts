@@ -71,9 +71,7 @@ describe("global daily spend ceiling", () => {
         expect(await spendWithinCap(capped, now)).toBe(false);
         expect(error).toHaveBeenCalledTimes(1);
         expect(error.mock.calls[0][1]).toBe("ai_spend_cap_reached");
-        // The default cap (10) applies when the var is unset or unparseable.
         expect(await spendWithinCap({ AI_DAILY_SPEND_CAP_USD: "lots" } as never, now)).toBe(true);
-        // Tomorrow starts again.
         expect(await spendWithinCap(capped, new Date("2026-11-10T00:00:01.000Z"))).toBe(true);
         error.mockRestore();
     });
@@ -96,7 +94,6 @@ describe("global daily spend ceiling", () => {
     });
 });
 
-// Same counter shape as withinDailyBudget, but the memory cap never blocks when the store is down (fails open).
 describe("memory daily extraction cap", () => {
     const USER = "11111111-1111-4111-8111-111111111111";
     const OTHER = "22222222-2222-4222-8222-222222222222";

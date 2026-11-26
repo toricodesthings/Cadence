@@ -5,10 +5,6 @@ import { useAuthState } from "../auth/use-auth-state";
 const EMPTY: CollabSnapshot = { status: "connecting", peers: [] };
 const NOOP_SUB = () => () => {};
 
-/**
- * Opens a live collaborative Yjs session for a shared task's note.
- * Disabled (returns `collab: null`) for unshared tasks so personal notes keep their offline-first `NoteSession`.
- */
 export function useCollabNote(taskId: string | null | undefined, enabled: boolean, present = true) {
     const { authReady, isAuthenticated, session } = useAuthState();
     const userId = session?.user.id ?? "";
@@ -20,7 +16,6 @@ export function useCollabNote(taskId: string | null | undefined, enabled: boolea
         [userName, userId],
     );
 
-    // Created in the effect (not render) so StrictMode's mount/cleanup/mount never leaves a destroyed or leaked handle.
     const [collab, setCollab] = useState<CollabNoteHandle | null>(null);
 
     useEffect(() => {

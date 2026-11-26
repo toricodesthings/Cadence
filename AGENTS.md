@@ -18,6 +18,7 @@ Follow these rules:
 - **Simplest thing:** reuse what exists and add nothing speculative.
 - **Surgical:** every changed line traces to the request. Tests, the CHANGELOG bullet and stale AGENTS.md lines count as part of it.
 - **Verifiable:** for a bug, write a failing test in `tests/`, then fix the root cause.
+- **Comments:** default is none. Write one only for a non-obvious why the code can't show (hidden constraint, workaround, surprising invariant), one line. Never restate the code, narrate history, or leave section banners. Never put rules, conventions or "must/never" instructions in comments; rules live in `AGENTS.md` or the manifesto, enforced by lint or tests.
 
 ## Gates
 

@@ -28,7 +28,7 @@ describe("deriveFallbackTitle", () => {
 
     it("clamps overly long single-line input to the char budget", () => {
         const out = deriveFallbackTitle("supercalifragilisticexpialidocious antidisestablishmentarianism");
-        expect(out.length).toBeLessThanOrEqual(TITLE_MAX_CHARS + 1); // +1 for the ellipsis
+        expect(out.length).toBeLessThanOrEqual(TITLE_MAX_CHARS + 1);
         expect(out.endsWith("…")).toBe(true);
     });
 });

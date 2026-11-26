@@ -1,4 +1,3 @@
-/** Stored context is reusable only under current consent and with unchanged facts this mode may still read. */
 import { PROMPT_BLOCKS } from "../prompt/prompt-blocks";
 import { memoryLines, storedTurnContext } from "../prompt/prompt-composer";
 import type { MemoryMode } from "@cadence/contracts/memory";
@@ -9,7 +8,6 @@ const MEMORY_FENCE =
     /<<<CADENCE_DATA_([a-zA-Z0-9]+) kind="memory" trust="untrusted">>>\n([\s\S]*?)\n<<<END_CADENCE_DATA_\1>>>/;
 const FACT_ID = /^- (?:\(said [^\n]*\) )?\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]/gm;
 
-/** Returns replay copies; never edits the persisted historical prefix. Invalid contexts rebuild on continuation. */
 export async function validateStoredContexts<M extends { role: string; metadata?: unknown }>(
     history: M[],
     mode: MemoryMode | null,

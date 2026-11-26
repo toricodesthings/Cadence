@@ -4,7 +4,6 @@ import { persist } from "zustand/middleware";
 interface SidebarState {
     isCollapsed: boolean;
     width: number;
-    /** Laptop's panel is a drawer over the content: open only until the next move, never restored. */
     drawerOpen: boolean;
     toggleCollapse: () => void;
     setCollapsed: (collapsed: boolean) => void;

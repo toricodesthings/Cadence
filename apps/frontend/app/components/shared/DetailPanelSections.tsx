@@ -7,7 +7,6 @@ import { FIELD_LABEL } from "../tasks/task-choice-options";
 export const CARD = "rounded-[1.25rem] border border-twilight-border/35 bg-white/[0.02]";
 export const PANEL_TRIGGER = `${CARD} flex min-h-16 w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition-colors hover:border-twilight-border/50 hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50`;
 
-/** Collapsed pane: icon, name, one-line summary, chevron. */
 export function PanelTrigger({
     icon: Icon,
     title,
@@ -17,7 +16,6 @@ export function PanelTrigger({
     icon: React.ElementType;
     title: string;
     summary: string;
-    /** Left out when there's nothing to open: the row only states the summary. */
     onOpen?: () => void;
 }) {
     const face = (
@@ -47,7 +45,6 @@ export function PanelTrigger({
     );
 }
 
-/** Open pane header: name + a plain "Done" that collapses the section. */
 export function PanelHeader({ title, summary, onDone }: { title: string; summary?: string; onDone: () => void }) {
     return (
         <div className="flex items-center justify-between gap-3">
@@ -69,11 +66,9 @@ export function PanelHeader({ title, summary, onDone }: { title: string; summary
     );
 }
 
-/** Borderless value on the right of a FieldRow; opens a picker. */
 export const VALUE_BTN =
     "flex min-h-10 max-w-full cursor-pointer items-center rounded-lg px-2.5 text-right text-[13px] text-twilight-text-soft transition-colors hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
-/** Titled cluster of related fields inside a detail card. */
 export function DetailGroup({ title, children }: { title: string; children: React.ReactNode }) {
     return (
         <section
@@ -86,7 +81,6 @@ export function DetailGroup({ title, children }: { title: string; children: Reac
     );
 }
 
-/** Label above a full-width control — for choice rows that need the width. */
 export function FieldBlock({
     icon: Icon,
     label,
@@ -107,7 +101,6 @@ export function FieldBlock({
     );
 }
 
-/** Label left, value right — for single-value rows. `hint` sits under the label when the value side is a toggle. */
 export function FieldRow({
     icon: Icon,
     label,
@@ -133,10 +126,8 @@ export function FieldRow({
     );
 }
 
-/** Radix Select reserves "" for "no value", so the empty choice needs its own key. */
 const NONE = "__none";
 
-/** A FieldRow value that picks one option: the Cadence Select at every size. "" is the empty choice. */
 export function ValueSelect({
     label,
     value,

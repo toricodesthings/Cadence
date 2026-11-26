@@ -10,7 +10,6 @@ export const captureStatusSchema = z.enum(["clarifying", "placed", "kept", "disc
 export const inboxAnalysisStatusSchema = z.enum(["pending", "parsed", "reviewed", "applied"]);
 
 export const insertInboxItemSchema = z.object({
-    /** Client-chosen id, so a capture made offline can be placed before it syncs. */
     id: z.uuid().optional(),
     rawText: z.string().trim().min(1).max(5_000),
     sectionId: z.uuid().optional(),
@@ -23,10 +22,8 @@ export const updateInboxItemSchema = z.object({
     sectionId: z.uuid().nullable().optional(),
     orderIndex: z.number().optional(),
     captureKind: captureKindSchema.optional(),
-    // `placed` (and the link to its task) is set only by processing a capture, and left only by Undo.
     captureStatus: z.enum(["clarifying", "kept", "discarded"]).optional(),
     aiSuggestion: z.string().max(10_000).nullable().optional(),
-    // NLP analysis fields
     analysisStatus: inboxAnalysisStatusSchema.optional(),
     analysisVersion: z.string().max(20).optional(),
     analysisSummary: z.string().max(1_000).optional(),
@@ -36,18 +33,13 @@ export const updateInboxItemSchema = z.object({
 export type UpdateInboxItem = z.infer<typeof updateInboxItemSchema>;
 export type UpdateInboxItemInput = z.input<typeof updateInboxItemSchema>;
 
-/** Schema for the atomic inbox→task processing endpoint */
 export const processInboxItemSchema = z.object({
-    /** Client-chosen id for the new task, so the optimistic row is the real row. */
     taskId: z.uuid().optional(),
     title: z.string().trim().min(1).max(2_000),
     complete: z.boolean().optional(),
-    /** An all-day placement: the day (a deadline is a day). */
     scheduledDay: localDateSchema.nullish(),
     dueDate: localDateSchema.nullish(),
-    /** A multi-day deadline's last day; kept only with the `dueDate` it was picked with. */
     endDate: localDateSchema.nullish(),
-    /** A timed placement: the start and optional end instants (the server adds the user's zone). */
     scheduledStart: instantSchema.nullish(),
     scheduledEnd: instantSchema.nullish(),
     projectId: z.uuid().nullish(),
@@ -59,9 +51,7 @@ export const processInboxItemSchema = z.object({
     durationEstimate: z.number().int().min(1).max(480).nullish(),
     recurrenceRule: z.string().max(500).nullish(),
     waitingOn: z.string().max(200).nullish(),
-    /** A nudge at an exact moment. */
     reminderAt: instantSchema.nullish(),
-    /** Hide until this day. */
     notBefore: localDateSchema.nullish(),
     nlp: canonicalNlpEnvelopeSchema.nullish(),
     parseResult: z.record(z.string(), z.unknown()).nullish(),
@@ -69,7 +59,6 @@ export const processInboxItemSchema = z.object({
 export type ProcessInboxItem = z.infer<typeof processInboxItemSchema>;
 
 export const insertInboxSectionSchema = z.object({
-    /** Client-chosen id, so it can be used before it syncs. */
     id: z.uuid().optional(),
     name: z.string().trim().min(1).max(200),
     orderIndex: z.number().optional(),
@@ -78,7 +67,6 @@ export const insertInboxSectionSchema = z.object({
 export const updateInboxSectionSchema = insertInboxSectionSchema.omit({ id: true }).partial();
 export type UpdateInboxSectionInput = z.input<typeof updateInboxSectionSchema>;
 
-// ── Row schemas (exact DB columns) ──
 export const inboxItemRowSchema = z.object({
     id: z.uuid(),
     userId: z.uuid(),
@@ -105,8 +93,6 @@ export const inboxItemRowSchema = z.object({
 });
 export type InboxItemRow = z.infer<typeof inboxItemRowSchema>;
 
-// Client entity: the analysis-lifecycle columns are optional (optimistic caches
-// and older consumers omit them); the Row keeps them required for DB parity.
 export const inboxItemSchema = inboxItemRowSchema.extend({
     analysisConfidenceTier: z.enum(CONFIDENCE_TIERS).nullable().optional(),
     analysisNeedsReview: z.boolean().optional(),
@@ -125,10 +111,6 @@ export const inboxSectionRowSchema = z.object({
     createdAt: instantSchema,
 });
 
-/**
- * The list and section a decision model picked for a capture, stored at `analysis.suggestedPlacement`.
- * Present only when it cleared the model's threshold and the pair existed when it was stored.
- */
 export const suggestedPlacementSchema = z.object({
     projectId: z.uuid(),
     sectionId: z.uuid().nullable(),
@@ -139,10 +121,6 @@ export const suggestedPlacementSchema = z.object({
 });
 export type SuggestedPlacement = z.infer<typeof suggestedPlacementSchema>;
 
-/**
- * The priority a decision model read in a capture's own words ("asap", "this matters a lot"), stored at
- * `analysis.suggestedPriority` only when the deterministic parser found none. It translates what was said; it never infers.
- */
 export const suggestedPriorityFromWordsSchema = z.object({
     priority: z.number().int().min(1).max(4),
     model: z.string(),
@@ -150,7 +128,6 @@ export const suggestedPriorityFromWordsSchema = z.object({
 });
 export type SuggestedPriorityFromWords = z.infer<typeof suggestedPriorityFromWordsSchema>;
 
-/** The Effort a decision model scored for a capture from the person's own earlier choices (`analysis.suggestedEffort`); its task gets it as a guess, never as its Effort. */
 export const suggestedEffortSchema = z.object({
     effort: z.number().int().min(1).max(3),
     model: z.string(),

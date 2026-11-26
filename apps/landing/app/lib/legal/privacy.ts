@@ -1,11 +1,6 @@
 import type { LegalDoc } from "./types";
 import { AI_SECTIONS } from "./privacy-ai";
 
-/*
- * Every claim here was checked against the code on 2026-09-30 (release 0.25.x). Where the code could not
- * settle something, the text says so in a `gap` block. Update this file in the same change as any
- * data-flow change (new provider, new stored field, new retention rule).
- */
 export const PRIVACY: LegalDoc = {
     title: "Privacy Policy",
     description:

@@ -48,7 +48,6 @@ export function SwitchSetting({
 }: {
     title: string;
     description?: string;
-    /** Spoken name when the visible title alone is ambiguous. */
     label?: string;
     checked: boolean;
     onChange: (value: boolean) => void;

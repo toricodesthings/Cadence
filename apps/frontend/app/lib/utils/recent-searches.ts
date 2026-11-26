@@ -1,4 +1,3 @@
-/** Phone search's recent queries, on this device only. Settings › Data's "Store recent searches" gates them. */
 const RECENT_KEY = "cadence-recent-searches";
 const RECENT_LIMIT = 6;
 
@@ -22,16 +21,12 @@ export function pushRecentSearch(query: string): string[] {
     );
     try {
         localStorage.setItem(RECENT_KEY, JSON.stringify(next));
-    } catch {
-        /* noop — recents are a nicety, not load-bearing */
-    }
+    } catch {}
     return next;
 }
 
 export function clearRecentSearches() {
     try {
         localStorage.removeItem(RECENT_KEY);
-    } catch {
-        /* noop */
-    }
+    } catch {}
 }

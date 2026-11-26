@@ -1,7 +1,3 @@
-/**
- * Find a time, on the device: the day's gaps for one task, ordered by what the person likes. The rule itself is
- * `@cadence/domain/find-time` (the assistant's `find_time` runs the same one); this only gathers its inputs.
- */
 import type { PlanningEvidence } from "@cadence/contracts/planning";
 import type { Task } from "@cadence/contracts/task";
 import {
@@ -27,7 +23,6 @@ export interface DayPlanInput {
     day: LocalDate;
     zone: Zone;
     now: Date;
-    /** The day's tasks as the schedule reads them (series already expanded). */
     dayTasks: readonly (Pick<Task, "id" | "state" | "scheduledStart" | "scheduledEnd"> & { isHabit?: boolean })[];
     timelineStartHour: number;
     dayEndHour?: number;
@@ -38,11 +33,9 @@ export interface DayPlanInput {
 export interface DayPlan {
     minutes: number;
     proposals: Proposal[];
-    /** The blocks the proposals keep clear of: what a small timeline draws. */
     busy: Busy[];
 }
 
-/** The proposals for `day`, best first: the person's stated or learned time of day first, then earliest. Empty when nothing fits. */
 export function planDay(input: DayPlanInput): DayPlan {
     const { task, day, zone } = input;
     const minutes = taskMinutes(task, input.guess);
@@ -53,7 +46,6 @@ export function planDay(input: DayPlanInput): DayPlan {
         now: input.now.toISOString(),
         timelineStartHour: input.timelineStartHour,
         dayEndHour: input.dayEndHour,
-        // A routine takes no room: it is a point in the day, never a block to keep clear of.
         busy: busyBlocks(
             input.dayTasks.filter((t) => !t.isHabit),
             task.id,
@@ -69,9 +61,7 @@ export function planDay(input: DayPlanInput): DayPlan {
     return { minutes, proposals: findTimes({ ...rule, preferred }), busy: rule.busy };
 }
 
-/** "Tue 2:00 – 2:45pm": the proposal as a person reads it. */
 export const proposalLabel = (proposal: Pick<Proposal, "start" | "end">, zone: Zone) =>
     `${formatInZone(proposal.start, zone, { weekday: "short" })} ${formatChipTime(proposal.start, proposal.end)}`;
 
-/** The clock time alone, "2:00 PM" or "14:00" by the person's setting. */
 export { formatTime as proposalTime } from "../utils/date-format";

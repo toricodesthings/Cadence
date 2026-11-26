@@ -5,7 +5,6 @@ import { isSharedEvent, useEventPeople } from "../../hooks/sharing/use-share-eve
 import { eventShareLabel } from "../sharing/SharedEventMark";
 import type { EventActions } from "./EventCard";
 
-/** An event's actions, in its right-click menu (card) and its ⋯ menu (row): one set of words for both. */
 export function EventMenuItems({
     Menu,
     event,

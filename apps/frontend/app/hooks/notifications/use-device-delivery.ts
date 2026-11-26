@@ -40,11 +40,9 @@ interface LocalState {
     busy: boolean;
     test: TestState;
     error: string | null;
-    /** Why background delivery didn't connect, when the browser refused it. */
     pushIssue: "blocked" | null;
 }
 
-// One state for every surface (Settings, the center's offer, the dispatcher): a grant made anywhere is seen everywhere at once.
 const store = createExternalStore<LocalState>({
     permission: "default",
     busy: false,
@@ -55,7 +53,6 @@ const store = createExternalStore<LocalState>({
 const patch = (next: Partial<LocalState>) => store.set({ ...store.get(), ...next });
 
 const OFFER_KEY = "cadence_notification_offer_dismissed";
-/** The account this load already said hello for: once per load, not once per screen. */
 let announcedFor: string | null = null;
 const offerDismissed = () => {
     try {
@@ -65,7 +62,6 @@ const offerDismissed = () => {
     }
 };
 
-/** The state of reminders on this device and the account's other devices. Enable and test must be called from a tap. */
 export function useDeviceDelivery() {
     const local = useSyncExternalStore(store.subscribe, store.get, store.get);
     const { data: settings } = useSettings();
@@ -92,7 +88,6 @@ export function useDeviceDelivery() {
     const thisInstallId = installId();
     const thisDevice = devices.find((device) => device.installId === thisInstallId);
 
-    // Until the list loads (a cold start, no network), fall back to what this device last knew.
     const assumed = devicesLoaded
         ? thisDevice
         : (thisDevice ??
@@ -114,7 +109,6 @@ export function useDeviceDelivery() {
         await queryClient.invalidateQueries({ queryKey: devicesKey });
     }, [queryClient, devicesKey]);
 
-    /** Registers (or re-registers) this device and records why push didn't connect, if it didn't. */
     const register = useCallback(async () => {
         const result = await registerThisDevice(client);
         patch({ pushIssue: result.push === "blocked" ? "blocked" : null });
@@ -125,7 +119,6 @@ export function useDeviceDelivery() {
     const enable = useCallback(async () => {
         patch({ busy: true, error: null, test: "idle" });
         try {
-            // Straight from the tap: the browser only prompts inside a user gesture.
             const permission = IS_DESKTOP_RUNTIME
                 ? await requestNotificationPermission()
                 : Notification.permission === "granted"
@@ -140,7 +133,6 @@ export function useDeviceDelivery() {
             const result = await register();
             if (result.push === "failed")
                 patch({ error: "This device couldn't be registered. Check your connection and try again." });
-            // A device turned off earlier (here or elsewhere) is switched back on by this tap.
             const row = result.devices?.find((device) => device.installId === thisInstallId);
             if (row && !row.enabled)
                 setDevices(
@@ -198,7 +190,6 @@ export function useDeviceDelivery() {
 
     return {
         status,
-        /** The platform the copy should talk about. */
         desktop: IS_DESKTOP_RUNTIME,
         ...local,
         devices,
@@ -207,28 +198,20 @@ export function useDeviceDelivery() {
         enable,
         disable,
         runTest,
-        /** Whether the person saw the test. */
         confirmTest: (received: boolean) => patch({ test: received ? "received" : "missing" }),
         recheck: refresh,
         setEnabled: (id: string, enabled: boolean) => update.mutate({ id, enabled }),
         forget: (id: string) => forget.mutate(id),
-        /** The contextual offer in the notification center: only for a device that can be enabled and hasn't been waved off. */
         offerEnable: !!settings && status === "off" && !offerDismissed(),
         dismissOffer: () => {
             try {
                 window.localStorage.setItem(OFFER_KEY, "1");
-            } catch {
-                /* the offer returns next visit */
-            }
+            } catch {}
             patch({});
         },
     };
 }
 
-/**
- * Mounted once in the shell: keeps the shared state fresh (a grant made in browser settings is seen on
- * return, no reload) and re-registers this device, which also marks it seen in the person's list.
- */
 export function useDeviceDeliverySync() {
     const { status, recheck } = useDeviceDelivery();
     const client = useApiClient();
@@ -253,8 +236,6 @@ export function useDeviceDeliverySync() {
         };
     }, [recheck]);
 
-    // Enabled here: say hello once per account per load, so the list shows it as used today and a
-    // lapsed subscription (or one from before this release) reconnects without the person doing anything.
     useEffect(() => {
         if (!userId || announcedFor === userId) return;
         if (status === "off" || status === "denied" || status === "unsupported" || status === "install") return;

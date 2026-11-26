@@ -1,7 +1,3 @@
-// Signs the Playwright plugin's browser in as the E2E user, so no agent ever reads the password. Dev Neon branch only.
-// The plugin (@playwright/mcp) keeps a persistent Chrome profile; this signs that same profile in.
-// Close the plugin browser first (browser_close): Chrome locks a profile while it is open.
-//   pnpm e2e:login
 import { existsSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
@@ -14,7 +10,6 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url)).replace(/\/$/, "");
 const CREDS = join(ROOT, "apps/frontend/e2e_credentials.md");
 const PIN = "PLAYWRIGHT_MCP_USER_DATA_DIR";
 
-/** The pinned profile from `.claude/settings.local.json` `env` (which the plugin also reads), if any. */
 function pinnedProfile() {
     try {
         return JSON.parse(readFileSync(join(ROOT, ".claude/settings.local.json"), "utf8")).env?.[PIN];
@@ -23,7 +18,6 @@ function pinnedProfile() {
     }
 }
 
-// Unpinned fallback: the path @playwright/mcp 0.0.86 derives (mcp-<channel>-<sha256(workspace root) first 7>).
 const derived = () =>
     join(
         process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache"),
@@ -35,7 +29,6 @@ const PROFILE = process.env[PIN] ?? pinnedProfile() ?? derived();
 if (!process.env[PIN] && !pinnedProfile())
     console.warn(`${PIN} is not pinned in .claude/settings.local.json; guessing ${PROFILE}`);
 
-/** `--user-data-dir` of every running Chrome (Linux /proc), to see which profile the plugin really has open. */
 function openProfiles() {
     const dirs = new Set();
     for (const pid of readdirSync("/proc").filter((name) => /^\d+$/.test(name))) {
@@ -43,14 +36,11 @@ function openProfiles() {
             const args = readFileSync(`/proc/${pid}/cmdline`, "utf8").split("\0");
             const dir = args.find((arg) => arg.startsWith("--user-data-dir="));
             if (dir?.includes("ms-playwright-mcp") || dir?.slice(16) === PROFILE) dirs.add(dir.slice(16));
-        } catch {
-            // The process ended while we looked.
-        }
+        } catch {}
     }
     return dirs;
 }
 
-/** Chrome's SingletonLock points at "<host>-<pid>"; a live pid means the profile is open. */
 function profileLocked() {
     try {
         process.kill(Number(readlinkSync(join(PROFILE, "SingletonLock")).split("-").pop()), 0);

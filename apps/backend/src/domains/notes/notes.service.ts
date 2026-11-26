@@ -9,13 +9,6 @@ import { assertStorageRoom } from "../../platform/storage-ceiling";
 
 const conflict = () => new AppError(409, "CONFLICT", "Note was modified by another client");
 
-/**
- * Create or replace a task's note. `expectedVersion` (0 = no note yet) and
- * `expectedUpdatedAt` guard against overwriting an edit made elsewhere (409).
- * Writers of one note are serialized for the rest of the transaction, so the
- * guard and the write can't be split by a concurrent request. A body equal to
- * the stored one passes the guard but changes nothing (no new revision).
- */
 export async function writeNote(
     tx: Tx,
     userId: string,
@@ -59,7 +52,6 @@ export async function writeNote(
         return row;
     }
 
-    // The unique task index is the last word on concurrent first writes.
     const [row] = await tx
         .insert(taskNotes)
         .values({ taskId, userId, body, ...analysis })

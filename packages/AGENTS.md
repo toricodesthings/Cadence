@@ -67,6 +67,7 @@ Each rule has one home. Reuse it; never re-derive it in an app.
 | `reminders.ts` | `deriveReminders`, `dueAlert` |
 | `repeats.ts` | Fixed / Routine / Task rules |
 | `task-length.ts` | `taskMinutes`, a task's one length |
+| `load-share.ts` | `loadShare`: how much of a (shared) task weighs on the caller's load |
 | `ordering.ts` | fractional order indexes |
 
 ## Dependencies

@@ -1,6 +1,5 @@
 import type { SVGAttributes } from "react";
 
-/** A four-point star centred on (x, y) with concave arms; `waist` widens them (0 = hairline). */
 const star = (x: number, y: number, r: number, waist = 0) => {
     const w = r * waist;
     return `M${x},${y - r}Q${x + w},${y - w} ${x + r},${y}Q${x + w},${y + w} ${x},${y + r}Q${x - w},${y + w} ${x - r},${y}Q${x - w},${y - w} ${x},${y - r}Z`;
@@ -8,15 +7,6 @@ const star = (x: number, y: number, r: number, waist = 0) => {
 
 const QUARTERS = [0, 90, 180, 270];
 
-/**
- * The assistant's mark: the landing page's sigil (a ring set with four stars, a
- * diamond at its heart) held still, with the AI star shining inside. Drawn in
- * `currentColor` so it takes whatever tone its host gives it, and weighted for
- * icon sizes (14–48px) rather than the landing's hairlines.
- *
- * With `notice` (the dock's unread reply), the small star drifts out to the ring and
- * rounds into a bead that breaks it; `false` keeps the morph ready to run either way.
- */
 export function AssistantSigil({
     size = 16,
     notice,

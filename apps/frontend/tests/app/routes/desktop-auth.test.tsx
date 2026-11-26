@@ -95,7 +95,6 @@ it("returns to sign-in after terminal expiry despite stale SDK data, without sig
     await waitFor(() => expect(screen.getByTestId("auth-state").textContent).toBe("/auth/sign-in:anonymous:none"));
     expect(mocks.signOut).not.toHaveBeenCalled();
 
-    // Sign back in without restarting the provider/app; the SDK still holds the old session.
     const state = await prepareDesktopAuthHandoff("/today");
     mocks.getSession.mockResolvedValue({ data: { ...signedIn, session: { token: "refreshed-token" } } });
     await act(async () =>

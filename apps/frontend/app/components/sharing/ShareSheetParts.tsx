@@ -9,7 +9,6 @@ import { UtilitySheet } from "../shared/UtilitySheet";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { AvatarFace } from "./PersonAvatar";
 
-/** Responsive sheet/dialog shell for sharing an event or routine. */
 export function ShareSheetShell({
     title,
     description,
@@ -50,7 +49,6 @@ export function ShareSheetShell({
     );
 }
 
-/** One person row inside a share sheet, with optional pronouns, extra actions, and owner remove menu. */
 export function SharePersonRow({
     person,
     isYou,
@@ -106,7 +104,6 @@ export function SharePersonRow({
     );
 }
 
-/** Footer bar for event & routine share sheets: Stop sharing + overflow Reset link(s) + Done. */
 export function ShareSheetFooter({
     showOwnerActions,
     stopTitle,

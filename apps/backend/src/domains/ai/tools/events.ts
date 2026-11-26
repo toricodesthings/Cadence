@@ -35,7 +35,6 @@ const eventInput = z.object({
     color: z.enum(ACCENT_COLORS).nullable().optional().describe("Its card tint; null = none."),
 });
 
-/** A row for the model: next date, days until it and, with startedOn, the year count it marks. */
 export function toMinimalEvent(event: PersonalEvent | SharedEvent, today: string, sharedBy?: string) {
     const next = nextPersonalEventDay(event.monthDay, today);
     const years = event.startedOn ? Number(next.slice(0, 4)) - Number(event.startedOn.slice(0, 4)) : undefined;
@@ -56,7 +55,6 @@ export function toMinimalEvent(event: PersonalEvent | SharedEvent, today: string
     };
 }
 
-/** Same event projection for fresh tool reads and the request's already-loaded snapshot. */
 export function projectEvents(
     enabled: boolean,
     items: (PersonalEvent | SharedEvent)[],
@@ -73,7 +71,6 @@ export function projectEvents(
 }
 
 export const eventTools = (env: Env, userId: string, ctx: AgentContext) => ({
-    // ── W ──────────────────────────────────────────────────────────────────
     save_event: tool({
         description:
             "Adds or changes a yearly personal event (including shared events) on Events. Without eventId it adds an owned one " +
@@ -126,7 +123,6 @@ export const eventTools = (env: Env, userId: string, ctx: AgentContext) => ({
             }),
     }),
 
-    // ── R ──────────────────────────────────────────────────────────────────
     get_events: tool({
         description:
             "The user's yearly personal events (including shared events with shared/sharedBy) from Events, soonest first, " +
@@ -148,7 +144,6 @@ export const eventTools = (env: Env, userId: string, ctx: AgentContext) => ({
             ),
     }),
 
-    // ── D ──────────────────────────────────────────────────────────────────
     delete_event: tool({
         description:
             "Deletes an unshared event the user owns for good (there is no Trash for events; shared events must be deleted from the Events page).",

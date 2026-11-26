@@ -35,7 +35,6 @@ describe("BucketedCollectionView list fold", () => {
         await waitFor(() => expect(screen.queryByText("Morning review")).toBeNull());
     });
 
-    // Regression: a section hidden on the board (Today's routines) left the row fold a no-op.
     it("uses a section's own fold state, so board and row stay in step", () => {
         const toggle = vi.fn();
         renderList([section({ listFold: { open: false, toggle } })]);

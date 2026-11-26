@@ -1,9 +1,3 @@
-/**
- * The assistant's tools by name: the one list the backend's tools, the MCP server and the chat UI share.
- * kind — read: looks only · write: changes data · capture: adds to Capture, never changes existing data ·
- * ask: a question to the user (chat only).
- * destructive — may overwrite, Trash or delete existing data.
- */
 export type ToolKind = "read" | "write" | "capture" | "ask";
 export interface ToolSpec {
     kind: ToolKind;
@@ -69,6 +63,5 @@ export const TOOL_CATALOG = {
 export type ToolName = keyof typeof TOOL_CATALOG;
 export const isToolName = (name: string): name is ToolName => Object.hasOwn(TOOL_CATALOG, name);
 
-/** The tools that exist only while the person has memory on. */
 const MEMORY_TOOLS = new Set<string>(["remember", "recall", "search_past_chats"] satisfies ToolName[]);
 export const isMemoryTool = (name: string): boolean => MEMORY_TOOLS.has(name);

@@ -11,7 +11,6 @@ import type { ReactNode, CSSProperties } from "react";
 
 const TONE = { "--segment-tone": "var(--accent-primary)" } as CSSProperties;
 
-/** A formatting button that never takes the editor's focus or selection. */
 export function ToolButton({
     id,
     pressed,
@@ -38,7 +37,6 @@ export function ToolButton({
                 aria-pressed={pressed}
                 disabled={disabled}
                 style={TONE}
-                // Keep the caret and selection where they are.
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={onClick}
                 className={cn(
@@ -55,7 +53,6 @@ export function ToolButton({
 
 const BLOCKS: NoteCommandId[] = ["paragraph", "heading-1", "heading-2", "heading-3"];
 
-/** The text-style picker names the current block; deeper headings still show when the caret is in one. */
 function TextStylePicker({ editor, state }: { editor: Editor; state: ToolbarState }) {
     const options =
         BLOCKS.includes(state.block as NoteCommandId) || state.block === "code-block" || state.block === "quote"
@@ -93,7 +90,6 @@ function TextStylePicker({ editor, state }: { editor: Editor; state: ToolbarStat
     );
 }
 
-/** One list control: shows the active list kind and opens the other kinds. */
 function ListMenu({ editor, state }: { editor: Editor; state: ToolbarState }) {
     const Icon = state.task ? ListTodo : state.ordered ? ListOrdered : List;
     const items: [NoteCommandId, typeof List][] = [
@@ -157,10 +153,6 @@ function ListMenu({ editor, state }: { editor: Editor; state: ToolbarState }) {
     );
 }
 
-/**
- * Desktop and tablet formatting bar: undo/redo, text style, bold/italic, lists, link and More.
- * Compact on purpose: the rarer blocks live in More.
- */
 export function NoteToolbar({
     editor,
     onLink,

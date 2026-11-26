@@ -33,7 +33,6 @@ import {
 import { PeriodNav, PeriodTodayButton } from "../layout/PeriodNav";
 import { LayoutScaleMenuRow } from "../layout/LayoutScaleMenu";
 
-/** The ⋮ holds switches, so it is a Popover, drawn in a menu's shape (`MENU_SURFACE`: 12px radius, 4px inset). */
 const SCHEDULE_MENU = "w-72 rounded-xl! p-1!";
 
 export type CalendarViewMode = "day" | "week" | "month" | "year";
@@ -63,49 +62,37 @@ const VIEW_LABELS: Record<CalendarViewMode, string> = {
 export interface ScheduleHeaderProps {
     year: number;
     month: number;
-    /** Current LocalDate (drives day label) */
     currentDate: LocalDate;
     viewMode: CalendarViewMode;
-    /** The week's first day, from settings, so the range here matches the grid. */
     weekStartsOn: 0 | 1 | 6;
     onViewMode: (mode: CalendarViewMode) => void;
     onNavigate: (delta: number) => void;
     onToday: () => void;
-    /** Today is inside the period on screen (greys out Today). */
     isCurrentPeriod: boolean;
-    /** Opens the composer on its Task tab; Event is one tab away inside. */
     onAddTask?: () => void;
-    /** Laptop moves ‹ Today › to the corner dock, so the header leaves it out. */
     hidePeriodNav?: boolean;
-    /** Overflow content (holiday + clutter controls) */
     overflowContent?: ReactNode;
     compact?: boolean;
-    /** Phone: the title names what you're looking at, and a back arrow left of it zooms out. */
     phone?: {
         title: string;
-        /** Quiet line under the title, e.g. "Today · light". */
         meta?: string | null;
-        /** Where zooming out goes ("September", "2026"); absent at the top level. */
         backLabel?: string | null;
         onZoomOut?: () => void;
     };
 }
 
-/** Build the contextual subtitle — week range, day label, or seasonal context. */
 function buildSubtitleLabel(viewMode: CalendarViewMode, currentDate: LocalDate, weekStartsOn: 0 | 1 | 6): string {
     const isDmy = getDateFormatConfig().dateStyle === "dmy";
     const locale = isDmy ? "en-GB" : "en-US";
     const show = (day: LocalDate, options: Intl.DateTimeFormatOptions) => formatInZone(day, "UTC", options, locale);
 
     if (viewMode === "week") {
-        // The title already holds the month and year, so the range is just the days.
         const start = getWeekStart(currentDate, weekStartsOn);
         const end = addDays(start, 6);
         const startLabel = show(start, { month: "short", day: "numeric" });
         if (parseYMD(start).m === parseYMD(end).m) return `${startLabel} \u2013 ${dayOfMonth(end)}`;
         return `${startLabel} \u2013 ${show(end, { month: "short", day: "numeric" })}`;
     }
-    // Day / month / year view — the current day label as warm context
     return show(currentDate, { weekday: "long", day: "numeric" });
 }
 
@@ -130,8 +117,6 @@ export function ScheduleHeader({
     const subtitleLabel = buildSubtitleLabel(viewMode, currentDate, weekStartsOn);
 
     if (phone) {
-        // Phone: one row. Period changes are swipes and taps on the calendar
-        // itself; the back arrow left of the title zooms out (Day → Month → Year).
         return (
             <PhonePageHeader
                 pageName="Schedule"
@@ -149,11 +134,8 @@ export function ScheduleHeader({
     }
 
     if (compact) {
-        // ── Phone: two tight rows ──────────────────────────────────────────
         return (
             <header className={`${PAGE_HEADER_SURFACE} safe-header-top px-4 pb-3 sm:px-6`}>
-                {/* Row 1: page identity + heading + nav + overflow. Browse is a
-                    dock tab now, and creation lives in the floating orb. */}
                 <div className="flex items-center gap-2 min-h-[44px]">
                     <div className="min-w-0 flex-1">
                         <PageHeaderIdentity
@@ -200,7 +182,6 @@ export function ScheduleHeader({
                         </Popover.Root>
                     )}
                 </div>
-                {/* Row 2: view switcher tabs */}
                 <div className="flex items-center gap-1 mt-1.5">
                     <SegmentedControl
                         ariaLabel="Calendar view"
@@ -236,7 +217,6 @@ export function ScheduleHeader({
                         />
                     )}
 
-                    {/* Right: view switcher */}
                     <Select value={viewMode} onValueChange={(value) => onViewMode(value as CalendarViewMode)}>
                         <SelectTrigger
                             aria-label="Calendar view"
@@ -253,10 +233,8 @@ export function ScheduleHeader({
                         </SelectContent>
                     </Select>
 
-                    {/* One Add: the composer opens on Task, Event is its second tab */}
                     {onAddTask ? <HeaderAddButton label="Add" onClick={onAddTask} /> : null}
 
-                    {/* Overflow menu for holiday/clutter controls */}
                     {overflowContent && (
                         <Popover.Root>
                             <Popover.Trigger asChild>

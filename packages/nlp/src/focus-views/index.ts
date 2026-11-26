@@ -1,15 +1,4 @@
-/**
- * Focus Views — natural-language view phrases → structured definitions (Section 12).
- *
- * Three layers:
- * 1. Presets — built-in named views
- * 2. Natural-language composer — phrase → chips
- * 3. Saved/pinned views — persisted user views
- */
-
 import Fuse from "fuse.js";
-
-// ── View definition schema (Section 12.3) ──
 
 export interface FocusViewDefinition {
     states: string[];
@@ -17,13 +6,9 @@ export interface FocusViewDefinition {
     tagIds: string[];
     needsDate: boolean;
     needsProject: boolean;
-    /** Urgency: at least this priority. */
     priorityMin: number | null;
-    /** Demanding: at least this effort. Distinct from duration — effort is how hard, not how long. */
     effortMin: number | null;
-    /** Easy: at most this effort. */
     effortMax: number | null;
-    /** Short: estimated to take at most this many minutes. Distinct from effort — length, not difficulty. */
     durationMaxMinutes: number | null;
     dueWindow: "overdue" | "today" | "this_week" | "this_month" | null;
     waitingOnly: boolean;
@@ -38,8 +23,6 @@ export interface FocusViewPreset {
     icon: string;
     definition: FocusViewDefinition;
 }
-
-// ── Default definition ──
 
 export const DEFAULT_DEFINITION: FocusViewDefinition = {
     states: ["ACTIVE"],
@@ -56,8 +39,6 @@ export const DEFAULT_DEFINITION: FocusViewDefinition = {
     missingStructureOnly: false,
     sortMode: "smart",
 };
-
-// ── Built-in presets (Section 12.2, Layer 1) ──
 
 export const FOCUS_VIEW_PRESETS: FocusViewPreset[] = [
     {
@@ -126,8 +107,6 @@ export const FOCUS_VIEW_PRESETS: FocusViewPreset[] = [
     },
 ];
 
-// ── Natural-language → definition composer (Layer 2) ──
-
 interface PhraseRule {
     pattern: RegExp;
     apply: (def: FocusViewDefinition, match: RegExpMatchArray) => void;
@@ -172,7 +151,6 @@ const PHRASE_RULES: PhraseRule[] = [
         },
     },
     {
-        // Short = takes little time (an estimate), not the same as easy (low effort).
         pattern: /\bquick\b|\bshort\b|\bfast\b/i,
         apply: (def) => {
             def.durationMaxMinutes = 30;
@@ -213,18 +191,13 @@ const PHRASE_RULES: PhraseRule[] = [
 export interface FocusViewComposerResult {
     definition: FocusViewDefinition;
     matchedRules: string[];
-    /** Whether the phrase matched any known preset */
     matchedPreset: FocusViewPreset | null;
 }
 
-/**
- * Convert a natural-language phrase into a structured Focus View definition.
- */
 export function composeFocusView(
     phrase: string,
     context?: { projects: Array<{ id: string; name: string }> },
 ): FocusViewComposerResult {
-    // First, check if the phrase matches a preset name
     const presetFuse = new Fuse(FOCUS_VIEW_PRESETS, {
         includeScore: true,
         threshold: 0.3,
@@ -239,7 +212,6 @@ export function composeFocusView(
         };
     }
 
-    // Apply phrase rules
     const definition = { ...DEFAULT_DEFINITION };
     const matchedRules: string[] = [];
 
@@ -251,7 +223,6 @@ export function composeFocusView(
         }
     }
 
-    // Try to resolve project names from the phrase
     if (context?.projects && context.projects.length > 0) {
         const projectFuse = new Fuse(context.projects, {
             includeScore: true,
@@ -259,7 +230,6 @@ export function composeFocusView(
             keys: ["name"],
         });
 
-        // Extract potential project references
         const projectMatch = phrase.match(/\b(?:in|for|from)\s+(\w[\w\s]*)/i);
         if (projectMatch) {
             const results = projectFuse.search(projectMatch[1].trim());

@@ -14,7 +14,6 @@ const UUID2 = "00000000-0000-4000-8000-000000000002";
 
 describe("sharing contracts", () => {
     it("keeps roles in ascending order, the order the database enum ranks them by", () => {
-        // `share_role` is `('view', 'edit')` in core.ts; a new role goes in between by ALTER TYPE ... BEFORE.
         expect(shareRoleSchema.options).toEqual(["view", "edit"]);
         expect(listRoleSchema.options).toEqual(["owner", "view", "edit"]);
     });

@@ -14,10 +14,6 @@ export const turnHabitFrom = (access: RoutineAccess) => ({
     turnsFrom: access.turnsFrom,
 });
 
-/**
- * Resolve the effective turn order for a turns-mode routine: drops departed ids and appends missing participants
- * in their stable order (owner first, then members by joined_at).
- */
 export function turnOrderOf(
     habit: { userId: string; turnOrder: string[] | null },
     participants: readonly string[],
@@ -34,10 +30,6 @@ export function turnOrderOf(
     return base;
 }
 
-/**
- * Pure turn calculation (R6): whose turn it is for due day `date`.
- * `k` = number of occurrences from `turnsFrom` through `date`; holder is `order[(k - 1) mod n]`.
- */
 export function turnFor(
     habit: { recurrenceRule: string; createdAt: string; turnsFrom: string | null },
     order: readonly string[],
@@ -80,9 +72,6 @@ type TurnHabit = {
     turnsFrom: string | null;
 };
 
-/**
- * Re-anchor turn order after a membership or mode change so today's turn holder (if still in) stays first.
- */
 export function reanchoredOrder(
     habit: TurnHabit,
     oldParticipants: readonly string[],
@@ -100,7 +89,6 @@ export function reanchoredOrder(
     return next;
 }
 
-/** Persist a re-anchored turn order and today's anchor on the habit row. */
 export async function reorderTurns(
     tx: Tx,
     habit: TurnHabit & { id: string },

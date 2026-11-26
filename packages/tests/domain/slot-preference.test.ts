@@ -26,7 +26,6 @@ describe("learnedPreference", () => {
     it("needs 8 choices on 4 days with enough weight", () => {
         expect(learnedPreference(evenings(7), opts)).toEqual([]);
         expect(learnedPreference(evenings(8), opts)).toEqual(["evening"]);
-        // 8 choices all on one day is a single day's mood.
         expect(
             learnedPreference(
                 Array.from({ length: 8 }, () => rec(1, "evening")),
@@ -43,7 +42,6 @@ describe("learnedPreference", () => {
     it("needs ≥ 65% against every bucket that has room today", () => {
         const mixed = [...evenings(6), rec(7, "morning"), rec(8, "morning"), rec(9, "morning"), rec(10, "morning")];
         expect(learnedPreference(mixed, opts)).toEqual([]);
-        // Wins only on the buckets compared, not on one that never had room alongside.
         const sparse = evenings(8, { feasible: ["evening", "afternoon"] });
         expect(learnedPreference(sparse, { ...opts, feasibleToday: ["evening", "afternoon", "morning"] })).toEqual([]);
         expect(learnedPreference(sparse, { ...opts, feasibleToday: ["evening", "afternoon"] })).toEqual(["evening"]);

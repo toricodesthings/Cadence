@@ -23,11 +23,9 @@ it("puts a cue word's list over the suggestion, keeping the suggested section on
     expect(placementFor(item({ suggestedPlacement }), { cue: work })).toEqual({ projectId: work, sectionId: null });
     expect(placementFor(item({ suggestedPlacement }), { cue: uni })).toEqual({ projectId: uni, sectionId: sec });
     expect(placementFor(item({ suggestedPlacement, userOverrides: { projectId: null } }), { cue: work })).toBeNull();
-    // A section picked in Clarify, on the suggested list.
     expect(placementFor(item({ suggestedPlacement, userOverrides: { sectionId: null } }))).toEqual({
         projectId: uni,
         sectionId: null,
     });
-    // Clarify keeps the suggestion it opened with.
     expect(placementFor(item(null), { suggestion: suggestedPlacement })).toEqual({ projectId: uni, sectionId: sec });
 });

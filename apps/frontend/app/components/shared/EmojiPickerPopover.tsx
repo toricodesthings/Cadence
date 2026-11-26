@@ -8,15 +8,12 @@ interface EmojiPickerPopoverProps {
     emoji?: string;
     onSelect: (emoji: string) => void;
     children?: React.ReactElement<React.HTMLAttributes<HTMLElement>>;
-    /** Shows "Remove emoji" above the picker while one is set. */
     onClear?: () => void;
-    /** Tooltip for an icon-only trigger. */
     tip?: string;
 }
 
 export function EmojiPickerPopover({ emoji, onSelect, children, onClear, tip }: EmojiPickerPopoverProps) {
     const [open, setOpen] = useState(false);
-    // Touch opens the grid, not the keyboard over it.
     const { isTouch } = useShellMode();
     const trigger = children ?? (
         <button

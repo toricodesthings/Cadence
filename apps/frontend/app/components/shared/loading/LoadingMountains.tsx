@@ -4,7 +4,6 @@ const ridge = (points: readonly Pt[]) => `M0,1080L${polyline(points).slice(1)}L1
 const dot = (x: number, y: number, rx: number, ry = rx) =>
     `M${pt(x - rx, y)}a${n1(rx)},${n1(ry)} 0 1,0 ${n1(2 * rx)},0a${n1(rx)},${n1(ry)} 0 1,0 ${n1(-2 * rx)},0`;
 
-/** A natural crest: smooth through hand-placed keys, then roughened by two octaves of seeded value noise (`rough` px). */
 function crest(keys: readonly Pt[], seed: number, rough: number): Pt[] {
     const rand = rng(seed);
     const lattice = Array.from({ length: 128 }, () => rand() - 0.5);
@@ -17,10 +16,6 @@ function crest(keys: readonly Pt[], seed: number, rough: number): Pt[] {
     return smoothThrough(keys, 10).map(([x, y]) => [x, y + rough * (noise(x, 52) + 0.4 * noise(x + 700, 19))] as const);
 }
 
-/**
- * A summit's two faces, split by a spine that wanders down from it: the moon-side face (left, lit)
- * and the lee face (right, shaded). Each fades out downhill, so only the spine reads as a line.
- */
 function faces(points: readonly Pt[], [px, left, right, drop, lean]: Peak, seed: number) {
     const rand = rng(seed);
     const top: Pt = [px, yAt(points, px)];
@@ -38,11 +33,9 @@ function faces(points: readonly Pt[], [px, left, right, drop, lean]: Peak, seed:
 }
 
 type Peak = readonly [x: number, left: number, right: number, drop: number, lean: number];
-/** Each face is its own path, so the bounding-box gradients run from that summit down. */
 const allFaces = (points: readonly Pt[], peaks: readonly Peak[], seed: number) =>
     peaks.map((peak, i) => faces(points, peak, seed + i));
 
-/* Furthest: a pale range across the whole horizon, seen through the saddle of the nearer mountains. */
 const DISTANT = crest(
     [
         [-20, 668],
@@ -80,7 +73,6 @@ const DISTANT_FACES = allFaces(
     31,
 );
 
-/* The mountains proper: a massif on the left, a lower summit behind the wordmark, the great peak on the right. */
 const FAR = crest(
     [
         [0, 640],
@@ -127,7 +119,6 @@ const FAR_FACES = allFaces(
     41,
 );
 
-/* Wooded hills in front of them. */
 const MID_FAR = crest(
     [
         [0, 735],
@@ -159,10 +150,6 @@ const SHRINE =
     "M-4.5,-21L-4.5,-28L-9.5,-28L-12,-29.3Q-6.5,-30.5 -4,-35L4,-35Q6.5,-30.5 12,-29.3L9.5,-28L4.5,-28L4.5,-21Z" +
     "M-0.6,-35L-0.6,-47L0.6,-47L0.6,-35Z";
 
-/**
- * The hills' woods: a treeline of small crowns and the odd fir along the crest (it gives the range its scale),
- * and hazed clumps of autumn canopy down the slope, a few of them caught by the valley's light.
- */
 const WOODS = (() => {
     const rand = rng(29);
     let line = "";
@@ -203,8 +190,6 @@ export function LoadingMountains() {
         <>
             <div className="ls-layer ls-par ls-par-far">
                 <svg className="ls-layer" viewBox="0 0 1920 1080">
-                    {/* Depth of field is baked: the furthest range is softest, the mountains slightly soft, the wooded hills crisp.
-                        Between each pair hangs the last of the sunset, so every range dissolves into the one behind it. */}
                     <g filter="url(#ls-blur-distant)">
                         <path d={DISTANT_D} fill="url(#ls-distant)" />
                         <g className="ls-key" fill="url(#ls-face-lit)" opacity=".6">
@@ -241,7 +226,6 @@ export function LoadingMountains() {
                             ))}
                         </g>
                         <path className="ls-key" d={ridge(FAR)} fill="url(#ls-moonlight)" opacity=".8" />
-                        {/* Winter: snow on every summit, brighter on the moon side */}
                         <g className="ls-winter" fill="url(#ls-snow-face)">
                             {FAR_FACES.map((f) => (
                                 <path key={f.lit} d={f.lit} />

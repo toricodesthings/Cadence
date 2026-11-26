@@ -1,13 +1,8 @@
-/**
- * Abuse ceilings on what one account stores, far above anything a person reaches (Manifesto §8): they keep
- * one script from filling the database for everyone. Never a tier, never a nudge; when met, a calm 413.
- */
 import { count, eq, sql } from "drizzle-orm";
 import { aiConversations, habits, inboxItems, personalEvents, projects, tags, taskNotes, tasks } from "../db/schema";
 import { AppError } from "./errors";
 import type { Tx } from "../types/db";
 
-/** Rows an account may hold per kind. */
 export const ROW_CEILINGS = {
     tasks: { table: tasks, limit: 25_000, things: "tasks" },
     captures: { table: inboxItems, limit: 10_000, things: "captures" },
@@ -18,9 +13,7 @@ export const ROW_CEILINGS = {
     events: { table: personalEvents, limit: 1_000, things: "events" },
 } as const;
 
-/** Only a write carrying more text than this is checked against the text ceiling. */
 export const LARGE_TEXT_CHARS = 2_000;
-/** Task descriptions plus notes, per account. */
 export const TEXT_CEILING_BYTES = 50 * 1024 * 1024;
 
 const full = (things: string) =>
@@ -30,10 +23,6 @@ const full = (things: string) =>
         `This account has reached its storage ceiling. Remove some ${things} to add more.`,
     );
 
-/**
- * Refuses a new row once the account holds `limit` of that kind (`adding` > 1 for a batch).
- * ponytail: one count(*) per create; keep a per-user counter if it ever shows in traces.
- */
 export async function assertRowRoom(
     tx: Tx,
     userId: string,
@@ -46,11 +35,6 @@ export async function assertRowRoom(
     if (n + adding > limit) throw full(things);
 }
 
-/**
- * Refuses a large text write once the account's task descriptions and notes pass the ceiling.
- * Small writes are never checked, so everyday edits cost nothing.
- * ponytail: an aggregate per large write; add a cached per-user counter if it ever shows in traces.
- */
 export async function assertStorageRoom(
     tx: Tx,
     userId: string,

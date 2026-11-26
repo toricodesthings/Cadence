@@ -3,19 +3,13 @@ import { MOD_KEY } from "./keys";
 
 export type ShortcutBinding = keyof UserSettings["shortcuts"]["bindings"];
 
-/** One shortcut: fixed `keys`, or a `binding` the person can remap in Settings. */
 export interface Shortcut {
     label: string;
     keys?: string[];
     binding?: ShortcutBinding;
-    /** Only the desktop app has it. */
     desktopOnly?: boolean;
 }
 
-/**
- * Every working shortcut, listed once: Settings › Keyboard Shortcuts and the `?` reference both render this.
- * The keys themselves are handled in `hooks/core/use-keyboard-shortcuts.ts` (and the routine grid); change both together.
- */
 export const SHORTCUT_SECTIONS: ReadonlyArray<{ title: string; items: ReadonlyArray<Shortcut> }> = [
     {
         title: "Anywhere",
@@ -68,7 +62,6 @@ export const SHORTCUT_SECTIONS: ReadonlyArray<{ title: string; items: ReadonlyAr
     },
 ];
 
-/** "mod+shift+k" → ["⌘", "⇧", "K"]. */
 export function bindingKeys(binding: string): string[] {
     const names: Record<string, string> = { mod: MOD_KEY, ctrl: "Ctrl", alt: "Alt", shift: "⇧" };
     return binding.split("+").map((part) => names[part] ?? part.toUpperCase());

@@ -1,7 +1,6 @@
 import { MessageSquare } from "lucide-react";
 import { Tip } from "../primitives/Tooltip";
 
-/** A completed thought keeps its identity when reopened as a task. */
 export function ThoughtMark() {
     return (
         <Tip label="Thought">

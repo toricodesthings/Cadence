@@ -1,13 +1,9 @@
-// A typed instruction for work that already exists ("Friday 3pm for 30 min", "keep waiting until Monday",
-// "put in Work"): the bounded change it means, as a patch the user sees before it is applied.
-// Pure: the draft comes from `resolveDraft`; nothing here reads a clock, the network or a task.
 import type { TaskPriority } from "@cadence/contracts/task";
 import type { Draft } from "./nlp-draft";
 import { atLocal, type Instant, type LocalDate, type Zone } from "./time";
 
 export type TaskState = "ACTIVE" | "WAITING";
 
-/** Only these fields, so a patch can never touch notes, title, priority history or anything unnamed. */
 export interface InstructionPatch {
     state?: TaskState;
     dueDate?: LocalDate | null;
@@ -15,21 +11,16 @@ export interface InstructionPatch {
     scheduledEnd?: Instant | null;
     durationEstimate?: number | null;
     projectId?: string | null;
-    /** A section of `projectId` (set together, so the two never disagree). */
     sectionId?: string | null;
     waitingOn?: string | null;
-    /** Hide until this day. */
     notBefore?: LocalDate | null;
-    /** A follow-up nudge for work that is waiting. */
     waitingReminder?: Instant | null;
     priority?: TaskPriority;
-    /** Tags to add; existing tags stay. */
     addTagIds?: string[];
 }
 
 export interface Instruction {
     patch: InstructionPatch;
-    /** Words that carried no change: shown, never guessed at. */
     unread: string;
 }
 
@@ -41,7 +32,6 @@ const VERBS = {
     until: /\b(?:until|till|not\s+before|hide\s+until)\b/i,
 } as const;
 
-/** Connective words that carry no change on their own. */
 const FILLER =
     /\b(?:move|put|set|send|schedule|these|this|them|it|to|in|into|on|at|the|a|and|then|please|tasks?)\b|[/,;.]/gi;
 
@@ -56,16 +46,11 @@ export interface NamedSection {
 export interface SectionMention {
     start: number;
     end: number;
-    /** Every section with the named name; more than one is resolved by the list the words name. */
     candidates: NamedSection[];
 }
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/**
- * "put in Later This Week", "move to the Errands section": a section named after a placement cue. Longest name wins.
- * A name that is also a day ("Today") needs the word "section", so "move these to today" stays a date.
- */
 export function findSectionMention(
     text: string,
     sections: readonly NamedSection[],
@@ -77,7 +62,7 @@ export function findSectionMention(
         const m = new RegExp(
             `\\b(?:in|into|to|under)\\s+(?:the\\s+)?${escape(name)}${suffix}(?![\\p{L}\\p{N}])`,
             "iu",
-        ).exec(text); // nosemgrep
+        ).exec(text);
         if (m)
             return {
                 start: m.index,
@@ -88,14 +73,12 @@ export function findSectionMention(
     return null;
 }
 
-/** The one section a mention means, given the list the words named (if any); nothing when it stays ambiguous or contradicts that list. */
 export function resolveSection(mention: SectionMention | null, projectId: string | null): NamedSection | null {
     if (!mention) return null;
     const fits = projectId ? mention.candidates.filter((c) => c.projectId === projectId) : mention.candidates;
     return fits.length === 1 ? fits[0] : null;
 }
 
-/** What the words do to the work's day: clear it, nudge a follow-up, hide it until then, or move it. */
 function datePatch(
     f: Draft["fields"],
     verbs: { keepUnscheduled: boolean; keepWaiting: boolean; followUp: boolean; until: boolean },
@@ -103,22 +86,16 @@ function datePatch(
 ): InstructionPatch {
     if (verbs.keepUnscheduled) return { dueDate: null, scheduledStart: null, scheduledEnd: null };
     if (verbs.followUp) {
-        // A follow-up is a nudge on waiting work: it never changes the state or the day it is planned for.
         if (f.scheduledStart) return { waitingReminder: f.scheduledStart };
         return f.dueDate ? { waitingReminder: atLocal(f.dueDate, FOLLOW_UP_HOUR, zone) } : {};
     }
     if (verbs.keepWaiting || (verbs.until && f.dueDate && !f.scheduledStart)) {
-        // "until Monday" hides the work until then; it is not a deadline.
         return f.dueDate ? { notBefore: f.dueDate } : {};
     }
     if (f.scheduledStart) return { scheduledStart: f.scheduledStart, scheduledEnd: f.scheduledEnd, dueDate: null };
     return f.dueDate ? { dueDate: f.dueDate, scheduledStart: null, scheduledEnd: null } : {};
 }
 
-/**
- * What `text` means for existing work, given the draft read from it (dates, list, tags, priority, waiting, estimate)
- * and the section it named, already resolved (`resolveSection`).
- */
 export function instructionPatch(
     text: string,
     draft: Draft,
@@ -155,13 +132,8 @@ export function instructionPatch(
     return { patch, unread: rest.replace(FILLER, " ").replace(/\s+/g, " ").trim() };
 }
 
-/** True when the instruction changed nothing: the caller offers no Apply. */
 export const isEmptyPatch = (p: InstructionPatch) => Object.keys(p).length === 0;
 
-/**
- * Undo that respects later edits: of the fields this patch set, the ones whose current value is still
- * what the patch wrote go back to what they were. A field someone changed since stays as it is.
- */
 export function undoPatch(
     patch: InstructionPatch,
     before: Partial<Record<keyof InstructionPatch, unknown>>,

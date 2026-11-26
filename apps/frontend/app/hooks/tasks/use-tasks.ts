@@ -10,18 +10,14 @@ import { useAuthState } from "../auth/use-auth-state";
 import { buildTasksQuery, type UseTasksFilterInput } from "../../lib/utils/task/task-scheduling";
 
 interface UseTasksOptions extends UseTasksFilterInput {
-    /** When false, the query will not execute (useful for view-gated fetching) */
     enabled?: boolean;
-    /** Keep the last result on screen while a new key loads (growing pages). */
     keepPrevious?: boolean;
 }
 
-/** One task list's query; shared with the offline prefetch so their keys match. */
 export function tasksQueryOptions(client: ApiClient, filters: UseTasksFilterInput) {
     return queryOptions({
         queryKey: queryKeys.tasks.list(filters),
         staleTime: STALE_TIMES.TASKS,
-        // Without a limit the server returns the whole list.
         queryFn: async () =>
             unwrapResponse(
                 await client.api.tasks.$get({
@@ -31,7 +27,6 @@ export function tasksQueryOptions(client: ApiClient, filters: UseTasksFilterInpu
     });
 }
 
-/** Fetch tasks with server-side filtering — drives Today, Upcoming, and Calendar views */
 export function useTasks(options: UseTasksOptions = {}) {
     const { enabled = true, keepPrevious, ...filterOptions } = options;
 
@@ -46,10 +41,8 @@ export function useTasks(options: UseTasksOptions = {}) {
 
 const PAGE_SIZE = 100;
 
-/** Done and Trash grow forever: newest first, 100 more per `loadMore`, up to the route's 1000. */
 export function usePagedTasks(state: "COMPLETE" | "ARCHIVED") {
     const [limit, setLimit] = useState(PAGE_SIZE);
-    // ponytail: each page refetches the earlier ones; move to offset pages if people keep years of Done.
     const query = useTasks({ state, limit, keepPrevious: true });
     const hasMore = (query.isPlaceholderData || (query.data?.length ?? 0) >= limit) && limit < 1000;
     return { ...query, loadMore: hasMore ? () => setLimit((current) => current + PAGE_SIZE) : undefined };
@@ -57,16 +50,11 @@ export function usePagedTasks(state: "COMPLETE" | "ARCHIVED") {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/**
- * One task, read from whichever cached list holds it so optimistic edits show at once;
- * `GET /tasks/:id` only when no list has it (a Done task from a link, say).
- */
 export function useTask(taskId: string | null | undefined) {
     const client = useApiClient();
     const queryClient = useQueryClient();
     const { authReady, isAuthenticated } = useAuthState();
 
-    // ponytail: scans every cached list per cache event; index by id if large workspaces feel it.
     const findCached = useCallback(() => {
         if (!taskId) return undefined;
         for (const [key, list] of queryClient.getQueriesData<Task[]>({ queryKey: queryKeys.tasks.all })) {
@@ -77,7 +65,6 @@ export function useTask(taskId: string | null | undefined) {
         return undefined;
     }, [queryClient, taskId]);
     const cached = useSyncExternalStore(
-        // Data changes only: observer events fire while other components render a new query, and would update this one mid-render.
         useCallback(
             (onChange) =>
                 queryClient.getQueryCache().subscribe((event) => {

@@ -14,10 +14,6 @@ const ICONS: Record<SlashCommandId, LucideIcon> = {
 export const slashOptionId = (id: SlashCommandId) => `assistant-slash-${id}`;
 export const SLASH_MENU_ID = "assistant-slash-menu";
 
-/**
- * The composer's `/` menu. Focus stays in the textarea (it owns the keys and
- * points `aria-activedescendant` here); rows are also tappable.
- */
 export function SlashCommandMenu({
     commands,
     activeIndex,
@@ -48,7 +44,6 @@ export function SlashCommandMenu({
                         // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role -- pointer convenience; keyboard path is on the inner controls
                         role="option"
                         aria-selected={i === activeIndex}
-                        // Keep the textarea focused; the click still fires.
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => onPick(command)}
                         className={cn(

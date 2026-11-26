@@ -15,7 +15,6 @@ export interface RouteFocusParams {
 
 const FOCUS_PARAM_KEYS = ["focusKind", "focusId", "focusScope", "focusDate", "focusSource"] as const;
 
-/** Read focus params from URL search params */
 function parseFocusParams(searchParams: URLSearchParams): RouteFocusParams | null {
     const focusKind = searchParams.get("focusKind") as FocusKind | null;
     const focusId = searchParams.get("focusId");
@@ -30,7 +29,6 @@ function parseFocusParams(searchParams: URLSearchParams): RouteFocusParams | nul
     };
 }
 
-/** Build search params string for focus navigation */
 export function buildFocusSearchParams(params: RouteFocusParams): string {
     const sp = new URLSearchParams();
     if (params.focusKind) sp.set("focusKind", params.focusKind);
@@ -41,15 +39,7 @@ export function buildFocusSearchParams(params: RouteFocusParams): string {
     return sp.toString();
 }
 
-/**
- * Route-level focus helper.
- * Reads focus params from the URL, waits for the target DOM element,
- * scrolls it into view, applies a reveal animation, then clears focus params.
- */
-export function useRouteFocus(opts?: {
-    /** Callback when a focus match is found — use to open a detail panel, etc. */
-    onFocusMatch?: (params: RouteFocusParams) => void;
-}) {
+export function useRouteFocus(opts?: { onFocusMatch?: (params: RouteFocusParams) => void }) {
     const [searchParams, setSearchParams] = useSearchParams();
     const attemptRef = useRef(0);
     const cleanupTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -72,7 +62,7 @@ export function useRouteFocus(opts?: {
         if (!focusParams) return;
 
         attemptRef.current = 0;
-        const maxAttempts = 20; // ~2 seconds total
+        const maxAttempts = 20;
         const interval = 100;
 
         const tryFocus = () => {
@@ -83,18 +73,15 @@ export function useRouteFocus(opts?: {
             ) as HTMLElement | null;
 
             if (el) {
-                // Scroll into view, and again once a section opening around it (a Reveal) has settled.
                 el.scrollIntoView({ behavior: "smooth", block: "center" });
                 settleTimerRef.current = setTimeout(
                     () => el.scrollIntoView({ behavior: "smooth", block: "center" }),
                     300,
                 );
 
-                // Apply reveal animation
                 el.classList.add("focus-pulse-soft");
                 opts?.onFocusMatch?.(focusParams);
 
-                // Clean up animation class after pulse completes
                 cleanupTimerRef.current = setTimeout(() => {
                     el.classList.remove("focus-pulse-soft");
                     clearFocusParams();
@@ -105,13 +92,11 @@ export function useRouteFocus(opts?: {
             if (attemptRef.current < maxAttempts) {
                 setTimeout(tryFocus, interval);
             } else {
-                // The row isn't on this page (folded, filtered, out of range): open the task itself, so a tap never lands on nothing.
                 if (focusParams.focusKind === "task" && focusParams.focusId) openTaskDetails(focusParams.focusId);
                 clearFocusParams();
             }
         };
 
-        // Small initial delay for route data to load
         const startTimer = setTimeout(tryFocus, 150);
 
         return () => {

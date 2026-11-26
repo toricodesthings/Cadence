@@ -15,7 +15,8 @@
         "./focus-views/url": "./src/focus-views/url.ts",
         "./effort": "./src/effort/index.ts",
         "./duration": "./src/duration/index.ts",
-        "./app-suggestions": "./src/app-suggestions/index.ts"
+        "./app-suggestions": "./src/app-suggestions/index.ts",
+        "./day-pulse": "./src/day-pulse/index.ts"
     },
     "scripts": {
         "typecheck": "tsc --noEmit",

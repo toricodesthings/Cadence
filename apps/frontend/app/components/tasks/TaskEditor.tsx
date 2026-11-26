@@ -55,8 +55,8 @@ import { RepeatKindPicker } from "../shared/RepeatKindPicker";
 import { getTaskRepeatKind, useConvertRepeat } from "../../hooks/habits/use-convert-repeat";
 import { DatePicker } from "../shared/DatePicker";
 import { Button } from "../primitives/Button";
-import { Skeleton } from "../primitives/Skeleton";
 import { Switch } from "../primitives/Switch";
+import { DetailPanelSkeleton, TaskNoteSkeleton } from "../shared/DetailPanelSkeleton";
 import { formatShortDate } from "../../lib/utils/date-format";
 import { PRIORITY_CONFIG } from "../../lib/constants/priority";
 import {
@@ -102,18 +102,14 @@ interface TaskEditorProps {
     onDetailModeChange?: (mode: "peek" | "focus") => void;
 }
 
-/** A date from an instant (created, updated, a check-in), in the user's zone. */
 function formatDateTime(iso: string) {
     return formatShortDate(iso);
 }
 
-/** Full task editing panel — notes-first design; metadata revealed on demand */
 export function TaskEditor({ taskId, onClose, detailMode, onDetailModeChange }: TaskEditorProps) {
     const task = useTask(taskId);
-    // A list you can only view gets the facts, never controls that can't save.
     const { canEdit } = useTaskAccess(task);
 
-    // Removed from elsewhere (assistant, another view): the panel closes instead of staying on a gone task.
     const wasLive = useRef(false);
     useEffect(() => {
         const live = Boolean(task) && task?.state !== "ARCHIVED";
@@ -138,25 +134,8 @@ export function TaskEditor({ taskId, onClose, detailMode, onDetailModeChange }: 
                     onDetailModeChange={onDetailModeChange}
                 />
             ) : (
-                <TaskEditorSkeleton />
+                <DetailPanelSkeleton kind="task" />
             )}
-        </div>
-    );
-}
-
-function TaskEditorSkeleton() {
-    return (
-        <div className="flex h-full flex-col">
-            <div className="flex items-center gap-3 border-b border-twilight-border px-5 h-(--shell-header-h) shrink-0">
-                <Skeleton className="h-7 w-7 rounded-lg" />
-                <Skeleton className="h-4 flex-1 rounded-lg" />
-                <Skeleton className="h-7 w-7 rounded-lg" />
-            </div>
-            <div className="flex flex-col gap-3 p-5">
-                <Skeleton className="h-40 w-full rounded-2xl" />
-                <Skeleton className="h-14 w-full rounded-2xl" />
-                <Skeleton className="h-14 w-full rounded-2xl" />
-            </div>
         </div>
     );
 }
@@ -165,12 +144,10 @@ type TaskEditorBodyProps = Omit<TaskEditorProps, "taskId"> & { task: Task };
 
 function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange }: TaskEditorBodyProps) {
     const taskId = task.id;
-    // Below the wide layout this panel is a modal overlay (everything behind it is inert): it steps aside so the room above it is usable.
     const { isWide } = useShellMode();
     const updateTask = useUpdateTask();
     const archiveTask = useArchiveTask();
     const [activePanel, setActivePanel] = useState<"app" | "notes" | "subtasks" | "details">("notes");
-    // "Break into steps?" taken while this task is open: its subtasks open with the cursor in the field.
     const stepsAsked = useTaskDetailIntentStore((state) => state.addStepsFor === task.id);
     const consumeStepsAsk = useTaskDetailIntentStore((state) => state.consume);
     useEffect(() => {
@@ -179,11 +156,9 @@ function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange
     const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
     const { data: subtasks = [] } = useSubtasks(taskId);
 
-    // The note is one session shared with the writing room; the summary reads from it.
     const { state: noteState } = useTaskNote(taskId);
     const notes = noteState?.body ?? "";
 
-    // Listen for the custom rename event dispatched by context menus
     useEffect(() => {
         const handleFocusTitle = (e: Event) => {
             const detail = (e as CustomEvent).detail;
@@ -227,7 +202,6 @@ function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange
         .filter(Boolean)
         .join(" · ");
 
-    // A Fixed block has no app to add; one that already has an app keeps the pane to open, change or remove it.
     const hasApp = Boolean(task.linkedAppId || task.linkedUrl);
     const appPane =
         !isPassiveTimetable || hasApp ? (
@@ -259,10 +233,8 @@ function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange
                 onSave={(title) => updateTask.mutate({ id: task.id, title })}
             />
 
-            {/* An attached app is one tap from the title; an empty one waits quietly above Details. */}
             {hasApp ? appPane : null}
 
-            {/* ── Notes pane ── */}
             {activePanel !== "notes" ? (
                 <PanelTrigger
                     icon={StickyNote}
@@ -275,7 +247,7 @@ function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange
             <AnimatePresence initial={false}>
                 {activePanel === "notes" ? (
                     <motion.div key="notes-panel" {...PANE_IN} className="flex shrink-0 flex-col gap-3">
-                        <Suspense fallback={<Skeleton className="h-40 w-full rounded-2xl" />}>
+                        <Suspense fallback={<TaskNoteSkeleton />}>
                             <TaskNoteInline taskId={task.id} onOpenRoom={isWide ? undefined : onClose} />
                         </Suspense>
                     </motion.div>
@@ -284,7 +256,6 @@ function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange
 
             {hasApp ? null : appPane}
 
-            {/* ── Details pane ── */}
             {activePanel !== "details" ? (
                 <PanelTrigger
                     icon={SlidersHorizontal}
@@ -298,7 +269,6 @@ function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange
                 <TaskDetailsFields task={task} onDone={() => setActivePanel("notes")} onClose={onClose} />
             </Reveal>
 
-            {/* ── Subtasks pane ── */}
             {activePanel !== "subtasks" ? (
                 <PanelTrigger
                     icon={ListChecks}
@@ -370,7 +340,6 @@ function TaskEditorBody({ task, onClose, detailMode = "peek", onDetailModeChange
 
 type TaskDetailsFieldsProps = { task: Task; onDone: () => void; onClose: () => void };
 
-/** The Details pane: state, when, weight and where the task lives. */
 function TaskDetailsFields({ task, onDone, onClose }: TaskDetailsFieldsProps) {
     return (
         <>
@@ -386,7 +355,6 @@ function TaskDetailsFields({ task, onDone, onClose }: TaskDetailsFieldsProps) {
     );
 }
 
-/** Notes and Subtasks panes rise in as they open. */
 const PANE_IN = {
     initial: { opacity: 0, y: 6 },
     animate: { opacity: 1, y: 0 },
@@ -400,7 +368,6 @@ type WaitingFieldsProps = {
     onWaitingOnChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 };
 
-/** Who or what it waits on, and when to check again. */
 function WaitingFields({ task, waitingOn, onWaitingOnChange: handleWaitingOnChange }: WaitingFieldsProps) {
     const updateTask = useUpdateTask();
     return (
@@ -442,7 +409,6 @@ function WaitingFields({ task, waitingOn, onWaitingOnChange: handleWaitingOnChan
 
 type StatusGroupProps = { task: Task; onClose: () => void };
 
-/** "I'll do it" / "Not doing it" / owner "Clear {name}" row on shared tasks. */
 function TakeTaskRow({ task }: { task: Task }) {
     const access = useTaskAccess(task);
     const { session } = useAuthState();
@@ -497,7 +463,6 @@ function TakeTaskRow({ task }: { task: Task }) {
     );
 }
 
-/** State (Fixed blocks are an anchor, never complete), how long it took, waiting, and what kind of repeat it is. */
 function StatusGroup({ task, onClose }: StatusGroupProps) {
     const updateTask = useUpdateTask();
     const convertRepeat = useConvertRepeat();
@@ -506,7 +471,6 @@ function StatusGroup({ task, onClose }: StatusGroupProps) {
     const isPassiveTimetable = isPassiveTimetableTask(task);
     const canToggleInteractionMode = Boolean(task.recurrenceRule && task.scheduledStart);
 
-    // Sync waitingOn when the task changes
     useEffect(() => {
         setWaitingOn(task.waitingOn ?? "");
     }, [task]);
@@ -599,7 +563,6 @@ function StatusGroup({ task, onClose }: StatusGroupProps) {
     );
 }
 
-/** When it happens, how long it takes, its repeat, hide-until and reminder. */
 function WhenGroup({ task }: { task: Task }) {
     const updateTask = useUpdateTask();
 
@@ -611,7 +574,6 @@ function WhenGroup({ task }: { task: Task }) {
     const recurrenceSummary = getTaskRecurrenceSummary(task);
     const isPassiveTimetable = isPassiveTimetableTask(task);
     const canToggleInteractionMode = Boolean(task.recurrenceRule && task.scheduledStart);
-    // Timetable blocks get direct start/end/day editing instead of the date popover alone.
     const isTimetableBlock = isPassiveTimetable && canToggleInteractionMode;
     const scheduleLabel = recurrenceSummary?.label ?? scheduleSummary?.primaryLabel ?? "No schedule";
     const scheduleFieldLabel = scheduleFieldLabelOf(task);
@@ -679,7 +641,6 @@ function WhenGroup({ task }: { task: Task }) {
     );
 }
 
-/** One option in a chip grid; `stacked` puts a small label under the icon. */
 function ChoiceChip({
     item,
     kind,
@@ -708,7 +669,6 @@ function ChoiceChip({
     );
 }
 
-/** Priority and effort; choosing the current effort again clears it. */
 function WeightGroup({ task }: { task: Task }) {
     const updateTask = useUpdateTask();
     const guess = useEffortGuess()(task);
@@ -769,7 +729,6 @@ function WeightGroup({ task }: { task: Task }) {
     );
 }
 
-/** Its list and section, tags, and pin. */
 function OrganizeGroup({ task }: { task: Task }) {
     const { isOwner, isShared } = useTaskAccess(task);
     const { data: projects } = useEditableProjects();

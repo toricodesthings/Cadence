@@ -7,7 +7,6 @@ vi.mock("../../../../app/components/habits/RoutineDayCell", () => ({
     RoutineDayCell: ({ date }: { date: string }) => <span data-testid="cell">{date}</span>,
 }));
 
-// Runs under the four-zone matrix (`TZ=... vitest`): the grid is LocalDates, so the machine zone never shows.
 describe("RoutineMonthGrid", () => {
     const habit = {
         id: "h",
@@ -23,7 +22,6 @@ describe("RoutineMonthGrid", () => {
         expect(days).toHaveLength(31);
         expect(days[0]).toBe("2026-10-01");
         expect(days[30]).toBe("2026-10-31");
-        // Sunday-first: Oct 1 is a Thursday, so the first row holds four blank cells.
         expect(screen.getAllByRole("gridcell")[4].textContent).toBe("2026-10-01");
     });
 

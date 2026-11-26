@@ -22,7 +22,6 @@ beforeAll(startTestDb);
 
 const as = <T>(userId: string, fn: Parameters<typeof withRls<T>>[2]) => withRls(getTestDb(), userId, fn);
 
-/** One task, section, subtask and note in the list, owned by the list owner. */
 async function seedContent(owner: string, listId: string) {
     const taskId = crypto.randomUUID();
     const sectionId = crypto.randomUUID();
@@ -69,7 +68,6 @@ describe("a shared list under row-level security", () => {
         expect((await as(member, (tx) => tx.select().from(taskSections))).map((s) => s.name)).toEqual(["Rooms"]);
         expect((await as(member, (tx) => tx.select().from(subtasks))).map((s) => s.title)).toEqual(["Buy tape"]);
         expect((await as(member, (tx) => tx.select().from(taskNotes))).map((n) => n.body)).toEqual(["Two coats"]);
-        // The owner's account row is theirs alone.
         expect(await as(member, (tx) => tx.select().from(users).where(eq(users.id, owner)))).toEqual([]);
     });
 
@@ -136,15 +134,12 @@ describe("a shared list under row-level security", () => {
             await as(member, (tx) => tx.delete(taskSections).where(eq(taskSections.id, sectionId)).returning()),
         ).toEqual([]);
         expect(await as(member, (tx) => tx.delete(projects).where(eq(projects.id, listId)).returning())).toEqual([]);
-        // The other list is invisible, so a task can't be moved there (the CHECK fails) ...
         await expect(
             as(member, (tx) => tx.update(tasks).set({ projectId: otherList }).where(eq(tasks.id, taskId))),
         ).rejects.toThrow();
-        // ... and can't be given to someone else.
         await expect(
             as(member, (tx) => tx.update(tasks).set({ userId: member }).where(eq(tasks.id, taskId))),
         ).rejects.toThrow();
-        // A task for the editor's own account, in the owner's list, is refused too.
         await expect(
             as(member, (tx) =>
                 tx.insert(tasks).values({ userId: member, projectId: listId, title: "Mine", orderIndex: 1 }),
@@ -194,7 +189,6 @@ describe("a shared list under row-level security", () => {
             ) as Promise<any>;
         expect((await promote(member)).rows).toHaveLength(0);
         expect((await promote(owner)).rows).toHaveLength(1);
-        // Nobody can add themselves: only cadence_join_list inserts.
         await expect(
             as(outsider, (tx) =>
                 tx.execute(

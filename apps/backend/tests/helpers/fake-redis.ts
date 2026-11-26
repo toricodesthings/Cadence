@@ -1,13 +1,3 @@
-/**
- * In-memory fake of the @upstash/redis client surface used by the AI stream
- * resumption modules. Map-backed; supports the exact command subset the
- * resume-store / replay / abort paths exercise, plus an explicit `pipeline()`
- * whose `.exec()` returns results in command order (one "request" per exec).
- *
- * Instrumentation: `requests` counts round-trips (each direct call + each
- * `pipeline().exec()`), and `commandLog` records command names — both let the
- * perf tests assert write minimization.
- */
 export type StreamEntry = { id: string; fields: Record<string, string> };
 
 type SetOpts = { ex?: number; nx?: boolean };
@@ -17,19 +7,14 @@ export class FakeRedis {
     strings = new Map<string, string>();
     hashes = new Map<string, Record<string, string>>();
     streams = new Map<string, StreamEntry[]>();
-    /** Key → expiry epoch (ms). Lets `pttl` return a real countdown so the rate-limit
-     *  budget's anchor-on-first-write / reset-epoch logic is exercisable (§5). */
     ttls = new Map<string, number>();
-    /** Round-trips: incremented per direct call and per pipeline exec. */
     requests = 0;
-    /** Flat list of every command issued (direct or pipelined), in order. */
     commandLog: string[] = [];
 
     private seq = 0;
 
     private nextId(): string {
         this.seq += 1;
-        // Monotonic; ordering is tracked by array position so format is irrelevant.
         return `${Date.now()}-${this.seq}`;
     }
 
@@ -37,7 +22,6 @@ export class FakeRedis {
         return this.strings.has(key) || this.hashes.has(key) || this.streams.has(key);
     }
 
-    // ── internal command implementations (no request accounting) ──
     private _set(key: string, val: unknown, opts?: SetOpts): "OK" {
         this.strings.set(key, String(val));
         if (typeof opts?.ex === "number") this.ttls.set(key, Date.now() + opts.ex * 1000);
@@ -51,21 +35,18 @@ export class FakeRedis {
         this.ttls.delete(key);
         return had ? 1 : 0;
     }
-    /** INCRBY — counters default to 0, mirroring Redis. */
     private _incrby(key: string, by: number): number {
         const cur = Number(this.strings.get(key) ?? "0");
         const next = (Number.isFinite(cur) ? cur : 0) + by;
         this.strings.set(key, String(next));
         return next;
     }
-    /** EXPIRE with optional NX flag; anchors the window on first write (§5). */
     private _expire(key: string, ttl: number, opt?: ExpireOpt): 0 | 1 {
         if (!this._exists(key)) return 0;
         if (opt === "NX" && this.ttls.has(key)) return 0;
         this.ttls.set(key, Date.now() + ttl * 1000);
         return 1;
     }
-    /** PTTL in ms: -2 no key, -1 no TTL, else remaining ms. */
     private _pttl(key: string): number {
         if (!this._exists(key)) return -2;
         const exp = this.ttls.get(key);
@@ -73,10 +54,6 @@ export class FakeRedis {
         return Math.max(0, exp - Date.now());
     }
 
-    // ── Lua-script twins: MUST match ADMIT_SCRIPT / SETTLE_SCRIPT in rate-limit.ts; change both together ──
-    // The fake runs a JS twin of each script against the SAME backing store, so unit
-    // tests exercise the real admit/settle code paths without a live Redis. Kept in
-    // lock-step with the Lua by the matching @cadence:ai:rl markers.
     private _evalAdmit(keys: string[], argv: Array<string | number>): unknown[] {
         const [kr5, kr7, kt5, kt7, kinf, kimg] = keys;
         const n = (v: string | number) => Number(v);
@@ -145,8 +122,6 @@ export class FakeRedis {
         return Object.keys(kv).length;
     }
     private _hgetall(key: string): string[] | null {
-        // Mirror real Upstash with automaticDeserialization=false: HGETALL returns
-        // a FLAT [field, value, field, value, …] array, not a keyed object.
         const obj = this.hashes.get(key);
         if (!obj) return null;
         const flat: string[] = [];
@@ -172,8 +147,6 @@ export class FakeRedis {
         }
         let slice = entries.slice(startIdx);
         if (count !== undefined) slice = slice.slice(0, count);
-        // Mirror real Upstash with automaticDeserialization=false: XRANGE returns
-        // [[id, [field, value, …]], …], not a keyed object.
         return slice.map((e) => {
             const flat: string[] = [];
             for (const [k, v] of Object.entries(e.fields)) flat.push(k, v);
@@ -181,7 +154,6 @@ export class FakeRedis {
         });
     }
 
-    // ── direct (single round-trip) methods ──
     async set(key: string, val: unknown, opts?: SetOpts): Promise<"OK" | null> {
         this.requests += 1;
         this.commandLog.push("set");
@@ -218,7 +190,6 @@ export class FakeRedis {
         this.commandLog.push("pttl");
         return this._pttl(key);
     }
-    /** EVAL — one billed command/round-trip; dispatches to the script twin by marker. */
     async eval(script: string, keys: string[], argv: Array<string | number>): Promise<unknown> {
         this.requests += 1;
         this.commandLog.push("eval");
@@ -232,7 +203,6 @@ export class FakeRedis {
         return this._hgetall(key) as unknown as T | null;
     }
 
-    // ── pipeline ──
     pipeline() {
         const ops: Array<() => unknown> = [];
         const p = {

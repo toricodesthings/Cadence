@@ -1,4 +1,3 @@
-/** Data export: the latest request's status (polled while it is being prepared) and the request itself. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useApiClient } from "../auth/use-api-client";

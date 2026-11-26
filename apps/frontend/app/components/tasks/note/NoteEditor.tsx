@@ -14,11 +14,8 @@ import { NoteLinkPopover, normalizeLink } from "./NoteLinkPopover";
 import { applyRemoteDoc, posAtPoint } from "./note-selection";
 import { filterSlashCommands, type NoteCommand } from "./note-commands";
 
-/** Report typing to the session after this pause (the session journals ~150ms after, saves after idle)… */
 const REPORT_MS = 120;
-/** …and at least this often while typing never pauses, so the journal and the 2s save cap still apply. */
 const REPORT_MAX_MS = 1_000;
-/** A view nobody is typing in takes text from elsewhere after this lull: not a whole-note re-parse per keystroke burst. */
 const BACKGROUND_APPLY_MS = 400;
 
 interface Slash {
@@ -27,7 +24,6 @@ interface Slash {
     query: string;
 }
 
-/** `/query` at the start of a text block, never in code or a link. */
 function detectSlash(editor: Editor): Slash | null {
     const { selection } = editor.state;
     if (!selection.empty) return null;
@@ -41,36 +37,24 @@ function detectSlash(editor: Editor): Slash | null {
 
 export interface NoteEditorProps {
     session: NoteSession;
-    /** When present (shared list notes), enables live Yjs co-editing via `NoteCollab` DO instead of REST last-write-wins. */
     collab?: CollabNoteHandle | null;
     collabUser?: { name: string; color: string };
-    /** Identifies this editor view to the session (the panel and the room each have one). */
     viewId: string;
     placeholder: string;
-    /** Room only: a quiet "/ for commands" beside the placeholder until writing starts. */
     commandHint?: boolean;
     variant: "room" | "inline";
-    /** Phone and tablet read first: not editable until asked. */
     editable?: boolean;
     autoFocus?: boolean;
-    /** The visual editor can't carry this note without loss: the host shows source instead. */
     onUnfaithful?: () => void;
     onEditor?: (editor: Editor | null) => void;
     onSave?: () => void;
     onFind?: () => void;
-    /** A tap while read-only; `pos` is where in the document. */
     onRequestEdit?: (pos: number | null) => void;
     onFocusChange?: (focused: boolean) => void;
-    /** Pixels at the bottom the slash menu must stay clear of (phone keyboard and strip). */
     slashBottomInset?: number;
     className?: string;
 }
 
-/**
- * The visual note editor over a note session. Markdown stays the stored form: the document is
- * serialized at bounded checkpoints, never per selection change, and text from elsewhere is
- * applied as a minimal remote transaction that is never reported back.
- */
 export function NoteEditor({
     session,
     collab = null,
@@ -147,7 +131,6 @@ export function NoteEditor({
             dirty.current = true;
             clearTimeout(timer.current);
             const run = () => {
-                // Don't serialize mid-composition; the committed text is reported right after.
                 if (editor.view.composing) timer.current = setTimeout(run, 60);
                 else report(editor);
             };
@@ -159,7 +142,6 @@ export function NoteEditor({
         [report],
     );
 
-    /** The first Escape closes the menu and leaves the typed text alone. */
     const dismissSlash = useCallback(() => {
         if (!slashRef.current) return;
         dismissed.current = slashRef.current.from;
@@ -171,14 +153,12 @@ export function NoteEditor({
         const editor = editorRef.current;
         const current = slashRef.current;
         if (!editor || !current) return;
-        // Only the slash and its query go; the rest of the paragraph stays.
         editor.chain().focus().deleteRange({ from: current.from, to: current.to }).run();
         command.run?.(editor);
         slashRef.current = null;
         setSlash(null);
     }, []);
 
-    /** Keys while the slash menu is open: move, pick, close. Undefined for any other key. */
     const slashKey = useCallback(
         (event: KeyboardEvent): boolean | undefined => {
             const list = matchesRef.current;
@@ -204,7 +184,6 @@ export function NoteEditor({
         [dismissSlash, pickSlash],
     );
 
-    /** ⌘/Ctrl shortcuts: S saves, F finds, K links. */
     const shortcutKey = useCallback(
         (key: string) => {
             if (key === "s") {
@@ -262,7 +241,6 @@ export function NoteEditor({
                 return shortcutKey(event.key.toLowerCase());
             },
             handleClick: (view, pos, event) => {
-                // A plain tap just places the caret; following a link is explicit (⌘/Ctrl-click, or Open in the link editor).
                 if (!(event.metaKey || event.ctrlKey)) return false;
                 const href = view.state.doc
                     .resolve(pos)
@@ -282,7 +260,7 @@ export function NoteEditor({
         },
         onSelectionUpdate: ({ editor: e }) => syncSlash(e),
         onFocus: () => {
-            settleRemote.current(); // text from elsewhere lands before any typing here
+            settleRemote.current();
             onFocusChange?.(true);
         },
         onBlur: () => {
@@ -299,7 +277,6 @@ export function NoteEditor({
         return () => onEditor?.(null);
     }, [editor, onEditor]);
 
-    // The editor keeps focus while the slash menu is open, so the highlighted row is named through aria-activedescendant.
     useEffect(() => {
         const dom = editor?.view.dom;
         if (!dom) return;
@@ -317,7 +294,6 @@ export function NoteEditor({
         editor?.setEditable(editable);
     }, [editor, editable]);
 
-    // Seed a collaborative Yjs doc once from the stored Markdown after initial sync.
     useEffect(() => {
         if (!editor || !collab) return;
         const trySeed = () => {
@@ -333,13 +309,11 @@ export function NoteEditor({
         };
     }, [editor, collab, session]);
 
-    // The session asks for unreported text before saving, and hands back text from elsewhere.
     useEffect(() => {
         if (!editor || collab) return;
         const apply = (body: string, now = false) => {
             if (editor.isDestroyed) return;
             if (editor.view.composing || (!now && !editor.isFocused)) {
-                // Composition finishes first; an unfocused view (the panel behind the room) catches up in a lull or on focus.
                 pendingRemote.current = body;
                 clearTimeout(remoteTimer.current);
                 remoteTimer.current = setTimeout(settle, BACKGROUND_APPLY_MS);
@@ -376,7 +350,6 @@ export function NoteEditor({
         };
     }, [editor, collab, session, viewId]);
 
-    // Flush any pending collab snapshot before the editor unmounts or the page hides.
     useEffect(() => {
         if (!collab) return;
         const flush = () => {
@@ -394,7 +367,6 @@ export function NoteEditor({
 
     const onWrapperClick = (event: MouseEvent<HTMLDivElement>) => {
         if (editable || !editor || !onRequestEdit) return;
-        // A link tapped while reading still doesn't navigate.
         if ((event.target as HTMLElement).closest("a")) event.preventDefault();
         onRequestEdit(posAtPoint(editor, event.clientX, event.clientY));
     };

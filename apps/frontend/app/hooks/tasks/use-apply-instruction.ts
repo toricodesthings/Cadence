@@ -7,7 +7,6 @@ import { useUpdateTask } from "./use-update-task";
 import { useAddTaskTag } from "../tags/use-task-tags";
 import { queryKeys } from "../../lib/api/query-keys";
 
-/** The most one instruction may change at once. */
 export const MAX_BATCH = 25;
 
 export interface ApplyResult {
@@ -32,10 +31,6 @@ const FIELD_KEYS = [
 const pick = (task: Task, keys: readonly string[]) =>
     Object.fromEntries(keys.map((k) => [k, (task as unknown as Record<string, unknown>)[k] ?? null]));
 
-/**
- * Apply one patch to the tasks the user selected, one by one, keeping a result per task. A task that fails stays
- * for a retry; one that succeeded is never redone. Undo puts back only the fields still holding what this wrote.
- */
 export function useApplyInstruction() {
     const update = useUpdateTask();
     const addTag = useAddTaskTag();

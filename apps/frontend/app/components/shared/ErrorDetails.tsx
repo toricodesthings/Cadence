@@ -2,11 +2,6 @@ import { useEffect, useState } from "react";
 import { Copy } from "lucide-react";
 import { errorRef, reportError } from "../../lib/log";
 
-/**
- * The copyable ref under a crash screen, what a user sends to support
- * (`errorRef` plus the page). Dev adds the stack. Uses no router hooks:
- * the root boundary renders it when the router itself may have failed.
- */
 export function ErrorDetails({ error }: { error: unknown }) {
     useEffect(() => reportError(error, "render"), [error]);
     const [copied, setCopied] = useState(false);
@@ -18,9 +13,7 @@ export function ErrorDetails({ error }: { error: unknown }) {
             await navigator.clipboard.writeText(ref);
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
-        } catch {
-            // Clipboard unavailable: the ref is still on screen to read out.
-        }
+        } catch {}
     };
 
     return (

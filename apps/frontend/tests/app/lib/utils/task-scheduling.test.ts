@@ -56,7 +56,6 @@ describe("task scheduling helpers", () => {
     });
 
     it("anchors a timed task on the user's day of its start, not the UTC day", () => {
-        // 23:30 in Toronto on Mar 9 is already Mar 10 in UTC.
         const task = makeTask({ scheduledStart: "2026-03-10T03:30:00.000Z" });
         expect(getTaskScheduleSummary(task).anchorDate).toBe("2026-03-09");
         setUserZone("Pacific/Kiritimati");
@@ -73,13 +72,11 @@ describe("task scheduling helpers", () => {
     it.each(["Pacific/Kiritimati", "Pacific/Pago_Pago", "America/Toronto"])(
         "shows an all-day task due 2026-10-05 on Oct 5 for a user in %s",
         (zone) => {
-            // The same instant is Oct 5 in Kiritimati (UTC+14) and still Oct 4 in Pago Pago (UTC-11).
             vi.useFakeTimers().setSystemTime(new Date("2026-10-04T20:00:00.000Z"));
             setUserZone(zone);
             const task = makeTask({ dueDate: "2026-10-05" });
 
             expect(getTaskScheduleSummary(task)).toMatchObject({ primaryLabel: "Oct 5", anchorDate: "2026-10-05" });
-            // Today for this user decides "due today"; the stored day itself never moves.
             expect(getTaskTimelineAnchor(task) === today()).toBe(zone === "Pacific/Kiritimati");
         },
     );
@@ -154,7 +151,6 @@ describe("task scheduling helpers", () => {
             secondaryLabel: "Fixed",
         });
 
-        // The next Tuesday/Thursday on or after Wednesday Mar 11 is Thursday Mar 12.
         expect(getTaskTimelineAnchor(passiveSeries, "2026-03-11")).toBe("2026-03-12");
     });
 

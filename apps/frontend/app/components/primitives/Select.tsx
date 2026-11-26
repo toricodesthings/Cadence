@@ -79,15 +79,6 @@ const SelectItem = ({ className, children, ...props }: React.ComponentProps<type
     </SelectPrimitive.Item>
 );
 
-/**
- * A search box docked to the top of `SelectContent`, for lists too long to scan (timezones,
- * long project lists). Radix Select has no search of its own: this hijacks keys itself so
- * typing filters instead of triggering Radix's single-letter typeahead, and hands `ArrowDown`
- * off to the first item so keyboard users can still reach the (filtered) list.
- * Radix Select focuses the selected item on open and doesn't expose `onOpenAutoFocus` to steal
- * that back, so pair this with a controlled `open` on `Select` and focus it from an effect:
- * `useEffect(() => { if (open) requestAnimationFrame(() => ref.current?.focus()); }, [open])`.
- */
 const SelectSearch = ({
     className,
     onKeyDown,
@@ -104,7 +95,6 @@ const SelectSearch = ({
                         ?.querySelector<HTMLElement>('[role="option"]');
                     option?.focus();
                 } else if (event.key !== "Escape") {
-                    // Keep typing in the box; only Escape should reach Radix's own handling (closes the menu).
                     event.stopPropagation();
                 }
                 onKeyDown?.(event);

@@ -21,8 +21,6 @@ import { useLaterToday } from "../../../hooks/tasks/use-find-time";
 import { Reveal } from "../../shared/Reveal";
 import { ScheduleRow, type ScheduleRowHandlers } from "./ScheduleRow";
 
-/** Swiping to another day remounts this view, so the offset outlives it: the
- *  same time of day stays in view, the way a native calendar behaves. */
 let lastDayScrollTop = 0;
 
 export interface DayAgendaProps extends ScheduleRowHandlers {
@@ -32,10 +30,8 @@ export interface DayAgendaProps extends ScheduleRowHandlers {
     isBirthday?: boolean;
     personalEvents?: (PersonalEvent | SharedEvent)[];
     routineEmoji: (task: Task) => string | null;
-    /** Ready-to-place tasks waiting in Holding. */
     hasReady?: boolean;
     onOpenReady?: () => void;
-    /** Create something starting at the instant `start`, `minutes` long. */
     onAddAt: (start: Instant, minutes: number) => void;
     dragActive?: boolean;
     reducedMotion?: boolean;
@@ -45,7 +41,6 @@ const SECTION_LABEL = "px-2 pb-1 pt-4 text-[11px] font-semibold uppercase tracki
 
 const QUARTER_MS = 15 * 60_000;
 
-/** Round up to the next quarter hour, so "add into this gap" lands on a clean time. */
 function nextQuarter(date: Date): Instant {
     return new Date(Math.ceil(date.getTime() / QUARTER_MS) * QUARTER_MS).toISOString();
 }
@@ -57,7 +52,6 @@ type FoldProps = {
     children: React.ReactNode;
 };
 
-/** A folded group behind one toggle row ("3 done", "Earlier today"). */
 function Fold({ label, open, setOpen, children }: FoldProps) {
     return (
         <>
@@ -79,7 +73,6 @@ function Fold({ label, open, setOpen, children }: FoldProps) {
     );
 }
 
-/** A free stretch between timed things; tapping it adds something there. */
 function GapRow({ gap, onAddAt }: { gap: FreeGap; onAddAt: DayAgendaProps["onAddAt"] }) {
     return (
         <button
@@ -107,11 +100,9 @@ function GapRow({ gap, onAddAt }: { gap: FreeGap; onAddAt: DayAgendaProps["onAdd
 
 type NowLineProps = { now: Date; current: Task | null; next: Task | null; gapAfterNow: boolean };
 
-/** What the now line says: what's on until when, else what's next. */
 function nowCaption({ now, current, next, gapAfterNow }: NowLineProps) {
     if (current) return `${current.title} until ${formatTime(itemEnd(current).toISOString())}`;
     if (!next) return "Nothing else timed";
-    // The free-time row below already says how long; say it once.
     if (gapAfterNow) return `Next: ${next.title}`;
     return `Next: ${next.title} in ${formatDuration(Math.max(1, Math.floor((itemStart(next).getTime() - now.getTime()) / 60_000)))}`;
 }
@@ -136,7 +127,6 @@ type DayMarkerPillsProps = {
     personalEvents: (PersonalEvent | SharedEvent)[];
 };
 
-/** What the day is: holidays, a birthday, personal events. */
 function DayMarkerPills({ holidays, isBirthday, personalEvents }: DayMarkerPillsProps) {
     return (
         <div className="flex flex-wrap gap-1.5 px-1 pt-3">
@@ -169,7 +159,6 @@ function DayMarkerPills({ holidays, isBirthday, personalEvents }: DayMarkerPills
 
 type EmptyDayProps = { dateIso: LocalDate; isToday: boolean; now: Date; onAddAt: DayAgendaProps["onAddAt"] };
 
-/** Nothing planned: one way in, at 9:00 (or the next quarter hour today, if that's later). */
 function EmptyDay({ dateIso, isToday, now, onAddAt }: EmptyDayProps) {
     const addAtNine = () => {
         const nineAm = atLocal(dateIso, "09:00", getUserZone());
@@ -191,11 +180,6 @@ function EmptyDay({ dateIso, isToday, now, onAddAt }: EmptyDayProps) {
     );
 }
 
-/**
- * One day, in the order it happens: what the day is (holidays, birthdays,
- * events), what has no time, then timed things with a "now" line and the free
- * stretches between them. On today, what's already behind folds away.
- */
 export function DayAgenda({
     dateIso,
     tasks,

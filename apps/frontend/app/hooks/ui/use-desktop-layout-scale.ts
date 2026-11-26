@@ -2,7 +2,6 @@ import { useSyncExternalStore } from "react";
 import { getNativeStore, getWebStorage, IS_DESKTOP_RUNTIME } from "../../platform/runtime";
 import { createExternalStore } from "../../lib/utils/external-store";
 
-/** Layout scale as a percentage of the normal size. */
 export type DesktopLayoutScale = number;
 
 const DESKTOP_LAYOUT_SCALE_STORE = "cadence_desktop_preferences";
@@ -14,7 +13,6 @@ export const DESKTOP_LAYOUT_SCALES: readonly DesktopLayoutScale[] = [
     75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 135, 150,
 ];
 
-/** Names saved before the scale became a percentage. */
 const LEGACY_SCALES: Record<string, DesktopLayoutScale> = { compact: 95, default: 100, comfortable: 110, large: 115 };
 
 let loaded = false;

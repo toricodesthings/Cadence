@@ -15,11 +15,6 @@ import { RoutineMark } from "../habits/RoutineMark";
 import { stepProgress } from "../habits/RoutineSteps";
 import { PendingMark } from "./PendingMark";
 
-/**
- * One routine in an agenda: its mark, its title, and a time only when it has
- * one. The surrounding section already says "routine" and which day it is, so
- * the row doesn't repeat either. Today's tray and Upcoming share it.
- */
 export function RoutineAgendaRow({
     id,
     title,
@@ -32,16 +27,12 @@ export function RoutineAgendaRow({
     onOpen,
     onComplete,
 }: {
-    /** The routine's id, for the not-synced mark. */
     id?: string;
     title: string;
-    /** The routine's colour (`routineTone`); moonlit when absent. */
     tone?: string;
     emoji?: string | null;
     timeLabel?: string | null;
-    /** Only for lists that span several days, e.g. "Sep 23". */
     dateLabel?: string | null;
-    /** Steps settled so far on a partly done day, e.g. "2/3". */
     progress?: string | null;
     done?: boolean;
     onOpen: () => void;
@@ -117,16 +108,12 @@ export interface RoutineAgendaItem {
     title: string;
     emoji: string | null;
     tone: string;
-    /** "HH:mm" on that day, when the routine has one. */
     time: string | null;
     done: boolean;
-    /** "2/3" while a routine with steps is partly done; "1 of 3 done" for a routine at set times. */
     progress: string | null;
-    /** A routine at set times: `time` is the next open one, and what checking in records. */
     timed: boolean;
 }
 
-/** The routines due on `day` (skipped ones left out), timed first. */
 export function routineAgendaItems(habits: Habit[], day: string): RoutineAgendaItem[] {
     return habits
         .flatMap((habit) => {
@@ -156,11 +143,6 @@ export function routineAgendaItems(habits: Habit[], day: string): RoutineAgendaI
         .sort((a, b) => (a.time ?? "99:99").localeCompare(b.time ?? "99:99") || a.title.localeCompare(b.title));
 }
 
-/**
- * Open routines as one-tap rows, done ones folded under "N done". Today's tray
- * and the Routines page share it. `animate`: a checked row folds away instead
- * of vanishing (off under reduced motion).
- */
 export function RoutineAgendaList({
     items,
     animate = false,
@@ -170,7 +152,6 @@ export function RoutineAgendaList({
 }: {
     items: RoutineAgendaItem[];
     animate?: boolean;
-    /** Wide screens: rows side by side, so a full-width band keeps each time next to its title. */
     columns?: boolean;
     onOpen: (habitId: string) => void;
     onComplete: (item: RoutineAgendaItem) => void | Promise<unknown>;

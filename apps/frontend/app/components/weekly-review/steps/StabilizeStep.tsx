@@ -8,9 +8,9 @@ import { MAX_BATCH } from "../../../hooks/tasks/use-apply-instruction";
 import { usePlanningOffers } from "../../../hooks/ai/use-planning-offers";
 import type { useWeekRoom } from "../../../hooks/core/use-week-room";
 import { ResolvingRow, StepEmpty, StepShell } from "../StepShell";
+import { ReviewCardsSkeleton } from "../WeeklyReviewSkeleton";
 import { dayActions, ReviewListItem, type ReviewAction, type ReviewActions } from "./shared";
 
-/** One change typed for the rows the user picked; it docks in the footer in place of Back/Next. */
 export function BatchBar({
     count,
     onApply,
@@ -43,7 +43,6 @@ export function BatchBar({
     );
 }
 
-/** What every loose-end row shares: the page's one suggestion, picking for a batch, typed changes and the model's guesses. */
 export type RowsState = {
     offers: ReturnType<typeof usePlanningOffers>;
     selectedIds: Set<string>;
@@ -115,7 +114,6 @@ function WorkSection({
     );
 }
 
-/** A waiting row: Today (activate) by default, or Still waiting when that's the model's guess. */
 function waitingActions(task: Task, review: ReviewActions, rows: RowsState): ReviewAction[] {
     const guess = rows.guesses[task.id];
     const activate: ReviewAction = {
@@ -144,72 +142,82 @@ function waitingActions(task: Task, review: ReviewActions, rows: RowsState): Rev
     ];
 }
 
-/* ─── Step 2 · Loose ends (no day yet + waiting) ─── */
 export function StabilizeStep({
     review,
     rows,
+    isLoading,
     titleInHeader,
 }: {
     review: ReviewActions;
     rows: RowsState;
+    isLoading?: boolean;
     titleInHeader?: boolean;
 }) {
     const { unscheduledTasks, visibleWaiting, handleUnscheduledAction } = review;
     const count = unscheduledTasks.length + visibleWaiting.length;
     const { slipping, hideSlipping } = rows.offers;
     return (
-        <StepShell step={2} count={count} titleInHeader={titleInHeader}>
-            {slipping.length > 0 ? (
-                <div className="surface-card mb-4 flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3" role="note">
-                    <EyeOff size={18} aria-hidden="true" className="text-accent-primary" />
-                    <span className="flex-1 text-[0.9375rem] text-twilight-text">
-                        These keep slipping. Hide till next week?
-                    </span>
-                    <button
-                        type="button"
-                        onClick={hideSlipping}
-                        className="surface-control-accent touch-target inline-flex cursor-pointer items-center rounded-xl px-3.5 text-sm font-medium text-accent-primary"
-                    >
-                        Hide them
-                    </button>
-                </div>
-            ) : null}
-            {count > 0 ? (
-                <div className="grid items-start gap-6 @5xl:grid-cols-2">
-                    <WorkSection
-                        icon={CalendarX}
-                        label="No day yet"
-                        tasks={unscheduledTasks}
-                        kind="unscheduled"
-                        placeholder={"Say when, like “Fri 3pm”"}
-                        rows={rows}
-                        review={review}
-                        actionsFor={(task) =>
-                            dayActions({
-                                guess: rows.guesses[task.id],
-                                dayFor: rows.dayFor,
-                                minutes: task.durationEstimate,
-                                place: (choice) =>
-                                    "later" in choice
-                                        ? handleUnscheduledAction(task, "someday")
-                                        : handleUnscheduledAction(task, "day", choice.day),
-                                trash: () => handleUnscheduledAction(task, "delete"),
-                            })
-                        }
-                    />
-                    <WorkSection
-                        icon={UserCheck}
-                        label="Waiting"
-                        tasks={visibleWaiting}
-                        kind="waiting"
-                        placeholder={"Like “check back Tue”"}
-                        rows={rows}
-                        review={review}
-                        actionsFor={(task) => waitingActions(task, review, rows)}
-                    />
-                </div>
+        <StepShell step={2} count={isLoading ? undefined : count} titleInHeader={titleInHeader}>
+            {isLoading ? (
+                <ReviewCardsSkeleton label="Loading loose ends" />
             ) : (
-                <StepEmpty icon={ListTodo} title="All set" />
+                <>
+                    {slipping.length > 0 ? (
+                        <div
+                            className="surface-card mb-4 flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3"
+                            role="note"
+                        >
+                            <EyeOff size={18} aria-hidden="true" className="text-accent-primary" />
+                            <span className="flex-1 text-[0.9375rem] text-twilight-text">
+                                These keep slipping. Hide till next week?
+                            </span>
+                            <button
+                                type="button"
+                                onClick={hideSlipping}
+                                className="surface-control-accent touch-target inline-flex cursor-pointer items-center rounded-xl px-3.5 text-sm font-medium text-accent-primary"
+                            >
+                                Hide them
+                            </button>
+                        </div>
+                    ) : null}
+                    {count > 0 ? (
+                        <div className="grid items-start gap-6 @5xl:grid-cols-2">
+                            <WorkSection
+                                icon={CalendarX}
+                                label="No day yet"
+                                tasks={unscheduledTasks}
+                                kind="unscheduled"
+                                placeholder={"Say when, like “Fri 3pm”"}
+                                rows={rows}
+                                review={review}
+                                actionsFor={(task) =>
+                                    dayActions({
+                                        guess: rows.guesses[task.id],
+                                        dayFor: rows.dayFor,
+                                        minutes: task.durationEstimate,
+                                        place: (choice) =>
+                                            "later" in choice
+                                                ? handleUnscheduledAction(task, "someday")
+                                                : handleUnscheduledAction(task, "day", choice.day),
+                                        trash: () => handleUnscheduledAction(task, "delete"),
+                                    })
+                                }
+                            />
+                            <WorkSection
+                                icon={UserCheck}
+                                label="Waiting"
+                                tasks={visibleWaiting}
+                                kind="waiting"
+                                placeholder={"Like “check back Tue”"}
+                                rows={rows}
+                                review={review}
+                                actionsFor={(task) => waitingActions(task, review, rows)}
+                            />
+                        </div>
+                    ) : (
+                        <StepEmpty icon={ListTodo} title="All set" />
+                    )}
+                </>
             )}
         </StepShell>
     );

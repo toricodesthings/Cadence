@@ -9,10 +9,6 @@ import type { Env } from "../types/env";
 
 type RouteContext = Context<{ Bindings: Env; Variables: AuthVariables }>;
 
-/**
- * An owner-only change to who is in a shared resource: checked and run in one transaction, then everyone who was in it
- * (read first, so a removed person hears too) is told to refresh.
- */
 export async function ownerChange<A extends { audience: string[]; role: ListRole }, T>(
     c: RouteContext,
     resolve: (tx: Tx, userId: string) => Promise<A>,

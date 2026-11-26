@@ -10,7 +10,6 @@ import { APP_CATALOG, CATEGORY_LABEL, appEntry, type AppEntry } from "../../lib/
 import { createAppSearch, pickerSections, suggestForTitle } from "../../lib/app-links/picker";
 import { resolveAppLaunch, resolveWebsite } from "../../platform/app-links";
 
-/** What this device can offer: the entries with a route here. */
 export function useAvailableApps(): AppEntry[] {
     return useMemo(() => APP_CATALOG.filter((entry) => resolveAppLaunch(entry)), []);
 }
@@ -18,7 +17,6 @@ export function useAvailableApps(): AppEntry[] {
 const ROW =
     "flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
-/** `markWebsite`: some apps here open natively, so a website-only one says so. Where every app is a website, nothing repeats it. */
 function AppRow({
     entry,
     selected,
@@ -53,7 +51,6 @@ function AppRow({
     );
 }
 
-/** The globe tile: a website is not an app, so it never wears initials. */
 export function WebsiteTile() {
     return (
         <span
@@ -65,11 +62,6 @@ export function WebsiteTile() {
     );
 }
 
-/**
- * Website: set apart from the apps (dashed, globe). It unfolds into one address field that starts at
- * `https://`. Open saves and opens it in the browser; Enter saves. Only an address `parseWebsite` accepts
- * becomes a link, so nothing but https ever leaves Cadence.
- */
 function WebsiteOption({
     current,
     onSave,
@@ -81,7 +73,6 @@ function WebsiteOption({
     const [text, setText] = useState(current ?? "https://");
     const [tried, setTried] = useState(false);
     const field = useRef<HTMLInputElement>(null);
-    // A new website starts typing after "https://"; an existing one is left for the person to select or edit.
     useEffect(() => {
         if (!editing || current || !field.current) return;
         field.current.focus();
@@ -165,11 +156,6 @@ function WebsiteOption({
     );
 }
 
-/**
- * The chooser inside the App pane: search over the list (current choice, the title's suggestions, the rest
- * A→Z). Mount it only while the pane is open: suggestions are read at mount and held for the visit, and
- * the query starts blank. Choosing saves; it never opens the app.
- */
 export function AppChooser({
     title,
     kind,
@@ -183,7 +169,6 @@ export function AppChooser({
     title: string;
     kind: "task" | "routine";
     currentId: string | null | undefined;
-    /** The saved website, already re-checked (`resolveWebsite`). */
     currentUrl: string | null;
     nlpEnabled: boolean;
     onSelect: (id: LinkedAppId) => void;
@@ -200,7 +185,6 @@ export function AppChooser({
         [available, currentId, suggested, kind],
     );
 
-    // A short pause before announcing the count, so typing isn't read letter by letter.
     const [announced, setAnnounced] = useState("");
     const lastCount = useRef(-1);
     useEffect(() => {

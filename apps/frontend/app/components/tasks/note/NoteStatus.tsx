@@ -16,7 +16,6 @@ const LABEL: Record<Status, string> = {
     "save-failed": "Couldn’t save · Copy note",
 };
 
-/** Only exceptions earn colour; the healthy baseline stays quiet. */
 const TONE: Partial<Record<Status, string>> = {
     "sync-failed": "text-feedback-error",
     "save-failed": "text-feedback-error",
@@ -25,7 +24,6 @@ const TONE: Partial<Record<Status, string>> = {
     "device-syncing": "text-[var(--offline-accent,var(--accent-primary))]",
 };
 
-/** Meaningful transitions only: not saving ↔ saved on every pause, but anything out of the ordinary and its recovery. */
 function announcement(prev: Status, next: Status): string | null {
     if (prev === next || next === "loading") return null;
     const ordinary = (s: Status) => s === "saved" || s === "saving" || s === "loading";
@@ -33,10 +31,6 @@ function announcement(prev: Status, next: Status): string | null {
     return LABEL[next].replace(" · ", ". ");
 }
 
-/**
- * The single, stable save indicator. Whenever it isn't "Saved" it is a button that does the next
- * useful thing (save now, retry, review, copy), so it never just reports a problem.
- */
 export function NoteStatus({
     status,
     onAct,
@@ -96,10 +90,6 @@ export function NoteStatus({
 
 const MAX_FACES = 4;
 
-/**
- * Who is in this note right now: your own face plus anyone else who has it open, each with the live dot and
- * a tap-through to their profile. Quiet while connecting; a plain word only when offline.
- */
 export function CollabNoteStatus({
     status,
     peers,

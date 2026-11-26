@@ -12,11 +12,6 @@ export const PRESENCE_PATH_RE = /^\/api\/v1\/lists\/([0-9a-f-]{36})\/presence$/i
 export const PRESENCE_PROTOCOL = "cadence.presence";
 const USER_HEADER = "X-Presence-User";
 
-/**
- * Per-list live presence (hibernatable WebSocket Durable Object).
- * Never stores state in Postgres and never wakes Neon: active user ids are derived
- * directly from hibernated WebSocket tags (`this.ctx.getTags(ws)`).
- */
 export class ListPresence extends DurableObject<Env> {
     constructor(ctx: DurableObjectState, env: Env) {
         super(ctx, env);
@@ -37,53 +32,40 @@ export class ListPresence extends DurableObject<Env> {
         });
     }
 
-    webSocketMessage(): void {
-        // Keepalive "ping" is handled by setWebSocketAutoResponse without waking the DO.
-    }
+    webSocketMessage(): void {}
 
     webSocketClose(ws: WebSocket, code: number): void {
         try {
             ws.close(code, "");
-        } catch {
-            // Already closed.
-        }
+        } catch {}
         this.broadcast(ws);
     }
 
     webSocketError(ws: WebSocket): void {
         try {
             ws.close(WS_CLOSE.error, "");
-        } catch {
-            // Already closed.
-        }
+        } catch {}
         this.broadcast(ws);
     }
 
-    /** Close all presence sockets for one removed/departed user and broadcast the updated set. */
     async evict(userId: string): Promise<void> {
         const evicted = new Set(this.ctx.getWebSockets(userId));
         for (const ws of evicted) {
             try {
                 ws.close(WS_CLOSE.forbidden, "removed");
-            } catch {
-                // Already closed.
-            }
+            } catch {}
         }
         if (evicted.size > 0) this.broadcast(evicted);
     }
 
-    /** Close all presence sockets on this list (stop sharing or delete list). */
     async closeAll(): Promise<void> {
         for (const ws of this.ctx.getWebSockets()) {
             try {
                 ws.close(WS_CLOSE.forbidden, "unshared");
-            } catch {
-                // Already closed.
-            }
+            } catch {}
         }
     }
 
-    /** Deduplicated list of currently connected user ids. */
     onlineUserIds(exclude?: WebSocket | Set<WebSocket>): string[] {
         const excluded = exclude instanceof Set ? exclude : exclude ? new Set([exclude]) : undefined;
         const ids = new Set<string>();
@@ -102,14 +84,11 @@ export class ListPresence extends DurableObject<Env> {
             if (excluded?.has(ws)) continue;
             try {
                 ws.send(payload);
-            } catch {
-                // Socket closing; next close/error cleans up.
-            }
+            } catch {}
         }
     }
 }
 
-/** `GET /api/v1/lists/:id/presence` (WebSocket). Verifies JWT + list membership before forwarding to `ListPresence`. */
 export async function connectPresence(request: Request, env: Env, listId: string): Promise<Response> {
     const auth = await authenticateWsRequest(request, env, PRESENCE_PROTOCOL);
     if (!auth.ok) return auth.response;
@@ -129,7 +108,6 @@ export async function connectPresence(request: Request, env: Env, listId: string
     return env.LIST_PRESENCE.get(env.LIST_PRESENCE.idFromName(listId)).fetch(new Request(request, { headers }));
 }
 
-/** Best-effort eviction from a list's presence room (never throws). */
 export async function evictFromPresence(env: Env, listId: string, userId?: string): Promise<void> {
     if (!env.LIST_PRESENCE) return;
     try {

@@ -1,24 +1,8 @@
-/**
- * Pure, synchronous prompt composer. No I/O — all async (settings, metrics, RAG)
- * happens upstream in agent.ts. Given the same (blocks, runtime ctx, nonce) it
- * produces byte-identical output, which provider prompt caching relies on.
- *
- * Two outputs, sections joined by a blank line:
- *   instructions (system prompt): base sections, plus compact memory policy when enabled — stable per variant,
- *     so provider prefix caching holds it (with the tool definitions) warm across everyone.
- *   turnContext: voice (+ workload modifier) · custom instructions · Environment · surface · snapshot (or the week ahead) · memory
- *     — per-user and per-turn, appended to the user message by `withTurnContext` and kept server-side
- *     on that message's metadata, so later turns replay it unchanged (never in its parts, never sent to the client).
- *
- * Only raw user-provided VALUES are sanitized and fenced (names, custom
- * instructions, snapshot, memory content). Every instruction is plain system text.
- */
 import { formatInZone } from "@cadence/domain/time";
 import { fenceData, sanitizeUntrusted } from "../safety/injection-policy";
 import type { ApprovalMode } from "@cadence/contracts/ai";
 import type { PromptBlocks, PromptRuntimeContext } from "./prompt-blocks.schema";
 
-/** Burnout above this (with adaptive tone on) makes the workload "high". */
 const HIGH_WORKLOAD_BURNOUT = 70;
 
 export function isWorkloadHigh(burnoutIndex: number | null, adaptiveTone: boolean): boolean {
@@ -27,10 +11,8 @@ export function isWorkloadHigh(burnoutIndex: number | null, adaptiveTone: boolea
 
 const APPROVAL_LABEL: Record<ApprovalMode, string> = { ask: "ask first", auto: "auto", full: "full" };
 
-/** {{token}} matcher — token is a bare identifier (letters only here). */
 const PLACEHOLDER = /\{\{\s*([a-zA-Z]+)\s*\}\}/g;
 
-/** Interpolate `{{placeholders}}`; an unknown token throws, naming it (fail closed). */
 function interpolate(template: string, values: Record<string, string>): string {
     return template.replace(PLACEHOLDER, (_match, token: string) => {
         if (!(token in values)) throw new Error(`prompt_placeholder_unknown: {{${token}}}`);
@@ -65,10 +47,8 @@ function environmentSection(blocks: PromptBlocks, ctx: PromptRuntimeContext, non
     });
 }
 
-/** "June 2026": what the model says when it recalls a fact. The day is Cadence's own record, never a guess. */
 const saidIn = (day: string) => formatInZone(day, "UTC", { month: "long", year: "numeric" }, "en-US");
 
-/** Compose the static system prompt and the per-turn context from the block set + runtime context. */
 export function composePrompt(
     blocks: PromptBlocks,
     ctx: PromptRuntimeContext,
@@ -79,7 +59,6 @@ export function composePrompt(
     const staticMemory = !ctx.memoryOff && (ctx.memoryOff === false || memories.length > 0);
     const memoryPolicy = staticMemory ? blocks.memoryPolicy : null;
 
-    // Static text has no placeholders; interpolating with none fails closed on a stray one.
     const instructions = [...blocks.base, ...(memoryPolicy ? [memoryPolicy] : [])]
         .map((section) => interpolate(section, {}))
         .join("\n\n");
@@ -92,7 +71,6 @@ export function composePrompt(
             : null,
         environmentSection(blocks, ctx, nonce),
         ctx.surface ? interpolate(blocks.surfaces[ctx.surface], {}) : null,
-        // The reset's week replaces Today at a glance (today is its first day), so nothing is said twice.
         ctx.weekAhead
             ? interpolate(blocks.weekAhead, {
                   weekAhead: fence("week_ahead", sanitizeUntrusted(ctx.weekAhead, nonce), nonce),
@@ -104,12 +82,7 @@ export function composePrompt(
               : null,
         memories.length > 0
             ? interpolate(blocks.memoryFacts, {
-                  memory: fence(
-                      "memory",
-                      // The date is Cadence's, not the person's text: it is what makes "you mentioned in August" true.
-                      memoryLines(blocks, memories, nonce),
-                      nonce,
-                  ),
+                  memory: fence("memory", memoryLines(blocks, memories, nonce), nonce),
               })
             : ctx.memoryOff
               ? interpolate(blocks.memoryOff, {})
@@ -120,7 +93,6 @@ export function composePrompt(
     return { instructions, turnContext };
 }
 
-/** Canonical fact rendering, also used to validate stored context against current memory. */
 export function memoryLines(
     blocks: PromptBlocks,
     memories: NonNullable<PromptRuntimeContext["memories"]>,
@@ -137,19 +109,11 @@ export function memoryLines(
 
 const TURN_CONTEXT_INTRO = "Context for this turn, from Cadence (not written by the user):";
 
-/** The turn context a stored user message was sent with, if it kept one. */
 export function storedTurnContext(message: { role: string; metadata?: unknown }): string | undefined {
     const context = (message.metadata as { turnContext?: unknown } | undefined)?.turnContext;
     return message.role === "user" && typeof context === "string" ? context : undefined;
 }
 
-/**
- * Which context each user message replays with, by id. `history` must be the stored
- * rows (never a client copy): each keeps the context it was sent with. The turn's
- * last user message gets `fresh`, unless the turn `continues` a reply (an approval,
- * a kept retry) whose message already has one: then it keeps it, so the reply
- * resumes on the same prefix. `current` is what to store on that message.
- */
 export function turnContexts(
     history: { id: string; role: string; metadata?: unknown }[],
     lastUserId: string | undefined,
@@ -168,15 +132,6 @@ export function turnContexts(
     return { contexts, current, stored };
 }
 
-/**
- * Append each user message's turn context (`contexts`, by message id) as a text
- * part, for messages from `from` on (`recentStart`; older ones replay without it).
- * A message keeps the context it was first sent with, so earlier turns replay
- * byte-identical and the provider's prompt cache holds. Returns a new array (the
- * input is untouched); the stored message parts never carry it.
- * Providers may join text parts with no separator ("called Heat." + "Context…"
- * became a task named "Heat.Context"), so the part carries its own break.
- */
 export function withTurnContext<M extends { id?: string; role: string; parts: unknown[] }>(
     messages: M[],
     contexts: ReadonlyMap<string, string>,

@@ -1,22 +1,14 @@
-/**
- * Primitive: Tooltip
- *
- * Pre-themed Radix Tooltip with Cadence's twilight glass aesthetic.
- * Domain components import from here — never from @radix-ui/react-tooltip directly.
- */
 import * as RadixTooltip from "@radix-ui/react-tooltip";
 import { useState, useRef, type ReactNode } from "react";
 import { FLOATING_SURFACE } from "./menu-styles";
 import { isTouchFirst } from "../../hooks/ui/use-shell-mode";
 
-/* ── Re-exports ─────────────────────────────────────────────────── */
 export const Provider = RadixTooltip.Provider;
 const Root = RadixTooltip.Root;
 const Trigger = RadixTooltip.Trigger;
 const Portal = RadixTooltip.Portal;
 const Arrow = RadixTooltip.Arrow;
 
-/* ── Content ────────────────────────────────────────────────────── */
 const Content = ({
     className = "",
     sideOffset = 10,
@@ -37,25 +29,14 @@ const Content = ({
     />
 );
 
-/* ── Tip ────────────────────────────────────────────────────────────
- * The canonical one-liner tooltip for interactive, icon-only controls
- * (§6.6). Composes the themed Root/Trigger/Portal/Content/Arrow so callers
- * never re-derive the boilerplate. Pair with an `aria-label` on the child for
- * assistive tech; `Tip` carries the visible, themed hint. Requires a
- * `Tooltip.Provider` ancestor (mounted once in `providers.tsx`). */
 export interface TipProps {
-    /** Visible tooltip content. */
     label: ReactNode;
     side?: "top" | "right" | "bottom" | "left";
-    /** A single focusable/hoverable element — receives the trigger via asChild. */
     children: ReactNode;
-    /** Suppress the preview while keeping the trigger mounted (for example, during a drag). */
     disabled?: boolean;
-    /** `label` is a card (e.g. a profile): full-width surface, no padding or arrow. */
     card?: boolean;
 }
 
-/** Touch screens have no hover: a tip only follows keyboard focus, never a sheet's initial focus. */
 const focusedWithoutKeyboard = () => isTouchFirst() && !document.activeElement?.matches(":focus-visible");
 
 export function Tip({ label, side = "right", children, disabled = false, card = false }: TipProps) {

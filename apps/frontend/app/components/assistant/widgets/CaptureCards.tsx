@@ -1,7 +1,3 @@
-/**
- * Cards for Capture writes: `update_captures` (keep, discard, tick off, back to
- * New, new words) and `delete_captures`.
- */
 import { Archive, Check, CheckCircle2, Inbox, RotateCcw, Pencil, StickyNote } from "lucide-react";
 import { ApprovalCard, DeleteApprovalCard, TickRow, useUnticked, type ToolRenderContext } from "./ApprovalCard";
 import { useCaptureLookup } from "./card-lookups";
@@ -16,7 +12,6 @@ const ACTION_COPY: Record<CaptureAction, string> = {
 };
 const ACTION_GLYPH = { note: StickyNote, discard: Archive, done: CheckCircle2, new: RotateCcw, edit: Pencil };
 
-/** Card for `update_captures`: each capture with what happens to it. */
 export function UpdateCapturesCard({ ctx }: { ctx: ToolRenderContext<"update_captures"> }) {
     const lookup = useCaptureLookup();
     const { off, onToggle, removed } = useUnticked(ctx);
@@ -59,7 +54,6 @@ export function UpdateCapturesCard({ ctx }: { ctx: ToolRenderContext<"update_cap
     );
 }
 
-/** Danger card for `delete_captures`: permanent, so the exact words are echoed. Auto still waits for this tap. */
 export function DeleteCapturesCard({ ctx }: { ctx: ToolRenderContext<"delete_captures"> }) {
     const persona = useAssistantPersona();
     const { off, onToggle, removed } = useUnticked(ctx);

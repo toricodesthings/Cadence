@@ -40,7 +40,6 @@ export default function WeeklyReview() {
     const showSidebar = shell.isWide || shell.isLaptop;
     const reduced = useReducedMotionSetting();
 
-    // The step survives leaving and coming back.
     const [savedStep, saveStep] = useDeviceValue(STEP_STORAGE_KEY);
     const [, saveChat] = useDeviceValue(RESET_CHAT_KEY);
     const currentStep = Math.max(
@@ -57,9 +56,8 @@ export default function WeeklyReview() {
 
     const review = useWeeklyReviewActions();
     const { unscheduledTasks, visibleWaiting, habitReviewItems, applyInstruction, inboxItems } = review;
-    const { room, dayFor } = useWeekRoom();
+    const { room, dayFor, isLoading: roomLoading } = useWeekRoom();
 
-    // Rows picked for one typed change; a failed one stays picked so a retry touches only it.
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const toggleSelected = (id: string) =>
         setSelectedIds((prev) => {
@@ -82,7 +80,6 @@ export default function WeeklyReview() {
         await applyInstruction([task], patch, "Updated");
     };
 
-    // The model's guesses, asked once per step per visit after the step shows; with none, each row keeps Today.
     const captureGuesses = useResetSuggestions(
         "captures",
         inboxItems.map((i) => i.id),
@@ -97,8 +94,6 @@ export default function WeeklyReview() {
     const [reviewedHabitIds, setReviewedHabitIds] = useState<Set<string>>(new Set());
     const unreviewedHabits = habitReviewItems.filter((h) => !reviewedHabitIds.has(h.id));
     const markHabitReviewed = (id: string) => setReviewedHabitIds((prev) => new Set(prev).add(id));
-    // A routine (Routines' Edit, a day's routine) or a task (a day's row) opens its own panel here, beside the step
-    // (over it below wide), so the reset never leaves.
     const [panel, setPanel] = useState<{ kind: "habit" | "task"; id: string } | null>(null);
     const panelHabit = panel?.kind === "habit" ? (review.habits.find((h) => h.id === panel.id) ?? null) : null;
     const closePanel = () => setPanel(null);
@@ -117,7 +112,6 @@ export default function WeeklyReview() {
     const counts = [null, inboxItems.length, workRows.length, unreviewedHabits.length, null, null] as const;
 
     const titleInHeader = !showSidebar;
-    // With the keyboard up on touch the footer steps aside; the composer rides the keys.
     const keyboardOpen = useKeyboardInset(shell.isTouch).aboveKeyboard !== null;
 
     const handleExit = () => {
@@ -148,19 +142,27 @@ export default function WeeklyReview() {
                             looseEnds: workRows.length,
                             routines: habitReviewItems.length,
                         }}
+                        isLoading={review.isLoading}
                         onNext={() => goTo(1)}
                         titleInHeader={titleInHeader}
                     />
                 );
             case 1:
                 return (
-                    <InboxStep review={review} guesses={captureGuesses} dayFor={dayFor} titleInHeader={titleInHeader} />
+                    <InboxStep
+                        review={review}
+                        guesses={captureGuesses}
+                        dayFor={dayFor}
+                        isLoading={review.inboxLoading}
+                        titleInHeader={titleInHeader}
+                    />
                 );
             case 2:
                 return (
                     <StabilizeStep
                         review={review}
                         rows={{ offers, selectedIds, toggleSelected, applyToOne, guesses: looseGuesses, dayFor }}
+                        isLoading={review.tasksLoading}
                         titleInHeader={titleInHeader}
                     />
                 );
@@ -169,6 +171,7 @@ export default function WeeklyReview() {
                     <HabitsStep
                         habits={unreviewedHabits}
                         anyHabits={habitReviewItems.length > 0}
+                        isLoading={review.habitsLoading}
                         pauseHabit={review.pauseHabit}
                         onReviewed={markHabitReviewed}
                         onEdit={(id) => setPanel({ kind: "habit", id })}
@@ -181,6 +184,7 @@ export default function WeeklyReview() {
                 return (
                     <ReadyStep
                         room={room}
+                        isLoading={roomLoading}
                         onOpenTask={(id) => setPanel({ kind: "task", id })}
                         onOpenRoutine={(id) => setPanel({ kind: "habit", id })}
                         titleInHeader={titleInHeader}
@@ -239,7 +243,6 @@ export default function WeeklyReview() {
                             {step}
                         </motion.div>
                     </AnimatePresence>
-                    {/* Welcome's own button is its Next, so it has no footer. */}
                     {currentStep > 0 && !keyboardOpen ? (
                         <StepFooter
                             step={currentStep}

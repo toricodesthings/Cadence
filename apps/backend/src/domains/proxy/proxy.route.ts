@@ -20,8 +20,6 @@ import {
     type WeatherReading,
 } from "@cadence/contracts/proxy";
 
-// ── Helpers ──
-
 const OPEN_METEO_BASE = "https://api.open-meteo.com";
 const OPEN_METEO_GEOCODING_BASE = "https://geocoding-api.open-meteo.com";
 const NOMINATIM_BASE = "https://nominatim.openstreetmap.org";
@@ -29,15 +27,9 @@ const OPEN_HOLIDAYS_BASE = "https://openholidaysapi.org";
 const NAGER_BASE = "https://date.nager.at/api/v3";
 const HOLIDAY_CACHE_SECONDS = 7 * 86400;
 
-const MAX_UPSTREAM_BODY = 1_048_576; // 1MB
+const MAX_UPSTREAM_BODY = 1_048_576;
 const ALLOWED_CONTENT_TYPES = ["application/json", "text/plain"];
 
-/**
- * Single choke point for all third-party fetches. Every upstream failure mode —
- * network error, unexpected content type, oversize body, or non-2xx status — is
- * logged here once with the named `upstream`, so an outage shows up immediately
- * in Observability as `event:upstream_failed` rather than a silent 502.
- */
 async function upstreamFetch(upstream: string, url: string, cacheTtl: number): Promise<Response> {
     let res: Response;
     try {
@@ -50,7 +42,6 @@ async function upstreamFetch(upstream: string, url: string, cacheTtl: number): P
         throw new AppError(502, "UPSTREAM_ERROR", "The service is unreachable right now", true);
     }
 
-    // Validate upstream response content-type
     const ct = res.headers.get("content-type") || "";
     if (!ALLOWED_CONTENT_TYPES.some((t) => ct.includes(t))) {
         logger.error("proxy", "upstream_bad_response", {
@@ -65,7 +56,6 @@ async function upstreamFetch(upstream: string, url: string, cacheTtl: number): P
         );
     }
 
-    // Reject oversized upstream responses
     const cl = res.headers.get("content-length");
     if (cl && parseInt(cl, 10) > MAX_UPSTREAM_BODY) {
         logger.error("proxy", "upstream_bad_response", {
@@ -93,19 +83,10 @@ function cacheHeaders(maxAge: number): Record<string, string> {
     };
 }
 
-/**
- * Restrictive cache headers for authenticated responses containing user-sensitive
- * or location-derived data. Prevents browsers and intermediate proxies from caching
- * personalised content per OWASP Session Management and Transport Layer Security guidance.
- */
 const PRIVATE_NO_STORE: Record<string, string> = {
     "Cache-Control": "private, no-store, max-age=0",
 };
 
-/**
- * Round to 2 decimals (~1.1 km). Weather and regions need no more, and shared
- * upstream URLs let the edge cache serve nearby users.
- */
 function roundCoordinate(value: number): number {
     return Math.round(value * 100) / 100;
 }
@@ -116,7 +97,6 @@ function parseEdgeCoordinate(value: string | undefined, limit: number): number |
     return roundCoordinate(parsed);
 }
 
-/** Cloudflare reports "XX" for unknown and "T1" for Tor; neither is a country. */
 function parseEdgeCountry(value: string | undefined): string | null {
     const code = value?.toUpperCase();
     if (!code || !/^[A-Z]{2}$/.test(code) || code === "XX") return null;
@@ -127,7 +107,6 @@ function getLanguage(locale: string): string {
     return locale.split("-")[0]?.toUpperCase() || "EN";
 }
 
-/** A name in the reader's language, else English, else the first given ("" with none). */
 function localName(names: Array<{ language: string; text: string }>, language: string): string {
     return (
         names.find((n) => n.language === language)?.text ??
@@ -154,7 +133,6 @@ type NagerHoliday = {
     types: string[];
 };
 
-/** Nationwide holidays always; regional ones only within the chosen subdivision. */
 function inScope(isRegional: boolean, scopes: string[], subCode: string | null): boolean {
     if (!isRegional) return true;
     return subCode !== null && scopes.includes(subCode);
@@ -191,13 +169,11 @@ function fromNagerHoliday(h: NagerHoliday, subCode: string | null): HolidayRecor
 }
 
 export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
-    // ── GET /api/proxy/weather ──
-    // Short cache: weather changes frequently
     .get("/weather", apiValidator("query", coordsQuerySchema), async (c) => {
         const { latitude, longitude } = c.req.valid("query");
         const url = `${OPEN_METEO_BASE}/v1/forecast?latitude=${roundCoordinate(latitude)}&longitude=${roundCoordinate(longitude)}&current_weather=true&temperature_unit=celsius`;
 
-        const res = await upstreamFetch("open-meteo", url, 900); // 15 min CF cache
+        const res = await upstreamFetch("open-meteo", url, 900);
         if (!res.ok) {
             return c.json(
                 createErrorBody({ code: "UPSTREAM_ERROR", message: "Weather service unavailable", status: 502 }),
@@ -233,13 +209,11 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         );
     })
 
-    // ── GET /api/proxy/geocode/reverse ──
-    // Long cache: a lat/lon mapping rarely changes
     .get("/geocode/reverse", apiValidator("query", coordsQuerySchema), async (c) => {
         const { latitude, longitude } = c.req.valid("query");
         const url = `${NOMINATIM_BASE}/reverse?format=jsonv2&lat=${roundCoordinate(latitude)}&lon=${roundCoordinate(longitude)}&zoom=5&addressdetails=1`;
 
-        const res = await upstreamFetch("nominatim", url, 86400); // 24h CF cache
+        const res = await upstreamFetch("nominatim", url, 86400);
         if (!res.ok) {
             return c.json(
                 createErrorBody({ code: "UPSTREAM_ERROR", message: "Geocoding service unavailable", status: 502 }),
@@ -263,14 +237,12 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         );
     })
 
-    // ── GET /api/proxy/geocode/search ──
-    // Forward geocoding for the manual city picker.
     .get("/geocode/search", apiValidator("query", geocodeSearchQuerySchema), async (c) => {
         const { name, locale } = c.req.valid("query");
         const language = getLanguage(locale).toLowerCase();
         const url = `${OPEN_METEO_GEOCODING_BASE}/v1/search?name=${encodeURIComponent(name)}&count=6&language=${encodeURIComponent(language)}&format=json`;
 
-        const res = await upstreamFetch("open-meteo-geocoding", url, 86400); // 24h CF cache
+        const res = await upstreamFetch("open-meteo-geocoding", url, 86400);
         if (!res.ok) {
             return c.json(
                 createErrorBody({ code: "UPSTREAM_ERROR", message: "Geocoding service unavailable", status: 502 }),
@@ -301,9 +273,6 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         return c.json({ data: results }, 200, PRIVATE_NO_STORE);
     })
 
-    // ── GET /api/proxy/geo/approximate ──
-    // City-level location from Cloudflare's edge geo for this request's IP. No
-    // upstream call and no browser permission; fields are null when unknown.
     .get("/geo/approximate", (c) => {
         const cf = (c.req.raw as Request & { cf?: IncomingRequestCfProperties }).cf;
         const countryCode = parseEdgeCountry(cf?.country);
@@ -326,8 +295,6 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         );
     })
 
-    // ── GET /api/proxy/holidays/countries ──
-    // Very long cache: country lists rarely change
     .use("/holidays*", holidayCache)
     .get("/holidays/countries", apiValidator("query", holidayCountriesQuerySchema), async (c) => {
         const { locale } = c.req.valid("query");
@@ -376,11 +343,9 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
         }
 
         const sorted = [...merged.values()].sort((a, b) => a.label.localeCompare(b.label));
-        // An incomplete list during an outage must not become a day-long cache hit.
         return c.json({ data: sorted }, 200, openOk && nagerOk ? cacheHeaders(86400) : PRIVATE_NO_STORE);
     })
 
-    // ── GET /api/proxy/holidays/subdivisions ──
     .get("/holidays/subdivisions", apiValidator("query", holidaySubdivisionsQuerySchema), async (c) => {
         const { countryCode, year, locale } = c.req.valid("query");
         const language = getLanguage(locale);
@@ -409,9 +374,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                     .filter((s) => s.code);
                 upstreamOk = true;
             }
-        } catch {
-            // Fall through to Nager
-        }
+        } catch {}
 
         if (subdivisions.length === 0) {
             try {
@@ -433,9 +396,7 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                     subdivisions = [...codes].map((code) => ({ code, label: code }));
                     upstreamOk = true;
                 }
-            } catch {
-                // Return empty
-            }
+            } catch {}
         }
 
         if (!upstreamOk) {
@@ -451,17 +412,15 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
             );
         }
         const sorted = subdivisions.sort((a, b) => a.label.localeCompare(b.label));
-        return c.json({ data: sorted }, 200, cacheHeaders(86400)); // 24h client cache
+        return c.json({ data: sorted }, 200, cacheHeaders(86400));
     })
 
-    // ── GET /api/proxy/holidays ──
     .get("/holidays", apiValidator("query", holidaysQuerySchema), async (c) => {
         const { countryCode, start, end, subdivisionCode, locale } = c.req.valid("query");
         const language = getLanguage(locale);
         const cc = countryCode.toUpperCase();
         const subCode = subdivisionCode?.trim() || null;
 
-        // Try OpenHolidays first
         try {
             let url = `${OPEN_HOLIDAYS_BASE}/PublicHolidays?countryIsoCode=${encodeURIComponent(cc)}&validFrom=${encodeURIComponent(start)}&validTo=${encodeURIComponent(end)}&languageIsoCode=${encodeURIComponent(language)}`;
             if (subCode) url += `&subdivisionCode=${encodeURIComponent(subCode)}`;
@@ -475,11 +434,8 @@ export const proxyRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>
                     return c.json({ data: holidays }, 200, cacheHeaders(HOLIDAY_CACHE_SECONDS));
                 }
             }
-        } catch {
-            // Fall through to Nager
-        }
+        } catch {}
 
-        // Fallback to Nager
         const year = Number.parseInt(start.slice(0, 4), 10);
         const nagerRes = await upstreamFetch(
             "nager",

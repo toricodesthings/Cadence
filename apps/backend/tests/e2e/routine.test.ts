@@ -17,7 +17,6 @@ it("a routine is made, ticked off, skipped without penalty, and cleared", async 
     const done = await habits("POST", `/${habit.id}/resolve`, { targetDate: today, status: "COMPLETED" });
     expect(done.body.data.habit).toMatchObject({ currentStreak: 1, totalCompletions: 1 });
 
-    // A skip is a quiet "not today": nothing is owed and the count simply restarts.
     const skipped = await habits("POST", `/${habit.id}/resolve`, { targetDate: today, status: "SKIPPED" });
     expect(skipped.body.data.habit).toMatchObject({ currentStreak: 0, totalCompletions: 0, totalSkips: 1 });
 

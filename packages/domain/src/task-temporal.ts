@@ -12,7 +12,6 @@ import {
     type Zone,
 } from "./time";
 
-/** What a task write may carry. All-day is simply "no start". */
 export interface TaskTemporalFields {
     dueDate?: string | null;
     endDate?: string | null;
@@ -21,7 +20,6 @@ export interface TaskTemporalFields {
     zone?: string | null;
 }
 
-/** The stored temporal shape of a task: days are LocalDates, timed values are instants plus the zone they were planned in. */
 export interface TaskTemporal {
     dueDate: LocalDate | null;
     endDate: LocalDate | null;
@@ -32,7 +30,6 @@ export interface TaskTemporal {
 
 export type TaskReadShape = "unscheduled" | "day" | "days" | "timed";
 
-/** unscheduled · day (all-day, with or without a deadline) · days (all-day multi-day) · timed. */
 export function classifyTaskReadShape(
     fields: Pick<TaskTemporal, "dueDate" | "endDate" | "scheduledStart">,
 ): TaskReadShape {
@@ -57,7 +54,6 @@ function assertDay(value: string | null | undefined, field: string): LocalDate |
     return value;
 }
 
-/** A timed block's stored shape: valid instants (end not before start), no endDate, and a real zone. */
 function timedTemporal(
     start: string,
     end: string | null,
@@ -74,7 +70,6 @@ function timedTemporal(
     return { dueDate, endDate: null, scheduledStart: start, scheduledEnd: end, zone };
 }
 
-/** Validate a task write (LocalDates and instants) into its stored shape (`zone` is the user's zone). */
 export function normalizeTaskTemporalFields(fields: TaskTemporalFields, zone: Zone): TaskTemporal {
     if (!isZone(zone)) throw new DomainError("INVALID_TASK_SCHEDULE", "A time zone is required");
     const start = fields.scheduledStart || null;
@@ -82,11 +77,9 @@ export function normalizeTaskTemporalFields(fields: TaskTemporalFields, zone: Zo
     const dueDate = assertDay(fields.dueDate, "dueDate");
     const endDate = assertDay(fields.endDate, "endDate");
 
-    // A timed block: instants plus the zone it was planned in.
     if (start) return timedTemporal(start, end, { dueDate, endDate, zone: fields.zone ?? zone });
     if (end) throw new DomainError("INVALID_TASK_SCHEDULE", "scheduledEnd needs a scheduledStart");
 
-    // An all-day task: a day, and for a multi-day task its inclusive last day.
     if (!dueDate) {
         if (endDate) throw new DomainError("INVALID_TASK_SCHEDULE", "All-day tasks require a dueDate");
         return { dueDate: null, endDate: null, scheduledStart: null, scheduledEnd: null, zone: null };
@@ -96,12 +89,6 @@ export function normalizeTaskTemporalFields(fields: TaskTemporalFields, zone: Zo
     return { dueDate, endDate, scheduledStart: null, scheduledEnd: null, zone: null };
 }
 
-/**
- * One task moved to a local `day`, keeping its shape: an all-day task lands on the day (its end
- * moves by the same number of days); a timed task keeps its local time there and its end moves
- * with it. A deadline is a commitment, not a work block: moving when you work never moves
- * `dueDate`. Re-plans in `zone`, the user's.
- */
 export function rescheduleToDay(row: TaskTemporal, newDay: LocalDate, zone: Zone): TaskTemporal {
     if (row.scheduledStart) {
         const oldDay = dayOf(row.scheduledStart, zone);
@@ -126,7 +113,6 @@ export function rescheduleToDay(row: TaskTemporal, newDay: LocalDate, zone: Zone
     };
 }
 
-/** "Hide until" is a day. */
 export function normalizeHiddenUntil(value: string | null | undefined): LocalDate | null {
     return assertDay(value, "notBefore");
 }

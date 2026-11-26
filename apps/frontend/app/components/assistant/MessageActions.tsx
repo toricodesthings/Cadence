@@ -19,16 +19,6 @@ function ActionButton({ label, onClick, children }: { label: string; onClick: ()
     );
 }
 
-/**
- * Action row under a chat turn. Always mounted and in flow (so the buttons stay
- * in the keyboard tab order and never overlap what follows) but revealed by the
- * turn's hover OR focus-within via `group/msg` utilities; `pinned` keeps it
- * visible (the latest reply). The reveal is a CSS transition, so it's silenced
- * under the app's reduced-motion setting.
- *
- * Copy gives a transient check swap + sonner toast; Regenerate (assistant) and
- * Edit (user) are wired through from the parent.
- */
 export function MessageActions({
     isUser,
     text,
@@ -38,7 +28,6 @@ export function MessageActions({
 }: {
     isUser: boolean;
     text: string;
-    /** Always visible, not just on hover. */
     pinned?: boolean;
     onRegenerate?: () => void;
     onEdit?: () => void;

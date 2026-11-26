@@ -29,7 +29,6 @@ import { useTask } from "../../../hooks/tasks/use-tasks";
 
 type Quoted = "title" | "dueDate" | "scheduledStart" | "priority" | "subtasks" | "note";
 
-/** A task as the assistant drafts it (`create_tasks`, `structure_inbox_item`). */
 export type TaskDraft = Partial<
     Pick<
         CreateTaskInput,
@@ -49,16 +48,12 @@ export type TaskDraft = Partial<
     subtasks?: string[];
     fixed?: boolean;
     note?: string;
-    /** Tags by name; a new name makes the tag. */
     tagNames?: string[];
     reminderAt?: string | null;
-    /** Hidden from lists until this local day. */
     hideUntil?: string | null;
-    /** Field → the exact words the image shows for it. */
     fromImage?: Partial<Record<Quoted, string>>;
 };
 
-/** How each quoted field is named in the "From what you sent" block, in reading order. */
 const QUOTE_LABELS: Array<[Quoted, string]> = [
     ["title", "Title"],
     ["dueDate", "Due"],
@@ -68,7 +63,6 @@ const QUOTE_LABELS: Array<[Quoted, string]> = [
     ["note", "Note"],
 ];
 
-/** "Mar 8, 9:00 AM – 10:30 AM" for a timed block, else the start or due date alone. */
 function formatDraftWhen(draft: TaskDraft): string | null {
     const when = formatWhen(draft.scheduledStart ?? draft.dueDate);
     const start = draft.scheduledStart;
@@ -77,10 +71,6 @@ function formatDraftWhen(draft: TaskDraft): string | null {
     return dayOfInstant(start) === dayOfInstant(end) ? `${when} – ${formatTime(end)}` : `${when} – ${formatWhen(end)}`;
 }
 
-/**
- * The words the assistant copied from a photo, gathered in one place so the
- * card stays readable: labelled lines on a single task, one clamped line per row.
- */
 export function DraftQuotes({ draft, compact = false }: { draft: TaskDraft; compact?: boolean }) {
     const quotes = QUOTE_LABELS.flatMap(([field, label]) => {
         const quote = draft.fromImage?.[field]?.trim();
@@ -112,7 +102,6 @@ export function DraftQuotes({ draft, compact = false }: { draft: TaskDraft; comp
     );
 }
 
-/** Tags named by the assistant (new ones are made when the change lands). */
 export function TagNamePills({ names, mark }: { names?: string[]; mark?: "add" }) {
     return (
         <>
@@ -123,7 +112,6 @@ export function TagNamePills({ names, mark }: { names?: string[]; mark?: "add" }
     );
 }
 
-/** The draft's fields that read as pills: when, length, priority, effort, repeats, Fixed, reminder, hide-until. */
 function draftPills(draft: TaskDraft): MaybePill[] {
     const when = formatDraftWhen(draft);
     const priority = draft.priority ? PRIORITY_OPTIONS.find((o) => o.value === draft.priority) : undefined;
@@ -149,7 +137,6 @@ function draftPills(draft: TaskDraft): MaybePill[] {
     ];
 }
 
-/** Every field a draft sets, as pills: those above, then destination and tags. */
 export function DraftDetails({ draft }: { draft: TaskDraft }) {
     const lookupTags = useTagsLookup();
     const pills = draftPills(draft);
@@ -168,7 +155,6 @@ export function DraftDetails({ draft }: { draft: TaskDraft }) {
     );
 }
 
-/** A draft's note, kept to a few lines so a long one can't push the buttons off screen. */
 export function DraftNote({ note, lines = 3 }: { note?: string; lines?: 1 | 3 }) {
     if (!note?.trim()) return null;
     return (
@@ -180,7 +166,6 @@ export function DraftNote({ note, lines = 3 }: { note?: string; lines?: 1 | 3 })
     );
 }
 
-/** The checklist steps a draft brings with it. */
 export function DraftSteps({ draft }: { draft: TaskDraft }) {
     if (!draft.subtasks?.length) return null;
     return (
@@ -195,11 +180,6 @@ export function DraftSteps({ draft }: { draft: TaskDraft }) {
     );
 }
 
-/**
- * Card for `create_tasks` (design §4.1): one task shows whole, with its checklist;
- * several show as rows the user can untick. One tap adds them all.
- */
-/** The card's words: one task by title (Schedule when it has a time), several by count. */
 function batchCardText(drafts: TaskDraft[], kept: number, createdCount: number) {
     const count = drafts.length;
     const first = drafts[0] ?? {};
@@ -226,7 +206,6 @@ function batchCardText(drafts: TaskDraft[], kept: number, createdCount: number) 
 
 const draftLabel = (draft: TaskDraft, i: number) => draft.title ?? `task ${i + 1}`;
 
-/** One of several drafts: its title, note line, step count and details, untickable. */
 type DraftRowProps = { draft: TaskDraft; i: number; on: boolean; onToggle: (() => void) | undefined; terse: boolean };
 
 function DraftRow({ draft, i, on, onToggle, terse }: DraftRowProps) {
@@ -250,8 +229,6 @@ function DraftRow({ draft, i, on, onToggle, terse }: DraftRowProps) {
 
 type Created = { taskId: string; title: string; effortGuess?: 1 | 2 | 3 };
 
-/** "~High effort · Use": a guess from their own Effort choices, kept only on a tap. */
-/** One created task's guess, read against the live task: gone once it has an Effort (or is gone), "kept · Undo" after Use. */
 function EffortGuessPill({ taskId, title, effortGuess, named }: Created & { named: boolean }) {
     const updateTask = useUpdateTask();
     const task = useTask(taskId);
@@ -304,10 +281,6 @@ function EffortGuessPills({ created }: { created: Created[] }) {
     );
 }
 
-/**
- * Card for `create_tasks` (design §4.1): one task shows whole, with its checklist;
- * several show as rows the user can untick. One tap adds them all.
- */
 export function TaskBatchCard({ ctx }: { ctx: ToolRenderContext<"create_tasks"> }) {
     const persona = useAssistantPersona();
     const { off, onToggle, removed } = useUnticked(ctx);

@@ -1,11 +1,6 @@
 import { Button } from "../primitives";
 import { useMemoryPage, useSetMemoryMode } from "../../hooks/ai/use-memory";
 
-/**
- * Memory, said once and never in the way. Basic is already on for anyone who has not chosen, so this is a card at the
- * top of the conversation (the message box works underneath), not a question to answer first. Any choice can be changed
- * later in Settings, which the card says.
- */
 export function MemoryCard() {
     const { data } = useMemoryPage();
     const setMode = useSetMemoryMode();

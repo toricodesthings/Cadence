@@ -10,20 +10,13 @@ import { groupFurtherOut } from "../../lib/utils/task/horizon";
 
 const OPEN_STORAGE_KEY = "cadence-upcoming-further-open";
 
-/** `/upcoming?further` opens Upcoming with Further out unfolded, for one visit. */
 export const FURTHER_OUT_OPEN_PARAM = "further";
 
 export interface FurtherOutItem {
     task: Task;
-    /** The day it sits on in Upcoming (its timed start's day, else its deadline). */
     dueDate: LocalDate;
 }
 
-/**
- * Upcoming's last section: every task past the 7-day window, so nothing dated is ever out of sight. Folded, it is one
- * quiet line (the count, the next one due); open, it groups by week, then by month. The fold is kept per device, and a
- * visit that points inside it (a search or reminder tap, Weekly Reset's link) opens it for that visit only.
- */
 export function useFurtherOutSection({
     items,
     today,
@@ -41,7 +34,6 @@ export function useFurtherOutSection({
 }): BucketedCollectionSection | null {
     const [keptOpen, setKeptOpen] = useDeviceFlag(OPEN_STORAGE_KEY);
     const [revealed, setRevealed] = useState(false);
-    // Latched during render, not in an effect, so the target row mounts in the same commit the visit starts.
     if (
         !revealed &&
         (openRequested || (focusTaskId !== undefined && items.some((item) => item.task.id === focusTaskId)))
@@ -90,7 +82,6 @@ export function useFurtherOutSection({
         icon: Telescope,
         accentClass: "text-twilight-text-soft",
         count: items.length,
-        // Folded, one quiet line under the title: what comes next and when. A tap unfolds the section.
         foldedPeek: (
             <button
                 type="button"
@@ -111,7 +102,6 @@ export function useFurtherOutSection({
         ),
         listFold: { open, toggle },
         listContent: content(),
-        // A desktop board folds it to a rail; a phone board shows one column at a time, so there is nothing to fold.
         boardCollapsed: !compact && !open,
         onBoardExpand: toggle,
         boardHeaderAction: compact ? null : eye,

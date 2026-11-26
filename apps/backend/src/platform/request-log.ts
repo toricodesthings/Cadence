@@ -76,21 +76,11 @@ export function setRequestErrorCode(c: Context<any>, errorCode: string) {
     c.set("errorCode", errorCode);
 }
 
-/**
- * Mark a request as already having an explicit failure log emitted, so the
- * request-context middleware does not emit a second `request_completed` line
- * for the same failure. This is what guarantees exactly one structured entry
- * per failed request regardless of whether the failure threw or returned.
- */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 function markLogged(c: Context<any>) {
     c.set("logged", true);
 }
 
-/**
- * Shared envelope fields every structured log event carries: request
- * identity, the request line, the hashed user, and elapsed time.
- */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
 async function baseLogFields(c: Context<any>, requestId: string) {
     const userId = c.var.userId;
@@ -104,16 +94,8 @@ async function baseLogFields(c: Context<any>, requestId: string) {
     };
 }
 
-/**
- * Maximum length for a client-supplied request ID.
- * IDs exceeding this are discarded to prevent log pollution.
- */
 const MAX_CLIENT_REQUEST_ID_LENGTH = 128;
 
-/**
- * Strict pattern for acceptable client request IDs.
- * Only allows UUIDs, alphanumeric strings, hyphens, and underscores.
- */
 const CLIENT_REQUEST_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
 function sanitizeClientRequestId(raw: string | undefined): string | undefined {
@@ -127,10 +109,8 @@ function sanitizeClientRequestId(raw: string | undefined): string | undefined {
 export function createRequestContext() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
     return async (c: Context<any>, next: () => Promise<void>) => {
-        // Always generate a server-controlled canonical request ID
         const requestId = crypto.randomUUID();
 
-        // Optionally preserve client correlation ID after strict validation
         const clientRequestId = sanitizeClientRequestId(c.req.header(REQUEST_ID_HEADER));
 
         c.set("requestId", requestId);
@@ -138,22 +118,15 @@ export function createRequestContext() {
 
         await tracing.enterSpan("http.response", async (span) => {
             await next();
-            // Unlike invocation wall time, this excludes post-response waitUntil work.
             const responseMs = Date.now() - c.get("requestStartedAt");
             span.setAttribute("http.response_ms", responseMs);
             c.header("Server-Timing", `app;dur=${responseMs}`);
         });
 
-        // Return the server-generated ID — clients can use it for support/debugging
         c.header(REQUEST_ID_HEADER, requestId);
 
         const status = c.res.status;
 
-        // Happy paths are intentionally silent — Cloudflare's invocation log
-        // already covers 2xx/3xx. Skip too if an explicit failure log was
-        // emitted (validation / onError), preventing a duplicate line.
-        // 401 (expired tokens) and unmatched-route 404s (scanners probing /.env)
-        // are routine; the invocation log still records their status.
         if (status < 400 || status === 401 || status === 404 || c.get("logged")) {
             return;
         }

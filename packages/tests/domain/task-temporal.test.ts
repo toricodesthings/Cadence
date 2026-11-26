@@ -66,10 +66,10 @@ describe("normalizeTaskTemporalFields", () => {
         expect(() =>
             normalizeTaskTemporalFields({ dueDate: "2026-03-12", endDate: "2026-03-10" }, TORONTO),
         ).toThrowError(DomainError);
-        expect(() => normalizeTaskTemporalFields({ scheduledStart: "2026-03-10" }, TORONTO)).toThrowError(DomainError); // a start is an instant
+        expect(() => normalizeTaskTemporalFields({ scheduledStart: "2026-03-10" }, TORONTO)).toThrowError(DomainError);
         expect(() => normalizeTaskTemporalFields({ dueDate: "2026-03-10T12:00:00Z" }, TORONTO)).toThrowError(
             DomainError,
-        ); // a day is a day
+        );
         expect(() =>
             normalizeTaskTemporalFields({ dueDate: "2026-03-10", scheduledEnd: "2026-03-10T13:00:00Z" }, TORONTO),
         ).toThrowError(DomainError);
@@ -102,14 +102,14 @@ describe("rescheduleToDay", () => {
     const timed: TaskTemporal = {
         dueDate: null,
         endDate: null,
-        scheduledStart: "2026-10-30T18:35:00.000Z", // Fri 14:35 EDT
+        scheduledStart: "2026-10-30T18:35:00.000Z",
         scheduledEnd: "2026-10-30T19:50:00.000Z",
         zone: TORONTO,
     };
 
     it("keeps the wall time across a DST change", () => {
         const moved = rescheduleToDay(timed, "2026-11-03", TORONTO);
-        expect(moved.scheduledStart).toBe("2026-11-03T19:35:00.000Z"); // 14:35 EST
+        expect(moved.scheduledStart).toBe("2026-11-03T19:35:00.000Z");
         expect(moved.scheduledEnd).toBe("2026-11-03T20:50:00.000Z");
         expect(moved.zone).toBe(TORONTO);
     });
@@ -131,7 +131,6 @@ describe("rescheduleToDay", () => {
         });
     });
 
-    // 0.30.0 (B09): moving a work block never moves the commitment it works towards.
     it("keeps the deadline when a timed block moves", () => {
         const withDeadline: TaskTemporal = { ...timed, dueDate: "2026-10-31" };
         const moved = rescheduleToDay(withDeadline, "2026-10-29", TORONTO);

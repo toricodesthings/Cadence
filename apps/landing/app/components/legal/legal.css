@@ -1,19 +1,8 @@
-/*
- * The legal pages (components/legal/LegalPage.tsx): the landing's night, made for reading. A masthead under
- * twinkling stars, a lit "In short" panel (the journey's .panel frame), then one section per clause, each in
- * the next season's palette through [data-season] (app.css). Motion follows the page's rules: entrances gate
- * on `var(--hero-still, …)` so reduced motion lands on the base rule, loops end in `var(--hero-loop, running)`,
- * and everything animated is transform or opacity only. Scroll-bound motion needs animation-timeline; without
- * it the page simply reads still.
- */
-
 .legal {
-    /* [data-season] re-tints the accent against this, as it does under .hero and .journey */
     --hero-light: var(--accent-primary);
     --legal-ink: var(--color-twilight-text-soft);
 }
 
-/* ── Reading progress: a hairline of lantern light drawn along the top edge as the page scrolls ── */
 .legal-progress {
     position: fixed;
     inset: 0 0 auto;
@@ -33,7 +22,6 @@
     }
 }
 
-/* ── Masthead ── */
 .legal-masthead {
     position: relative;
     isolation: isolate;
@@ -42,7 +30,6 @@
     text-align: center;
 }
 
-/* The ground it stands on dissolves into the page rather than ending in an edge */
 .legal-masthead::after {
     content: "";
     position: absolute;
@@ -63,7 +50,6 @@
     margin-inline: auto;
 }
 
-/* Two sets of stars twinkling out of phase: each layer only ever changes opacity */
 .legal-stars {
     position: absolute;
     inset: 0;
@@ -104,7 +90,6 @@
     );
 }
 
-/* The moon's glow, low behind the title: painted once, then only breathing in opacity */
 .legal-moon {
     position: absolute;
     left: 50%;
@@ -118,7 +103,6 @@
     animation: var(--hero-still, legal-breath 9s var(--ease-sine) infinite alternate both var(--hero-loop, running));
 }
 
-/* The staggered arrival of the masthead's lines */
 .legal-in {
     animation: var(
         --hero-still,
@@ -199,7 +183,6 @@
     background: color-mix(in srgb, var(--color-twilight-surface) 45%, transparent);
 }
 
-/* ── Layout: contents beside the text on wide screens, folded above it on narrow ones ── */
 .legal-layout {
     display: grid;
     gap: 2rem;
@@ -326,7 +309,6 @@
     margin: 0 0.5rem 0.75rem;
 }
 
-/* ── In short: the journey's lit-glass frame, holding the gist ── */
 .legal-doc {
     min-width: 0;
 }
@@ -406,7 +388,6 @@
     }
 }
 
-/* ── Sections ── */
 .legal-section {
     position: relative;
     margin-top: clamp(2.75rem, 6vw, 4.25rem);
@@ -414,7 +395,6 @@
     scroll-margin-top: 1.5rem;
 }
 
-/* The rule between clauses: a hairline in the section's season, with its star where the rule begins */
 .legal-section::before {
     content: "";
     position: absolute;
@@ -455,7 +435,6 @@
     color: var(--color-twilight-text);
 }
 
-/* The number is the season's light: lit in the section's accent with a soft halo */
 .legal-num {
     flex: none;
     font-size: clamp(1.1rem, 2vw, 1.4rem);
@@ -540,7 +519,6 @@
     box-shadow: 0 0 8px var(--accent-glow);
 }
 
-/* ── Tables: real tables wide, stacked cards on phones ── */
 .legal-table-wrap {
     max-width: none;
     overflow-x: auto;
@@ -584,7 +562,6 @@
 }
 
 @media (max-width: 720px) {
-    /* The stacked cells carry their own labels (data-label), so the header row is not needed */
     .legal-table thead {
         display: none;
     }
@@ -625,7 +602,6 @@
     }
 }
 
-/* ── Gaps: what is missing, said plainly, in the moonlit tint (cool where the season is warm) ── */
 .legal-gap {
     position: relative;
     padding: 1.1rem 1.25rem 1.2rem 1.4rem;
@@ -669,7 +645,6 @@
     background: radial-gradient(circle closest-side, white 0 14%, var(--accent-secondary) 55%, transparent);
 }
 
-/* ── Sections arrive on scroll; the progress bar, panel and sections share one rise ── */
 @supports (animation-timeline: view()) {
     .legal-section-head,
     .legal-body > * {

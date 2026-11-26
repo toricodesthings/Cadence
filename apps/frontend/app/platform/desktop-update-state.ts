@@ -26,7 +26,6 @@ function parseSemver(raw: string): ParsedSemver | null {
     };
 }
 
-/** True when `current` is strictly older than `minimum`. Invalid versions fail open (`false`). */
 export function isVersionBelow(current: string, minimum: string): boolean {
     const cur = parseSemver(current);
     const min = parseSemver(minimum);
@@ -37,7 +36,6 @@ export function isVersionBelow(current: string, minimum: string): boolean {
     return cur.prerelease && !min.prerelease;
 }
 
-/** Reads the backend's minimum desktop version from the public `/health` route; returns null offline or on error. */
 export async function fetchMinDesktopVersion(): Promise<string | null> {
     try {
         const response = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/health`, { cache: "no-store" });
@@ -50,17 +48,13 @@ export async function fetchMinDesktopVersion(): Promise<string | null> {
     }
 }
 
-/** Remembers the version being installed so the relaunched app can confirm it landed. */
 export function markUpdating(version: string | null) {
     try {
         if (version) localStorage.setItem(UPDATING_KEY, version);
         else localStorage.removeItem(UPDATING_KEY);
-    } catch {
-        /* storage blocked: the confirmation is a nicety */
-    }
+    } catch {}
 }
 
-/** After an update restart, says once that it worked. */
 export function confirmDesktopUpdate(openChangelog: () => void) {
     let target: string | null = null;
     try {
@@ -80,23 +74,19 @@ const lastCheckedStore = createExternalStore<Date | null>(null);
 const requiredVersionStore = createExternalStore<string | null>(null);
 const checkingStore = createExternalStore<boolean>(false);
 
-/** Records the result of a completed update check (`null` = up to date) and stamps when it finished. */
 export function publishAvailableDesktopUpdate(update: AvailableAppUpdate | null) {
     updateStore.set(update);
     lastCheckedStore.set(new Date());
 }
 
-/** Sets the minimum required desktop version when the running build is below it, or null when satisfied. */
 export function publishRequiredDesktopVersion(version: string | null) {
     requiredVersionStore.set(version);
 }
 
-/** Tracks whether an update check is currently in flight (used by the required-update screen). */
 export function setCheckingDesktopUpdate(checking: boolean) {
     checkingStore.set(checking);
 }
 
-/** The one nudge for a found update; the details live in Settings > About. */
 export function announceDesktopUpdate(update: AvailableAppUpdate) {
     toast.info(`Cadence ${update.version} is ready to install.`, {
         description: "Open Settings > About Cadence to review release notes and apply the update.",

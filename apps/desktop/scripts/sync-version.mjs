@@ -2,7 +2,6 @@ import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// The product version lives only in the root package.json; this copies it into the Tauri/Cargo files.
 const desktopRoot = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const rootPackageJsonPath = path.resolve(desktopRoot, "..", "..", "package.json");
 const tauriConfigPath = path.join(desktopRoot, "src-tauri", "tauri.conf.json");
@@ -35,7 +34,6 @@ if (syncedCargoToml !== cargoToml) {
     await writeFile(cargoTomlPath, syncedCargoToml);
 }
 
-// Keep the lockfile's own entry in step so a release commit doesn't leave Cargo.lock dirty.
 const cargoLock = await readFile(cargoLockPath, "utf8");
 const syncedCargoLock = cargoLock.replace(/(name = "cadence-desktop"\nversion = )"[^"]+"/, `$1"${version}"`);
 

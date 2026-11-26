@@ -11,7 +11,6 @@ import { withRls } from "../../src/platform/rls";
 
 beforeAll(startTestDb);
 
-/** The account routes acting as `userId` with sign-in email `email`, plus the mailbox the export lands in. */
 function accountAs(userId: string, email: string | undefined, sendImpl?: () => Promise<unknown>) {
     const sent: any[] = [];
     const EMAIL = {

@@ -301,7 +301,6 @@ describe("the user's time zone", () => {
         await settings("PATCH", "", { dateTime: { timezone: "America/Toronto" } });
         await settings("PATCH", "", { dateTime: { timezone: "device" } });
 
-        // Choosing "device" leaves the last zone in place until the client's next report.
         expect(await storedZone()).toBe("America/Toronto");
         expect((await me("PUT", "/time-zone", { timeZone: "Asia/Tokyo" })).body.data.timeZone).toBe("Asia/Tokyo");
         expect(await storedZone()).toBe("Asia/Tokyo");

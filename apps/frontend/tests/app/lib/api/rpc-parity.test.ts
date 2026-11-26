@@ -15,12 +15,6 @@ import type { TaskBatch, Task } from "@cadence/contracts/task";
 import type { ApiClient } from "../../../../app/lib/api/client";
 import type { ResponseData } from "../../../../app/lib/api/helpers";
 
-// Compile-time guardrails, enforced by `tsc --noEmit`: what each read route sends
-// (inferred through the RPC client) must equal its contract entity. The backend's
-// Row-parity test covers DB ↔ contract; this covers route ↔ contract. Entities that
-// are deliberately looser than the route (optional fields for optimistic caches,
-// packages/AGENTS.md, Contracts) are checked with `toExtend`: the route's output fits.
-
 type Data<F> = F extends (...args: never[]) => Promise<infer R> ? ResponseData<R> : never;
 type Api = ApiClient["api"];
 

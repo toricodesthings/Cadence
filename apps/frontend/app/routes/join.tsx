@@ -58,7 +58,6 @@ type AcceptCardProps = {
     onAccept: () => void;
 };
 
-/** One accept card for shared lists, dates and routines: who, what, then the fine print by the buttons. */
 export function AcceptCard({
     hero,
     glowColor,
@@ -267,9 +266,6 @@ function AcceptRoutine({
     );
 }
 
-/**
- * A list, yearly event, or routine shared by link. Signed-out visitors sign in first and come back here.
- */
 export default function JoinRoute() {
     const { token } = useParams();
     const { pathname } = useLocation();
@@ -294,7 +290,7 @@ export default function JoinRoute() {
 
     useEffect(() => {
         if (authReady && !isAuthenticated) {
-            navigate(`/auth/sign-in?redirectTo=${encodeURIComponent(pathname)}`, { replace: true });
+            navigate(`/auth/sign-up?redirectTo=${encodeURIComponent(pathname)}`, { replace: true });
         }
     }, [authReady, isAuthenticated, navigate, pathname]);
 

@@ -1,10 +1,3 @@
-/**
- * Conversation mutations (ai_frontend.md §5.1) — rename / archive / delete / clear archive.
- *
- * All are optimistic against the `queryKeys.ai.conversations` list cache
- * and invalidate on settle, mirroring the domain-hook convention
- * (hooks/tasks/use-update-task.ts).
- */
 import { refetchAfterWrites } from "../../lib/api/write-gate";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
@@ -28,7 +21,6 @@ function patchList(
 
 type ConversationPatch = { id: string; title?: string; archived?: boolean; learn?: boolean };
 
-/** Change a conversation's title or flags, shown in the list at once and put back if the server refuses. */
 function useConversationPatch(failure: string) {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -50,22 +42,17 @@ function useConversationPatch(failure: string) {
     });
 }
 
-/** Rename a conversation (optimistic title swap). */
 export const useRenameConversation = () => useConversationPatch("Couldn’t rename that conversation");
 
-/** Archive / unarchive a conversation (optimistic flag flip). */
 export const useArchiveConversation = () => useConversationPatch("Couldn’t update that conversation");
 
-/** "Don't learn from this chat" (optimistic flag flip): memory skips the thread. */
 export const useSetConversationLearn = () => useConversationPatch("Couldn’t update that conversation");
 
-/** Delete a conversation (optimistic remove from the list). */
 export function useDeleteConversation() {
     const client = useApiClient();
     const queryClient = useQueryClient();
 
     return useMutation({
-        // The row disappears at once; the server hears about it only once Undo's window closes.
         mutationFn: async ({ id, title }: { id: string; title: string }) => {
             await undoWindow(`Deleted ${title}`);
             const res = await client.api.ai.conversations[":id"].$delete({ param: { id } });
@@ -86,7 +73,6 @@ export function useDeleteConversation() {
     });
 }
 
-/** Delete every archived conversation (optimistic remove of all archived rows). */
 export function useClearArchive() {
     const client = useApiClient();
     const queryClient = useQueryClient();

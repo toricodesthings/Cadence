@@ -1,5 +1,3 @@
-// The Effort Cadence guesses for a task from this person's own choices. A guess is never the task's `effort`: it is read
-// (day load, quick-win ranking, the assistant) and becomes the value only on a tap. Pure.
 import { suggestEffort, type EffortEvidence, type EffortLevel } from "@cadence/nlp/effort";
 import type { LocalDate } from "./time";
 
@@ -13,10 +11,6 @@ export interface GuessTask {
     projectId: string | null;
 }
 
-/**
- * The task's Effort if chosen (no guess); else a single-level guess from this person's evidence; else null.
- * Never a range, never the middling fallback. A "no thanks" returns null until the title or list changes.
- */
 export function effortGuessOf(
     task: GuessTask,
     evidence: readonly EffortEvidence[],

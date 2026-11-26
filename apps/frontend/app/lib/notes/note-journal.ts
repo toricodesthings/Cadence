@@ -1,21 +1,13 @@
-/**
- * Durable drafts for note editing: what makes "Saved on this device" true. One record
- * per account + note owner holding a draft per editing branch (a tab's line of edits),
- * written under a Web Lock so two tabs never overwrite each other. This is recovery
- * state, not a second queue: the offline queue (WAL) stays the only replay path.
- */
 import { get, set, del } from "idb-keyval";
 import { IS_DESKTOP_RUNTIME, getNativeStore } from "../../platform/runtime";
 
 export interface DraftRecord {
     branch: string;
-    /** Text and revision this branch started from (the last one the server acknowledged). */
     baseBody: string;
     baseVersion: number;
     body: string;
     gen: number;
     updatedAt: number;
-    /** A version the user chose not to keep; stays until they discard it. */
     kind?: "draft" | "recovery";
 }
 
@@ -37,7 +29,6 @@ async function write(key: string, value: unknown | undefined): Promise<void> {
 }
 
 function locked<T>(name: string, fn: () => Promise<T>): Promise<T> {
-    // ponytail: without Web Locks a second tab could interleave; the server's revision check still protects the note itself.
     return typeof navigator !== "undefined" && navigator.locks ? navigator.locks.request(name, fn) : fn();
 }
 
@@ -47,7 +38,6 @@ export interface NoteJournal {
     list(userId: string, owner: string): Promise<DraftRecord[]>;
 }
 
-// One lock per account, not per note: the owners index is shared by all of the account's notes.
 export const noteJournal: NoteJournal = {
     put: (userId, owner, record) =>
         locked(`${PREFIX}:${userId}`, async () => {
@@ -67,7 +57,6 @@ export const noteJournal: NoteJournal = {
     list: async (userId, owner) => Object.values((await read<Branches>(keyOf(userId, owner))) ?? {}),
 };
 
-/** Set aside a version the user didn't pick (a conflict choice); it stays until they discard it. */
 export function keepRecoveryCopy(
     journal: NoteJournal,
     userId: string,
@@ -87,7 +76,6 @@ export function keepRecoveryCopy(
     return journal.put(userId, owner, record).then(() => record);
 }
 
-/** Forget every note draft of an account on this device (sign-out that drops unsynced work). */
 export async function clearNoteJournal(userId: string): Promise<void> {
     await locked(`${PREFIX}:${userId}`, async () => {
         for (const owner of (await read<string[]>(indexKey(userId))) ?? [])

@@ -111,8 +111,6 @@ export async function consumeDesktopAuthHandoff(state: string, redirectTo: strin
     return true;
 }
 
-// React StrictMode and account-provider remounts can revisit the same callback.
-// Consume its one-time state and exchange its verifier once for the entire handoff.
 let completion: { state: string; redirectTo: string; work: Promise<void> } | null = null;
 export function completeDesktopAuthHandoff(
     state: string,

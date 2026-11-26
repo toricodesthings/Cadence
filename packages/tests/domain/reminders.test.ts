@@ -91,7 +91,7 @@ describe("deriveReminders", () => {
 
         it("reminds each open time on its own, with its own id", () => {
             const rs = derive([], "2026-10-07T13:00:00-04:00", [meds(null)]);
-            expect(rs.map((r) => r.id)).toEqual(["habit-reminder::h2::2026-10-07::14:00"]); // 20:00 is hours away
+            expect(rs.map((r) => r.id)).toEqual(["habit-reminder::h2::2026-10-07::14:00"]);
         });
 
         it("stops reminding a time once it is marked, and leaves the others", () => {
@@ -255,7 +255,6 @@ describe("dueAlert", () => {
 
     describe("holds what quiet hours silenced until they end, while it is still relevant", () => {
         const night = { enabled: true, start: "22:00", end: "08:00" };
-        // An 8:35 Fixed class with a 60-minute lead alerts at 7:35, inside quiet hours.
         const classAlert = reminder({
             kind: "block-start",
             alertAt: "2026-10-09T07:35:00-04:00",

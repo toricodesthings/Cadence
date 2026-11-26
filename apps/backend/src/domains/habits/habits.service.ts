@@ -46,7 +46,6 @@ function laterDate(a: string | null, b: string | null): string | null {
     return a >= b ? a : b;
 }
 
-/** Update a member's own reminder, sortOrder, or personal pause on a shared routine. */
 export async function setRoutineMemberPrefs(
     tx: Tx,
     habitId: string,
@@ -86,7 +85,6 @@ export type ResolvedHabitRow = HabitRow & {
     participants: string[];
 };
 
-/** Load the caller's own and shared routines, resolved per caller (R3, R5, R6, R7). */
 export async function loadHabitsForCaller(
     tx: Tx,
     userId: string,
@@ -225,7 +223,6 @@ export async function loadHabitsForCaller(
             };
         }
 
-        // Participant (`edit`)
         const useHouseholdStreak = habit.shareMode === "turns";
         return {
             ...habit,
@@ -246,7 +243,6 @@ export async function loadHabitsForCaller(
     });
 
     const withStreaks = await withLiveStreaks(tx, userId, baseRows, zone, today);
-    // Order: own routines first, then joined, each by caller's sortOrder then createdAt desc.
     withStreaks.sort((a, b) => {
         const aOwn = a.access === "owner" ? 0 : 1;
         const bOwn = b.access === "owner" ? 0 : 1;
@@ -257,9 +253,6 @@ export async function loadHabitsForCaller(
     return { rows: withStreaks, zone, today };
 }
 
-// ── Utility ───────────────────────────────────────────────────────────
-
-/** Expand the committed SQL snapshot after releasing its RLS connection. */
 export function projectHabitRange<
     H extends HabitRow & Partial<Pick<ResolvedHabitRow, "access" | "members" | "today" | "participants">>,
 >(
@@ -296,7 +289,6 @@ export function projectHabitRange<
         const isTurns = habit.shareMode === "turns";
         const byDate = logsByHabit.get(habit.id) ?? new Map<string, HabitLog[]>();
 
-        // Pick the primary log per date for `habitDays` expansion.
         const primaryLogByDate = new Map<string, HabitLog>();
         for (const [dateKey, dayLogs] of byDate) {
             if (isSupporter) {
@@ -350,13 +342,11 @@ export function projectHabitRange<
             };
         });
 
-        // Compute window summary
         const completedInWindow = logsHydrated.filter((l) => l.status === "COMPLETED").length;
         const pendingInWindow = logsHydrated.filter((l) => l.status === "PENDING").length;
         const scheduledInWindow = logsHydrated.length;
         const adherenceInWindow = scheduledInWindow > 0 ? completedInWindow / scheduledInWindow : 0;
 
-        // Determine due-today and overdue status
         const isDueToday = !isSupporter && days.some((day) => day.date === todayStr);
         const isOverdue = !isSupporter && logsHydrated.some((l) => l.status === "PENDING" && l.targetDate < todayStr);
 
@@ -376,10 +366,6 @@ export function projectHabitRange<
     });
 }
 
-/**
- * Deterministic streak recomputation from habit log history.
- * Walks backward from today: only today is grace (still open); skipped days are neutral.
- */
 function recomputeStreaks(
     logs: Array<{ targetDate: string; status: string }>,
     occurrenceDates: string[],
@@ -394,7 +380,6 @@ function recomputeStreaks(
         if (log.status === "SKIPPED") totalSkips++;
     }
 
-    // Sort occurrence dates descending for streak computation
     const sorted = [...occurrenceDates].sort((a, b) => b.localeCompare(a));
     let currentStreak: number | null = null;
     let longestStreak = 0;
@@ -405,11 +390,9 @@ function recomputeStreaks(
         if (status === "COMPLETED") {
             streak++;
         } else if (status !== "SKIPPED") {
-            if (date >= today) continue; // today (or later) is still open
+            if (date >= today) continue;
 
-            // a skip is a planned rest: it neither extends nor breaks a run
             if (streak > longestStreak) longestStreak = streak;
-            // Current streak is only from the most recent unbroken run
             currentStreak ??= streak;
             streak = 0;
         }
@@ -420,7 +403,6 @@ function recomputeStreaks(
     return { currentStreak, longestStreak, totalCompletions, totalSkips };
 }
 
-/** Which of the given occurrence dates were completed or skipped, keyed by date. `logUser = null` reads anyone's logs (turns mode). */
 async function loadResolvedOccurrenceDates(
     tx: Tx,
     habitId: string,
@@ -449,21 +431,8 @@ type ResolvedStatus = "COMPLETED" | "SKIPPED";
 
 const STREAK_BATCH = 60;
 
-/** Mutable accumulator threaded across occurrence windows by {@link scanStreak}. */
 type StreakScanState = { streak: number; runStarted: boolean };
 
-/**
- * Pure current-streak reducer. Folds one window of occurrence dates (ordered
- * newest → oldest) into the running streak state.
- *
- * Semantics:
- *  - Only today (or later) is grace: still open, it never breaks the streak.
- *  - Skipped occurrences are neutral: they neither extend nor end a run.
- *  - The first past due day not done or skipped ends the run (0 if none started).
- *
- * `terminated` signals the streak is fully determined so the caller can stop
- * fetching further history.
- */
 export function scanStreak(
     windowNewestFirst: string[],
     resolved: ReadonlyMap<string, ResolvedStatus>,
@@ -486,18 +455,6 @@ export function scanStreak(
     return { streak, runStarted, terminated: false };
 }
 
-/**
- * Current streak = the most recent unbroken run of COMPLETED occurrences ending
- * at (or just before) `asOfDateStr`, for any recurrence cadence.
- *
- * Expand the bounded history once (rrule.before repeatedly allocates its whole
- * prefix), then query resolved days in batches, stopping when the streak is known.
- *
- * `loadResolved` is injected (rather than taking a `tx`) so the streak logic is
- * pure of persistence concerns and unit-testable with real recurrence rules.
- * `earliest` (the oldest completed day, when it predates the routine) lets the
- * walk reach days logged before the routine was created.
- */
 export async function computeCurrentStreak(
     recurrenceRule: string,
     createdAt: string,
@@ -522,10 +479,6 @@ export async function computeCurrentStreak(
     return state.streak;
 }
 
-/**
- * Rows with a live streak. The stored streak counts through the last check-in; days passing don't touch it,
- * so it stands only while the latest due day before today is done or skipped, else 0.
- */
 export async function withLiveStreaks<
     T extends {
         id: string;
@@ -580,9 +533,6 @@ export async function withLiveStreaks<
     });
 }
 
-// ── Create ────────────────────────────────────────────────────────────
-
-/** Create a routine with its tags; a repeated idempotency key returns the first one. */
 export async function createHabit(tx: Tx, userId: string, { tagIds, ...body }: InsertHabit, idempotencyKey?: string) {
     const existingId = await checkIdempotency(tx, userId, idempotencyKey);
     if (existingId) {
@@ -595,11 +545,10 @@ export async function createHabit(tx: Tx, userId: string, { tagIds, ...body }: I
 
     parseRecurrenceRule(body.recurrenceRule);
     normalizeTimes(body);
-    if (body.times?.length && body.reminderEnabled === undefined) body.reminderEnabled = true; // like the composer: set times remind at each one
+    if (body.times?.length && body.reminderEnabled === undefined) body.reminderEnabled = true;
     assertStepsOrTimes(body);
     await assertOwnership(tx, userId, { projectId: body.projectId, tagIds });
     await assertRowRoom(tx, userId, "routines");
-    // A new routine goes last in the person's own (Custom) order.
     if (body.sortOrder === undefined) {
         const [{ last }] = await tx
             .select({ last: max(habits.sortOrder) })
@@ -631,11 +580,6 @@ type DayMarks = {
     timeMarks: HabitLogDbRow["timeMarks"];
 };
 
-/**
- * The day's status and marks after this check-in. Steps decide the day when sent; a routine at set times
- * takes one time, and a "done" with no time (the assistant) records the time it clearly means, never the
- * whole day; unclear → say which are open, so it asks.
- */
 function resolveDay(
     habit: HabitDbRow,
     existing: HabitLogDbRow | undefined,
@@ -660,7 +604,6 @@ function resolveDay(
     return { ...applyTimeMark(times, existing, { time, status: action.status, at }), stepStatus: null };
 }
 
-/** The set time a whole-day "done" clearly means; unclear → refused, naming the open times so the caller asks. */
 function impliedTime(
     times: string[],
     existing: HabitLogDbRow | undefined,
@@ -681,7 +624,6 @@ function impliedTime(
     );
 }
 
-/** Store the day: an open day with no marks has no row (clearing deletes it); anything else upserts. */
 async function writeDayLog(
     tx: Tx,
     userId: string,
@@ -706,7 +648,6 @@ async function writeDayLog(
                 createdAt: new Date().toISOString(),
             };
         }
-        // Clearing a resolution — delete the log row to avoid noisy PENDING accumulation
         await tx.delete(habitLogs).where(eq(habitLogs.id, existing.id));
         return {
             ...existing,
@@ -728,11 +669,6 @@ async function writeDayLog(
     return row;
 }
 
-/**
- * The streaks after a day changed. The log write is visible inside this tx, so both paths read the
- * post-mutation state: the latest occurrence walks back from today; an older one recomputes history.
- * `logUser = null` computes the household streak over everyone's logs (turns mode).
- */
 async function recomputeStreak(
     tx: Tx,
     logUser: string | null,
@@ -784,7 +720,6 @@ async function recomputeStreak(
 }
 
 export async function resolveHabit(tx: Tx, userId: string, id: string, { targetDate, ...action }: ResolveHabitAction) {
-    // Check access before FOR UPDATE: a supporter (`view`) has SELECT but not UPDATE under RLS.
     const access = await routineAccess(tx, userId, id);
     if (access.role === "view") {
         throw new AppError(403, "VIEW_ONLY", "You're cheering this one on; only participants check it off.");
@@ -810,7 +745,6 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
     const isTurns = habit.shareMode === "turns";
     const zone = await userZone(tx, userId);
 
-    // Turns mode (R6): one occurrence, anyone closes it; only the logger or owner can clear it.
     if (isTurns && otherResolved) {
         const isClear = action.status === "PENDING" && !action.stepStatus && !action.time;
         if (isClear) {
@@ -845,13 +779,11 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
                 },
             };
         }
-        // Already closed by someone else: marking done/skipped is a no-op returning that log.
         return { habit, log: otherResolved };
     }
 
     const day = resolveDay(habit, existing, targetDate, action, zone);
     const row = await writeDayLog(tx, userId, habit.id, targetDate, existing, day);
-    // "Took 30 min" belongs to a marked day: clearing or skipping it takes the answer along.
     await pruneRoutineReports(tx, userId, habit.id, targetDate, row);
 
     const was = existing?.status;
@@ -878,7 +810,6 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
         return { habit: updatedHabit, log: row };
     }
 
-    // Member in `together` mode: update their own routine_members streak/totals.
     const [myMember] = await tx
         .select()
         .from(routineMembers)
@@ -900,9 +831,6 @@ export async function resolveHabit(tx: Tx, userId: string, id: string, { targetD
     };
 }
 
-// ── Update ────────────────────────────────────────────────────────────
-
-/** Set times are stored ascending; a single one is just the usual time. */
 function normalizeTimes(body: { times?: string[] | null; targetTime?: string | null }) {
     if (!body.times) return;
     body.times = [...body.times].sort();
@@ -910,16 +838,11 @@ function normalizeTimes(body: { times?: string[] | null; targetTime?: string | n
         Object.assign(body, { targetTime: body.times[0] ?? body.targetTime ?? null, times: null });
 }
 
-/** Steps and set times don't mix: each would check the day off its own way. */
 function assertStepsOrTimes({ steps, times }: { steps?: unknown[] | null; times?: unknown[] | null }) {
     if (steps?.length && times?.length)
         throw new AppError(400, "VALIDATION_ERROR", "A routine has steps or set times, not both.");
 }
 
-/**
- * When steps or set times change: the routine's current ones, locked, after checking the
- * result doesn't mix them. Undefined when neither changes.
- */
 async function lockStepsAndTimes(tx: Tx, userId: string, id: string, body: Pick<UpdateHabit, "steps" | "times">) {
     if (body.times === undefined && body.steps === undefined) return undefined;
     const [before] = await tx
@@ -942,12 +865,6 @@ async function replaceHabitTags(tx: Tx, userId: string, id: string, tagIds: stri
     }
 }
 
-/**
- * Change a routine; `tagIds` replaces its tags. 404 when it isn't the caller's.
- * Moving one set time (14:00 → 14:30) carries its marks to the new time on every
- * day, and today's status is re-derived from the new times.
- * ponytail: past days keep their stored status when a time is added or removed; recompute them if History confuses.
- */
 export async function updateHabit(
     tx: Tx,
     userId: string,
@@ -975,8 +892,6 @@ export async function updateHabit(
         .where(and(eq(habits.id, id), eq(habits.userId, userId)))
         .returning();
 
-    // Abort inside the transaction when the habit is not owned, so the
-    // tag mutations below never commit against another user's habit id.
     throwIfNotFound(row, "Habit");
 
     if (tagIds !== undefined) await replaceHabitTags(tx, userId, id, tagIds);
@@ -987,7 +902,6 @@ export async function updateHabit(
     return row;
 }
 
-/** Sync another member's today log status and, in turns mode, recompute the household streak/totals on `habits`. */
 async function syncOtherMemberTodayLog(
     tx: Tx,
     habit: HabitDbRow,
@@ -1013,11 +927,6 @@ async function syncOtherMemberTodayLog(
     return updated;
 }
 
-/**
- * After steps change, today's day follows its step marks over the new steps (a done day with a new
- * step opens; a day whose remaining steps are all ticked closes). Returns the routine when it changed.
- * Past days keep their stored status.
- */
 async function followSteps(tx: Tx, callerId: string, id: string, habit: HabitDbRow) {
     const stepIds = (habit.steps ?? []).map((step) => step.id);
     if (!stepIds.length || habit.times?.length) return undefined;
@@ -1048,11 +957,6 @@ async function followSteps(tx: Tx, callerId: string, id: string, habit: HabitDbR
     return updated;
 }
 
-/**
- * After set times change: one moved time (14:00 → 14:30) carries its marks on every day, and
- * today's day follows its new times, re-applying one of its marks (or clearing an open time) so
- * status, totals and streak are re-derived. Returns the routine when today's day changed.
- */
 async function followTimes(
     tx: Tx,
     callerId: string,
@@ -1099,7 +1003,6 @@ async function followTimes(
     return updated;
 }
 
-/** Move a routine to `position` (1 = first) in the Routines order; past the end = last. */
 export async function moveHabit(tx: Tx, userId: string, id: string, position: number) {
     const rows = await tx
         .select({ id: habits.id })
@@ -1109,7 +1012,6 @@ export async function moveHabit(tx: Tx, userId: string, id: string, position: nu
     if (!rows.some((row) => row.id === id)) throwIfNotFound(undefined, "Habit");
     const order = rows.map((row) => row.id).filter((rowId) => rowId !== id);
     order.splice(Math.min(position - 1, order.length), 0, id);
-    // Pipelined on the transaction's connection, like the other batch writes.
     await Promise.all(
         order.map((rowId, sortOrder) =>
             tx
@@ -1120,9 +1022,6 @@ export async function moveHabit(tx: Tx, userId: string, id: string, position: nu
     );
 }
 
-// ── Delete ────────────────────────────────────────────────────────────
-
-/** Delete a routine for good, with its whole history (logs and tags cascade). */
 export async function deleteHabit(tx: Tx, userId: string, id: string) {
     const [row] = await tx
         .delete(habits)

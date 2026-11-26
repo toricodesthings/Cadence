@@ -19,7 +19,6 @@ let ai: ReturnType<typeof apiAs>;
 let otherId: string;
 let otherAi: ReturnType<typeof apiAs>;
 
-/** No budget store in these tests: run as development (production refuses to run unmetered). */
 const DEV = { DEPLOYMENT_STAGE: "development" };
 
 beforeAll(startTestDb);
@@ -30,7 +29,6 @@ beforeEach(async () => {
     otherAi = apiAs(otherId, "/ai", aiRoutes, DEV);
 });
 
-/** A persisted thread: one user turn plus one assistant turn, seeded through the real repo. */
 async function seedThread(owner: string, opts: { lastMessageAt?: string; assistantParts?: unknown[] } = {}) {
     return withRls(getTestDb(), owner, async (tx) => {
         const { id } = await resolveOrCreateConversation(tx, owner, {});

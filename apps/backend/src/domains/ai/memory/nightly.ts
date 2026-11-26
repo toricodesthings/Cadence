@@ -1,9 +1,3 @@
-/**
- * The nightly pass (the "sleep-time" consolidation), once per person in their local night. Expired and
- * unreinforced facts the person never said go, and near-duplicates are merged. There is no size cap: growth is bounded by the daily limits on saves and extractions. Deterministic
- * except the merge, which asks consolidation over opaque keys and so can only name a real fact. No model call when
- * nothing changed. Stated and pinned facts never decay.
- */
 import { todayIn } from "@cadence/domain/time";
 import { getDbClient } from "../../../platform/db";
 import { withRls } from "../../../platform/rls";
@@ -36,13 +30,10 @@ import { backfillForUser } from "./backfill";
 import { aiMemorySignals } from "../../../db/schema";
 import { MAX_SIGNALS_PER_DAY } from "./memory.service";
 
-/** Newest first: 28 days of a person at the daily cap fit, so only an old backlog is cut. */
 const MAX_SIGNALS_READ = MAX_SIGNALS_PER_DAY * 30;
 import { and, desc, eq, gte, lt } from "drizzle-orm";
 
-/** Two same-kind facts closer than this (cosine distance) are asked about, not merged blindly. */
 const NEAR_DUPLICATE_DISTANCE = 0.15;
-/** A pass looks at what changed in the last day (plus slack for the hourly cron's jitter). */
 const CHANGED_WITHIN_MS = 26 * 60 * 60 * 1000;
 const MAX_PAIRS = 20;
 
@@ -50,7 +41,6 @@ export interface NightlyResult {
     expired: number;
     decayed: number;
     merged: number;
-    /** Full: patterns and durations added or removed. */
     activity: number;
 }
 
@@ -58,15 +48,11 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
     const db = getDbClient(env);
     const userHash = await hashIdentifier(userId);
     try {
-        // 1 · What can go without asking anyone, and what might be a duplicate.
         const plan = await withRls(db, userId, async (tx) => {
             const state = await readMemoryState(tx, userId);
             const today = todayIn(await userZone(tx, userId), now);
-            // Expiry and decay are plain deletion: they run whatever the mode.
             const expired = await deleteExpired(tx, userId, today);
             const decayed = (await deleteDecayed(tx, userId, today)) + (await dropOrphanedFacts(tx, userId));
-            // Merging asks a model, and only makes sense while memory is on.
-            // Signals are kept 90 days; Full reads them for patterns and durations below.
             await tx
                 .delete(aiMemorySignals)
                 .where(and(eq(aiMemorySignals.userId, userId), lt(aiMemorySignals.on, retentionCutoff(today))));
@@ -112,12 +98,10 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
                           .limit(MAX_SIGNALS_READ)
                     : [];
             const reports: ReportRow[] = state.mode === "full" ? await readReports(tx, userId, today) : [];
-            // How they plan: Full only.
             const slots = planningOn(state) ? await slotPatterns(tx, userId, today) : [];
             return { state, today, expired, decayed, pairs, signals: signals as SignalRow[], reports, slots };
         });
 
-        // 2 · Ask the chat model about the pairs (outside any transaction).
         const merges: { keep: string; drop: string }[] = [];
         if (plan.pairs.length > 0) {
             const contents = await withRls(db, userId, async (tx) => {
@@ -139,7 +123,6 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
                 const b = contents.get(pair.other);
                 return a && b ? [{ a, b }] : [];
             });
-            // One call for every pair, as a chat's reading does.
             const same = await consolidate(
                 env,
                 userHash,
@@ -150,13 +133,10 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
             );
             pairs.forEach(({ a, b }, i) => {
                 if (same[i] !== b.id) return;
-                // The one seen more recently has the newer wording.
                 merges.push(a.lastSeenOn >= b.lastSeenOn ? { keep: a.id, drop: b.id } : { keep: b.id, drop: a.id });
             });
         }
 
-        // 3 · Apply. Fenced by the epoch, like every background write.
-        // Full: what the person's own changes add up to. Deterministic; the only model call is the embedding of new text.
         const derived =
             plan.state.mode === "full"
                 ? [
@@ -173,9 +153,7 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
                     derived.map((d) => d.content),
                     { userHash },
                 );
-            } catch {
-                // saved without a vector: still found by words
-            }
+            } catch {}
         }
         const result: NightlyResult = { expired: plan.expired, decayed: plan.decayed, merged: 0, activity: 0 };
         await withRls(db, userId, async (tx) => {
@@ -191,7 +169,6 @@ export async function nightlyForUser(env: Env, userId: string, now: Date = new D
                 );
             }
         });
-        // The catch-up after choosing Full (a few batches a night).
         if (plan.state.mode === "full") await backfillForUser(env, userId, now);
         if (result.expired + result.decayed + result.merged + result.activity > 0)
             logger.info("ai", "ai_memory_nightly", { userHash, ...result });

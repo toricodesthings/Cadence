@@ -8,15 +8,10 @@ import { RoutineStrip } from "./RoutineChips";
 import { buildAllDayWeekLayout } from "../../lib/utils/calendar/all-day-layout";
 import type { CalendarDropPreview } from "../../lib/utils/calendar/calendar-dnd";
 
-/** At 640px the lane may only take one row: the hour grid is what the screen is for. */
 const SHORT_HIDDEN = "[@media(max-height:760px)]:hidden";
 const SHORT_INLINE = "hidden [@media(max-height:760px)]:inline";
 const SHORT_CONTENTS = "hidden [@media(max-height:760px)]:contents";
 
-/**
- * Week's all-day lane on one 7-column grid: multi-day items are one bar across their days, one-off tasks fill
- * the rows beneath in their own column, anytime routines fold into a strip of marks per day.
- */
 export function AllDayWeekLane({
     weekDates,
     tasksByDate,
@@ -42,7 +37,6 @@ export function AllDayWeekLane({
 
     return (
         <div className="grid min-h-2 min-w-0 flex-1 grid-cols-7 gap-y-[2px] pb-1.5">
-            {/* One drop lane per day under everything, spanning every row */}
             {weekDates.map((day, index) => (
                 <AllDayDropLane
                     key={`lane-${day}`}

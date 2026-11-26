@@ -1,11 +1,6 @@
 import { useEffect, type RefObject } from "react";
 import { toast } from "sonner";
 
-/**
- * Closes toast `id` after `ms`, but never while the pointer or focus is inside `box` (it looks again each second).
- * Hover and focus are read live when the timer fires, not counted from events: a control that unmounts while
- * focused never blurs. Off while `paused`; re-armed whenever `step` changes.
- */
 export function useToastLinger(
     id: string | number,
     box: RefObject<HTMLElement | null>,

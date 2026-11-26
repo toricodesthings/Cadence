@@ -26,7 +26,6 @@ import {
     Zap,
 } from "lucide-react";
 
-/** The directory owns feature identity; guide content can be added independently. */
 export const HELP_GROUPS = [
     {
         id: "day",

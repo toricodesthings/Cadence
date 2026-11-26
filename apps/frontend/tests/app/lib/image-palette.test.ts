@@ -16,7 +16,6 @@ import {
     withLightness,
 } from "../../../app/lib/themes/background-tokens";
 
-/** Build RGBA pixels from a list of [r, g, b, count] runs. */
 function pixels(...runs: Array<[number, number, number, number]>): Uint8ClampedArray {
     const data: number[] = [];
     for (const [r, g, b, count] of runs) {
@@ -37,7 +36,6 @@ describe("extractPhotoPalette", () => {
     });
 
     it("prefers colourful candidates over the most common dull one", () => {
-        // Mostly near-black sky with a smaller orange lantern.
         const palette = extractPhotoPalette(pixels([10, 12, 20, 900], [232, 164, 74, 100]));
         expect(chromaOf(palette.swatches[0])).toBeGreaterThan(0.1);
         expect(hueOf(palette.swatches[0])).toBeGreaterThan(55);

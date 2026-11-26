@@ -1,4 +1,3 @@
-/** Read-only generation reconciliation + observed-gap weighting. Never calls a model or changes runtime configuration. */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
@@ -10,9 +9,7 @@ if (!uuid.test(matchedId ?? "") || !uuid.test(probeId ?? ""))
     throw new Error("Usage: eval:cache:report <matched UUID> <initial probe UUID>");
 try {
     process.loadEnvFile(fileURLToPath(new URL("../.dev.vars", import.meta.url)));
-} catch {
-    /* exported key also works */
-}
+} catch {}
 const directory = fileURLToPath(new URL("../../../output/evals/", import.meta.url));
 const load = (name) => JSON.parse(readFileSync(join(directory, name), "utf8"));
 const finite = (n) => typeof n === "number" && Number.isFinite(n) && n >= 0;

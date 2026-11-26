@@ -25,7 +25,6 @@ const clients = (userId: string) => ({
     lists: apiAs(userId, "/lists", sharingRoutes),
 });
 
-/** The owner's "Our House" with one task, shared with an editor, a viewer and (never) an outsider. */
 async function house() {
     const [ownerId, editorId, viewerId, outsiderId] = await Promise.all([1, 2, 3, 4].map(() => createUser()));
     const owner = clients(ownerId);
@@ -72,7 +71,6 @@ describe("an editor", () => {
             (await editor.tasks("PATCH", "/batch/state", { taskIds: [made.id], state: "ACTIVE" })).body.data[0].state,
         ).toBe("ACTIVE");
 
-        // The owner reads it, with who made it, and the trash an editor made lands in the owner's.
         const read = (await owner.tasks("GET", `/${made.id}`)).body.data;
         expect(read).toMatchObject({ title: "Buy oat milk", createdBy: editorId, updatedBy: editorId });
         await editor.tasks("PATCH", "/batch/state", { taskIds: [made.id], state: "ARCHIVED" });
@@ -134,9 +132,7 @@ describe("an editor", () => {
         expect((await editor.tasks("DELETE", `/${task.id}`)).body.error.code).toBe("OWNER_ONLY");
         expect((await editor.projects("PATCH", `/${list.id}`, { name: "Mine" })).status).toBe(403);
         expect((await editor.projects("DELETE", `/${list.id}`)).status).toBe(403);
-        // The owner's other list is theirs alone.
         expect((await editor.tasks("POST", "", { title: "x", orderIndex: 1, projectId: other.id })).status).toBe(404);
-        // Owner's tags stay invisible to collaborators.
         await owner.tasks("POST", `/${task.id}/tags`, { tagId: tag.id });
         expect((await editor.tasks("GET", `/${task.id}`)).body.data.tagIds).toEqual([]);
         expect((await editor.tasks("GET", `/${task.id}/tags`)).body.data).toEqual([]);
@@ -151,11 +147,9 @@ describe("an editor", () => {
         const viewerReminder = "2030-01-01T10:00:00.000Z";
 
         await owner.tasks("PATCH", `/${task.id}`, { reminderAt: ownerReminder });
-        // Collaborators never see the owner's reminder.
         expect((await editor.tasks("GET", `/${task.id}`)).body.data.reminderAt).toBeNull();
         expect((await viewer.tasks("GET", `/${task.id}`)).body.data.reminderAt).toBeNull();
 
-        // Editor and viewer each set their own personal reminder.
         expect((await editor.tasks("PATCH", `/${task.id}`, { reminderAt: editorReminder })).status).toBe(200);
         expect((await viewer.tasks("PATCH", `/${task.id}`, { reminderAt: viewerReminder })).status).toBe(200);
 
@@ -164,12 +158,10 @@ describe("an editor", () => {
         expect((await viewer.tasks("GET", `/${task.id}`)).body.data.reminderAt).toBe(viewerReminder);
         expect((await viewer.tasks("GET", `?projectId=${list.id}`)).body.data[0].reminderAt).toBe(viewerReminder);
 
-        // Clearing removes only the caller's personal reminder.
         await viewer.tasks("PATCH", `/${task.id}`, { reminderAt: null });
         expect((await viewer.tasks("GET", `/${task.id}`)).body.data.reminderAt).toBeNull();
         expect((await editor.tasks("GET", `/${task.id}`)).body.data.reminderAt).toBe(editorReminder);
 
-        // Per-person tags: owner, editor, and viewer each manage only their own tags.
         const ownerTag = (await owner.tags("POST", "", { name: "OwnerTag" })).body.data;
         const editorTag = (await editor.tags("POST", "", { name: "EditorTag" })).body.data;
         const viewerTag = (await viewer.tags("POST", "", { name: "ViewerTag" })).body.data;
@@ -187,7 +179,6 @@ describe("an editor", () => {
         expect((await viewer.tasks("GET", `/${task.id}`)).body.data.tagIds).toEqual([]);
         expect((await editor.tasks("GET", `/${task.id}`)).body.data.tagIds).toEqual([editorTag.id]);
 
-        // Editor creating a task with their own tag + reminder works and doesn't leak to owner.
         const created = await editor.tasks("POST", "", {
             title: "Milk",
             orderIndex: 2,
@@ -206,35 +197,29 @@ describe("an editor", () => {
     it("supports taking ('I'll do it'), untaking, owner clearing, and clearing on leave", async () => {
         const { ownerId, editorId, viewerId, list, task, owner, editor, viewer } = await house();
 
-        // Editor takes it.
         const taken = await editor.tasks("PATCH", `/${task.id}`, { takenBy: editorId });
         expect(taken.status).toBe(200);
         expect(taken.body.data.takenBy).toBe(editorId);
         expect(taken.body.data.takenAt).toBeTruthy();
 
-        // Cannot assign to someone else.
         const assignOther = await owner.tasks("PATCH", `/${task.id}`, { takenBy: viewerId });
         expect(assignOther.status).toBe(403);
         expect(assignOther.body.error.code).toBe("TAKE_SELF_ONLY");
 
-        // Viewer cannot take.
         const viewerTake = await viewer.tasks("PATCH", `/${task.id}`, { takenBy: viewerId });
         expect(viewerTake.status).toBe(403);
         expect(viewerTake.body.error.code).toBe("VIEW_ONLY");
 
-        // Owner can clear editor's take.
         const cleared = await owner.tasks("PATCH", `/${task.id}`, { takenBy: null });
         expect(cleared.status).toBe(200);
         expect(cleared.body.data.takenBy).toBeNull();
         expect(cleared.body.data.takenAt).toBeNull();
 
-        // Owner takes it; editor cannot clear owner's take.
         await owner.tasks("PATCH", `/${task.id}`, { takenBy: ownerId });
         const editorClearOwner = await editor.tasks("PATCH", `/${task.id}`, { takenBy: null });
         expect(editorClearOwner.status).toBe(403);
         expect(editorClearOwner.body.error.code).toBe("OWNER_ONLY");
 
-        // Editor takes it, then leaves the list -> take is cleared.
         await editor.tasks("PATCH", `/${task.id}`, { takenBy: editorId });
         expect((await editor.lists("DELETE", `/${list.id}/members/${editorId}`)).status).toBe(200);
         expect((await owner.tasks("GET", `/${task.id}`)).body.data.takenBy).toBeNull();
@@ -300,7 +285,6 @@ describe("a non-member", () => {
             await outsider.projects("GET", `/${list.id}`),
         ].entries())
             expect(res.status, `request ${i}`).toBe(404);
-        // Batches skip what isn't theirs, as they always have.
         expect(
             (await outsider.tasks("PATCH", "/batch/state", { taskIds: [task.id], state: "COMPLETE" })).body.data,
         ).toEqual([]);

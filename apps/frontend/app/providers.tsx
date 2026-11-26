@@ -53,11 +53,6 @@ import {
     useRequiredDesktopVersion,
 } from "./platform/desktop-update-state";
 
-/**
- * Reload onto the newest deploy. The service worker opens the app from its saved shell, so a
- * plain reload would reopen this same build (an installed PWA never got past it): have the
- * worker fetch the new shell first. A worker that never answers only delays the reload.
- */
 async function reloadToLatest() {
     const worker = navigator.serviceWorker?.controller;
     if (worker) {
@@ -71,12 +66,9 @@ async function reloadToLatest() {
     window.location.reload();
 }
 
-/** v2: API timestamps unified to strict ISO; drop caches holding Postgres-text timestamps. */
 const QUERY_CACHE_VERSION = "v4";
-/** How long a saved workspace stays usable offline. gcTime matches it, or inactive views are dropped before they're saved. */
 const OFFLINE_CACHE_MAX_AGE = 1000 * 60 * 60 * 24 * 14;
 
-// Adapter for react-router-dom Link (using react-router v7)
 function Link({ href, ...props }: { href: string } & React.AnchorHTMLAttributes<HTMLAnchorElement>) {
     return <RouterLink to={href} {...props} />;
 }
@@ -92,9 +84,6 @@ export function Providers({ children }: { children: ReactNode }) {
 
 function DesktopAuthCallbacks() {
     const navigate = useNavigate();
-    // Desktop deep-link callbacks only. On the web the browser is already on
-    // /auth/callback, and re-navigating there after the account remount cancels
-    // the in-flight redirect into the workspace (seen on slower mobile loads).
     useEffect(() => {
         if (!IS_DESKTOP_RUNTIME) return;
 
@@ -135,8 +124,6 @@ function DesktopAuthCallbacks() {
 
 function ProvidersInner({ children }: { children: ReactNode }) {
     const { session } = useAuthState();
-    // A new account must never construct observers over the previous account's
-    // cache, even for one render while an effect is clearing it.
     return <AccountProviders key={session?.user.id ?? "anonymous"}>{children}</AccountProviders>;
 }
 
@@ -146,11 +133,6 @@ function AccountProviders({ children }: { children: ReactNode }) {
     const { session, authReady } = useAuthState();
     const hasCheckedForUpdates = useRef(false);
 
-    // Only retry errors the backend marks as retryable (429, 5xx).
-    // Auth errors and validation errors are never retried. A rate-limited read
-    // isn't either: retrying inside the window only extends it, and the next
-    // focus or visit refetches anyway.
-    // Exponential backoff; a rate-limited write waits as long as the server asked.
     const retryDelay = (attempt: number, error: Error) => {
         if (error instanceof ApiErrorResponse && error.isRateLimited) {
             return (error.retryAfterSeconds ?? 60) * 1000;
@@ -178,20 +160,14 @@ function AccountProviders({ children }: { children: ReactNode }) {
                 }),
                 defaultOptions: {
                     queries: {
-                        // Default to tasks stale time (most common query); hooks may override
                         staleTime: STALE_TIMES.TASKS,
                         gcTime: OFFLINE_CACHE_MAX_AGE,
-                        // Queued changes replay first and refresh after, so a refetch now
-                        // would briefly undo them on screen.
                         refetchOnWindowFocus: () => getWalSnapshot().every((e) => e.status === "failed"),
                         refetchOnReconnect: false,
                         retry: (failureCount, error) => shouldRetry(failureCount, error, 3, false),
                         retryDelay,
                     },
                     mutations: {
-                        // Run offline too: withOfflineSupport queues everyday writes durably, and
-                        // online-only ones fail fast with "needs a connection". A paused mutation
-                        // would live only in memory and be lost when the app closes.
                         networkMode: "always",
                         retry: (failureCount, error) => shouldRetry(failureCount, error, 2, true),
                         retryDelay,
@@ -205,7 +181,6 @@ function AccountProviders({ children }: { children: ReactNode }) {
         queryClient.removeQueries({ queryKey: ["settings"] });
     }, [queryClient, session]);
 
-    // Load this account's queue of offline changes and keep replaying it.
     const userId = session?.user.id ?? null;
     useEffect(() => {
         let stop: (() => void) | undefined;
@@ -261,8 +236,6 @@ function AccountProviders({ children }: { children: ReactNode }) {
         };
     }, [navigate]);
 
-    // Web only (desktop ships its own updater): when a newer build is live, keep a
-    // Reload toast up until the user acts on it.
     useEffect(() => {
         if (IS_DESKTOP_RUNTIME || !import.meta.env.PROD) return;
 
@@ -275,7 +248,7 @@ function AccountProviders({ children }: { children: ReactNode }) {
                 const { buildId } = (await response.json()) as { buildId?: string };
                 if (!buildId || buildId === CADENCE_BUILD_ID) return;
             } catch {
-                return; // Offline or mid-deploy: try again later.
+                return;
             }
             shown = true;
             toast.info("A new version of Cadence is available.", {
@@ -293,8 +266,6 @@ function AccountProviders({ children }: { children: ReactNode }) {
         };
     }, []);
 
-    // A screen's code failed to load: offline it wasn't saved yet; online the
-    // deploy moved on under this tab, so reload once onto the new build.
     useEffect(() => {
         const onPreloadError = (event: Event) => {
             event.preventDefault();
@@ -314,7 +285,6 @@ function AccountProviders({ children }: { children: ReactNode }) {
         return () => window.removeEventListener("vite:preloadError", onPreloadError);
     }, []);
 
-    // Ask the browser not to evict the saved workspace and queued changes (best effort).
     useEffect(() => {
         if (!IS_DESKTOP_RUNTIME && userId) void navigator.storage?.persist?.().catch(() => undefined);
     }, [userId]);
@@ -323,16 +293,13 @@ function AccountProviders({ children }: { children: ReactNode }) {
     useEffect(() => () => accountPersister?.dispose(), [accountPersister]);
     const persistOptions = useMemo(
         () => ({
-            // Do not discard the saved account cache while auth is unresolved.
             persister: accountPersister ?? {
                 persistClient: () => Promise.resolve(),
                 restoreClient: () => Promise.resolve(undefined),
                 removeClient: () => Promise.resolve(),
             },
             maxAge: OFFLINE_CACHE_MAX_AGE,
-            // Bump QUERY_CACHE_VERSION when cached server data changes shape; old caches are dropped.
             buster: `${QUERY_CACHE_VERSION}:${session?.user.id ?? ""}`,
-            // Queries marked `meta: { persist: false }` (location, weather, AI thread history) stay in memory only.
             dehydrateOptions: {
                 shouldDehydrateQuery: (query: Parameters<typeof defaultShouldDehydrateQuery>[0]) =>
                     defaultShouldDehydrateQuery(query) && query.meta?.persist !== false,
@@ -407,13 +374,11 @@ function AccountProviders({ children }: { children: ReactNode }) {
                 >
                     {authReady && session?.user.id && <BackgroundLayer key={session.user.id} />}
                     <div className="relative">
-                        {/* App-wide so sheets and overlays mounted beside MainLayout can use `Tip`. */}
                         <AppMotion>
                             <TooltipProvider delayDuration={300}>
                                 <WorkspaceStartup>{children}</WorkspaceStartup>
                                 <OfflineBanner />
                                 <RequiredDesktopUpdateGate />
-                                {/* The quick-capture window is a second copy of the app: the main window keeps things in sync. */}
                                 {!pathname.startsWith("/desktop/") && <AccountSync />}
                                 <SharedMoveConfirmHost />
                             </TooltipProvider>
@@ -427,7 +392,6 @@ function AccountProviders({ children }: { children: ReactNode }) {
     );
 }
 
-/** Blocks outdated desktop builds behind the required-update screen before workspace or sign-in use. */
 function RequiredDesktopUpdateGate() {
     const minVersion = useRequiredDesktopVersion();
     const update = useAvailableDesktopUpdate();
@@ -448,7 +412,6 @@ function RequiredDesktopUpdateGate() {
     );
 }
 
-/** Zone, wake and live sync, mounted once per account: a screen change never reconnects or drops a pending refresh. */
 function AccountSync() {
     useZoneSync();
     useWakeRefresh();
@@ -459,7 +422,6 @@ function AccountSync() {
 
 const REDUCED_MOTION = { reduced: "always", full: "never" } as const;
 
-/** One motion config for every framer component: the Motion setting (else the OS) and calm default physics. */
 function AppMotion({ children }: { children: ReactNode }) {
     const motion = useSettings().data?.appearance?.motion;
     const reducedMotion = motion === "reduced" || motion === "full" ? REDUCED_MOTION[motion] : "user";

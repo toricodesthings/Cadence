@@ -4,23 +4,16 @@ import type { Instant, LocalDate } from "@cadence/domain/time";
 import { QuickScheduleSurface, type ScheduleUpdates } from "./QuickScheduleSurface";
 
 interface DeadlinePickerPopoverProps {
-    /** One element: the trigger. */
     children: React.ReactElement<React.HTMLAttributes<HTMLElement>>;
-    /** A day: the deadline, or the first day of an all-day span. Never a time. */
     dueDate: LocalDate | null;
-    /** Inclusive last day of an all-day span. */
     endDate?: LocalDate | null;
-    /** A timed block (instants). */
     scheduledStart: Instant | null;
     scheduledEnd?: Instant | null;
     recurrenceRule: string | null;
     onChange: (updates: ScheduleUpdates) => void;
-    /** "moment" picks one date and time (reminders, check-ins). */
     variant?: "schedule" | "moment";
-    /** Optional control of the open state (e.g. open it from a switch). */
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
-    /** On close, focus goes here instead of back to the trigger (a field that keeps typing, then Enter saves). */
     returnFocus?: () => void;
 }
 export const DeadlinePickerPopover: React.FC<DeadlinePickerPopoverProps> = ({

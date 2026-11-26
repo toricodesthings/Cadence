@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { instantSchema, localDateSchema, wallTimeSchema } from "./common";
 
-/** How much the assistant remembers. `null` (in settings) means the person hasn't chosen yet, which behaves as Basic. */
 export const memoryModeSchema = z.enum(["off", "basic", "full"]);
 export type MemoryMode = z.infer<typeof memoryModeSchema>;
 
@@ -9,7 +8,6 @@ export const MEMORY_KINDS = ["preference", "quirk", "life", "constraint", "patte
 export const memoryKindSchema = z.enum(MEMORY_KINDS);
 export type MemoryKind = z.infer<typeof memoryKindSchema>;
 
-/** Kinds only Full learns (from activity). */
 export const FULL_ONLY_KINDS: readonly MemoryKind[] = ["pattern", "duration"];
 
 export const memorySourceSchema = z.enum(["explicit", "chat", "note", "activity", "backfill"]);
@@ -21,12 +19,10 @@ export type MemoryConfidence = z.infer<typeof memoryConfidenceSchema>;
 export const MEMORY_CONTENT_MAX = 300;
 export const MEMORY_LABEL_MAX = 60;
 
-/** One remembered fact as the page and the tools show it. `content` is plain text with any date written in. */
 export const memoryFactSchema = z.object({
     id: z.uuid(),
     kind: memoryKindSchema,
     content: z.string().max(MEMORY_CONTENT_MAX),
-    /** First mention: what makes "you mentioned in August" true. */
     saidOn: localDateSchema,
     lastSeenOn: localDateSchema,
     seenCount: z.number().int(),
@@ -35,24 +31,17 @@ export const memoryFactSchema = z.object({
     confidence: memoryConfidenceSchema,
     sensitive: z.boolean(),
     pinned: z.boolean(),
-    /** The chat it came from, when it came from one. */
     conversationId: z.uuid().nullable(),
 });
 export type MemoryFact = z.infer<typeof memoryFactSchema>;
 
-/** `GET /ai/memory`. Forgotten items come back as topic labels only. Facts come 30 at a time, newest first; the cursor continues. */
 export const MEMORY_PAGE_SIZE = 30;
 export const memoryPageQuerySchema = z.object({ cursor: z.string().max(200).optional() });
 
 export const memoryPageSchema = z.object({
     mode: memoryModeSchema.nullable(),
     choiceAt: instantSchema.nullable(),
-    /** Stored items are shown but not used while the mode is off. */
     inactive: z.boolean(),
-    /**
-     * Full's read of the last 3 months: a rough share done (chats by how far back it has read, then notes) and
-     * what it learned. Kept for a week after it finishes, for the "Done" line; null otherwise.
-     */
     catchUp: z
         .object({
             progress: z.number().min(0).max(1),
@@ -61,19 +50,16 @@ export const memoryPageSchema = z.object({
         })
         .nullable(),
     facts: z.array(memoryFactSchema),
-    /** Pass to `GET /ai/memory?cursor=` for the next 30 older facts; null at the end. */
     nextCursor: z.string().nullable(),
     forgotten: z.array(z.object({ id: z.uuid(), label: z.string() })),
 });
 export type MemoryPage = z.infer<typeof memoryPageSchema>;
 
-/** `POST /ai/memory/mode`. The server stamps the choice time and bumps the epoch. */
 export const setMemoryModeSchema = z.object({
     mode: memoryModeSchema,
 });
 export type SetMemoryMode = z.infer<typeof setMemoryModeSchema>;
 
-/** How long something took, as the person said it: one number, or a range ("30-60"). */
 export const durationValueSchema = z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("point"), minutes: z.number().int().min(1).max(1440) }),
     z
@@ -86,19 +72,15 @@ export const durationValueSchema = z.discriminatedUnion("kind", [
 ]);
 export type DurationValue = z.infer<typeof durationValueSchema>;
 
-/** `POST /ai/memory/duration`: one answer for the completion `completedAt` names. A second answer for it replaces the first. */
 export const durationReportSchema = z.object({
     taskId: z.uuid(),
     completedAt: instantSchema,
     value: durationValueSchema,
-    /** The answer came from the relative stage ("About right", Shorter, Longer). */
     anchored: z.boolean().default(false),
-    /** The question's token, when answering the question (resets the back-off). */
     token: z.string().max(100).optional(),
 });
 export type DurationReport = z.input<typeof durationReportSchema>;
 
-/** What the server stored: the Took row and the toast render this, never their own draft. */
 export const durationReportViewSchema = z.object({
     taskId: z.uuid(),
     completedAt: instantSchema,
@@ -108,20 +90,17 @@ export const durationReportViewSchema = z.object({
 });
 export type DurationReportView = z.infer<typeof durationReportViewSchema>;
 
-/** How long a routine took on one marked day (and, for a routine at set times, one marked time). */
 export const routineDurationKeySchema = z.object({
     habitId: z.uuid(),
     day: localDateSchema,
     time: wallTimeSchema.nullable().optional(),
 });
 export type RoutineDurationKey = z.infer<typeof routineDurationKeySchema>;
-/** `POST /ai/memory/duration/routine`: the day must be marked done; a second answer for the same day and time replaces the first. */
 export const routineDurationSchema = routineDurationKeySchema.extend({
     value: durationValueSchema,
     anchored: z.boolean().default(false),
 });
 export type RoutineDuration = z.input<typeof routineDurationSchema>;
-/** `GET|DELETE /ai/memory/duration/routine` query. */
 export const routineDurationQuerySchema = z.object({
     habitId: z.uuid(),
     day: localDateSchema,
@@ -137,7 +116,6 @@ export const routineDurationViewSchema = z.object({
 });
 export type RoutineDurationView = z.infer<typeof routineDurationViewSchema>;
 
-/** `POST /ai/memory/duration/ask`: should the toast be shown for this just-completed task? */
 export const durationAskSchema = z.object({ taskId: z.uuid() });
 export const durationAskResultSchema = z.union([
     z.object({ ask: z.literal(false) }),
@@ -150,19 +128,14 @@ export const durationAskResultSchema = z.union([
 ]);
 export type DurationAskResult = z.infer<typeof durationAskResultSchema>;
 
-/** `POST /ai/memory/duration/shown`: the toast rendered. One miss per token. */
 export const durationShownSchema = z.object({ token: z.string().min(1).max(100) });
 
-/** `GET|DELETE /ai/memory/duration`: one completion's report. Without `completedAt` it is the task's current completion. */
 export const durationTaskSchema = z.object({ taskId: z.uuid(), completedAt: instantSchema.optional() });
 
-/** `GET /ai/memory/duration-evidence`: the person's reports as estimator input (Full only, else []). Newest first, at most 1,000. */
 export const durationEvidenceRowSchema = z.object({
-    /** The task's id, or a routine's (`series` is then true): the same id is the same thing. */
     taskId: z.uuid(),
     title: z.string(),
     projectId: z.uuid().nullable(),
-    /** The task repeats: the same task id is the same thing. */
     series: z.boolean(),
     lowMinutes: z.number().int(),
     highMinutes: z.number().int(),
@@ -171,7 +144,6 @@ export const durationEvidenceRowSchema = z.object({
 });
 export type DurationEvidenceRow = z.infer<typeof durationEvidenceRowSchema>;
 
-/** `DELETE /ai/memory` query: also switch memory off. */
 export const clearMemoryQuerySchema = z.object({
     turnOff: z
         .enum(["true", "false"])
@@ -179,7 +151,6 @@ export const clearMemoryQuerySchema = z.object({
         .transform((value) => value === "true"),
 });
 
-/** What `remember` hands back, and the chat shows as "Remembered: … · Undo". `kept`: it was already known (seen once more), so there is nothing to undo. */
 export const memoryReceiptSchema = z.object({
     ok: z.literal(true),
     action: z.enum(["saved", "kept", "updated", "forgot"]),

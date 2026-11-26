@@ -1,12 +1,3 @@
-/**
- * Learning (Basic and Full): after a conversation has been idle, one extraction call reads
- * what the person wrote since `metadata.memoryCursor`, and each candidate is consolidated against what
- * is already known (repeat, update or new) before anything is written.
- *
- * The cursor moves in the same transaction as the fact writes, and `memoryEpoch` is checked there: a retry
- * re-reads from the cursor, and a job that started before a mode change writes nothing.
- * Nothing the person wrote is logged.
- */
 // oxlint-disable-next-line triple-slash-reference -- the frontend typecheck compiles this file without backend src/types
 /// <reference path="../../../types/text-modules.d.ts" />
 import { generateText, NoObjectGeneratedError, Output } from "ai";
@@ -31,13 +22,10 @@ import { fenceMemoryState, isLearning, readMemoryState, type MemoryState } from 
 import { insertFact, isForgotten, nearestFacts, reinforceFact, updateFact, type NearFact } from "./memory-store";
 import extractPrompt from "../../../prompts/memory/extract.md";
 
-/** What the extraction call reads: about 6k tokens of the person's newest messages. */
 const READ_CHAR_BUDGET = 24_000;
 const EXTRACT_TIMEOUT_MS = 25_000;
-/** A match this close in cosine distance is the same fact restated (reinforce); further is a changed one (update). */
 export const SAME_FACT_DISTANCE = 0.08;
 
-/** The user message texts, newest kept under the budget, labelled m1… in time order. */
 export function buildReading(rows: { id: string; text: string }[]): { text: string; labels: Map<string, string> } {
     const kept: { id: string; text: string }[] = [];
     let used = 0;
@@ -60,33 +48,20 @@ export interface LearnResult {
     reinforced: number;
     updated: number;
     skipped: boolean;
-    /** The reading broke (model, embedding or database); the cursor stays for a retry. */
     failed?: boolean;
-    /** The day's extraction budget was spent: nothing was read, and the reading waits for tomorrow. */
     capped?: boolean;
 }
 
-/** Spends one of the day's extractions; asked only once there is something new to read. */
 export type Admit = () => Promise<boolean>;
 
 const NONE: LearnResult = { saved: 0, reinforced: 0, updated: 0, skipped: true };
 
-/** What was read, and where it came from. A chat's messages, a note's changed lines, or an old batch. */
 export interface Reading {
     messages: { id: string; text: string }[];
     source: "chat" | "note" | "backfill";
     conversationId: string | null;
 }
 
-/**
- * The shared path for everything memory reads (a chat, a note, a backfill batch): one extraction call,
- * consolidation of each candidate against what is known, then one transaction that writes the facts and
- * calls `advance` (the cursor: it moves with the writes, so a retry re-reads and a stale job writes nothing),
- * fenced by `state.epoch`. `advance` moves the cursor only from where this reading started and returns false
- * when an overlapping run already moved it, so a reading is written once. `admit`, when given, is asked just
- * before the extraction call, so only readings with something new count against the day's budget. Never throws:
- * a failure leaves the cursor, and the next run retries.
- */
 export async function learnFromReading(
     env: Env,
     userId: string,
@@ -98,18 +73,13 @@ export async function learnFromReading(
     const userHash = await hashIdentifier(userId);
     const { state, today } = ctx;
     try {
-        // 1 · One extraction call (outside any transaction), if the day's budget allows it.
         if (ctx.admit && !(await ctx.admit())) return { ...NONE, capped: true };
         const labelled = buildReading(reading.messages);
         const reply = await extract(env, userHash, today, labelled.text);
-        // How long things took comes only from the person's answers on a completion (`duration_reports`), not from chat.
         const candidates = acceptCandidates(reply, labelled.labels);
         const facts = candidates;
 
-        // 2 · Consolidate each fact: embed, find the closest known facts, ask which one it repeats.
         const model = getEmbeddingModelId(env);
-        // Without vectors a paraphrase of a forgotten fact can't be recognised, so a failure here writes nothing:
-        // the cursor stays and the next run reads the same messages again.
         const vectors =
             facts.length > 0
                 ? await embedTexts(
@@ -131,12 +101,10 @@ export async function learnFromReading(
             facts.map((c, i) => ({ content: c.content, near: near[i] })),
         );
 
-        // 3 · Write, move the cursor, fenced by the epoch.
         const result: LearnResult = { saved: 0, reinforced: 0, updated: 0, skipped: false };
         await withRls(db, userId, async (tx) => {
             const current = await fenceMemoryState(tx, userId);
-            if (current.epoch !== state.epoch || !isLearning(current.mode)) return; // the person changed the mode meanwhile
-            // The cursor moves first: a run that overlapped this one and already moved it means this reading is written.
+            if (current.epoch !== state.epoch || !isLearning(current.mode)) return;
             if (!(await advance(tx))) return;
             for (const [i, candidate] of facts.entries()) {
                 const match = matches[i];
@@ -154,7 +122,6 @@ export async function learnFromReading(
                     });
                     if (ok) result.updated++;
                 } else {
-                    // The same thing in other words after the person asked to forget it stays forgotten.
                     if (await isForgotten(tx, userId, vectors[i], model, candidate.kind)) continue;
                     const saved = await insertFact(tx, userId, {
                         kind: candidate.kind,
@@ -165,7 +132,6 @@ export async function learnFromReading(
                         saidOn: today,
                         validThrough: candidate.validThrough,
                         source: reading.source,
-                        // What they said in a chat is stated; what was read out of a note or an old batch is observed.
                         confidence: reading.source === "chat" ? "stated" : "observed",
                         conversationId: reading.conversationId,
                         messageId: candidate.messageId,
@@ -187,10 +153,6 @@ export async function learnFromReading(
     }
 }
 
-/**
- * Learns from one conversation: what the person wrote since `metadata.memoryCursor`. Never throws into
- * the cron: a failure leaves the cursor where it was, so the next run retries the same messages.
- */
 export async function learnFromConversation(
     env: Env,
     userId: string,
@@ -204,8 +166,6 @@ export async function learnFromConversation(
             const state = await readMemoryState(tx, userId);
             const [conversation] = await tx
                 .select({
-                    // Full microseconds (the column's own precision): a cursor rounded to milliseconds would sit just
-                    // behind `last_message_at` and the chat would look unread forever.
                     lastMessageAt: sql<string | null>`to_json(${aiConversations.lastMessageAt}) #>> '{}'`,
                     metadata: aiConversations.metadata,
                 })
@@ -224,7 +184,6 @@ export async function learnFromConversation(
                               eq(aiMessages.conversationId, conversationId),
                               eq(aiMessages.userId, userId),
                               eq(aiMessages.role, "user"),
-                              // After the cursor, and after the boundary Clear (or the release that made Basic the default) drew.
                               cursor || state.notBefore
                                   ? gt(
                                         aiMessages.createdAt,
@@ -277,7 +236,6 @@ export async function learnFromConversation(
     }
 }
 
-/** The model's structured reply for these messages (null when it produced nothing readable: nothing is learned, the cursor moves). Timeouts and network errors throw, so the reading is retried. */
 export async function extract(env: Env, userHash: string, today: string, reading: string): Promise<unknown> {
     if (!env.OPENROUTER_API_KEY) throw new Error("no model");
     const modelId = getModelId(env);

@@ -28,14 +28,6 @@ import {
 import type { SettingsView } from "@cadence/contracts/settings";
 import { normalizeSettings } from "./settings.service";
 
-/**
- * The user's photo background. One photo per account: an upload replaces the
- * previous one. Objects live in the private `USER_ASSETS` bucket under a
- * per-user prefix and are only ever served back to their owner through this
- * authenticated route — the bucket has no public URL.
- */
-
-/** Multipart overhead on top of the file itself. */
 const UPLOAD_BODY_SLACK = 64 * 1024;
 
 const uploadFormSchema = backgroundUploadMetaSchema.extend({ file: z.instanceof(File) });
@@ -57,7 +49,6 @@ async function writeSettings(tx: Tx, userId: string, settings: Record<string, an
     return normalizeSettings((row?.settings ?? {}) as Record<string, any>);
 }
 
-/** Delete every stored background for the user except `keepId`. */
 async function deleteBackgrounds(bucket: R2Bucket, userId: string, keepId?: string): Promise<void> {
     const keep = keepId ? backgroundObjectKey(userId, keepId) : null;
     let cursor: string | undefined;
@@ -131,8 +122,6 @@ export const backgroundRoutes = new Hono<{ Bindings: Env; Variables: AuthVariabl
                 throw error;
             }
 
-            // Replacement: the new photo is saved, so the old one goes. A failure here
-            // leaves an orphan that the next upload or delete sweeps up.
             await deleteBackgrounds(bucket, userId, id).catch(async (error) => {
                 logger.warn("storage", "background_cleanup_failed", {
                     requestId: getRequestId(c),
@@ -149,7 +138,6 @@ export const backgroundRoutes = new Hono<{ Bindings: Env; Variables: AuthVariabl
         const { id } = c.req.valid("param");
         const bucket = requireBucket(c.env, "Background");
 
-        // The key is built from the caller's own user id, so one user can never read another's photo.
         const object = await bucket.get(backgroundObjectKey(userId, id), { onlyIf: c.req.raw.headers });
         throwIfNotFound(object, "Background");
 
@@ -159,7 +147,6 @@ export const backgroundRoutes = new Hono<{ Bindings: Env; Variables: AuthVariabl
         const userId = c.get("userId");
         const bucket = requireBucket(c.env, "Background");
 
-        // Storage first: if it fails, settings still point at the photo and the user can retry.
         await deleteBackgrounds(bucket, userId);
 
         const settings = await withCallerRls(c, async (tx) => {

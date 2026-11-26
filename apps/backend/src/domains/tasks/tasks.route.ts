@@ -89,7 +89,6 @@ const nlpReparseSchema = z.object({
     parserVersion: z.string().max(20).optional(),
 });
 
-/** The task an earlier attempt of this same request already made, if any. */
 async function replayedTask(tx: Tx, userId: string, idempotencyKey: string | undefined, ownerId = userId) {
     const existingId = await checkIdempotency(tx, userId, idempotencyKey);
     if (!existingId) return undefined;
@@ -105,14 +104,12 @@ async function replayedTask(tx: Tx, userId: string, idempotencyKey: string | und
 
 type RouteContext = Context<{ Bindings: Env; Variables: AuthVariables }>;
 
-/** Who a write acts as: the list's owner (the rows stay theirs). Anyone else may only edit within the list. */
 function actingAs(access: ListAccess | null, userId: string) {
     requireEdit(access);
     const ownerId = access?.ownerId ?? userId;
     return { ownerId, guest: ownerId !== userId };
 }
 
-/** Tell everyone who can read the list, and push the rows this write returned. */
 function announce(c: RouteContext, accesses: (ListAccess | null)[], rows: Task[]) {
     noteAudience(c, ...accesses);
     for (const task of rows) noteChange(c, { type: "task", task });
@@ -120,11 +117,6 @@ function announce(c: RouteContext, accesses: (ListAccess | null)[], rows: Task[]
 
 type Group = { access: ListAccess | null; ids: string[]; ownerId: string; guest: boolean };
 
-/**
- * Write batches of task ids once per list they sit in, as that list's owner, then announce the rows. Unknown ids, and
- * other people's tasks outside shared lists, are skipped as they always were. `own` is what the caller owns: the
- * only rows their learning may see.
- */
 async function batchWrite(c: RouteContext, taskIds: string[], write: (tx: Tx, group: Group) => Promise<TaskRow[]>) {
     const userId = c.get("userId");
     const done = await withRls(getDbClient(c.env), userId, async (tx) => {
@@ -145,7 +137,6 @@ async function batchWrite(c: RouteContext, taskIds: string[], write: (tx: Tx, gr
 
 type CreateTaskBody = Omit<z.infer<typeof insertTaskSchema>, "tagIds" | "nlp">;
 
-/** The new task's words, parsed with the person's lists, tags and clock. */
 async function parseCreateNlp(tx: Tx, userId: string, nlp: NonNullable<z.infer<typeof insertTaskSchema>["nlp"]>) {
     const runtime = await loadNlpRuntime(tx, userId);
     const parsed = parseCanonicalNlpEnvelope(
@@ -158,7 +149,6 @@ async function parseCreateNlp(tx: Tx, userId: string, nlp: NonNullable<z.infer<t
     return { runtime, parsed };
 }
 
-/** The sent fields with what the words added (`inferTaskFieldsFromParse` already let explicit ones win). */
 function withInferred(body: CreateTaskBody, inferred: ReturnType<typeof inferTaskFieldsFromParse>, zone: Zone) {
     return {
         ...body,
@@ -207,7 +197,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const idempotencyKey = getIdempotencyKey(c);
 
         const metadata = await withCallerRls(c, async (tx, userId) => {
-            // Idempotency guard: return existing NLP metadata if already processed
             const dedupId = await checkIdempotency(tx, userId, idempotencyKey);
             if (dedupId) {
                 const [existing] = await tx
@@ -290,7 +279,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         const { task, broadcast, access, guest } = await withRls(db, userId, async (tx) => {
             let access = body.projectId ? await listAccess(tx, userId, body.projectId) : null;
             const { ownerId, guest } = actingAs(access, userId);
-            // Idempotency: return existing result if this mutation was already processed
             const replayed = await replayedTask(tx, userId, idempotencyKey, ownerId);
             if (replayed) return { task: replayed, broadcast: replayed, access, guest };
             if (guest) await assertListRoom(tx, access!.listId);
@@ -299,7 +287,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             const parsed = fromWords?.parsed ?? null;
 
             const zone = await userZone(tx, userId);
-            // `resolved`: the client sent the user's final fields; they are stored as sent and never re-inferred.
             const inferredFromWords =
                 fromWords && !nlp?.resolved
                     ? inferTaskFieldsFromParse(
@@ -318,7 +305,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                           zone,
                       )
                     : null;
-            // In someone else's list, NLP doesn't move the task to another list, though the caller's own tags still apply.
             const inferred =
                 inferredFromWords && guest ? { ...inferredFromWords, projectId: undefined } : inferredFromWords;
 
@@ -334,7 +320,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                       ...temporalColumns(sharedFields, zone),
                   };
 
-            // A list named in the words is the caller's own, but it may be one they share.
             if (taskBody.projectId && taskBody.projectId !== body.projectId)
                 access = await listAccess(tx, userId, taskBody.projectId);
             const { row, tagIds: storedTagIds } = await createTask(tx, ownerId, taskBody, allTagIds, userId);
@@ -343,7 +328,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                     ? await upsertPersonalReminder(tx, userId, row.id, guestReminder)
                     : null;
 
-            // Someone else's actions never train the owner's models (and the row isn't the caller's own).
             if (parsed && !guest) {
                 await persistNlpSnapshot(tx, parsed, row.id, userId);
             }
@@ -376,8 +360,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
 
             throwIfNotFound(tag, "Tag");
 
-            // Idempotent: re-attaching an attached tag (e.g. an offline replay) returns the
-            // existing association instead of tripping the unique (task, tag) index.
             const [assoc] = await tx.insert(taskTags).values({ taskId: id, tagId }).onConflictDoNothing().returning();
             if (assoc) return assoc;
             const [existing] = await tx
@@ -403,7 +385,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
 
         return c.json({ data: updatedTasks });
     })
-    // Fit today: one transaction for the whole day, and its Undo. Never a slot record or a reschedule signal (E12).
     .post("/place", apiValidator("json", placeTasksSchema), async (c) => {
         const userId = c.get("userId");
         const { items } = c.req.valid("json");
@@ -459,7 +440,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             const hasShared = Object.keys(sharedBody).length > 0;
 
             if (guest && hasPersonal && !hasShared) {
-                // Any member (including viewers) can set their own personal reminder without editing the shared task.
                 await upsertPersonalReminder(tx, userId, id, { reminderAt, reminderSilenced });
                 const rows = await overlayPersonalReminders(
                     tx,
@@ -492,7 +472,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                 }
             }
 
-            // Moving a caller-owned task into another list (possibly someone else's shared list, or own shared list).
             const destAccess =
                 !guest && body.projectId && body.projectId !== access?.listId
                     ? await listAccess(tx, userId, body.projectId)
@@ -559,8 +538,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         );
         if (body.title !== undefined || body.projectId !== undefined)
             c.executionCtx.waitUntil(suggestEffortGuess(c.env, userId, id));
-        // A choice about when to start something: the person's own (a drop, the time field) or a Cadence proposal they
-        // picked or undid. Best-effort and silent; it never changes the response.
         if (moving || findTime) {
             c.executionCtx.waitUntil(
                 recordSlot(c.env, userId, {
@@ -592,11 +569,7 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             const { updated, access } = await withCallerRls(c, async (tx, callerId) => {
                 const [{ access }] = await tasksByOwner(tx, callerId, [id]);
                 const { ownerId: userId } = actingAs(access, callerId);
-                // If the client sent the full ordered list, rebalance all affected tasks
                 if (orderedTaskIds && orderedTaskIds.length > 1) {
-                    // Batch all reorder updates into a single UPDATE with CASE. The cast is
-                    // required: drivers send JS numbers untyped, and a CASE whose branches are
-                    // all untyped resolves to text, which Postgres won't assign to a double.
                     const caseChunks = orderedTaskIds.map(
                         (taskId, idx) => sql`WHEN ${taskId} THEN ${computeGappedOrderIndex(idx)}::double precision`,
                     );
@@ -618,7 +591,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
                     return { updated: (await withTagIds(tx, rows))[0], access };
                 }
 
-                // Fallback: only update the single moved task
                 const rows = await tx
                     .update(tasks)
                     .set({ orderIndex, updatedAt: sql`NOW()` })
@@ -628,7 +600,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
             });
 
             throwIfNotFound(updated, "Task");
-            // Siblings moved too, which the one row can't show: the list refetches.
             noteAudience(c, access);
             if (updated.projectId) noteChange(c, { type: "list", listId: updated.projectId });
             return c.json({ data: updated });
@@ -680,7 +651,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
     .get("/:id", apiValidator("param", uuidParamSchema), async (c) => {
         const { id } = c.req.valid("param");
 
-        // RLS limits this to the caller's own tasks and those of lists shared with them.
         const [task] = await withCallerRls(c, async (tx, userId) =>
             withTagIds(
                 tx,
@@ -727,7 +697,6 @@ export const taskRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>(
         for (const row of deleted) noteChange(c, { type: "task.gone", id: row.id });
         return c.json({ data: deleted.map((row) => toTask(row, [])) });
     })
-    // Empty Trash. Registered before `/:id` so "trash" never reaches the id route.
     .delete("/trash", async (c) => {
         const deleted = await withCallerRls(c, (tx, userId) => deleteTrashedTasks(tx, userId));
         return c.json({ data: { deleted } });

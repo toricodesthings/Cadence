@@ -1,9 +1,5 @@
 import { clip as clipFiles, type ClipName } from "~/lib/clip";
 
-/**
- * The frame every chapter's panel sits in: lit glass with the buttons' gradient rim and a gem at two corners.
- * Its clip shows the poster until Journey's viewport watcher loads and plays it (lib/clip.ts).
- */
 export function Panel({ clip }: { clip: ClipName }) {
     const { av1, h264, poster } = clipFiles(clip);
     return (

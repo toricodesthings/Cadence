@@ -16,16 +16,9 @@ interface ResponsiveOverlayPanelProps {
     title?: string;
     showHeader?: boolean;
     mode?: "peek" | "focus";
-    /** When true, the children own the full sheet body as a flex column (header,
-     * scroll region, pinned footer) instead of sitting inside the default
-     * auto-scrolling body. Used by surfaces like the assistant that manage their
-     * own scroll + composer. */
     fill?: boolean;
-    /** Phone peek sheets: size to the content (still capped) instead of the fixed tall height. */
     fit?: boolean;
-    /** `room`: opened from a full-screen room (e.g. the note room), so it stacks above it. */
     layer?: "route" | "room";
-    /** Peek sheets: pulling up past the rest calls this (the caller switches to `mode="focus"`). */
     onExpand?: () => void;
 }
 
@@ -40,7 +33,6 @@ type SheetShape = {
     layer?: "route" | "room";
 };
 
-/** A peek sheet follows the finger (`y`) and sits above the keyboard; a full sheet only rises above it. */
 function sheetStyle(
     { isPeekMobile, isMobile, keyboard, aboveKeyboard, fit, isTablet }: SheetShape,
     y: MotionValue<number>,
@@ -59,7 +51,6 @@ function sheetStyle(
     return isMobile && keyboard ? { bottom: keyboard } : undefined;
 }
 
-/** Bottom peek sheet, full-screen focus sheet, or the side panel on a mouse. */
 function sheetClass({
     isPeekMobile,
     isMobile,
@@ -77,7 +68,6 @@ function sheetClass({
 }
 
 function shapeClass(isMobile: boolean, isFocus: boolean | undefined, fit: boolean, fill: boolean) {
-    // A `fill` panel brings its own header and footer: on the side panel they sit flush, padded only by a real inset.
     const pad = fill ? "pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]" : "safe-bottom safe-top";
     if (!isMobile) return `${pad} inset-y-0 right-0 border-l border-twilight-border`;
     if (isFocus) return "safe-bottom safe-top inset-0 border-none";
@@ -114,18 +104,15 @@ function SheetHeader({ title, onClose }: { title: string; onClose: () => void })
 
 const BACKDROP_LAYER = { room: "layer-room-sheet-backdrop", route: "layer-route-backdrop" } as const;
 
-/** Focus the sheet's own first field (or its heading) instead of Radix's first focusable. */
 function focusInitial(panel: HTMLElement | null, event: Event) {
     const target =
         panel?.querySelector<HTMLElement>("[data-initial-focus]") ??
         panel?.querySelector<HTMLElement>("[data-sheet-heading]");
     if (!target) return;
     event.preventDefault();
-    // The sheet is still sliding up from below the keyboard: a plain focus makes iOS pan the page to it.
     target.focus({ preventScroll: true });
 }
 
-/** Radix sees Escape before any child; a control that keeps Escape for itself says so. */
 function keepOwnedEscape(event: KeyboardEvent) {
     if ((event.target as Element | null)?.closest?.("[data-escape-owner]")) event.preventDefault();
 }
@@ -144,25 +131,21 @@ export function ResponsiveOverlayPanel({
     onExpand,
 }: ResponsiveOverlayPanelProps) {
     const shell = useShellMode();
-    // A bottom sheet (with its drag handle) is a touch gesture: a mouse gets the side panel at any width.
     const isMobile = shell.isCompact && shell.isTouch;
     const isFocus = mode === "focus";
     const isPeekMobile = isMobile && !isFocus;
-    // The keyboard never covers a sheet: it rides on top, footer controls (day, submit) just above the keys,
-    // as in the writing room. iOS keeps fixed elements in the layout viewport, under the keyboard.
     const live = useKeyboardInset(open && isMobile);
-    // Closing keeps the open shape, so the exit slides from where the sheet was instead of jumping first.
     const [held, setHeld] = useState({ inset: 0, aboveKeyboard: null as string | null });
     if (open && (held.inset !== live.inset || held.aboveKeyboard !== live.aboveKeyboard))
         setHeld({ inset: live.inset, aboveKeyboard: live.aboveKeyboard });
     const { inset: keyboard, aboveKeyboard } = open ? live : held;
     const panelRef = useRef<HTMLElement | null>(null);
+    const openerRef = useRef<HTMLElement | null>(null);
     const [panel, setPanel] = useState<HTMLElement | null>(null);
     const attachPanel = useCallback((node: HTMLElement | null) => {
         panelRef.current = node;
         setPanel(node);
     }, []);
-    // Grab anywhere. Enter and exit are CSS (`.sheet-*` in app.css), so a throw leaves from the finger.
     const { y, backdropOpacity } = useSheetGesture({
         element: panel,
         enabled: open && isPeekMobile,
@@ -174,14 +157,22 @@ export function ResponsiveOverlayPanel({
         <DialogPrimitive.Root open={open} onOpenChange={(next) => !next && onClose()}>
             <DialogPrimitive.Portal>
                 <DialogPrimitive.Overlay className={`${BACKDROP_LAYER[layer]} sheet-fade fixed inset-0`}>
-                    {/* Lightens as the sheet is pulled down; the outer layer keeps the enter/exit fade. */}
                     <motion.div style={{ opacity: backdropOpacity }} className="absolute inset-0 bg-twilight-void/85" />
                 </DialogPrimitive.Overlay>
 
                 <DialogPrimitive.Content
                     asChild
                     aria-describedby={undefined}
-                    onOpenAutoFocus={(event) => focusInitial(panelRef.current, event)}
+                    onOpenAutoFocus={(event) => {
+                        openerRef.current = document.activeElement as HTMLElement | null;
+                        focusInitial(panelRef.current, event);
+                    }}
+                    onCloseAutoFocus={(event) => {
+                        const opener = openerRef.current;
+                        if (!opener?.isConnected || opener === document.body) return;
+                        event.preventDefault();
+                        opener.focus({ preventScroll: true });
+                    }}
                     onEscapeKeyDown={keepOwnedEscape}
                 >
                     <motion.aside

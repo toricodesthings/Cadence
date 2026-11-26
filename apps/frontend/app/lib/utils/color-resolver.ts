@@ -1,4 +1,3 @@
-/** Map backend color accent tokens to hex values from the CSS theme */
 const ACCENT_MAP: Record<string, string> = {
     "luminous-amber": "#e8a44a",
     "moonlit-blue": "#7eb8d4",
@@ -24,7 +23,6 @@ export function resolveAccentColor(accent: string | null | undefined): string {
     return ACCENT_MAP[accent ?? "luminous-amber"] ?? ACCENT_MAP["luminous-amber"];
 }
 
-/** A tag's display colour: unset and "default" fall back to muted text. */
 export function resolveTagColor(
     color: string | null | undefined,
     fallback = "var(--color-twilight-text-muted)",

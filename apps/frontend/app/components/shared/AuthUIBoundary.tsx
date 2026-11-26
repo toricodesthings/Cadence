@@ -7,7 +7,6 @@ const Provider = lazy(() =>
     import("@neondatabase/auth/react/ui").then((module) => ({ default: module.AuthUIProvider })),
 );
 
-/** Only AuthView consumes this SDK context; workspace controls use our auth state. */
 export function AuthUIBoundary(props: ComponentProps<typeof AuthUIProvider>) {
     const { pathname } = useLocation();
     if (pathname !== "/auth" && !pathname.startsWith("/auth/")) return props.children;

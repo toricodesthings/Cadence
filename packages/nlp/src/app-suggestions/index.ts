@@ -1,7 +1,3 @@
-// Which supported apps a task or routine title points at. Deterministic phrase rules, no parser, no I/O:
-// an action next to an object ("check email", "log calories"), or an app's own name. It only ever orders a
-// picker; nothing here selects an app.
-
 export type AppCategory =
     | "email"
     | "food"
@@ -15,7 +11,6 @@ export type AppCategory =
     | "health"
     | "automation";
 
-/** An app as the caller offers it: `names` holds its name and aliases. */
 export interface AppDescriptor {
     id: string;
     category: AppCategory;
@@ -23,9 +18,7 @@ export interface AppDescriptor {
 }
 
 export interface AppSuggestion {
-    /** Supplied ids, in the order supplied. */
     ids: string[];
-    /** `named`: the title says the app; `category`: the title describes what it does. */
     basis: "named" | "category";
     category?: AppCategory;
 }
@@ -50,18 +43,15 @@ const RULES: Record<AppCategory, { actions: string; objects: string }> = {
     automation: { actions: "run|start", objects: "shortcuts?|automations?" },
 };
 
-// "Don't check email", "never", "stop": the person is steering away from it. Research wording names the topic, not the act.
 const ABSTAIN =
     /\b(don'?t|do not|never|stop|avoid|without|instead of|no more|skip|research|compare|comparison|alternatives?|versus|vs)\b/i;
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-// Patterns come from the constant RULES table above, never from input.
-const word = (pattern: string) => new RegExp(`(?:^|[^a-z0-9])(?:${pattern})(?![a-z0-9])`, "i"); // nosemgrep
+const word = (pattern: string) => new RegExp(`(?:^|[^a-z0-9])(?:${pattern})(?![a-z0-9])`, "i");
 
 const CATEGORY_PATTERNS = Object.entries(RULES).map(([category, { actions, objects }]) => ({
     category: category as AppCategory,
-    // The action, then at most three filler words, then the object: "check my work inbox".
-    pattern: new RegExp(`(?:^|[^a-z0-9])(?:${actions})(?:\\s+[a-z0-9'’-]+){0,3}?\\s+(?:${objects})(?![a-z0-9])`, "i"), // nosemgrep
+    pattern: new RegExp(`(?:^|[^a-z0-9])(?:${actions})(?:\\s+[a-z0-9'’-]+){0,3}?\\s+(?:${objects})(?![a-z0-9])`, "i"),
 }));
 
 export function suggestApps(title: string, apps: readonly AppDescriptor[]): AppSuggestion | null {

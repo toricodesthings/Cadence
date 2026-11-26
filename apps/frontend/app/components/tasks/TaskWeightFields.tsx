@@ -14,7 +14,6 @@ import type { EffortLevel, TaskPriority } from "@cadence/contracts/task";
 import type { EffortSuggestion } from "@cadence/nlp/effort";
 import { effortName, suggestionLabel, suggestionLevels } from "@cadence/domain/effort-evidence";
 
-/** Labelled priority chips for a composer's More fold. */
 export function PriorityField({ value, onChange }: { value: TaskPriority; onChange: (value: TaskPriority) => void }) {
     return (
         <div role="group" aria-label="Priority">
@@ -44,7 +43,6 @@ export function PriorityField({ value, onChange }: { value: TaskPriority; onChan
     );
 }
 
-/** Labelled effort chips; tapping the chosen one clears it. */
 export function EffortField({ value, onChange }: { value: EffortLevel; onChange: (value: EffortLevel) => void }) {
     return (
         <div role="group" aria-label="Effort">
@@ -73,10 +71,6 @@ export function EffortField({ value, onChange }: { value: EffortLevel; onChange:
     );
 }
 
-/**
- * "Suggested effort: High": a recommendation from the person's own earlier choices, never applied on its own.
- * One press uses a level; the separate × dismisses it for this draft. Saving without touching it leaves Effort unset.
- */
 export function EffortSuggestionRow({
     suggestion,
     onUse,
@@ -86,7 +80,6 @@ export function EffortSuggestionRow({
     suggestion: EffortSuggestion;
     onUse: (level: 1 | 2 | 3) => void;
     onDismiss: () => void;
-    /** A saved task's guess: marked `~` (announced as a guess) with its own Why. */
     guess?: { why?: string };
 }) {
     return (
@@ -135,7 +128,6 @@ export function EffortSuggestionRow({
     );
 }
 
-/** After "Use High": the choice stays visible where the suggestion was, with one press to take it back. */
 export function AcceptedEffort({ level, onUndo }: { level: 1 | 2 | 3; onUndo: () => void }) {
     return (
         <div role="status" className="flex items-center gap-1.5 text-[11px] text-twilight-text-soft">
@@ -153,7 +145,6 @@ export function AcceptedEffort({ level, onUndo }: { level: 1 | 2 | 3; onUndo: ()
     );
 }
 
-/** The line under a composer's title: the Effort just accepted (with Undo), or a suggestion to use or dismiss. */
 export function ComposerEffortRow({ choice }: { choice: ComposerEffort }) {
     if (choice.effort && choice.accepted) return <AcceptedEffort level={choice.effort} onUndo={choice.undoAccept} />;
     if (choice.suggestion)

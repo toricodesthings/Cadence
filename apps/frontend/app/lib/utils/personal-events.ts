@@ -10,7 +10,6 @@ import { today as todayDay } from "./user-zone";
 
 const EVENT_DEFAULT_TONE = "var(--accent-nav-schedule)";
 
-/** Colour choices for an event: no colour (the schedule tint) first, then the list palette. "" means none. */
 export const EVENT_SWATCHES = [
     { value: "", color: EVENT_DEFAULT_TONE, label: "Default" },
     ...PROJECT_ACCENT_OPTIONS.map((option) => ({
@@ -20,16 +19,10 @@ export const EVENT_SWATCHES = [
     })),
 ];
 
-/** An event's picked tint, or null for none (and for keys no longer in the palette). */
 export function eventToneColor(color: string | null | undefined): string | null {
     return PROJECT_ACCENT_OPTIONS.find((option) => option.value === color)?.varName ?? null;
 }
 
-/**
- * CSS vars for an event's look. `--event-tone` tints surfaces; `--event-ink` and `--event-ink-soft`
- * colour text. A picked colour is blended in oklab toward the theme's own text colour, so text keeps
- * AA contrast in every theme (raw palette colours drop near 2:1 on Daylight). No colour keeps the schedule tint.
- */
 export function eventToneStyle(color: string | null | undefined): CSSProperties {
     const tone = eventToneColor(color);
     return (
@@ -136,10 +129,6 @@ export function sortPersonalEventViewModels(items: PersonalEventViewModel[], mod
 
 export type PersonalEventView = "cards" | "list";
 
-/**
- * The list's month headings: by the month each event next comes round ("next", with the year once it isn't this
- * one) or its calendar month ("month-day"). Other sorts aren't about time, so they stay one unheaded group.
- */
 export function groupPersonalEventsByMonth(
     items: PersonalEventViewModel[],
     mode: PersonalEventSortMode,

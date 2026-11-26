@@ -1,9 +1,3 @@
-/**
- * Stands in for `@supabase/auth-js` (aliased in vite.config.ts). @neondatabase/auth's
- * Better Auth helpers import only these error classes from it, which otherwise pulls the
- * whole Supabase client (~230 KB source) onto the first screen. Same behaviour as
- * auth-js `lib/errors.js`. If an SDK update imports anything else, the build fails.
- */
 export class AuthError extends Error {
     __isAuthError = true;
     constructor(

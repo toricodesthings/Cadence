@@ -12,12 +12,6 @@ import { SITE_NAME, SITE_URL } from "~/lib/site";
 
 import "./legal.css";
 
-/*
- * A legal document in the page's own night: a masthead under twinkling stars, a lit "In short" panel, then one
- * section per clause, each wearing the next season (the journey's palettes) so a long read keeps a rhythm.
- * All styling is legal.css; the text lives in lib/legal/*.ts and this file never decides what it says.
- */
-
 const SEASONS = ["spring", "summer", "autumn", "winter"] as const;
 const MONTHS = [
     "January",
@@ -34,7 +28,6 @@ const MONTHS = [
     "December",
 ];
 
-/** "2026-09-30" → "30 September 2026", by hand so the server and the browser can never disagree on a timezone. */
 export function formatDay(iso: string) {
     const [y, m, d] = iso.split("-").map(Number);
     return `${d} ${MONTHS[m - 1]} ${y}`;
@@ -43,7 +36,6 @@ export function formatDay(iso: string) {
 const INLINE = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)\s]+\))/g;
 const SAFE_HREF = /^(https?:\/\/|mailto:|\/|#)/;
 
-/** `**bold**`, `` `code` `` and `[label](href)`: the only markup the documents may use. */
 function Inline({ text }: { text: string }) {
     return text.split(INLINE).map((part, i) => {
         if (part.startsWith("**")) return <strong key={i}>{part.slice(2, -2)}</strong>;
@@ -98,7 +90,6 @@ function Block({ block }: { block: LegalBlock }) {
                             {block.rows.map((row) => (
                                 <tr key={row[0]}>
                                     {row.map((cell, i) => (
-                                        // The header text rides along as a label, for the stacked phone layout
                                         <td key={i} data-label={block.head[i]}>
                                             <Inline text={cell} />
                                         </td>
@@ -181,12 +172,9 @@ export function LegalPage({
     eyebrow: string;
     inShortTitle?: string;
     inShortNote?: string;
-    /** Off for documents nobody reads end to end (the changelog). */
     readTime?: boolean;
-    /** The sibling document, offered at the end. */
     other: { label: string; href: string };
 }) {
-    // No Hero is mounted to lift the head script's hold; idle loops rest while the tab is away.
     useEffect(() => {
         startIntro();
         return watchAway();

@@ -1,13 +1,19 @@
 import { ArrowRight, Clock, Flame, Inbox, ListTodo, type LucideIcon } from "lucide-react";
 import { Button } from "../../primitives/Button";
+import { Skeleton } from "../../primitives/Skeleton";
 import { WeeklyResetHero } from "../../weekly-review/WeeklyResetHero";
 import { trackUsageEvent } from "../../../lib/api/track-event";
 import { StepShell } from "../StepShell";
 
-/** What's waiting, as the first stretch of the path the sidebar walks: three marks joined by a faint line. */
-function WaitingPath({ items }: { items: { icon: LucideIcon; count: number; label: string }[] }) {
+function WaitingPath({
+    items,
+    isLoading,
+}: {
+    items: { icon: LucideIcon; count: number; label: string }[];
+    isLoading?: boolean;
+}) {
     return (
-        <ol className="flex items-start justify-center">
+        <ol className="flex items-start justify-center" aria-busy={isLoading || undefined}>
             {items.map(({ icon: Icon, count, label }, i) => (
                 <li key={label} className="flex items-start">
                     {i > 0 ? (
@@ -18,15 +24,19 @@ function WaitingPath({ items }: { items: { icon: LucideIcon; count: number; labe
                     ) : null}
                     <span className="flex w-24 flex-col items-center gap-1 text-center @md:w-28">
                         <span
-                            className={`flex size-11 items-center justify-center rounded-full border ${count ? "border-accent-primary/40 bg-accent-primary/10 text-accent-primary" : "border-twilight-border text-twilight-text-muted"}`}
+                            className={`flex size-11 items-center justify-center rounded-full border ${count && !isLoading ? "border-accent-primary/40 bg-accent-primary/10 text-accent-primary" : "border-twilight-border text-twilight-text-muted"}`}
                         >
                             <Icon size={18} aria-hidden="true" />
                         </span>
-                        <span
-                            className={`mt-1 font-display text-2xl font-semibold leading-none tabular-nums ${count ? "text-twilight-text" : "text-twilight-text-muted"}`}
-                        >
-                            {count}
-                        </span>
+                        {isLoading ? (
+                            <Skeleton aria-hidden="true" className="mt-1 h-6 w-8 rounded-lg" />
+                        ) : (
+                            <span
+                                className={`mt-1 font-display text-2xl font-semibold leading-none tabular-nums ${count ? "text-twilight-text" : "text-twilight-text-muted"}`}
+                            >
+                                {count}
+                            </span>
+                        )}
                         <span className="text-sm text-twilight-text-soft">{label}</span>
                     </span>
                 </li>
@@ -35,13 +45,14 @@ function WaitingPath({ items }: { items: { icon: LucideIcon; count: number; labe
     );
 }
 
-/* ─── Step 0 · Welcome ─── */
 export function IntroStep({
     counts,
+    isLoading,
     onNext,
     titleInHeader,
 }: {
     counts: { captures: number; looseEnds: number; routines: number };
+    isLoading?: boolean;
     onNext: () => void;
     titleInHeader?: boolean;
 }) {
@@ -51,6 +62,7 @@ export function IntroStep({
             <div className="flex flex-col items-center gap-6">
                 <WeeklyResetHero className="-my-4 aspect-[2/1] w-full max-w-[440px] 2xl:max-w-[560px]" />
                 <WaitingPath
+                    isLoading={isLoading}
                     items={[
                         { icon: Inbox, count: counts.captures, label: plural(counts.captures, "thought", "thoughts") },
                         {

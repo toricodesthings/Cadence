@@ -10,7 +10,6 @@ import { openTaskDetails } from "../../lib/actions/task-details";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
-/** Restore a task from trash (ARCHIVED → ACTIVE) */
 export function useRestoreTask(options?: { showSuccessToast?: boolean; openDetailsOnSuccess?: boolean }) {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -26,12 +25,10 @@ export function useRestoreTask(options?: { showSuccessToast?: boolean; openDetai
         onMutate: async (id) => {
             await taskCache.cancel(queryClient);
             const snapshot = taskCache.snapshot(queryClient);
-            // Kept so a restore queued offline can put the task back in its lists now.
             const trashed = snapshot
                 .flatMap(([, list]) => (Array.isArray(list) ? (list as Task[]) : []))
                 .find((t) => t.id === id);
 
-            // Remove from archived/trash cache optimistically
             queryClient.setQueriesData<Task[]>({ queryKey: queryKeys.tasks.all }, (old) =>
                 transformListCache(old, (items) => items.filter((t) => t.id !== id)),
             );

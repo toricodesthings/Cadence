@@ -1,7 +1,3 @@
-/**
- * Real signatures, real expiry: `jose` verifies for real; only the remote key fetch is swapped for a local key set.
- * (security.test.ts mocks `jose` to drive the middleware chain, so it can't prove any of this.)
- */
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
 

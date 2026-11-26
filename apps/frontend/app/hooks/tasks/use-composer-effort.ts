@@ -2,10 +2,6 @@ import { useState } from "react";
 import type { EffortLevel } from "@cadence/contracts/task";
 import { useEffortSuggestion } from "./use-effort-suggestion";
 
-/**
- * A composer's Effort: the person's own choice (or a clear) always beats a suggestion,
- * and a suggestion they used is recorded as accepted.
- */
 export function useComposerEffort({
     title,
     projectId,
@@ -40,7 +36,6 @@ export function useComposerEffort({
         effort,
         suggestion,
         accepted: effort !== null && origin === "accepted",
-        /** What a save sends: the level, and who chose it when it was a person. */
         saved: { effort, ...(effort && origin && { effortOrigin: origin }) },
         set: (value: EffortLevel) => choose(value, value ? "manual" : null, true),
         accept: (level: EffortLevel) => choose(level, "accepted", true),

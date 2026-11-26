@@ -121,7 +121,6 @@ describe("get_projects counts and names", () => {
                 { title: "Two", projectId },
             ],
         });
-        // Newest first by default: the exact name still leads.
         const found = await call("get_projects", { query: "cadence" });
         expect(found.projects.map((p: any) => p.name)).toEqual(["Cadence", "Cadence notes"]);
         expect(found.projects[0]).toMatchObject({
@@ -145,7 +144,6 @@ describe("list destinations", () => {
                 .insert(projects)
                 .values(Array.from({ length: 50 }, (_, i) => ({ userId, name: `List ${i}` })))
                 .returning();
-            // Other lists must not consume a focused list's section budget.
             await tx.insert(taskSections).values(
                 Array.from({ length: 205 }, (_, i) => ({
                     userId,
@@ -476,7 +474,6 @@ describe("captures", () => {
         );
         expect(rentTask).toMatchObject({ title: "Pay rent", dueDate: null, scheduledStart: null, projectId: null });
         expect(paperTask).toMatchObject({ projectId, sectionId: sections[0].sectionId });
-        // "money" matched the tag the first draft made; tags are never duplicated by case.
         expect(paperTask.tagIds).toHaveLength(2);
         expect(paperTask.tagIds).toContain(rentTask.tagIds[0]);
         expect((await steps(rentTask.id)).map((s) => s.title)).toEqual(["Log in to bank"]);
@@ -506,7 +503,6 @@ describe("captures", () => {
         expect(results.map((r: any) => r.status)).toEqual(["kept", "discarded", "done", "clarifying"]);
         const completed = (await api("GET", `/${results[2].taskId}`)).body.data;
         expect(completed).toMatchObject({ title: "call mum", state: "COMPLETE", origin: "thought" });
-        // Undo trashes the task the capture had become; it can still be restored from Trash.
         expect((await api("GET", `/${created[0].taskId}`)).body.data.state).toBe("ARCHIVED");
 
         const open = (await call("get_inbox_items", {})).items;
@@ -539,7 +535,6 @@ describe("events and routine emoji", () => {
             patch: { label: "Mom's birthday", monthDay: "03-14", emoji: "🎂", startedOn: "1966-03-14" },
         });
         await call("save_event", { patch: { label: "Anniversary", monthDay: "09-30" } });
-        // Replaying a call adds nothing.
         await call("save_event", { patch: { label: "Dup", monthDay: "01-01" } }, "fixed");
         await call("save_event", { patch: { label: "Dup", monthDay: "01-01" } }, "fixed");
 
@@ -557,17 +552,14 @@ describe("events and routine emoji", () => {
         expect(items[0]).toMatchObject({ emoji: null, notify: true, startedOn: null });
 
         expect((await call("save_event", { eventId, patch: { label: "x" } })).ok).toBe(false);
-        // Ids match exactly: a prefix of a real id finds nothing and changes nothing.
         const prefixed = await call("save_event", { eventId: items[0].id.slice(0, 8), patch: { label: "x" } });
         expect(prefixed.ok).toBe(false);
-        // A uuid that isn't theirs finds nothing.
         const unknown = await call("save_event", {
             eventId: "01970000-0000-7000-8000-000000000009",
             patch: { label: "x" },
         });
         expect(unknown.ok).toBe(false);
         expect((await eventsApi("GET", "")).body.data.map((e: any) => e.label)).toEqual(["Anniversary", "Dup"]);
-        // The old 50-event cap is gone.
         for (let i = 0; i < 60; i++) await call("save_event", { patch: { label: `E${i}`, monthDay: "02-03" } });
         expect((await eventsApi("GET", "")).body.data).toHaveLength(62);
         const other = await createUser();

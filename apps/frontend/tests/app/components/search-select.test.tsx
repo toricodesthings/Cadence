@@ -26,7 +26,6 @@ const setup = (value = "CA", onValueChange = vi.fn()) => {
 
 describe("SearchSelect", () => {
     beforeEach(() => {
-        // jsdom has none of these; Radix Select reads them while opening.
         Element.prototype.scrollIntoView = vi.fn();
         Element.prototype.hasPointerCapture = vi.fn(() => false);
         Element.prototype.releasePointerCapture = vi.fn();

@@ -1,30 +1,15 @@
-/*
- * Loading scene layout, motion and gates (colours live in loading-tokens.css).
- * Motion is transform/opacity on whole boxes only. Every animation is written as
- * `animation: var(--ls-still, …)`: reduced motion defines --ls-still: none, and
- * each element's base transform is its designed still pose. Animate HTML boxes, never an
- * <svg>: Chrome keeps an svg with translate/rotate/scale off the compositor, so it repaints
- * on the main thread every frame. Wrap the svg in a div and animate the div.
- */
-
 .loading-screen {
     --ls-sw: max(100vw, 177.78vh);
     --ls-sh: max(100vh, 56.25vw);
     --su: calc(var(--ls-sw) / 1920);
     --stage-x: 50%;
     --stage-y: 50%;
-    /* Oscillations follow a sine; rises decelerate as they recede */
     --ls-ease-sine: cubic-bezier(0.37, 0, 0.63, 1);
     --ls-ease-rise: cubic-bezier(0.3, 0.15, 0.45, 1);
     background: var(--loading-sky-deep);
-    /* A fixed full-screen box: its layout and paint never touch the page being parsed beneath it. */
     contain: strict;
 }
 
-/* The decorative loops (rain, snow, leaves, wisps, grass) hold their first frame for the boot's
- * first ~600ms so parsing gets the CPU on weak phones; the head boot script then sets
- * data-loading-awake. Paused at the same pose, the first frame looks identical. Name the animated classes,
- * never `*`: a universal match made the flip restyle all ~3,000 scene elements in one frame. */
 :root:not([data-loading-awake])
     .loading-screen
     :is(.ls-leaf, .ls-leaf-body, .ls-petal, .ls-drop, .ls-flake, .ls-wisp, .ls-susuki > svg) {
@@ -43,7 +28,6 @@
     }
 }
 
-/* One 16:9 stage; every layer inside shares the 1920×1080 coordinate system */
 .loading-stage {
     position: absolute;
     left: var(--stage-x);
@@ -62,7 +46,6 @@
     height: 100%;
 }
 
-/* ── Season / mode gates ── */
 .ls-autumn {
     display: var(--ls-autumn);
 }
@@ -113,7 +96,6 @@
     transform-origin: 560px 300px;
 }
 
-/* ── Sky motion ── */
 .ls-twinkle {
     position: absolute;
     opacity: 0.6;
@@ -138,7 +120,6 @@
 .ls-mist-far {
     top: calc(680 * var(--su));
     height: calc(130 * var(--su));
-    /* Clear column (stage x 740–1180): far mist drops to 0.4 × 0.30 ≈ 0.12 */
     -webkit-mask-image: linear-gradient(90deg, #000 0 36%, rgb(0 0 0 / 0.4) 38.5% 61.5%, #000 64% 100%);
     mask-image: linear-gradient(90deg, #000 0 36%, rgb(0 0 0 / 0.4) 38.5% 61.5%, #000 64% 100%);
 }
@@ -148,7 +129,6 @@
     height: calc(90 * var(--su));
 }
 
-/* Seamless one-way tile: 2 × stage wide, content periodic every 1920 units */
 .ls-band {
     position: absolute;
     top: 0;
@@ -172,7 +152,6 @@
     top: calc(975 * var(--su));
     width: calc(1936 * var(--su));
     height: calc(105 * var(--su));
-    /* Stage centre, so its parallax scale lines up with the town it mirrors */
     transform-origin: calc(968 * var(--su)) calc(-435 * var(--su));
     animation: var(
         --ls-still,
@@ -181,7 +160,6 @@
     );
 }
 
-/* ── Idle parallax: a slow sine sway, larger for nearer planes (on `translate`, so it composes with each layer's own motion) ── */
 .loading-screen {
     --par-dur: 18s;
     --par-delay: -6s;
@@ -191,7 +169,6 @@
     animation: var(--ls-still, ls-parallax var(--par-dur) var(--ls-ease-sine) var(--par-delay) infinite alternate both);
 }
 
-/* Stage-filling planes overscan slightly so their edges never show while they sway */
 .ls-par-far {
     --par: calc(10 * var(--su));
     scale: 1.02;
@@ -207,7 +184,6 @@
     --par: 22px;
 }
 
-/* ── Hearth light: each town's warm bloom, breathing slowly (the outer box carries the season's glow strength) ── */
 .ls-hearth {
     position: absolute;
     left: calc(var(--x) * var(--su));
@@ -231,7 +207,6 @@
     animation: var(--ls-still, ls-hearth var(--dur) var(--ls-ease-sine) var(--delay) infinite both);
 }
 
-/* ── Lanterns ── */
 .ls-lanterns {
     position: absolute;
     inset: 0;
@@ -288,7 +263,6 @@
     animation: var(--ls-still, ls-flicker var(--fl) var(--ls-ease-sine) infinite both);
 }
 
-/* ── Particles (viewport-anchored) ── */
 .ls-particles {
     position: absolute;
     inset: 0;
@@ -316,7 +290,6 @@
     opacity: calc(var(--o) * 0.75);
 }
 
-/* Falling leaf: the box falls at a steady rate and swings on a sine; the leaf inside spins and flips in time with the swing. */
 .ls-leaf {
     width: var(--size);
     height: var(--size);
@@ -334,11 +307,9 @@
     display: block;
     width: 100%;
     height: 100%;
-    /* A vein-dark outline keeps the leaf legible when it crosses the lit town */
     stroke: var(--vein);
     stroke-width: 0.6;
     rotate: var(--pr);
-    /* ls-lift: the leaf drops through the middle of each swing and hangs at its ends */
     animation: var(
         --ls-still,
         ls-spin-z var(--dur) linear var(--delay) infinite both,
@@ -380,7 +351,6 @@
     );
 }
 
-/* Sakura petal: a notched teardrop that falls and swings like a leaf, without the spin */
 .ls-petal {
     width: var(--size);
     height: calc(var(--size) * 0.72);
@@ -409,7 +379,6 @@
     animation: var(--ls-still, ls-wisp var(--dur) var(--ls-ease-sine) var(--delay) infinite both);
 }
 
-/* ── Foreground frame (viewport-anchored, autumn only) ── */
 .ls-frame {
     position: absolute;
     display: var(--ls-autumn);
@@ -417,7 +386,6 @@
 }
 
 .ls-branch {
-    /* Leafy seasons only: autumn maples, summer greens */
     display: var(--ls-boughs);
     top: 0;
     width: clamp(110px, min(14vw, 30vh), 320px);
@@ -464,7 +432,6 @@
     right: 0;
 }
 
-/* Winter only: a small lit fir where the susuki stands in autumn */
 .ls-xmas {
     position: absolute;
     display: var(--ls-winter);
@@ -503,8 +470,6 @@
     background: radial-gradient(transparent 55%, var(--loading-vignette));
 }
 
-/* ── Logo, wordmark ── */
-/* Lantern glow: a wide soft field and an inner flame, both lit by the logo's growth (--ls-grow): faint while it is bare, full once it is drawn in */
 .ls-aura-core {
     translate: -50% -50%;
     mix-blend-mode: screen;
@@ -519,7 +484,6 @@
     background: radial-gradient(circle, color-mix(in srgb, var(--accent-primary) 26%, transparent) 0%, transparent 70%);
 }
 
-/* Moon-halo rings: thin broken arcs with a spark or two riding them, turning in opposite directions */
 .ls-halo-ring {
     position: absolute;
     top: 50%;
@@ -539,7 +503,6 @@
     overflow: visible;
 }
 
-/* The block reserves the outer ring's height (12.5rem × the 1.2 wide-screen scale), so the rings never overflow into the wordmark */
 .ls-logo-block {
     min-height: 15rem;
 }
@@ -554,7 +517,6 @@
     animation: var(--ls-still, ls-spin-rev 72s linear infinite);
 }
 
-/* The logo breathes: a slow swell and lift */
 .ls-logo-block {
     --ls-beat: 5s;
 }
@@ -563,13 +525,11 @@
     animation: var(--ls-still, ls-beat var(--ls-beat) var(--ls-ease-sine) infinite);
 }
 
-/* The mark's ink weighs up-left of its box (the crook and road reach right and down): nudge it so it sits centred in the rings by eye */
 .ls-logo {
     filter: var(--ls-logo-filter);
     translate: 2% 1.5%;
 }
 
-/* A box-less wrapper around everything in the logo block: it owns the loop so the glow, rings and logo share --ls-grow */
 .ls-grower {
     animation: var(--ls-still, ls-grow var(--ls-grow-loop) linear var(--ls-grow-hold) infinite);
 }
@@ -579,12 +539,6 @@
     overflow: visible;
 }
 
-/*
- * The logo grows like a branch. One number, --ls-grow, runs 0 → 1 (open), holds, then 1 → 0 (close), so the
- * closing is the opening played back. Each part takes its own slice of it (--from, --span), eased with a
- * smoothstep: ribbons draw along their length, leaves and blossoms unfurl from where they are attached.
- * Still (reduced motion, or no @property): --ls-grow stays 1 and the whole mark shows.
- */
 @property --ls-grow {
     syntax: "<number>";
     inherits: true;
@@ -593,9 +547,6 @@
 
 .ls-logo-block {
     --ls-grow-loop: 3.2s;
-    /* Custom properties only animate on the main thread, which the boot holds: a loop running through it drew
-       and folded the mark in jumps. So the whole mark (--ls-grow's initial 1) waits out a warm boot still, and
-       the loop starts after --ls-grow-hold at its open hold. --ls-grow-at is where the cycle's start would fall. */
     --ls-grow-hold: 1.4s;
     --ls-grow-at: calc(var(--ls-grow-hold) - var(--ls-grow-loop) * 0.375);
 }
@@ -608,7 +559,6 @@
 path.lg-part {
     stroke-dasharray: 1;
     stroke-dashoffset: calc((1 - var(--e)) * 1px);
-    /* A fully undrawn round-capped stroke still leaves a dot at its start */
     opacity: calc(var(--t) * 40);
 }
 
@@ -624,7 +574,6 @@ path.lg-part {
     );
 }
 
-/* The orbit is the trunk; the arcs branch off it, the road and its dashes follow, leaves open as the line passes them, the check lands last */
 [id$="lg-orbit"] {
     --from: 0;
     --span: 0.543;
@@ -687,7 +636,6 @@ path.lg-part {
     --sway-delay: -0.9s;
 }
 
-/* Two petals let go of the check's blossom once it has opened, and drift down and out before the mark folds back */
 .ls-logo .lg-petal[id$="lg-petal-7"],
 .ls-logo .lg-petal[id$="lg-petal-8"] {
     scale: none;
@@ -710,7 +658,6 @@ path.lg-part {
     --fall-delay: 0.12s;
 }
 
-/* Sidebar rail logo: still at rest, plays one opening cycle immediately while the icon rail is hovered */
 .rail-logo {
     --ls-ease-sine: cubic-bezier(0.37, 0, 0.63, 1);
 }
@@ -756,14 +703,11 @@ path.lg-part {
     gap: 0.9em;
     font-size: clamp(2.125rem, 2.95vw, 2.875rem);
     letter-spacing: 0.28em;
-    /* The tracking adds a trailing space after the last letter; pull the right rule back by it */
     text-indent: 0.28em;
     color: var(--loading-text);
     text-shadow: var(--ls-text-shadow);
 }
 
-/* The brand and the title share one cell; a title lifts the brand away and rises in under it. Flat
-   (2D) on purpose: text on a 3D layer re-rasterises at rest, so its weight flickered as it settled. */
 .ls-wordmark-faces {
     display: grid;
     min-width: 0;
@@ -793,8 +737,6 @@ path.lg-part {
     animation: var(--ls-still, ls-wordmark-in 420ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both);
 }
 
-/* With progress the title is a bar: a muted line the full colour fills from the left (useTitleFill).
-   The fill box overhangs the text so the glow isn't clipped; it starts at 10%. */
 .ls-title-muted,
 .ls-title-fill {
     grid-area: 1 / 1;
@@ -836,7 +778,6 @@ path.lg-part {
     }
 }
 
-/* Logo, then wordmark, settle in (ease-out-quint) */
 .ls-enter {
     animation: var(--ls-still, ls-enter 700ms cubic-bezier(0.22, 1, 0.36, 1) var(--ls-enter-delay, 0ms) backwards);
 }
@@ -846,13 +787,10 @@ path.lg-part {
 .ls-wordmark.ls-enter {
     --ls-enter-delay: 90ms;
 }
-/* Held until the first frame is painted (the head boot script sets data-loading-painted then), so a boot
-   that blocks before that frame fades the logo and wordmark in afterwards instead of having finished unseen */
 :root:not([data-loading-painted]) .ls-enter {
     animation-play-state: paused;
 }
 
-/* Thin rules flanking the wordmark, fading away from it */
 .ls-rule {
     flex: none;
     width: clamp(2rem, 4vw, 4.5rem);
@@ -875,7 +813,6 @@ path.lg-part {
     .ls-wordmark {
         text-indent: 0;
     }
-    /* Phones: one quiet ring, and the block shrinks to it */
     .ls-halo-ring-b {
         display: none;
     }
@@ -894,7 +831,6 @@ path.lg-part {
     }
 }
 
-/* The warm valley glow the wordmark sits in; keeps it ≥ 4.5:1 over mid-value daylight ridges. */
 .ls-wordmark-halo {
     position: absolute;
     inset: -9rem -14rem;
@@ -909,7 +845,6 @@ path.lg-part {
     }
 }
 
-/* ── Crops ── */
 @media (max-aspect-ratio: 3/4) {
     .loading-screen .ls-p-hide,
     .loading-screen .ls-branch-tl,
@@ -933,7 +868,6 @@ path.lg-part {
     }
 }
 
-/* ── Reduced motion: a designed still (OS setting unless the user chose "full", or the in-app setting) ── */
 [data-motion="reduced"] .loading-screen {
     --ls-still: none;
     --ls-fly-k: 0;
@@ -948,12 +882,6 @@ path.lg-part {
     }
 }
 
-/*
- * ── Leaving: the arrival flight ──
- * Loading.tsx animates each layer's own scale and opacity (FLIGHT): nearer planes scale more about the
- * vanishing point and fade first. Compositor properties only, so it plays while the revealed workspace
- * holds the main thread. --ls-fly-k is the one knob for how far it travels (0 under reduced motion).
- */
 .loading-screen {
     --ls-fly-k: 0.03;
     --ls-fly-origin: 50% 74%;
@@ -970,7 +898,6 @@ path.lg-part {
     pointer-events: none;
 }
 
-/* ── Keyframes ── */
 @keyframes ls-drift {
     from {
         transform: translateX(-50%);
@@ -1011,7 +938,6 @@ path.lg-part {
     72% {
         opacity: 1;
     }
-    /* Fades out just past the top edge, so the slow end of the rise still happens in frame */
     100% {
         transform: translate(calc(var(--dx) * var(--su)), calc(-120 * var(--su))) scale(0.72);
         opacity: 0;
@@ -1048,7 +974,6 @@ path.lg-part {
     }
 }
 
-/* Shared by leaves and snow: steady fall on `translate`, sine swing on `transform` (separate properties, so they compose) */
 @keyframes ls-fall {
     from {
         translate: 0 -12vh;
@@ -1185,7 +1110,6 @@ path.lg-part {
     }
 }
 
-/* Starts in the open hold (so it picks up seamlessly from the still mark), folds, rests bare, regrows */
 @keyframes ls-grow {
     0%,
     18.75% {
@@ -1200,7 +1124,6 @@ path.lg-part {
     }
 }
 
-/* Opening-only cycle for the sidebar rail logo on rail hover */
 @keyframes rail-logo-grow {
     from {
         --ls-grow: 0;
@@ -1210,7 +1133,6 @@ path.lg-part {
     }
 }
 
-/* Waits at the blossom while the mark grows, then drifts into its resting spot */
 @keyframes rail-petal-fall {
     0%,
     74% {
@@ -1236,7 +1158,6 @@ path.lg-part {
     }
 }
 
-/* From the blossom (--dx, --dy back from where the petal is drawn), through that spot, and on down */
 @keyframes ls-petal-fall {
     0%,
     37.5% {
@@ -1265,7 +1186,6 @@ path.lg-part {
     }
 }
 
-/* Opacity and transform only, so the compositor plays it while the boot holds the main thread */
 @keyframes ls-enter {
     from {
         opacity: 0;

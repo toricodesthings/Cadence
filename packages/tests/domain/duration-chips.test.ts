@@ -13,7 +13,6 @@ describe("duration chips", () => {
     it("scales a reference to 5 minutes, on the right side, with no repeats", () => {
         expect(relativeChips(45, "shorter").map((c) => c.minutes)).toEqual([10, 25, 35]);
         expect(relativeChips(45, "longer").map((c) => c.minutes)).toEqual([70, 90, 135]);
-        // 10 min: ¼ and ½ both round to the floor or collide, never equal or above the reference.
         const small = relativeChips(10, "shorter").map((c) => c.minutes);
         expect(small.every((m) => m < 10)).toBe(true);
         expect(new Set(small).size).toBe(small.length);

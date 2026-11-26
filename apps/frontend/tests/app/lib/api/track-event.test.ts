@@ -1,7 +1,3 @@
-/**
- * §13.2 Acceptance: Telemetry events are emitted for all major flows
- * only when diagnostics are enabled.
- */
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { apiClient } from "../../../../app/lib/api/client";
 import {

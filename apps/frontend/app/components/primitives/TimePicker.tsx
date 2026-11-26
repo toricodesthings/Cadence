@@ -8,23 +8,18 @@ interface TimePickerProps {
     onChange: (value: string) => void;
     icon?: React.ReactNode;
     className?: string;
-    /** Accessible name for the field, e.g. "Start time". Defaults to "Time". */
     label?: string;
     disabled?: boolean;
-    /** Shown while the value is "" (desktop; native time fields ignore it). */
     placeholder?: string;
-    /** Emptying the field commits "" instead of reverting. */
     clearable?: boolean;
 }
 
-/** Suggestion list: every 30 minutes across the day. */
 const SUGGESTIONS: string[] = Array.from({ length: 48 }, (_, i) => {
     const h = Math.floor(i / 2);
     const m = i % 2 === 0 ? "00" : "30";
     return `${String(h).padStart(2, "0")}:${m}`;
 });
 
-/** "HH:mm" → display label honoring the 12h/24h preference. */
 function formatTime(value: string, is24h: boolean): string {
     const [hs, ms] = value.split(":");
     const h = Number(hs);
@@ -35,7 +30,6 @@ function formatTime(value: string, is24h: boolean): string {
     return `${h12}:${ms} ${period}`;
 }
 
-/** "9", "9:30", "930" or "0905" as [hour, minute], before any AM/PM. */
 function hourMinute(digits: string): [number, number] | null {
     let h: number;
     let m: number;
@@ -56,7 +50,6 @@ function hourMinute(digits: string): [number, number] | null {
     return Number.isNaN(h) || Number.isNaN(m) || m > 59 ? null : [h, m];
 }
 
-/** The 24h hour: a period is honored; a bare 1–12 in 12h mode keeps the current value's AM/PM. */
 function to24Hour(h: number, period: "AM" | "PM" | null, current: string, is24h: boolean): number | null {
     if (period) return h < 1 || h > 12 ? null : (h % 12) + (period === "PM" ? 12 : 0);
     if (h > 23) return null;
@@ -65,12 +58,6 @@ function to24Hour(h: number, period: "AM" | "PM" | null, current: string, is24h:
     return (h % 12) + (Number.isNaN(curH) || curH < 12 ? 0 : 12);
 }
 
-/**
- * Forgiving parser: accepts "9", "9:30", "09:05", "930", "2:37pm", "9 p",
- * "14:30". Period is honored in both display modes. An ambiguous bare hour
- * (1–12 with no period) in 12h mode keeps the current value's AM/PM.
- * Returns canonical "HH:mm" or null when unparseable.
- */
 function parseTimeInput(raw: string, current: string, is24h: boolean): string | null {
     const text = raw.trim().toLowerCase();
     if (!text) return null;
@@ -87,7 +74,6 @@ function parseTimeInput(raw: string, current: string, is24h: boolean): string | 
     return h === null ? null : `${String(h).padStart(2, "0")}:${String(parts[1]).padStart(2, "0")}`;
 }
 
-/** Index of the suggestion closest to the given "HH:mm" value. */
 function nearestIndex(value: string, items: string[]): number {
     const toMin = (v: string) => {
         const [h, m] = v.split(":").map(Number);
@@ -106,7 +92,6 @@ function nearestIndex(value: string, items: string[]): number {
     return best;
 }
 
-/** The next row with the arrows, wrapping; with nothing highlighted, Down starts at the top and Up at the bottom. */
 function stepHighlight(h: number, delta: 1 | -1, count: number) {
     if (h < 0) return delta > 0 ? 0 : count - 1;
     return (h + delta + count) % count;
@@ -118,11 +103,6 @@ export function TimePicker(props: TimePickerProps) {
     return <DesktopTimePicker {...props} />;
 }
 
-/**
- * Mobile path: the platform's own time picker (iOS wheel, Android clock).
- * `type="time"` speaks "HH:mm" natively and follows the device's 12h/24h
- * locale automatically.
- */
 const FIELD_SHELL =
     "flex items-center gap-0.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1 has-[:disabled]:opacity-40";
 
@@ -145,12 +125,6 @@ function NativeTimeField({ value, onChange, icon, className, label, disabled, cl
     );
 }
 
-/**
- * Desktop path: a typeable field with a suggestion dropdown. Typing accepts
- * any minute in either convention; the list offers 30-minute shortcuts with
- * the current value highlighted and scrolled into view. Commits on Enter,
- * blur, or picking; invalid input silently reverts.
- */
 function DesktopTimePicker({
     value,
     onChange,
@@ -170,13 +144,11 @@ function DesktopTimePicker({
     const listRef = React.useRef<HTMLDivElement | null>(null);
     const lastSentRef = React.useRef(value);
 
-    // External value changes refresh the display text.
     React.useEffect(() => {
         lastSentRef.current = value;
         setText(formatTime(value, is24h));
     }, [value, is24h]);
 
-    // Ensure the current value always appears in the list, even off-step.
     const items = React.useMemo(() => {
         if (!value || SUGGESTIONS.includes(value)) return SUGGESTIONS;
         const list = SUGGESTIONS.slice();
@@ -209,14 +181,12 @@ function DesktopTimePicker({
         setOpen(true);
     }, [items, value]);
 
-    // Keep the highlighted row in view while navigating.
     React.useEffect(() => {
         if (!open || highlight < 0 || !listRef.current) return;
         const el = listRef.current.children[highlight] as HTMLElement | undefined;
         el?.scrollIntoView({ block: "nearest" });
     }, [open, highlight]);
 
-    /** Enter takes the highlighted row while the list is open, else what was typed. */
     const commitEnter = () => {
         if (open && highlight >= 0 && items[highlight]) commit(items[highlight]);
         else commitTyped();
@@ -263,13 +233,9 @@ function DesktopTimePicker({
                         onChange={(e) => {
                             setText(e.target.value);
                             if (!open) openList();
-                            // Typing takes over from the list: Enter commits the text, not a stale highlight.
                             setHighlight(-1);
                         }}
                         onFocus={(e) => {
-                            // Select the text but don't pop the list — opening on
-                            // focus flashes the dropdown on mount and on refocus
-                            // after a commit. The list opens on click or typing.
                             e.target.select();
                         }}
                         onClick={() => {

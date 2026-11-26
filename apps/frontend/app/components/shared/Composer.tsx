@@ -10,18 +10,10 @@ import * as AlertDialog from "../primitives/AlertDialog";
 import { Reveal } from "./Reveal";
 import { UtilitySheet } from "./UtilitySheet";
 
-/**
- * The one creation layout (schedule blocks, events, routines): a header with a
- * live summary, an optional band, a scrolling body and pinned actions. Desktop
- * gets a dialog, compact shells the shared sheet, so the two never drift (§4.5).
- * A dirty draft asks before it's thrown away.
- */
-
 const BAND = "shrink-0 overflow-y-auto [scrollbar-gutter:stable_both-edges]";
 export const TILE = "rounded-2xl border border-white/[0.06] bg-white/[0.03]";
 
 type ComposerIcon = ComponentType<{ size?: number; className?: string; "aria-hidden"?: boolean }>;
-/** The nav wayfinding shade a creator belongs to: events the schedule's, routines the routines'. */
 export type ComposerTone = "primary" | "schedule" | "habits";
 const TONE_VAR: Record<ComposerTone, string> = {
     primary: "var(--accent-primary)",
@@ -37,34 +29,22 @@ const SUBMIT_TONE: Record<ComposerTone, string> = {
 export interface ComposerProps {
     open: boolean;
     title: string;
-    /** Sits before the title at its size, so each creator reads at a glance. */
     icon?: ComposerIcon;
-    /** Colours the icon and the dialog's glow. */
     tone?: ComposerTone;
     subtitle?: ReactNode;
-    /** Sits between the header and the body, e.g. a list's section chips. */
     band?: ReactNode;
-    /** What kind of thing is being made (`ComposerTabs`): the header's centre in a compact sheet, text only, between X and ✓; a band in a dialog. */
     switcher?: ReactNode;
-    /** The primary action: a footer button in a dialog, the header ✓ in a compact sheet. Cancel/X is built in and asks before discarding. */
     submit: ComposerSubmitProps;
-    /** Extra controls at the footer's left (Capture's day and task toggles). */
     actions?: ReactNode;
-    /** The built-in close button's label; "Done" when every entry is already saved. */
     closeLabel?: string;
     isDirty: boolean;
     discardTitle?: string;
     discardDescription?: string;
     onClose: () => void;
-    /** Renders in place instead of in a dialog, e.g. the desktop quick-capture window. */
     inline?: boolean;
     children: ReactNode;
 }
 
-/**
- * One creator's contents for `Composer`, from its `use…Composer` hook, so a host
- * can hold several drafts in one shell (Quick Add's tabs) or wrap one alone.
- */
 export type ComposerDraft = Pick<
     ComposerProps,
     | "title"
@@ -81,7 +61,6 @@ export type ComposerDraft = Pick<
     | "discardDescription"
     | "children"
 > & {
-    /** Empties the draft; hosts call it on close. */
     reset: () => void;
 };
 
@@ -133,7 +112,6 @@ export function Composer({
             <ComposerSubmit {...submit} />
         </div>
     );
-    // A compact sheet: X and ✓ in the header, so only extra controls stay at the bottom.
     const sheetFooter = actionsNode ? (
         <div className={`${BAND} flex items-center border-t border-white/[0.06] px-5 py-3`}>{actionsNode}</div>
     ) : undefined;
@@ -241,7 +219,6 @@ export interface ComposerSubmitProps {
     tone?: ComposerTone;
 }
 
-/** The composer's primary action. */
 function ComposerSubmit({ onSubmit, submitLabel, icon: Icon, disabled, tone = "primary" }: ComposerSubmitProps) {
     return (
         <Button
@@ -257,7 +234,6 @@ function ComposerSubmit({ onSubmit, submitLabel, icon: Icon, disabled, tone = "p
     );
 }
 
-/** The big underlined name field every composer opens on, with an optional mark (emoji) before it. */
 export function ComposerTitle({
     leading,
     inputRef,
@@ -283,11 +259,9 @@ export interface ComposerTabOption<T extends string> {
     id: T;
     label: string;
     icon?: ComponentType<{ size?: number; "aria-hidden"?: boolean }>;
-    /** Overrides the selected colours, e.g. the schedule accent for events. */
     activeClassName?: string;
 }
 
-/** One-of-N segmented control: the composer's type switch, Once/Repeats, cadence, time mode. */
 export function ComposerTabs<T extends string>({
     options,
     value,
@@ -299,7 +273,6 @@ export function ComposerTabs<T extends string>({
     value: T;
     onChange: (value: T) => void;
     ariaLabel: string;
-    /** "tablist" when the choice swaps the whole body. */
     role?: "radiogroup" | "tablist";
 }) {
     const itemRole = role === "tablist" ? "tab" : "radio";
@@ -323,7 +296,6 @@ export function ComposerTabs<T extends string>({
                         onClick={() => onChange(option.id)}
                         className={cn(
                             "flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50",
-                            // Four or more choices share a phone-width row: tighter, so labels don't truncate.
                             options.length >= 4 ? "px-1.5 text-[13px]" : "px-2 text-sm",
                             active
                                 ? (option.activeClassName ?? "bg-accent-primary/15 text-accent-primary")
@@ -351,7 +323,6 @@ const WEEKDAY_LABELS: Record<WeekdayCode, { short: string; long: string }> = {
     SU: { short: "Sun", long: "Sunday" },
 };
 
-/** Mon–Sun toggles; at least one day always stays on. */
 export function WeekdayPicker({ value, onChange }: { value: WeekdayCode[]; onChange: (days: WeekdayCode[]) => void }) {
     return (
         <div role="group" aria-label="Select days of the week" className="grid grid-cols-7 gap-1 sm:gap-1.5">
@@ -382,7 +353,6 @@ export function WeekdayPicker({ value, onChange }: { value: WeekdayCode[]; onCha
     );
 }
 
-/** A tile with a label, one line of consequence copy and a switch; optional detail underneath. */
 export function ComposerToggle({
     icon: Icon,
     iconClassName = "text-accent-primary",
@@ -419,12 +389,10 @@ export function ComposerToggle({
     );
 }
 
-/** An iOS-style grouped card: one row per setting, hairlines between (`ComposerRow`). */
 export function ComposerRows({ children }: { children: ReactNode }) {
     return <div className={`${TILE} divide-y divide-white/[0.05]`}>{children}</div>;
 }
 
-/** A label (with its icon) on the left, its controls on the right; `detail` drops a full-width line underneath. */
 export function ComposerRow({
     icon: Icon,
     label,
@@ -450,12 +418,9 @@ export function ComposerRow({
     );
 }
 
-/** Field classes that turn `DatePicker`/`TimePicker` into the compact pills a `ComposerRow` holds. */
-/** The row already shows the field's icon, so the pill drops its own. */
 export const ROW_PILL =
     "w-auto! shrink-0 whitespace-nowrap min-h-10 rounded-full! px-3.5 [&>svg]:hidden [&>span>svg]:hidden";
 
-/** Everything optional folds in here, closed by default; `summary` echoes what's set inside. */
 export function ComposerMore({ summary, children }: { summary?: string | null; children: ReactNode }) {
     const [open, setOpen] = useState(false);
     const id = useId();
@@ -484,6 +449,5 @@ export function ComposerMore({ summary, children }: { summary?: string | null; c
     );
 }
 
-/** Class for plain fields (date, select, textarea) inside a composer. */
 export const COMPOSER_FIELD =
     "w-full rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-sm text-twilight-text outline-none placeholder:text-twilight-text-muted/60 focus-visible:ring-2 focus-visible:ring-accent-primary/50";

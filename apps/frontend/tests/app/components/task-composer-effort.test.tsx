@@ -4,7 +4,6 @@ import { useTaskComposer } from "../../../app/components/tasks/TaskComposer";
 import { Composer } from "../../../app/components/shared/Composer";
 import { projectEffortSuggestion } from "@cadence/domain/effort-evidence";
 
-// Real parser and real composers: under four parallel zone runs a wait needs more than the 1s default.
 configure({ asyncUtilTimeout: 5000 });
 
 const create = vi.fn();
@@ -20,7 +19,6 @@ vi.mock("../../../app/hooks/core/use-settings", () => ({
 vi.mock("../../../app/hooks/ui/use-shell-mode", () => ({
     useShellMode: () => ({ isCompact: false, isPhone: false, isWide: true }),
 }));
-// The real policy over a fixed history of High lab choices; the network read is the only thing replaced.
 vi.mock("../../../app/hooks/tasks/use-effort-suggestion", () => ({
     useEffortSuggestion: (i: {
         title: string;

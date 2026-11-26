@@ -8,14 +8,12 @@ export function testQueryClient() {
     return new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
 }
 
-/** `wrapper` for render/renderHook that provides a QueryClient. */
 export function withClient(client = testQueryClient()) {
     return ({ children }: { children: ReactNode }) => (
         <QueryClientProvider client={client}>{children}</QueryClientProvider>
     );
 }
 
-/** Makes `matchMedia` report a touch-first device (or a mouse), as `useShellMode().isTouch` reads it. */
 export function stubTouch(touch: boolean) {
     window.matchMedia = ((query: string) => ({
         matches: touch && query.includes("pointer: coarse"),
@@ -29,7 +27,6 @@ export function stubTouch(touch: boolean) {
     })) as typeof window.matchMedia;
 }
 
-/** Prints the router's path and query so tests can assert navigation. */
 export function Location() {
     const location = useLocation();
     return (

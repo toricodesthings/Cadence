@@ -29,17 +29,12 @@ export interface CollabSnapshot {
     peers: CollabPeer[];
 }
 
-/** Deterministic calm caret colour for a user id. */
 export function collabColorFor(userId: string): string {
     let hash = 0;
     for (let i = 0; i < userId.length; i++) hash = (hash * 31 + userId.charCodeAt(i)) | 0;
     return CARET_PALETTE[Math.abs(hash) % CARET_PALETTE.length]!;
 }
 
-/**
- * A WebSocket wrapper that injects `Sec-WebSocket-Protocol: cadence.collab, <jwt>`
- * using the cached auth token so JWTs never appear in query strings.
- */
 function makeAuthWebSocket(getToken: () => string | null): typeof WebSocket {
     return class AuthCollabWebSocket extends WebSocket {
         constructor(url: string | URL, _protocols?: string | string[]) {
@@ -49,11 +44,6 @@ function makeAuthWebSocket(getToken: () => string | null): typeof WebSocket {
     };
 }
 
-/**
- * Live collaborative Yjs session for a shared task's note, backed by `NoteCollab` DO (`y-partyserver`).
- * Handles initial Markdown seeding into the shared `Y.XmlFragment`, live awareness/carets,
- * and sending debounced Markdown snapshots over the same WebSocket to persist to `task_notes`.
- */
 export class CollabNoteHandle {
     readonly taskId: string;
     readonly doc: Y.Doc;
@@ -126,7 +116,6 @@ export class CollabNoteHandle {
         void this.start();
     }
 
-    /** Only show up as "here" while the note is actually open; the socket itself stays warm. */
     setPresent(present: boolean) {
         this.provider.awareness.setLocalState(present ? { user: this.user } : null);
     }
@@ -174,10 +163,6 @@ export class CollabNoteHandle {
 
     getSnapshot = (): CollabSnapshot => this.snapshot;
 
-    /**
-     * Seed an empty, unseeded Yjs document once from Postgres `task_notes.body` after initial sync.
-     * Uses `meta.seeded` so concurrent joiners never duplicate the initial Markdown.
-     */
     seedOnce(editor: Editor, initialMarkdown: string) {
         if (this.disposed || editor.isDestroyed || !this.provider.synced) return;
         const meta = this.doc.getMap("meta");
@@ -187,7 +172,6 @@ export class CollabNoteHandle {
             meta.set("seeded", true);
             return;
         }
-        // Deterministic single-seeder: if multiple peers join an unseeded room together, only the lowest clientID seeds.
         for (const clientId of this.provider.awareness.getStates().keys()) {
             if (clientId < this.doc.clientID) return;
         }
@@ -199,11 +183,9 @@ export class CollabNoteHandle {
         }
     }
 
-    /** Send the current serialized Markdown to `NoteCollab` DO for debounced persistence to `task_notes`. */
     sendSnapshot(markdown: string) {
         if (this.disposed) return;
         const ws = this.provider.ws;
-        // y-partyserver only routes string frames prefixed `__YPS:` to `onCustomMessage`; bare text is dropped.
         if (ws && ws.readyState === WebSocket.OPEN) ws.send(`__YPS:${JSON.stringify({ type: "snapshot", markdown })}`);
     }
 

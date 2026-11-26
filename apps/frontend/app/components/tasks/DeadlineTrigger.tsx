@@ -3,7 +3,6 @@ import { formatDateSpan, formatShortDate, formatShortDateTime } from "../../lib/
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 import type { ScheduleUpdates } from "./QuickScheduleSurface";
 
-/** The quick option chip (Date, Tags, List, Priority): one look in a list's add row, the tray and Capture. */
 export const QUICK_CHIP =
     "inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap rounded-lg border px-3 text-xs font-medium transition-colors pointer-coarse:min-h-11 pointer-coarse:rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 export const quickChipTone = (active: unknown) =>
@@ -11,10 +10,6 @@ export const quickChipTone = (active: unknown) =>
         ? "border-accent-primary/20 bg-accent-primary/10 text-accent-primary"
         : "border-twilight-border/35 bg-white/[0.03] text-twilight-text-soft hover:bg-white/[0.05]";
 
-/**
- * The date chip of a new task (a list's add row, Capture): it shows the day the draft will save, typed or picked,
- * and opens the full picker. One control in both places, so the habit carries over.
- */
 export function DeadlineTrigger({
     schedule,
     onChange,
@@ -24,11 +19,8 @@ export function DeadlineTrigger({
 }: {
     schedule: ScheduleUpdates;
     onChange: (updates: ScheduleUpdates) => void;
-    /** Where focus goes when the picker closes (default: back to this button). */
     returnFocus?: () => void;
-    /** Only the icon shows; the label stays in `aria-label`. */
     iconOnly?: boolean;
-    /** The pill of a composer's Date row (iOS grouped card): "None" until set, no icon (the row has it). */
     row?: boolean;
 }) {
     const set = Boolean(schedule.dueDate || schedule.scheduledStart);

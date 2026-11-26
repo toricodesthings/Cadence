@@ -9,7 +9,6 @@ vi.mock("../../../../app/hooks/tags/use-update-tag", () => ({ useUpdateTag: () =
 const tags = [1000, 2000, 3000].map((sortOrder, i) => ({ id: `t${i}`, name: `T${i}`, sortOrder })) as never;
 beforeEach(() => vi.clearAllMocks());
 
-/** A dragover/drop at `clientX` over the chip for `id`, which spans x 100–200. */
 const over = (id: string, clientX: number) => {
     const chip = document.createElement("button");
     chip.dataset.tagId = id;

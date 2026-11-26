@@ -116,7 +116,7 @@ describe("AppPane website", () => {
         pane(null);
         const input = openWebsite();
         expect(input.value).toBe("https://");
-        expect(screen.getByRole("button", { name: "Open website" })).toBeTruthy(); // not a link until the address is valid
+        expect(screen.getByRole("button", { name: "Open website" })).toBeTruthy();
         expect(screen.queryByRole("link")).toBeNull();
     });
 
@@ -144,7 +144,6 @@ describe("AppPane website", () => {
         expect(screen.getByRole("button", { name: "App: docs.example.org. Change app" }).textContent).toContain(
             "Website · Change",
         );
-        // The chooser is still animating closed; the collapsed row's link comes first.
         expect(screen.getAllByRole("link", { name: "Open docs.example.org" })[0].getAttribute("href")).toBe(
             "https://docs.example.org/",
         );

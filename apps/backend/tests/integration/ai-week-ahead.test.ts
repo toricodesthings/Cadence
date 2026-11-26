@@ -1,7 +1,6 @@
-/** The Weekly Reset's week, read from the real database for a user in Toronto: 7 days, the user's own days. */
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { apiAs } from "../helpers/app";
-import { createUser, startTestDb } from "../helpers/db";
+import { asOwner, createUser, startTestDb } from "../helpers/db";
 
 vi.mock("../../src/platform/db", async () => ({ getDbClient: (await import("../helpers/db")).getTestDb }));
 
@@ -11,7 +10,6 @@ import { habitRoutes } from "../../src/domains/habits/habits.route";
 
 beforeAll(startTestDb);
 
-// Monday 2026-09-21, 09:00 in Toronto.
 const clock = userClock("America/Toronto", "2026-09-21T13:00:00.000Z");
 const week = async (userId: string) =>
     JSON.parse(
@@ -61,7 +59,6 @@ describe("loadWeekAhead", () => {
         for (let i = 0; i < 5; i++)
             await tasks("POST", "", { title: `Extra ${i}`, orderIndex: 3 + i, dueDate: "2026-09-23" });
         await tasks("POST", "", { title: "Done already", orderIndex: 9, dueDate: "2026-09-23", state: "COMPLETE" });
-        // Fixed class, Wednesday 10:00–11:00 local.
         await tasks("POST", "", {
             title: "Class",
             orderIndex: 10,
@@ -73,11 +70,11 @@ describe("loadWeekAhead", () => {
 
         const wed = (await week(userId))[2];
         expect(wed.day).toBe("2026-09-23 Wed");
-        expect(wed.bookedMinutes).toBe(150); // 90 estimated + the 60-minute class; the others have no estimate
+        expect(wed.bookedMinutes).toBe(150);
         expect(wed.openMinutes).toBe(base.openMinutes - 150);
         expect(wed.fixedBlocks).toBe(1);
         expect(wed.routinesDue).toBe(1);
-        expect(wed.deadlines).toHaveLength(5); // capped, never the 7 open deadlines
+        expect(wed.deadlines).toHaveLength(5);
         expect(wed.more).toBe(true);
         expect(wed.deadlines.map((d) => d.title)).not.toContain("Done already");
         const other = (await week(userId))[3];
@@ -102,5 +99,29 @@ describe("loadWeekAhead", () => {
         await apiAs(other, "/tasks", taskRoutes)("POST", "", { title: "Theirs", orderIndex: 1, dueDate: "2026-09-22" });
         await apiAs(me, "/tasks", taskRoutes)("POST", "", { title: "Next week", orderIndex: 1, dueDate: "2026-09-28" });
         expect((await week(me)).flatMap((d) => d.deadlines)).toEqual([]);
+    });
+
+    it("lists every shared deadline but books only the member's share of it", async () => {
+        const [owner, member] = [await createUser(), await createUser({ zone: "America/Toronto" })];
+        const listId = crypto.randomUUID();
+        await asOwner(async (pg) => {
+            await pg.query("insert into projects (id, user_id, name) values ($1, $2, 'Our House')", [listId, owner]);
+            await pg.query("insert into list_members (list_id, user_id, role) values ($1, $2, 'edit')", [
+                listId,
+                member,
+            ]);
+            for (const [title, takenBy] of [
+                ["Ours", null],
+                ["Mine", member],
+                ["Ada's", owner],
+            ])
+                await pg.query(
+                    "insert into tasks (user_id, project_id, title, order_index, due_on, duration_estimate, taken_by) values ($1, $2, $3, 0, '2026-09-23', 60, $4)",
+                    [owner, listId, title, takenBy],
+                );
+        });
+        const wed = (await week(member))[2];
+        expect(wed.deadlines.map((d) => d.title).sort()).toEqual(["Ada's", "Mine", "Ours"]);
+        expect(wed.bookedMinutes).toBe(90);
     });
 });

@@ -1,8 +1,6 @@
 import type { TaskPriority } from "@cadence/contracts/task";
 import { TASK_PRIORITY_LABELS } from "@cadence/contracts/constants";
 
-// Presentation-only layer (Tailwind classes; icons live in task-choice-options). The semantic
-// `label` is single-sourced from @cadence/contracts/constants.
 const PRIORITY_PRESENTATION: Record<TaskPriority, { color: string; barColor: string }> = {
     0: { color: "text-twilight-text-muted/40", barColor: "" },
     1: {
@@ -27,8 +25,8 @@ export const PRIORITY_CONFIG: Record<
     TaskPriority,
     {
         label: string;
-        color: string; // Tailwind text class using CSS var
-        barColor: string; // Tailwind bg class using CSS var for priority bar
+        color: string;
+        barColor: string;
     }
 > = {
     0: { label: TASK_PRIORITY_LABELS[0], ...PRIORITY_PRESENTATION[0] },

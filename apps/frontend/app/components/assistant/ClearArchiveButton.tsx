@@ -5,10 +5,6 @@ import { Button } from "../primitives/Button";
 import { useClearArchive } from "../../hooks/ai/use-conversation-mutations";
 import { cn } from "../../lib/utils";
 
-/**
- * "Clear archive": deletes EVERY archived conversation after a confirm. Shared by
- * the Conversations drawer and Settings › Assistant.
- */
 export function ClearArchiveButton({ disabled, className }: { disabled?: boolean; className?: string }) {
     const [open, setOpen] = useState(false);
     const clear = useClearArchive();

@@ -1,9 +1,5 @@
 import { useRef, useCallback } from "react";
 
-/**
- * Provides j/k section navigation by scrolling data-section-key elements
- * into view. Tracks "current" index via a ref.
- */
 export function useSectionNav() {
     const currentIndex = useRef(0);
 

@@ -7,17 +7,11 @@ interface RangeSliderProps {
     min: number;
     max: number;
     step?: number;
-    /** Rendered next to the label, e.g. "40%". */
     format?: (value: number) => string;
     onChange: (value: number) => void;
     className?: string;
 }
 
-/**
- * A labelled slider for appearance adjustments. Native `input[type=range]`, so
- * keyboard and assistive-tech behaviour come for free; the look is the
- * `.cadence-range` utility in app.css.
- */
 export function RangeSlider({
     label,
     value,

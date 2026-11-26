@@ -1,8 +1,3 @@
-/**
- * Upload check for a PDF sent to the assistant. The Worker never parses a PDF (the
- * model provider reads its text); this only refuses what can't work: not a PDF,
- * password-protected, or over the page cap.
- */
 import { CHAT_FILE_LIMITS } from "@cadence/contracts/ai";
 import { AppError } from "./errors";
 
@@ -16,7 +11,6 @@ export function checkPdf(bytes: Uint8Array): { pages: number | null } {
     const text = latin1.decode(bytes);
     if (/\/Encrypt\b/.test(text)) throw new AppError(400, "FILE_LOCKED", "That PDF is password-protected");
 
-    // The page tree root is the `/Type /Pages` dictionary without a `/Parent`; its `/Count` is the total.
     let pages: number | null = null;
     for (const dict of text.matchAll(/<<(?:(?!<<|>>)[\s\S])*?>>/g)) {
         const body = dict[0];

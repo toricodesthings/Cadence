@@ -74,16 +74,10 @@ const routineFields = z.object({
     tagIds: z.array(z.uuid()).max(20).optional().describe("Its tags (replaces them on change)."),
 });
 
-/** Hard cap on the span one history read covers. */
 const MAX_HISTORY_DAYS = 62;
 
 type DayStatus = "done" | "skipped" | "missed" | "partial" | "open";
 
-/**
- * Each routine's due days in [from, to] with how each went, the way Routines
- * shows them (`habitDays`): done, skipped, missed (due, nothing logged, before
- * today), partial (some steps or times settled, the day not), or open (today, not yet).
- */
 async function routineDays(
     tx: Tx,
     userId: string,
@@ -172,7 +166,6 @@ function shareMeta(row: ResolvedHabitRow, turn?: string) {
 }
 
 export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRoutines?: SnapshotRoutineReader) => ({
-    // ── R ──────────────────────────────────────────────────────────────────
     get_habits: tool({
         description:
             "The user's routines (habits in code) in their Routines order, with emoji, usual time, day times or set times, steps, streaks, " +
@@ -258,7 +251,6 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
             }),
     }),
 
-    // ── R ──────────────────────────────────────────────────────────────────
     get_habit_status_today: tool({
         description:
             "Today's status (COMPLETED, SKIPPED or PENDING) for each routine due today, with each step's status for routines that have steps and each time's for routines at set times; paused ones are left out.",
@@ -335,7 +327,6 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
             }),
     }),
 
-    // ── R ──────────────────────────────────────────────────────────────────
     get_habit_history: tool({
         description:
             "How each routine went on its due days in a local date range (inclusive, through today, up to ~2 months): dates done, " +
@@ -392,7 +383,6 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
             }),
     }),
 
-    // ── W ──────────────────────────────────────────────────────────────────
     log_habit: tool({
         description:
             "Marks a routine done or skipped for a day (PENDING clears it), or, with `stepStatus`, the day's steps one by one: the day is done once every step is done or skipped. A routine at set times is marked one `time` at a time: send the time they mean; with none, COMPLETED takes the open time within 90 minutes of now (today) or the only one left, else it fails naming the open times: ask which. The result lists each time. Returns the day's status and the routine's streak.",
@@ -454,7 +444,6 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
             }),
     }),
 
-    // ── W ──────────────────────────────────────────────────────────────────
     create_habit: tool({
         description:
             "Creates a routine: done or skipped per day, never overdue (gym, reading). Something still owed when missed (rent) is a task with recurrenceRule; a class or shift is a task with fixed:true. Returns its habitId.",
@@ -485,7 +474,6 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
             }),
     }),
 
-    // ── U ──────────────────────────────────────────────────────────────────
     update_habit: tool({
         description:
             "Changes a routine: any of its fields, its steps (the full new list), pause, archive, or its place in Routines. Send only what changes.",
@@ -577,7 +565,6 @@ export const habitTools = (env: Env, userId: string, ctx: AgentContext, readRout
             }),
     }),
 
-    // ── D ──────────────────────────────────────────────────────────────────
     delete_habit: tool({
         description:
             "Deletes a routine for good, with its whole history and streaks (can't be undone; archive is the restorable way). Echo the title.",

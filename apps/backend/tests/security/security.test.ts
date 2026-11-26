@@ -1,11 +1,3 @@
-/**
- * The full worker middleware chain, driven through `worker.fetch` exactly as
- * Cloudflare calls it: request context → secure headers → body limit → CORS →
- * debug guard → IP limiter → JWT auth → user limiters → admin gate.
- *
- * `GET /api/v1/ai/usage` is the "auth passed" probe: it answers 200 with no
- * database or Redis configured, so any non-200 comes from the middleware.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { jwtVerifyMock, redisMock } = vi.hoisted(() => ({
@@ -34,7 +26,6 @@ function limiter(success = true) {
     return { limit: vi.fn().mockResolvedValue({ success }) };
 }
 
-/** Runs the real worker with a full env stub; `env` overrides individual bindings. */
 function send(request: Request, env: Record<string, unknown> = {}) {
     const fullEnv = {
         HYPERDRIVE: {},
@@ -54,7 +45,6 @@ function send(request: Request, env: Record<string, unknown> = {}) {
     return worker.fetch(request, fullEnv, ctx);
 }
 
-/** `send`, with the auth retry backoff (200ms, 400ms) fast-forwarded so a provider outage doesn't cost real time. */
 async function sendWithoutBackoff(request: Request) {
     vi.useFakeTimers({ toFake: ["setTimeout"] });
     const pending = send(request);
@@ -62,7 +52,6 @@ async function sendWithoutBackoff(request: Request) {
     return pending;
 }
 
-/** A Request pre-populated with a bearer token. */
 function authedRequest(path: string, options: RequestInit = {}) {
     return new Request(`http://localhost${path}`, {
         ...options,
@@ -88,13 +77,11 @@ describe("authentication", () => {
 
     it.each([
         { verifierError: "signature verification failed", status: 401, code: "UNAUTHORIZED" },
-        // Real jose wording: "unexpected" contains "exp", which once made these read as expired.
         { verifierError: '"exp" claim timestamp check failed', status: 401, code: "TOKEN_EXPIRED" },
         { verifierError: 'unexpected "iss" claim value', status: 401, code: "INVALID_ISSUER" },
         { verifierError: 'unexpected "aud" claim value', status: 401, code: "INVALID_AUDIENCE" },
         { verifierError: "fetch failed: network error", status: 503, code: "AUTH_PROVIDER_UNAVAILABLE" },
     ])("maps verifier error '$verifierError' to $status $code", async ({ verifierError, status, code }) => {
-        // Persistent, not Once: transient provider failures are retried before giving up.
         jwtVerifyMock.mockRejectedValue(new Error(verifierError));
 
         const response = await sendWithoutBackoff(authedRequest(USAGE));
@@ -122,7 +109,7 @@ describe("authentication", () => {
         const body = (await response.json()) as any;
         expect(response.status).toBe(503);
         expect(body.error).toMatchObject({ code: "AUTH_PROVIDER_UNAVAILABLE", isRetryable: true });
-        expect(jwtVerifyMock).toHaveBeenCalledTimes(3); // retried with backoff before giving up
+        expect(jwtVerifyMock).toHaveBeenCalledTimes(3);
     });
 
     it("rejects a verified token that has no subject claim", async () => {
@@ -245,8 +232,6 @@ describe("rate limiting", () => {
 });
 
 describe("token checks", () => {
-    // Signature, algorithm, issuer and expiry are proven with real keys in jwt-crypto.test.ts.
-
     it("refuses a write from a just-deleted account instead of recreating it", async () => {
         jwtVerifyMock.mockResolvedValue({ payload: { sub: "deleted-user" } });
         redisMock.current = { get: vi.fn(async () => "1") };
@@ -355,7 +340,6 @@ describe("CORS", () => {
         const response = await send(request);
 
         expect(response.headers.get("access-control-allow-headers")?.toLowerCase()).toContain("idempotency-key");
-        // Browsers cache the preflight instead of re-asking before every request.
         expect(response.headers.get("access-control-max-age")).toBe("7200");
     });
 });

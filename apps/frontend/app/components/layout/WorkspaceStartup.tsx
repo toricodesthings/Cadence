@@ -13,7 +13,6 @@ import { Loading } from "../shared/Loading";
 
 type CacheClass = "warm" | "cold" | "provisional" | "unknown";
 
-/** Warm when an active first-screen query holds data saved before this page load. */
 function cacheClassOf(client: QueryClient): "warm" | "cold" {
     return client
         .getQueryCache()
@@ -29,7 +28,6 @@ function cacheClassOf(client: QueryClient): "warm" | "cold" {
         : "cold";
 }
 
-/** The bounded categories every startup sample carries. */
 function sampleContext(route: ReturnType<typeof startupRoute>, cache: CacheClass) {
     return {
         route,
@@ -53,10 +51,6 @@ function isOnScreen(img: HTMLImageElement) {
     );
 }
 
-/**
- * Times the reveal: two painted frames, and the fonts and on-screen images (20s at most). `done` gets
- * the assets' outcome, or "timeout". Returns a cancel that stops both.
- */
 function measureReveal(done: (result: "timeout" | PromiseSettledResult<unknown>[]) => void): () => void {
     startupMark("visible_assets.start");
     startupMark("reveal_frame.start");
@@ -100,7 +94,6 @@ function measureReveal(done: (result: "timeout" | PromiseSettledResult<unknown>[
 
 type StartupState = ReturnType<typeof useWorkspaceStartup>["state"];
 
-/** A failed or offline startup is reported once per kind, when diagnostics are on. */
 function reportFailureOnce(state: StartupState, reported: Set<string>, context: ReturnType<typeof sampleContext>) {
     if ((state !== "error" && state !== "offline") || reported.has(state)) return;
     reported.add(state);
@@ -108,7 +101,6 @@ function reportFailureOnce(state: StartupState, reported: Set<string>, context: 
     if (sample) trackPerformance([sample]);
 }
 
-/** The visible-assets sample records a timeout, or an error when an asset failed to load. */
 function markAssetsOutcome(
     samples: ReturnType<typeof collectStartupSamples>,
     result: "timeout" | PromiseSettledResult<unknown>[],
@@ -127,7 +119,6 @@ function startupMessage(state: StartupState, slow: boolean) {
 
 type StartupLoadingProps = { state: StartupState; progress: number; slow: boolean; retry: () => void };
 
-/** The startup screen: what's wrong when something is, with Try again or Reload. */
 function StartupLoading({ state, progress, slow, retry }: StartupLoadingProps) {
     const message = startupMessage(state, slow);
     const failed = state === "error" || state === "offline";
@@ -152,7 +143,6 @@ function StartupLoading({ state, progress, slow, retry }: StartupLoadingProps) {
     );
 }
 
-/** Lives above routes so startup completes once per signed-in account. */
 export function WorkspaceStartup({ children }: { children: ReactNode }) {
     const { pathname } = useLocation();
     const { authReady, isAuthenticated, status } = useAuthState();
@@ -167,9 +157,6 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
         authReady && isAuthenticated && isWorkspacePath(pathname),
         pathname,
     );
-    // The scene's flight starts as `pending` clears; the workspace shows a painted frame later, so the flight's
-    // animations reach the compositor before the workspace's first full paint holds the main thread. The scene
-    // stays opaque for the flight's opening ~90ms, so the wait is never seen.
     const [revealed, setRevealed] = useState(false);
     useEffect(() => {
         if (pending) return setRevealed(false);
@@ -183,8 +170,6 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
         // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
         setDiagnosticsEnabled(Boolean(settings) && settings?.privacy?.usageDiagnostics !== false);
         setCrashReportsEnabled(Boolean(settings) && settings?.privacy?.crashReports !== false);
-        // Account changes clear consent in AuthStateProvider. Keep it on a root
-        // render failure so the recovery boundary can report that failure.
         // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
     }, [settings?.privacy?.usageDiagnostics, settings?.privacy?.crashReports, Boolean(settings)]);
 
@@ -202,9 +187,7 @@ export function WorkspaceStartup({ children }: { children: ReactNode }) {
             return;
         }
         if (hidden) return;
-        // This effect runs after the inert/hidden wrapper has committed.
         startupMark("reveal.ready");
-        // Revealed from the saved workspace before the session check answered.
         if (status === "provisional" && !reported.current) cacheClass.current = "provisional";
         if (!settings || settings.privacy.usageDiagnostics === false || reported.current) return;
         reported.current = true;

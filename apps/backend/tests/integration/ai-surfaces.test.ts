@@ -1,9 +1,3 @@
-/**
- * Every surface the assistant manages, through its tools against the real
- * database: task filters and paging, the task fields beyond dates (reminder,
- * check-in, hide until, Fixed), copying and ordering, lists, tags, routines,
- * focus views and the schedule window. User in Toronto; "today" is 2026-09-23.
- */
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { apiAs } from "../helpers/app";
 import { createUser, getTestDb, startTestDb } from "../helpers/db";
@@ -48,7 +42,6 @@ describe("get_tasks filters and pages", () => {
     it("filters by tag, priority, pin, section and an exact local date range, and rows carry their tags", async () => {
         const { projectId, sections } = await call("create_project", { name: "Work", sections: ["Now"] });
         const [late, early, pinned, loose] = await make([
-            // 11:30 PM Toronto on the 25th is the 26th in UTC: still the 25th for the user.
             {
                 title: "Late",
                 scheduledStart: "2026-09-25T23:30:00-04:00",
@@ -67,7 +60,6 @@ describe("get_tasks filters and pages", () => {
         const tagged = await call("get_tasks", { tagId: deep, sort: "date" });
         expect(titles(tagged.tasks)).toEqual(["Early", "Late"]);
         expect(tagged.tasks[0].tags).toEqual([deepName]);
-        // Off by name, any case; a name with no tag changes nothing.
         await call("update_tasks", { taskIds: [early], patch: { removeTagNames: ["DEEP", "nope"] } });
         expect(titles((await call("get_tasks", { tagId: deep })).tasks)).toEqual(["Late"]);
         await call("update_tasks", { taskIds: [early], patch: { addTagNames: ["deep"] } });
@@ -160,7 +152,6 @@ describe("task fields beyond dates", () => {
         const ids = await make(
             ["A", "B", "C", "D"].map((title, i) => ({ title, projectId, priority: 0, durationEstimate: i + 1 })),
         );
-        // Set the starting order through the REST reorder so it matches the app.
         await api("PATCH", `/${ids[0]}/reorder`, { orderIndex: 0, orderedTaskIds: ids });
         const order = async () => titles((await call("get_tasks", { projectId, sort: "list" })).tasks);
 
@@ -230,7 +221,6 @@ describe("lists and tags", () => {
             name: "Urgent",
             color: "rose",
         });
-        // Colours go by palette name; the row keeps the palette's hex.
         const [stored] = await withRls(getTestDb(), userId, (tx) =>
             tx.select({ color: tags.color }).from(tags).where(eq(tags.id, id)),
         );
@@ -276,7 +266,6 @@ describe("routine history", () => {
     it("names the days each routine was done, skipped, missed or is still open, and adherence counts the missed ones", async () => {
         const anki = await call("create_habit", { title: "French ANKI", recurrenceRule: "FREQ=DAILY" });
         const gym = await call("create_habit", { title: "Workout", recurrenceRule: "FREQ=WEEKLY;BYDAY=MO,TU,TH,FR" });
-        // Both existed well before the window.
         await withRls(getTestDb(), userId, (tx) =>
             tx.update(habits).set({ createdAt: "2026-09-01T12:00:00.000Z" }).where(eq(habits.userId, userId)),
         );
@@ -285,7 +274,6 @@ describe("routine history", () => {
         await call("log_habit", { habitId: gym.habitId, status: "COMPLETED", targetDate: "2026-09-21" });
 
         const { range, routines } = await call("get_habit_history", { start: "2026-09-20", end: "2026-09-30" });
-        // Reads stop at today (Wednesday the 23rd).
         expect(range).toEqual({ start: "2026-09-20", end: "2026-09-23" });
         expect(routines).toEqual([
             {
@@ -297,18 +285,15 @@ describe("routine history", () => {
                 missed: ["2026-09-22"],
                 open: ["2026-09-23"],
             },
-            // Workout isn't due on Sunday the 20th or Wednesday the 23rd.
             { habitId: gym.habitId, title: "Workout", due: 2, done: ["2026-09-21"], missed: ["2026-09-22"] },
         ]);
 
-        // A stale stored streak (counted at the last check-in) never outlives the missed day after it.
         await withRls(getTestDb(), userId, (tx) =>
             tx.update(habits).set({ currentStreak: 1 }).where(eq(habits.id, anki.habitId)),
         );
         const listed = (await call("get_habits", {})).habits;
         const ankiRow = listed.find((h: any) => h.id === anki.habitId);
         expect(ankiRow.currentStreak).toBe(0);
-        // Since the 1st: one day done, one skipped (neutral), the rest due and never logged.
         expect(ankiRow.adherence).toBeLessThan(0.1);
         expect(ankiRow.missedLast30).toBeGreaterThan(15);
     });
@@ -328,7 +313,7 @@ describe("focus views", () => {
             pinned: true,
         });
         const views = (await call("get_focus_views", {})).views;
-        expect(views).toHaveLength(7); // the six built-in presets come after the pinned view
+        expect(views).toHaveLength(7);
         expect(views.slice(0, 1)).toEqual([
             {
                 id: focusViewId,
@@ -345,7 +330,6 @@ describe("focus views", () => {
         expect(titles((await call("get_tasks", { focusViewId })).tasks)).toEqual(["Big client thing"]);
         expect(await call("delete_focus_view", { focusViewId, name: "Client" })).toEqual({ deleted: "Client" });
         expect((await call("get_focus_views", {})).views.map((v: { name: string }) => v.name)).not.toContain("Client");
-        // A built-in preset is hidden, not erased, so it never comes back.
         const quick = (await call("get_focus_views", {})).views[0];
         await call("delete_focus_view", { focusViewId: quick.id, name: quick.name });
         expect((await call("get_focus_views", {})).views).toHaveLength(5);
@@ -396,17 +380,14 @@ describe("finding a task the user half-remembers", () => {
             { title: "Assignment 1", dueDate: "2026-09-24", projectId, sectionId: comp2000 },
         ]);
 
-        // "the comp assignment due today": no title holds "comp", the section does.
         const today = await call("get_tasks", { query: "comp assignment", dueWindow: "today" });
         expect(today.tasks).toMatchObject([
             { id: target, title: "Assignment 1", list: "University", section: "COMP3005" },
         ]);
         expect((await call("get_tasks", { query: "Assignment 1 COMP3005" })).tasks).toMatchObject([{ id: target }]);
-        // Codes stay literal: inserting a space must not broaden an identifier match.
         expect((await call("get_tasks", { query: "Assignment 1 COMP 3005" })).tasks).toEqual([]);
         expect((await call("get_tasks", { query: "comp assignment" })).count).toBe(2);
         expect((await call("get_projects", { query: "COMP3005" })).projects).toMatchObject([{ id: projectId }]);
-        // Today at a glance reads the schedule window: its rows carry the names too.
         const window = await call("get_schedule_window", { start: "2026-09-23", end: "2026-09-23" });
         expect(window.tasks).toMatchObject([{ id: target, list: "University", section: "COMP3005" }]);
     });
@@ -421,7 +402,7 @@ describe("batch writes the model can undo, and a check-off it can't guess", () =
                 targetDate: "2026-09-24",
             }),
         ).rejects.toThrow("1 of these taskIds match no task");
-        expect((await task(water)).dueDate).toBe("2026-09-23"); // nothing moved
+        expect((await task(water)).dueDate).toBe("2026-09-23");
         const moved = await call("reschedule_tasks", { taskIds: [water, stretch], targetDate: "2026-09-24" });
         expect(moved.tasks).toEqual(
             expect.arrayContaining([
@@ -433,7 +414,6 @@ describe("batch writes the model can undo, and a check-off it can't guess", () =
             { id: water, title: "Water plants", was: "ACTIVE" },
         ]);
 
-        // A validated `clear` reaches the database as an emptied field, and the service never sees the `clear` key.
         await call("update_tasks", { taskIds: [stretch], patch: { reminderAt: "2026-09-24T09:00:00-04:00" } });
         expect((await task(stretch)).reminderAt).toBeTruthy();
         await call("update_tasks", { taskIds: [stretch], patch: { reminderAt: null, clear: ["reminderAt"] } });
@@ -473,12 +453,12 @@ describe("batch writes the model can undo, and a check-off it can't guess", () =
                 expect.objectContaining({ id: b, section: "COMP2000" }),
             ]),
         });
-        expect((await as("auto")("set_task_state", { taskIds: [a, b], state: "COMPLETE" })).updated).toBe(0); // "the" one, both sent
+        expect((await as("auto")("set_task_state", { taskIds: [a, b], state: "COMPLETE" })).updated).toBe(0);
         expect((await task(a)).state).toBe("ACTIVE");
         expect(
             (await as("full")("set_task_state", { taskIds: [a], state: "COMPLETE", sameTitleOk: true })).updated,
         ).toBe(1);
-        expect((await as("ask")("set_task_state", { taskIds: [b], state: "ARCHIVED" })).updated).toBe(1); // tapped
+        expect((await as("ask")("set_task_state", { taskIds: [b], state: "ARCHIVED" })).updated).toBe(1);
     });
 });
 
@@ -500,7 +480,6 @@ describe("get_tasks details", () => {
         const row = page.tasks.find((t: any) => t.id === ids[0]);
         expect(row.subtasks).toEqual(detail.subtasks);
         expect(row.note).toMatchObject({ truncated: false, version: detail.note.version });
-        // In-app, note text is fenced like get_task_detail's.
         expect(row.note.text).toContain("Notes on book 0");
         expect(row.note.text).not.toBe("Notes on book 0");
     });

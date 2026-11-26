@@ -18,7 +18,6 @@ import type { Task } from "@cadence/contracts/task";
 
 const trashedOn = (task: Task) => (task.updatedAt ? `Moved to trash ${formatShortDate(task.updatedAt)}` : null);
 
-/** Restore, plus a two-step Delete forever. `stacked` lays them out full width for the phone sheet. */
 function TrashActions({ task, stacked = false, onDone }: { task: Task; stacked?: boolean; onDone?: () => void }) {
     const restoreTask = useRestoreTask();
     const deleteTask = useDeleteTask();
@@ -93,7 +92,6 @@ function TrashTaskRow({ task, onOpen }: { task: Task; onOpen?: () => void }) {
     const row =
         "group flex w-full items-center gap-3 rounded-2xl border border-twilight-border/30 bg-twilight-surface/40 px-4 py-3 text-left transition-colors hover:bg-twilight-surface-hover/40";
 
-    // Phones: the whole row opens the sheet, so the title never has to fight the buttons for room.
     if (onOpen) {
         return (
             <button
@@ -149,7 +147,6 @@ export default function TrashView() {
     const shell = useShellMode();
     const { data: tasks, isLoading, isFetching, loadMore } = usePagedTasks("ARCHIVED");
     const [openId, setOpenId] = useState<string | null>(null);
-    // Keep the last task while the sheet animates out after a restore or delete.
     const [lastOpen, setLastOpen] = useState<Task | null>(null);
     const current = tasks?.find((task) => task.id === openId) ?? null;
     if (current && current !== lastOpen) setLastOpen(current);

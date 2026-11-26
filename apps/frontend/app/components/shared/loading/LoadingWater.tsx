@@ -1,6 +1,5 @@
 import { cssVars, MAPLE_LEAF, n1, placeShape, pt, rng } from "./loading-geometry";
 
-/** Broken moon/sun streaks under x=560: short and bright at the waterline, longer and more broken toward the viewer. */
 const COLUMN = (() => {
     const rand = rng(41);
     const rows: readonly (readonly [number, number])[] = [
@@ -86,7 +85,6 @@ export function LoadingWater() {
             <div className="ls-reflect ls-par-town">
                 <svg viewBox="-8 975 1936 105" preserveAspectRatio="none">
                     <g mask="url(#ls-water-mask)">
-                        {/* The sunset's last light lying on the open water between the towns */}
                         <ellipse cx="1010" cy="990" rx="440" ry="46" fill="url(#ls-ember)" />
                         <path
                             d="M 100,1005 Q 300,995 500,1005 T 900,1005 T 1300,1005 T 1800,1005"

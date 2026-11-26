@@ -14,7 +14,6 @@ import type { DraftField } from "@cadence/domain/nlp-draft";
 import { DraftRow, useDraftChoices } from "../tasks/DraftRow";
 import { EVENT_SWATCHES, eventToneStyle } from "../../lib/utils/personal-events";
 
-/** A yearly event stores a month and day: nothing else a title can say. */
 const EVENT_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>(["dueDate"]);
 
 interface PersonalEventEditorDialogProps {
@@ -26,7 +25,6 @@ interface PersonalEventEditorDialogProps {
     onSubmit: (value: Omit<PersonalEvent, "id">) => void;
 }
 
-/** A new personal event, alone in the composer. */
 export function PersonalEventEditorDialog({
     open,
     title,
@@ -57,7 +55,6 @@ export function PersonalEventEditorDialog({
     );
 }
 
-/** The name's words, read for a day ("Mom's birthday Mar 8") until the date is picked by hand (`pickedDay`). */
 function useEventWords(label: string, open: boolean, pickedDay: string | null) {
     const choices = useDraftChoices();
     const { dismissed, accepted, literal } = choices;
@@ -82,14 +79,12 @@ function useEventWords(label: string, open: boolean, pickedDay: string | null) {
 
 type EventTiming = { eventDate: string; trackMilestone: boolean; startedOn: string; notify: boolean };
 
-/** Whether the date, milestone or reminder moved off where the draft started. */
 function isMovedFrom(startDate: string, draft: EventTiming) {
     return draft.eventDate !== startDate || draft.trackMilestone || draft.startedOn !== startDate || !draft.notify;
 }
 
 type UnfitNoticeProps = { words: string; onKeep: () => void };
 
-/** Words a yearly event can't hold (a time, a year): say so, and offer to keep them as a thought. */
 function UnfitNotice({ words, onKeep }: UnfitNoticeProps) {
     return (
         <div
@@ -122,7 +117,6 @@ type EventTitleRowProps = {
     setColor: (color: string) => void;
 };
 
-/** The event's name, led by its mark and colour. */
 function EventTitleRow({ titleRef, label, setLabel, onEnter, emoji, setEmoji, color, setColor }: EventTitleRowProps) {
     return (
         <ComposerTitle
@@ -158,9 +152,7 @@ function EventTitleRow({ titleRef, label, setLabel, onEnter, emoji, setEmoji, co
 
 type PersonalEventComposerOptions = {
     open: boolean;
-    /** "YYYY-MM-DD"; today when unset. */
     initialDate?: string;
-    /** Off when the host moves focus itself (a tab switch). */
     autoFocus?: boolean;
     submitLabel?: string;
     onSubmit: (value: Omit<PersonalEvent, "id">) => void;
@@ -168,7 +160,6 @@ type PersonalEventComposerOptions = {
 
 type PersonalEventComposer = ComposerDraft & { titleRef: React.RefObject<HTMLInputElement | null> };
 
-/** The personal event composer: name, mark and colour, date, milestone, reminder. */
 export function usePersonalEventComposer({
     open,
     initialDate,
@@ -189,7 +180,6 @@ export function usePersonalEventComposer({
     const { nlp, choices } = useEventWords(label, open, dateTouched ? eventDate : null);
     const { literal } = choices;
     const saveThought = useCreateInboxItem();
-    // A time or a year can't live on a yearly event: the words stay, we say so, and nothing falls back to today.
     const unfit = literal ? undefined : nlp.unfit[0];
     const shownDate = dateTouched ? eventDate : (nlp.fields.dueDate ?? eventDate);
 
@@ -213,7 +203,6 @@ export function usePersonalEventComposer({
 
     const handleSubmit = async () => {
         if (!label.trim() || unfit) return;
-        // Enter saves what is on screen; only a still-loading parser makes it wait, then re-reads the same text.
         const draft = nlp.ready ? nlp : await nlp.finalize();
         const trimmedLabel = (draft.cleanedTitle || label).trim().slice(0, 80);
         const day = dateTouched ? eventDate : (draft.fields.dueDate ?? eventDate);

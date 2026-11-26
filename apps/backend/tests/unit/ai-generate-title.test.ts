@@ -10,7 +10,6 @@ import { generateConversationTitle } from "../../src/domains/ai/title/generate-t
 
 const KEYED = { OPENROUTER_API_KEY: "key" } as Env;
 
-/** A title model that answers `text`, or throws when given an Error. */
 function titleModel(text: string | Error) {
     const model = new MockLanguageModelV4({
         doGenerate: async () => {

@@ -120,7 +120,6 @@ export function getTaskRecurrenceSummary(
     };
 }
 
-/** A Fixed block's next occurrence day on or after `referenceDay` (default today), else its own day. */
 export function getPassiveTimetableOccurrenceAnchor(
     task: Pick<
         Task,
@@ -143,14 +142,11 @@ export function getPassiveTimetableOccurrenceAnchor(
 
     if (!isPassiveTimetableTask(task) || !task.recurrenceRule || !task.scheduledStart) return own;
 
-    // Shared RRULE occurrence math lives in @cadence/domain; the passive-timetable
-    // gating + fallback stay here in the presentation layer.
     return (
         resolveOccurrenceAnchor({ ...task, recurrenceRule: task.recurrenceRule }, referenceDay, getUserZone()) ?? own
     );
 }
 
-/** A timed block: "Mar 8, 9:00 AM – 10:30 AM", Fixed or a time block. */
 function timedSummary(task: Pick<Task, "scheduledStart" | "scheduledEnd" | "interactionMode">): TaskScheduleSummary {
     const start = task.scheduledStart!;
     const end = task.scheduledEnd;
@@ -211,7 +207,6 @@ export function getTaskScheduleSummary(
     }
 }
 
-/** The day a task sits on: its due day, or the user's day of its start. */
 export function getTaskEffectiveAnchor(
     task: Pick<Task, "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "interactionMode">,
 ): LocalDate | null {
@@ -226,7 +221,6 @@ export function getTaskTimelineAnchor(
     return getTaskEffectiveAnchor(task);
 }
 
-/** `GET /tasks` filters as views pass them: typed values, with the day window as one `{ from, to }` pair (LocalDates, inclusive). */
 export type UseTasksFilterInput = Pick<TaskListQueryInput, "state" | "projectId" | "effectiveOnOrBeforeDate"> & {
     range?: { from: LocalDate; to: LocalDate };
     limit?: number;
@@ -235,7 +229,6 @@ export type UseTasksFilterInput = Pick<TaskListQueryInput, "state" | "projectId"
     hasNoDate?: boolean;
 };
 
-/** The query string for `GET /tasks`, in the order the validator reads it. */
 export function buildTasksQuery(filters: UseTasksFilterInput) {
     return {
         ...(filters.state && { state: filters.state }),
@@ -253,7 +246,6 @@ export function buildTasksQuery(filters: UseTasksFilterInput) {
     };
 }
 
-/** "Series", "Duration", "Fixed time", "Time block" or "Deadline": what a task's When row holds. */
 export function scheduleFieldLabelOf(task: Task) {
     const summary = getTaskScheduleSummary(task);
     if (isRecurringTask(task)) return "Series";

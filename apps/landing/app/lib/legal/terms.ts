@@ -1,9 +1,5 @@
 import type { LegalDoc } from "./types";
 
-/*
- * Checked against the code on 2026-09-30 (release 0.25.x). Anything the repository could not settle is a `gap`
- * block, not a guess. Keep this in step with privacy.ts.
- */
 export const TERMS: LegalDoc = {
     title: "Terms of Service",
     description:

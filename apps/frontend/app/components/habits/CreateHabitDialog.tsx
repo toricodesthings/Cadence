@@ -67,7 +67,6 @@ const IDEAS = [
 
 const DEFAULT_TIME = "09:00";
 
-/** What a routine stores: a cadence, a time of day, a list and tags. */
 const ROUTINE_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>([
     "recurrenceRule",
     "timeOfDay",
@@ -75,7 +74,6 @@ const ROUTINE_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>([
     "tagIds",
 ]);
 
-/** New routine, alone in the composer (the Routines page). */
 export function CreateHabitDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
     const { reset, ...draft } = useRoutineComposer({ onSaved: () => onOpenChange(false) });
     return (
@@ -90,7 +88,6 @@ export function CreateHabitDialog({ open, onOpenChange }: { open: boolean; onOpe
     );
 }
 
-/** The routine composer: name, which days, when, then everything optional. */
 type RoutineChoices = {
     title: string;
     description: string;
@@ -106,7 +103,6 @@ type RoutineChoices = {
     steps: RoutineStep[] | null;
 };
 
-/** The new routine as the API takes it: set times replace one time, per-day times and steps; a reminder needs a time. */
 function routineInput(choice: RoutineChoices) {
     const many = choice.manyTimes;
     return {
@@ -149,11 +145,9 @@ export function useRoutineComposer({
     const choices = useDraftChoices();
     const { dismissed, accepted, literal } = choices;
     const [steps, setSteps] = useState<RoutineStep[] | null>(null);
-    // Two or more daily times (a routine at set times); one time stays the usual `targetTime`.
     const [manyTimes, setManyTimes] = useState<string[] | null>(null);
     const [reminderTouched, setReminderTouched] = useState(false);
 
-    // What the user set by hand beats the words (a present key wins, even "none"); otherwise the words fill it.
     const touch = (field: DraftField) => setTouched((current) => new Set(current).add(field));
     const { data: settings } = useSettings();
     const intelligence = settings?.tasks?.intelligence;
@@ -194,7 +188,7 @@ export function useRoutineComposer({
         setTimeState(list[0]);
         setManyTimes(list);
         touch("timeOfDay");
-        if (!reminderTouched) setReminderEnabled(true); // a routine at set times reminds at each one
+        if (!reminderTouched) setReminderEnabled(true);
     };
     const setProjectId = (id: string | null) => {
         setProjectState(id);
@@ -239,7 +233,6 @@ export function useRoutineComposer({
 
     const submit = async () => {
         if (!title.trim() || isPending) return;
-        // Enter saves what is on screen; only a still-loading parser makes it wait, then re-reads the same text.
         send(nlp.ready ? nlp : await nlp.finalize());
     };
 

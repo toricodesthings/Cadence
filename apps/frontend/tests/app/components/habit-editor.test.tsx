@@ -50,7 +50,6 @@ vi.mock("../../../app/components/tasks/TookRow", () => ({
         return <div data-testid="took-row" />;
     },
 }));
-// Every range query answers with the routine due yesterday (open) and today (done).
 setUserZone("America/Toronto");
 const day = (offset: number) => addDays(today(), offset);
 const logs = [
@@ -75,7 +74,6 @@ const habit = {
     longestStreak: 5,
     createdAt: "2026-09-01T00:00:00Z",
 } as Habit;
-/** Pick from a Cadence Select (ValueSelect is the Radix menu at every size). */
 function choose(field: string, option: string) {
     fireEvent.keyDown(screen.getByRole("combobox", { name: field }), { key: "Enter" });
     fireEvent.click(screen.getByRole("option", { name: option }));
@@ -89,7 +87,6 @@ function setup(value = habit) {
 }
 beforeEach(() => {
     vi.clearAllMocks();
-    // jsdom has none of these; Radix Select reads them while opening.
     Element.prototype.scrollIntoView = vi.fn();
     Element.prototype.hasPointerCapture = vi.fn(() => false);
     Element.prototype.releasePointerCapture = vi.fn();
@@ -154,7 +151,6 @@ describe("HabitEditor", () => {
         fireEvent.click(screen.getByRole("button", { name: /^History/ }));
         expect(screen.getByText("Total check-ins")).toBeTruthy();
         expect(screen.getByText("Longest run")).toBeTruthy();
-        // Any past day in the month can be logged from here.
         const history = screen.getByRole("grid");
         fireEvent.click(within(history).getByRole("button", { name: /: not logged$/ }));
         expect(resolve).toHaveBeenCalledWith({ targetDate: day(-1), status: "COMPLETED" });

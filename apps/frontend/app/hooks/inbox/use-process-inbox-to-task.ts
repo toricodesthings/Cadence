@@ -20,20 +20,11 @@ import { toastError } from "../../lib/utils/error-toast";
 import type { ProcessInboxPayload } from "../../lib/api/offline-wal";
 
 interface ProcessInboxParams extends ProcessInboxPayload {
-    /** The toast's text, instead of where the task landed. */
     successLabel?: string;
-    /**
-     * Skip optimistically removing the capture from the feed. Used by flows that
-     * need the owning component to stay mounted until the server responds — e.g.
-     * ClarifySheet's "open full editor" path depends on a per-call `onSuccess`
-     * (which v5 drops once the component unmounts) to receive the new task id.
-     */
     skipOptimisticRemoval?: boolean;
-    /** No toast of its own: a caller placing several (Sort all) shows one toast with one Undo. */
     silent?: boolean;
 }
 
-/** What is sent (and queued offline): everything but the client-side options. */
 const toPayload = ({
     successLabel: _label,
     skipOptimisticRemoval: _skip,
@@ -41,18 +32,15 @@ const toPayload = ({
     ...payload
 }: ProcessInboxParams): ProcessInboxPayload => payload;
 
-/** The task's id is chosen here, once, so the optimistic task is the saved one and never swaps keys on screen. */
 const withTaskId = (params: ProcessInboxParams): ProcessInboxParams =>
     params.taskId ? params : { ...params, taskId: newRowId() };
 
-/** The day it was placed on: the saved task's, else what was sent. */
 function placedDay(task: Task, variables: ProcessInboxParams) {
     return (
         task.scheduledStart ?? task.dueDate ?? variables.scheduledStart ?? variables.scheduledDay ?? variables.dueDate
     );
 }
 
-/** The task a placed capture becomes, as the caches show it until the server answers. */
 function optimisticFields(params: ProcessInboxParams) {
     const {
         endDate = null,
@@ -86,10 +74,6 @@ function optimisticFields(params: ProcessInboxParams) {
     };
 }
 
-/**
- * Every placement says where it went: its list, or the view that shows its day. A Waiting or hidden task
- * isn't in that view, so it gets the day alone.
- */
 function whereItWent(task: Task, variables: ProcessInboxParams, queryClient: QueryClient): string {
     const day = placedDay(task, variables);
     const listName = task.projectId
@@ -101,11 +85,6 @@ function whereItWent(task: Task, variables: ProcessInboxParams, queryClient: Que
     return shown ? placementReceipt(day, listName) : placementLabel(day);
 }
 
-/**
- * Process an inbox capture into a task (C5 structured capture model):
- * Uses the backend atomic inbox→task endpoint so the task and inbox transition
- * happen in one transaction instead of a split create + patch flow.
- */
 export function useProcessInboxToTask() {
     const client = useApiClient();
     const unprocess = useUnprocessInbox();
@@ -123,8 +102,6 @@ export function useProcessInboxToTask() {
                 return unwrapResponse(res);
             },
         ),
-        // The capture leaves the feed and the task lands in its view the instant it's placed: the round-trip can take
-        // seconds, and offline it waits for sync. Nothing passes through an in-between state on screen.
         onMutate: async (params) => {
             await queryClient.cancelQueries({ queryKey: queryKeys.inbox.all });
             const snapshot = queryClient.getQueriesData<InboxItem[]>({ queryKey: queryKeys.inbox.all });
@@ -137,15 +114,13 @@ export function useProcessInboxToTask() {
             return { snapshot, optimisticId: optimistic.id };
         },
         onSuccess: (_data, variables, context) => {
-            if (!_data) return; // Queued offline: the optimistic task stays until sync.
+            if (!_data) return;
             reconcileTaskInCaches(queryClient, _data, context?.optimisticId);
-            // The saved task is already in every list; refetching tasks here only risks a stale list snapping it back.
             void refetchAfterWrites(queryClient, queryKeys.inbox.all);
             const label =
                 variables.successLabel ??
                 (variables.complete ? "Ticked off" : whereItWent(_data, variables, queryClient));
             if (variables.silent) return;
-            // It left the screen, so the toast names it and says where it went.
             toastUndo(
                 toastName(_data.title),
                 () =>
@@ -160,7 +135,6 @@ export function useProcessInboxToTask() {
             );
         },
         onError: (err, _variables, context) => {
-            // Restore the capture we optimistically removed, and take back the task we showed.
             if (context?.optimisticId) removeTaskFromCaches(queryClient, context.optimisticId);
             if (context?.snapshot) {
                 for (const [key, data] of context.snapshot) {

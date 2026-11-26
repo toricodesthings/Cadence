@@ -14,7 +14,6 @@ export type GuessOf = (
     task: Pick<Task, "effort" | "effortGuess" | "effortGuessSource" | "title" | "projectId">,
 ) => EffortGuess | null;
 
-/** This account's own Effort choices as evidence, and whether Effort suggestions are on. Loads once; offline or loading, empty. */
 export function useEffortEvidence(open = true) {
     const client = useApiClient();
     const { authReady, isAuthenticated } = useAuthState();
@@ -36,10 +35,6 @@ export function useEffortEvidence(open = true) {
     return { evidence, enabled };
 }
 
-/**
- * The Effort Cadence guesses for a task (never its Effort): read by day load and quick-win ranking, shown as `~` where
- * Effort is set. Off with Effort suggestions.
- */
 export function useEffortGuess(): GuessOf {
     const { evidence, enabled } = useEffortEvidence();
     return useCallback(

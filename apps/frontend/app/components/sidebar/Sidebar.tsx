@@ -7,14 +7,9 @@ import { useSidebarStore } from "../../stores/sidebar-store";
 import { useNavPanel } from "../../hooks/ui/use-nav-panel";
 import type { ShellMode } from "../../hooks/ui/use-shell-mode";
 
-/** Resize bounds — one honest minimum (`--sidebar-min-width`) shared by the
- * wide-rail drag floor and the laptop panel, so the rail never silently forces
- * a different second minimum. Below this, content truncates rather than the
- * rail clipping (§4.8). */
 const SIDEBAR_MIN_WIDTH = 220;
 const SIDEBAR_MAX_WIDTH = 480;
 
-/** Main sidebar — root layout composing IconRail + SidebarPanel */
 export function Sidebar({
     mode,
     onSearchOpen,
@@ -34,7 +29,6 @@ export function Sidebar({
     const showPersistentPanel = !isSchedule && !isHabits && !isEvents;
     const sidebarMotionTransition = isResizing ? { duration: 0 } : { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
 
-    // Keyboard shortcut: Cmd/Ctrl + [ toggles sidebar; Escape closes the laptop drawer.
     const { toggle, close } = panel;
     const drawerOpen = panel.overlay && panel.open;
     useEffect(() => {
@@ -49,7 +43,6 @@ export function Sidebar({
         window.addEventListener("keydown", handler);
         return () => window.removeEventListener("keydown", handler);
     }, [toggle, close, drawerOpen]);
-    // A drawer has done its job once you go somewhere.
     useEffect(() => {
         setDrawerOpen(false);
     }, [location.pathname, location.search, setDrawerOpen]);
@@ -66,7 +59,6 @@ export function Sidebar({
     const resize = useCallback(
         (e: MouseEvent) => {
             if (isResizing) {
-                // The rail (56px) always sits left of the panel.
                 const newWidth = e.clientX - 56;
                 if (newWidth >= SIDEBAR_MIN_WIDTH && newWidth <= SIDEBAR_MAX_WIDTH) {
                     setWidth(newWidth);
@@ -98,17 +90,14 @@ export function Sidebar({
 
     if (mode === "phone" || mode === "tablet") return null;
 
-    // Full-bleed routes (Schedule, Routines, Events) keep the docked panel out; a drawer is asked for, so it opens anywhere.
     const panelOpen = panel.overlay ? panel.open : showPersistentPanel && panel.open;
 
-    // The rail always carries the destinations; the panel holds only what it alone has (lists, tags), never a copy.
     return (
         <aside
             className={`${drawerOpen ? "layer-floating-bar" : "layer-shell-base"} relative flex h-full shrink-0`}
             aria-label="Application navigation"
         >
             <IconRail onSearchOpen={onSearchOpen} onQuickAddOpen={onQuickAddOpen} />
-            {/* Outside the drawer (the rail stays live): a click closes it. */}
             {drawerOpen ? <div className="fixed inset-y-0 left-14 right-0" onClick={close} aria-hidden="true" /> : null}
             <AnimatePresence initial={false}>
                 {panelOpen && (

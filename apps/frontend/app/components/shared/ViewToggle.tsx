@@ -7,7 +7,6 @@ const OPTIONS = [
     { value: "kanban", label: "Board", icon: <KanbanSquare size={14} aria-hidden="true" /> },
 ] as const;
 
-/** Rows ↔ Board, spanning its menu or sheet, one half per option. */
 export function ViewToggle({ view, onViewChange }: { view: ViewMode; onViewChange: (view: ViewMode) => void }) {
     return (
         <SegmentedControl

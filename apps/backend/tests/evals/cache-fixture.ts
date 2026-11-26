@@ -7,7 +7,6 @@ import { PROMPT_BLOCKS } from "../../src/domains/ai/prompt/prompt-blocks";
 import type { Env } from "../../src/types/env";
 import type { AssistantPersona } from "../../src/domains/ai/prompt/prompt-blocks.schema";
 
-/** Recheck wall time: a long timer alone is insufficient if the host clock changes. */
 export async function waitForCacheDeadline(
     deadline: number,
     clock = Date.now,
@@ -20,7 +19,6 @@ export async function waitForCacheDeadline(
     }
 }
 
-/** Shared by initial and delayed probes so a checkpoint reuses the same static bytes. */
 export function cacheFixture(
     env: Env,
     run: string,
@@ -54,7 +52,6 @@ export function cacheFixture(
         },
         "cacheprobe",
     );
-    // Equal-length per-variant namespaces prevent one candidate warming another.
     const instructions = `Cache experiment ${run} group ${CACHE_VARIANTS.indexOf(variant)} epoch ${epoch}.\n\n${prompt.instructions}`;
     const registry = chatTools(
         buildToolRegistry(env, "synthetic", {

@@ -4,7 +4,6 @@ import type { ApiClient } from "../../lib/api/client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys, STALE_TIMES } from "../../lib/api/query-keys";
 
-/** Shared with the offline prefetch so their keys match. */
 export function projectsQueryOptions(client: ApiClient) {
     return queryOptions({
         queryKey: queryKeys.projects.all,

@@ -10,7 +10,6 @@ import type { DbClient, Tx } from "../../src/types/db";
 import { habitRoutes } from "../../src/domains/habits/habits.route";
 import { tagRoutes } from "../../src/domains/tags/tags.route";
 
-/** UTC calendar date `offset` days from today, as YYYY-MM-DD. */
 function day(offset = 0) {
     return new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
 }
@@ -20,7 +19,6 @@ let tags: ReturnType<typeof apiAs>;
 let otherHabits: ReturnType<typeof apiAs>;
 let userId: string;
 
-/** The caller's zone is the account's (`users.time_zone`), never a request parameter. */
 const setZone = (zone: string) =>
     asOwner((pg) => pg.query("UPDATE users SET time_zone = $2 WHERE id = $1", [userId, zone]));
 
@@ -38,7 +36,6 @@ async function create(body: Record<string, unknown> = {}, client = habits) {
     return res.body.data;
 }
 
-/** Makes a habit look `days` old so past occurrences exist to resolve. */
 async function backdate(habitId: string, days: number) {
     await asOwner((pg) =>
         pg.query("UPDATE habits SET created_at = created_at - make_interval(days => $2) WHERE id = $1", [
@@ -168,7 +165,6 @@ describe("resolving occurrences", () => {
         ];
         expect(await streakOf()).toEqual([3, 3, 3]);
 
-        // Yesterday goes by unlogged: the stored column still says 3, every read says 0.
         await asOwner((pg) =>
             pg.query("DELETE FROM habit_logs WHERE habit_id = $1 AND target_date = $2", [habit.id, day(-1)]),
         );
@@ -271,17 +267,17 @@ describe("resolving occurrences", () => {
         });
         const second = await mark("14:00", "COMPLETED");
         expect(second.body.data.log.status).toBe("PENDING");
-        expect(Object.keys(second.body.data.log.timeMarks)).toEqual(["08:00", "14:00"]); // merged, not replaced
-        expect(second.body.data.log.timeMarks["08:00"].at).toBe("2026-10-08T12:07:00.000Z"); // its instant is kept
+        expect(Object.keys(second.body.data.log.timeMarks)).toEqual(["08:00", "14:00"]);
+        expect(second.body.data.log.timeMarks["08:00"].at).toBe("2026-10-08T12:07:00.000Z");
 
-        const replay = await mark("08:00", "COMPLETED", "2026-10-08T12:07:00.000Z"); // a retry changes nothing
+        const replay = await mark("08:00", "COMPLETED", "2026-10-08T12:07:00.000Z");
         expect(replay.body.data.log.timeMarks["08:00"].at).toBe("2026-10-08T12:07:00.000Z");
 
         expect((await mark("20:00", "COMPLETED")).body.data.log.status).toBe("COMPLETED");
-        expect((await mark("20:00", "SKIPPED")).body.data.log.status).toBe("SKIPPED"); // mixed: closed, never "completed"
+        expect((await mark("20:00", "SKIPPED")).body.data.log.status).toBe("SKIPPED");
         expect((await mark("20:00", "PENDING")).body.data.log.status).toBe("PENDING");
 
-        expect((await resolve(habit.id, day(), "SKIPPED")).status).toBe(400); // a skip names its time
+        expect((await resolve(habit.id, day(), "SKIPPED")).status).toBe(400);
         expect((await mark("09:30", "COMPLETED")).status).toBe(400);
         expect((await resolve(habit.id, day(), "PENDING")).body.data.log.timeMarks).toBeNull();
     });
@@ -316,7 +312,7 @@ describe("resolving occurrences", () => {
         expect((await today()).logs[0].status).toBe("PENDING");
         expect((await today()).totalCompletions).toBe(0);
 
-        await mark({ a: "COMPLETED" }); // partial over a, b, c
+        await mark({ a: "COMPLETED" });
         await habits("PATCH", `/${habit.id}`, { steps: [two[0]] });
         expect((await today()).logs[0].status).toBe("COMPLETED");
     });
@@ -347,9 +343,9 @@ describe("resolving occurrences", () => {
         await backdate(habit.id, 3);
         await resolve(habit.id, day(-3), "COMPLETED");
         await resolve(habit.id, day(-1), "COMPLETED");
-        await resolve(habit.id, day(-2), "SKIPPED"); // backfill path: full recompute
+        await resolve(habit.id, day(-2), "SKIPPED");
         expect((await habits("GET", `/${habit.id}`)).body.data).toMatchObject({ currentStreak: 2, longestStreak: 2 });
-        expect((await resolve(habit.id, day(), "COMPLETED")).body.data.habit).toMatchObject({ currentStreak: 3 }); // today: backward walk
+        expect((await resolve(habit.id, day(), "COMPLETED")).body.data.habit).toMatchObject({ currentStreak: 3 });
     });
 
     it("counts a streak across past days, and un-completing one splits it without lowering the record", async () => {
@@ -378,7 +374,7 @@ describe("resolving occurrences", () => {
     });
 
     it("counts today as the caller's day (regression: a morning check-in in Tokyo read as UTC's yesterday)", async () => {
-        vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-09-23T23:00:00.000Z") }); // 08:00 Sep 24 in Tokyo
+        vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-09-23T23:00:00.000Z") });
         try {
             await setZone("Asia/Tokyo");
             const habit = await create();

@@ -16,10 +16,6 @@ export function useWalEntries() {
     return useSyncExternalStore(subscribeWal, getWalSnapshot, getWalServerSnapshot);
 }
 
-/**
- * React hook to get the current mutation outbox state.
- * Reads from the durable WAL stored in IndexedDB.
- */
 export function useMutationOutbox() {
     const entries = useWalEntries();
     const queryClient = useQueryClient();
@@ -29,7 +25,6 @@ export function useMutationOutbox() {
         replaying: entries.filter((e) => e.status === "replaying").length,
         failed: entries.filter((e) => e.status === "failed"),
         total: entries.length,
-        /** Flips every failed entry back to pending and replays now. */
         retryFailed: () => {
             void retryAndReplay(queryClient);
         },
@@ -37,7 +32,6 @@ export function useMutationOutbox() {
             await updateWalEntry(entry.id, { status: "pending", error: undefined });
             await replayWal(queryClient);
         },
-        /** Drops one change for good; the refetch then shows what the server has. */
         discard: async (entry: WalEntry) => {
             await removeWalEntry(entry.id);
             await invalidateWorkspaceCaches(queryClient);
@@ -56,7 +50,6 @@ function pendingIds(entries: WalEntry[]): Set<string> {
     return ids;
 }
 
-/** True while a change to this task, capture or routine waits to sync. */
 export function useIsUnsynced(id: string | undefined): boolean {
     return useSyncExternalStore(
         subscribeWal,

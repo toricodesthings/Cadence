@@ -43,7 +43,6 @@ export const TagPickerList: React.FC<TagPickerListProps> = ({
 
     const handleCreate = async (e: React.KeyboardEvent) => {
         if (e.key === "Enter" && newTagName.trim()) {
-            // Our own id, so the tag can be added even when the create is queued offline.
             const id = newRowId();
             await createTag.mutateAsync({ id, name: newTagName.trim(), color: selectedColor });
             setNewTagName("");
@@ -95,7 +94,6 @@ export const TagPickerList: React.FC<TagPickerListProps> = ({
                         )}
                         {tags.map((tag) => {
                             const isActive = activeTagIds.includes(tag.id);
-                            // Ensure the new tag we are creating isn't literally matching existing tags (or hide existing ones when creating exact match)
                             if (newTagName.trim() && tag.name.toLowerCase() === newTagName.trim().toLowerCase())
                                 return null;
 
@@ -103,7 +101,7 @@ export const TagPickerList: React.FC<TagPickerListProps> = ({
                                 <Menu.Item
                                     key={tag.id}
                                     onClick={(e: React.MouseEvent) => {
-                                        e.preventDefault(); // Keep menu open for multi-tag selection
+                                        e.preventDefault();
                                         if (isActive) onRemove(tag.id);
                                         else onAdd(tag.id);
                                     }}
@@ -152,7 +150,6 @@ export const TagPickerSubmenu: React.FC<TagPickerSubmenuProps> = (props) => {
     );
 };
 
-/** Compact tag picker: a sheet with thumb-sized rows; typing filters, and an unmatched name can be created. */
 export function TagPickerSheet({
     open,
     onClose,

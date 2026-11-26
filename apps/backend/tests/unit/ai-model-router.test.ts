@@ -64,7 +64,6 @@ describe("pickChatModel", () => {
         expect(pickChatModel(env(), turn, null)).toBe("basic/model");
         expect(pickChatModel(env(), turn, "basic/model")).toBe("basic/model");
         expect(pickChatModel(env(), turn, "std/model")).toBe("std/model");
-        // A model since retired from config still counts as "not basic".
         expect(pickChatModel(env(), turn, "old/model")).toBe("std/model");
     });
 });

@@ -101,7 +101,6 @@ describe("batched open task reads", () => {
     });
 
     it("keeps full open lists and full schedule windows", async () => {
-        // Direct SQL seeding avoids testing create 60 times; reads still run with real RLS.
         const { asOwner } = await import("../helpers/db");
         await asOwner((pg) =>
             pg.query(

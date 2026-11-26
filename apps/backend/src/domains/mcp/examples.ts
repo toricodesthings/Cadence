@@ -1,13 +1,8 @@
 import type { PublishedTool } from "./server";
 
-/** Never a real id: a stand-in where an example needs one (real ids come from a read). */
 const ID = "00000000-0000-0000-0000-000000000000";
 const KEY = "a1b2c3d4";
 
-/**
- * One or two realistic calls per published tool, appended to its MCP description. Writes carry `operationKey`, deletes
- * `confirm`. `tests/unit/mcp-examples.test.ts` parses each against the tool's MCP input schema.
- */
 export const EXAMPLES: Record<PublishedTool, object[]> = {
     get_today: [{}, { limit: 20 }],
     get_tasks: [{ query: "COMP3005 assignment" }, { projectId: ID, sort: "list", details: true }],

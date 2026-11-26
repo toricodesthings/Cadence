@@ -12,17 +12,16 @@ export type EmptyStateVariant =
     | "schedule"
     | "routines"
     | "routines-archived"
+    | "place"
     | "default";
 
 interface EmptyStateProps {
     variant?: EmptyStateVariant;
-    /** Overrides the variant's copy or icon (e.g. a named column). `description: null` drops the second line. */
     icon?: typeof Feather;
     title?: string;
     description?: string | null;
-    /** Inside a section or board column: smaller, centred in the space it has. */
     compact?: boolean;
-    /** Runs the CTA in place (e.g. opens a composer) instead of navigating. */
+    size?: "default" | "compact" | "inline";
     onAction?: () => void;
 }
 
@@ -73,6 +72,11 @@ const VARIANTS: Record<
         title: "Nothing archived.",
         description: "Routines you archive rest here, history and all, until you restore them.",
     },
+    place: {
+        icon: Feather,
+        title: "Wide open.",
+        description: "Drop a task onto this day, or place one from Capture below.",
+    },
     default: {
         icon: Feather,
         title: "Nothing scheduled for today",
@@ -80,7 +84,6 @@ const VARIANTS: Record<
     },
 };
 
-/** The one empty state: icon, title, optional line and CTA, centred where the content would be. */
 export function EmptyState({
     variant = "default",
     onAction,
@@ -88,6 +91,7 @@ export function EmptyState({
     title,
     description,
     compact = false,
+    size = compact ? "compact" : "default",
 }: EmptyStateProps) {
     const navigate = useNavigate();
     if (variant === "capture") return <CaptureWindow variant="clear" />;
@@ -96,25 +100,37 @@ export function EmptyState({
     const Icon = icon ?? config.icon;
     const line = description === undefined ? config.description : description;
 
+    const small = size !== "default";
+    const frame = {
+        default: "mb-6 h-16 w-16 rounded-3xl bg-twilight-surface ring-1 ring-twilight-border",
+        compact: "mb-4 h-12 w-12 rounded-2xl bg-twilight-surface ring-1 ring-twilight-border",
+        inline: "mb-3 h-10 w-10 rounded-2xl surface-item ring-1 ring-twilight-border/60",
+    }[size];
+
     return (
         <div
-            className={`flex flex-col items-center justify-center px-8 ${compact ? "h-full min-h-48 py-10" : "py-24"}`}
+            className={`flex flex-col items-center justify-center ${{ default: "px-8 py-24", compact: "h-full min-h-48 px-8 py-10", inline: "px-4 py-6" }[size]}`}
         >
-            <div
-                className={`flex items-center justify-center bg-twilight-surface ring-1 ring-twilight-border ${compact ? "mb-4 h-12 w-12 rounded-2xl" : "mb-6 h-16 w-16 rounded-3xl"}`}
-            >
-                <Icon size={compact ? 20 : 26} aria-hidden="true" className="text-twilight-text-muted" />
+            <div className={`flex items-center justify-center ${frame}`}>
+                <Icon
+                    size={{ default: 26, compact: 20, inline: 18 }[size]}
+                    aria-hidden="true"
+                    className="text-twilight-text-muted"
+                />
             </div>
             <p
-                className={`text-center text-twilight-text-soft ${compact ? "text-sm" : "text-base"} ${line ? "mb-1.5" : ""}`}
+                className={`text-center ${size === "inline" ? "text-sm font-medium" : small ? "text-sm" : "text-base"} text-twilight-text-soft ${line ? "mb-1.5" : ""}`}
             >
                 {title ?? config.title}
             </p>
             {line ? (
-                <p className="text-sm text-twilight-text-muted/90 text-center max-w-[280px] leading-relaxed">{line}</p>
+                <p
+                    className={`text-center leading-relaxed text-twilight-text-muted/90 ${size === "inline" ? "max-w-[240px] text-xs" : "max-w-[280px] text-sm"}`}
+                >
+                    {line}
+                </p>
             ) : null}
-            {/* The variant's action belongs to an empty page, never to one empty section or column. */}
-            {config.cta && !compact && (
+            {config.cta && !small && (
                 <button
                     type="button"
                     onClick={() => (onAction ? onAction() : config.cta?.to && navigate(config.cta.to))}

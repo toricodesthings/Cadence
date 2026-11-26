@@ -364,8 +364,6 @@
                 "apps/frontend/app/components/habits/RoutineTodayBand.tsx",
                 "apps/frontend/app/components/habits/RoutineWeekRow.tsx",
                 "apps/frontend/app/components/holding/HoldingFeed.tsx",
-                "apps/frontend/app/components/holding/HoldingPlannerPanel.tsx",
-                "apps/frontend/app/components/holding/PlaceSheet.tsx",
                 "apps/frontend/app/components/kanban/KanbanBoard.tsx",
                 "apps/frontend/app/components/layout/MainLayout.tsx",
                 "apps/frontend/app/components/layout/PageHeader.tsx",

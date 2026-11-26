@@ -1,7 +1,3 @@
-/**
- * Prompt types shared by the block set (prompt-blocks.ts), the composer and
- * agent.ts. Keep names stable.
- */
 import type { ApprovalMode, ChatSurface } from "@cadence/contracts/ai";
 import type { UserSettings } from "@cadence/contracts/settings";
 import type { ProfileLine } from "../memory/memory-store";
@@ -9,58 +5,34 @@ import type { ProfileLine } from "../memory/memory-store";
 type AssistantSettings = NonNullable<UserSettings["assistant"]>;
 export type Voice = NonNullable<AssistantSettings["persona"]>;
 
-/** The block set: static base sections in order, then the per-user/per-turn templates. */
 export interface PromptBlocks {
     base: string[];
     memoryPolicy: string;
     voices: Record<Voice, string>;
-    /** Appended to the voice when the workload is high (adaptive tone). */
     workloadHigh: string;
-    /** Templates with {{placeholders}} resolved by the composer. */
     customInstructions: string;
     environment: string;
     snapshot: string;
-    /** An embedded chat's own short instructions, per surface (per-turn, so the cached prefix stays shared). */
     surfaces: Record<ChatSurface, string>;
-    /** The Weekly Reset's 7-day context, in place of the snapshot. */
     weekAhead: string;
-    /** Data-only templates: the policy is static in the system prompt, facts arrive as data. */
     memoryFacts: string;
     memoryFact: string;
-    /** Said instead of the memory block while the person has memory off. */
     memoryOff: string;
 }
 
-/**
- * User-chosen assistant settings (users.settings.assistant). `persona` is the one
- * voice setting; `tone` and `verbosity` stay in the settings contract for
- * back-compat but no longer reach the prompt. Names and `customInstructions` are
- * free text and UNTRUSTED: the composer sanitizes and fences them.
- */
 export type AssistantPersona = Required<AssistantSettings>;
 
-/**
- * Everything the composer needs at request time. All async (settings, metrics,
- * RAG) happens before this is built, so the composer stays pure.
- */
 export interface PromptRuntimeContext {
     timezone: string;
-    /** The user's local clock, minute precision: "2026-09-23 14:05 -04:00 (Wednesday)". */
     now: string;
     locale: string;
     weekStart: "Sunday" | "Monday" | "Saturday";
     approvalMode: ApprovalMode;
-    /** Adaptive tone is on and the user's burnout index is above the threshold. */
     workloadHigh: boolean;
     persona: AssistantPersona;
-    /** Today at a glance: the turn's opening reads as JSON (turn.ts `loadSnapshot`). User data, fenced. */
     snapshot?: string;
-    /** Where the chat is embedded (the Weekly Reset's closing chat). */
     surface?: ChatSurface;
-    /** The week ahead as JSON (turn.ts `loadWeekAhead`), replacing the snapshot on the reset surface. User data, fenced. */
     weekAhead?: string;
-    /** The always-present memory profile (Basic or Full on). User text, fenced. */
     memories?: ProfileLine[];
-    /** Memory exists but the person hasn't turned it on (off, or not chosen yet). */
     memoryOff?: boolean;
 }

@@ -2,19 +2,9 @@ import { useEffect, useRef } from "react";
 
 import { cssVars } from "~/lib/geometry";
 
-/*
- * A soft light under a fine pointer, trailed by a short comet of embers. The
- * head eases toward the pointer and each ember eases toward the one ahead of
- * it; an ember's opacity follows how far it lags, so the trail shows only in
- * motion and vanishes as the pointer settles. One rAF loop, transform and
- * opacity only, and it stops whenever everything has caught up.
- */
-
 const TRAIL = 14;
 const HEAD_EASE = 0.3;
-/** Tight follow, so neighbouring embers overlap into one streak instead of a dotted line. */
 const TRAIL_EASE = 0.55;
-/** Lag (px) at which an ember reaches full strength. */
 const FULL_LAG = 28;
 
 export function CursorGlow() {
@@ -35,7 +25,6 @@ export function CursorGlow() {
         let placed = false;
 
         const tick = (now: number) => {
-            // Eases are tuned per 60 Hz frame; scale them by elapsed time so the trail keeps its length at any refresh rate.
             const frames = last ? Math.min(4, (now - last) / 16.667) : 1;
             last = now;
             const headK = 1 - Math.pow(1 - HEAD_EASE, frames);
@@ -70,7 +59,6 @@ export function CursorGlow() {
             if (e.pointerType === "touch") return;
             tx = e.clientX;
             ty = e.clientY;
-            // First contact (or re-entry): start the whole comet at the pointer instead of streaking in.
             if (!placed) {
                 for (const p of pts) {
                     p.x = tx;

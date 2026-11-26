@@ -13,14 +13,8 @@ export interface DraftStep {
 }
 
 const norm = (title: string) => title.trim().toLowerCase();
-/** A draft step Keep and Smaller act on: ticked and not blank. */
 export const isWanted = (step: DraftStep) => step.ticked && !!step.title.trim();
 
-/**
- * Suggest steps for one task: drafted only on a tap, shown as ghost steps (all ticked) that can be unticked or
- * edited, made finer once (Smaller), discarded (×) or kept as subtasks with one Undo. Nothing is stored before Keep;
- * a step the task already has (ignoring case) is dropped here.
- */
 export function useSuggestSteps(taskId: string, existing: readonly { title: string; orderIndex: number }[]) {
     const client = useApiClient();
     const create = useCreateSubtask(taskId);
@@ -44,7 +38,6 @@ export function useSuggestSteps(taskId: string, existing: readonly { title: stri
                 setDraft(fresh.map((title, i) => ({ key: `${Date.now()}-${i}`, title, ticked: true })));
                 setStatus("idle");
             } catch (error) {
-                // The task is gone: the draft closes quietly. Anything else offers Try again; the field stays usable.
                 if ((error as { status?: number }).status === 404) {
                     setDraft(null);
                     setStatus("idle");
@@ -62,7 +55,6 @@ export function useSuggestSteps(taskId: string, existing: readonly { title: stri
         const base = existing.reduce((max, s) => Math.max(max, s.orderIndex), -1) + 1;
         const ids = kept.map(() => newRowId());
         setKeeping(true);
-        // One Keep through the one create hook, so "Break into steps?" records its answer once.
         const results = await Promise.allSettled(
             kept.map((d, i) =>
                 create.mutateAsync({
@@ -75,7 +67,6 @@ export function useSuggestSteps(taskId: string, existing: readonly { title: stri
         setKeeping(false);
         const added = ids.filter((_, i) => results[i].status === "fulfilled");
         const gone = results.some((r) => r.status === "rejected" && (r.reason as { status?: number }).status === 404);
-        // What was added leaves the draft, so Keep again never doubles it; what failed stays (its write said why).
         const left = gone ? [] : kept.filter((_, i) => results[i].status === "rejected");
         setDraft(left.length ? left : null);
         if (!left.length) setSmallerUsed(false);
@@ -91,10 +82,8 @@ export function useSuggestSteps(taskId: string, existing: readonly { title: stri
         keeping,
         canSmaller: !smallerUsed && !!draft?.some(isWanted),
         suggest: () => void ask(),
-        /** Try again: the same request as the one that failed. */
         retry: () => void ask(lastAsk.current),
         smaller: () => {
-            // Finer steps for the ones still wanted.
             const wanted = (draft ?? [])
                 .filter(isWanted)
                 .map((d) => d.title.trim())

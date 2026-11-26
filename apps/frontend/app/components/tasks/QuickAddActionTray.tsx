@@ -44,7 +44,6 @@ const choiceTone = (active: boolean) =>
 const tagDotColor = (color: string | null | undefined) =>
     !color || color === "default" ? "var(--color-twilight-text-muted)" : color;
 
-/** One list or tag in a picker popover: its emoji or colour dot, then its name; `active` marks the chosen ones. */
 export function PickerChoice({
     item,
     active = false,

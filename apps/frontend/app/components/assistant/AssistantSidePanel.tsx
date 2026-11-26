@@ -47,7 +47,6 @@ export function AssistantSidePanel({
         setAssistantFullscreen,
     } = useAssistantStore();
     const { isTouch, isCompact } = useShellMode();
-    // Only the phone/tablet bottom sheet can go full screen; a mouse gets the side panel.
     const canFullscreen = isMobile && isCompact && isTouch;
     const { session } = useAuthState();
     const userImage = session?.user?.image;
@@ -120,14 +119,10 @@ export function AssistantSidePanel({
             openAssistantSettings();
         }
     };
-    // Clear a stale notice once the user is back online / edits the draft.
     useEffect(() => {
         if (online) setInputNotice((n) => (n?.startsWith("You’re offline") ? null : n));
     }, [online]);
 
-    // Move focus into the composer when the panel opens (desktop only — auto-
-    // focusing on mobile would pop the keyboard over the conversation). Restore
-    // focus to whatever opened the panel when it closes/unmounts.
     useEffect(() => {
         const opener = document.activeElement as HTMLElement | null;
         let t: number | undefined;
@@ -140,16 +135,13 @@ export function AssistantSidePanel({
         };
     }, [isMobile]);
 
-    // Escape closes history first, then the panel. When embedded in the mobile
-    // overlay (ResponsiveOverlayPanel), that shell owns Escape → close, so skip
-    // this listener to avoid a double-toggle that would reopen the panel.
     useEffect(() => {
         if (isMobile) return;
         const onKey = (e: KeyboardEvent) => {
             if (e.key !== "Escape") return;
             if (memoryOpen) {
                 setMemoryOpen(false);
-                textareaRef.current?.focus(); // as its Back button does
+                textareaRef.current?.focus();
             } else if (usageOpen) {
                 closeUsage();
             } else if (historyOpen) {
@@ -228,7 +220,6 @@ export function AssistantSidePanel({
                 onStop={conversation.handleStop}
                 onCommand={runSlashCommand}
             />
-            {/* History drawer overlays the thread within the same panel envelope (§7) */}
             <AnimatePresence>
                 {historyOpen ? (
                     <ConversationList
@@ -249,7 +240,6 @@ export function AssistantSidePanel({
                             setMemoryOpen(false);
                             textareaRef.current?.focus();
                         }}
-                        // The change goes through chat: the assistant applies it and shows the receipt.
                         onAsk={(text) => {
                             setMemoryOpen(false);
                             submitText(text);

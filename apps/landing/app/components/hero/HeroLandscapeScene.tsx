@@ -1,34 +1,14 @@
 import { cssVars, n1, polyline, pt, risingEdges, rng, smoothThrough, yAt, type Pt } from "~/lib/geometry";
 
-/*
- * The ground under the sky, on a 1920×300 band anchored to the bottom of the
- * hero (`xMidYMax slice`, so phones keep the centre: the river bend and the
- * hamlet). Back to front: a ghost range, two rock massifs standing either side
- * of an open valley (the moon is upper-left, so every summit splits into a lit
- * west face and a shaded east one, with cloud lying across their flanks), the
- * far ridge, a river that catches the moon on its far reach and the lamps on
- * its near bend, the mid ridge with a lone farm, a terrace holding the hamlet
- * among its trees, then the dark near hills. Aerial perspective does the
- * depth: each nearer layer is darker and crisper, and every ridge base
- * dissolves into haze. Nothing stands on a ridge line: woods rise out of a
- * canopy mound, houses are sunk into their ground and framed by trees. The
- * lights live in a sibling <svg>, so their flicker never repaints the hills.
- */
-
 const W = 1920;
 const H = 300;
 
 export const ridgeLine = (keys: readonly Pt[]) => smoothThrough(keys, 10);
-/* Closed a little below the band: the band sits at a fractional pixel offset, and a fill that ended exactly on
-   its bottom edge left a half-transparent last row, a hairline of sky under the hills */
 export const ridgeFill = (line: readonly Pt[]) => `${polyline(line)}L${W},${H + 2}L0,${H + 2}Z`;
-/** A ridge that spans only part of the band, closed straight down past its bottom edge. */
 export const bankFill = (line: readonly Pt[]) =>
     `${polyline(line)}L${line[line.length - 1][0]},${H + 2}L${line[0][0]},${H + 2}Z`;
-/** The band, for the journey's second valley (journey/FinaleLand), which is drawn with these same helpers. */
 export { W as LAND_W, H as LAND_H };
 
-/** Rock: runs between hand-placed keys, broken every dozen units by a small jitter, so a slope reads as stone. */
 function crag(keys: readonly Pt[], seed: number): Pt[] {
     const rand = rng(seed);
     const out: Pt[] = [keys[0]];
@@ -41,11 +21,9 @@ function crag(keys: readonly Pt[], seed: number): Pt[] {
             out.push([x0 + (x1 - x0) * t, y0 + (y1 - y0) * t + (k < n ? (rand() - 0.5) * 2.2 : 0)]);
         }
     }
-    // A curve through the broken points: weathered rock, not cut paper
     return smoothThrough(out, 4);
 }
 
-/** The farthest thing in the picture: one pale massif seen through the gap, barely darker than the sky. */
 const GHOST = ridgeLine([
     [0, 112],
     [170, 100],
@@ -65,7 +43,6 @@ const GHOST = ridgeLine([
     [1820, 72],
     [1920, 84],
 ]);
-/** Two massifs with an open valley between them (the centre stays low: the hero's buttons sit above it). */
 const PEAKS = crag(
     [
         [0, 132],
@@ -145,7 +122,6 @@ const MID = ridgeLine([
     [1640, 198],
     [1920, 174],
 ]);
-/** The terrace the hamlet stands on: right of the river bend, clear of the scroll cue, inside a phone's crop. */
 const TERRACE = ridgeLine([
     [940, 300],
     [984, 246],
@@ -172,11 +148,6 @@ const NEAR = ridgeLine([
     [1920, 232],
 ]);
 
-/*
- * A summit's two faces. A spur zigzags down from the peak, leaning east; west of it the rock takes the moon,
- * east of it lies in shadow. Each face runs along the skyline to the next saddle (`west`, `east`; 0 leaves that
- * side to a taller neighbour), then closes straight back to the spur's foot, down in the haze where its gradient has faded.
- */
 const FOOT = 176;
 const lineTo = (points: readonly Pt[]) => points.map(([x, y]) => `L${pt(x, y)}`).join("");
 function faces(line: readonly Pt[], sx: number, west: number, east: number, lean: number, seed: number) {
@@ -191,7 +162,6 @@ function faces(line: readonly Pt[], sx: number, west: number, east: number, lean
             py + (FOOT - py) * t,
         ]);
     }
-    // Foot back up to the summit, eased through its bends
     const spur = lineTo(smoothThrough(bends, 4).slice(1).reverse());
     const face = (side: readonly Pt[]) => (side.length ? `M${pt(px, py)}${lineTo(side)}${spur}Z` : "");
     return {
@@ -200,7 +170,6 @@ function faces(line: readonly Pt[], sx: number, west: number, east: number, lean
     };
 }
 
-/** A rib on a moonlit face: a thin wedge of shadow falling east from the skyline, the way a gully holds the dark. */
 function rib(line: readonly Pt[], x: number, len: number, seed: number): string {
     const rand = rng(seed);
     const y = yAt(line, x);
@@ -214,7 +183,6 @@ function rib(line: readonly Pt[], x: number, len: number, seed: number): string 
     return `M${pt(x, y)}${lineTo(down)}${lineTo(up)}Z`;
 }
 
-/** Summits and shoulders, west to east: [x, west reach, east reach, lean, seed]. Each reach ends in a saddle. */
 const FACES = (
     [
         [318, 250, 350, 44, 5],
@@ -236,7 +204,6 @@ const PEAKS_SHADE =
     rib(PEAKS, 1366, 70, 12) +
     rib(PEAKS, 1700, 44, 14);
 
-/** A soft spruce: two gentle bulges and a rounded tip, no hard tiers. */
 function spruce(x: number, b: number, h: number, w: number): string {
     return (
         `M${pt(x - w, b)}Q${pt(x - w * 0.62, b - h * 0.3)} ${pt(x - w * 0.4, b - h * 0.55)}` +
@@ -245,7 +212,6 @@ function spruce(x: number, b: number, h: number, w: number): string {
     );
 }
 
-/** A fir seen close: three drooping tiers, for the trees big enough to show their boughs. */
 function fir(x: number, b: number, h: number, w: number): string {
     let left = "";
     let right = "";
@@ -259,7 +225,6 @@ function fir(x: number, b: number, h: number, w: number): string {
     return `M${pt(x, b)}${left}L${pt(x, b - h)}${right}Z`;
 }
 
-/** A broadleaf crown: three overlapping discs, drawn clockwise like the ridges so overlaps never cut holes. */
 function canopy(x: number, b: number, h: number): string {
     const disc = (cx: number, cy: number, r: number) =>
         `M${pt(cx - r, cy)}a${n1(r)},${n1(r)} 0 1,1 ${n1(2 * r)},0a${n1(r)},${n1(r)} 0 1,1 ${n1(-2 * r)},0Z`;
@@ -267,12 +232,6 @@ function canopy(x: number, b: number, h: number): string {
     return disc(x, b - h + r, r) + disc(x - r * 0.7, b - r * 0.8, r * 0.8) + disc(x + r * 0.75, b - r * 0.75, r * 0.78);
 }
 
-/**
- * A wood on a ridge: a low canopy mound (closed back along the ridge itself, so
- * no sky shows beneath it) with overlapping spruces and broadleaf crowns rising
- * out of it, tallest near the middle, so the clump reads as one mass instead of
- * a row of spikes.
- */
 export function grove(
     line: readonly Pt[],
     cx: number,
@@ -301,7 +260,6 @@ export function grove(
     return d;
 }
 
-/** Lone trees along a ridge, between the woods: a land that grew, not one that was planted in clumps. */
 export function scatter(line: readonly Pt[], x0: number, x1: number, count: number, h: number, seed: number): string {
     const rand = rng(seed);
     let d = "";
@@ -313,7 +271,6 @@ export function scatter(line: readonly Pt[], x0: number, x1: number, count: numb
     return d;
 }
 
-/** A house: walls under a gable with eaves, its windows set in the wall facing us. */
 export interface House {
     body: string;
     windows: Pt[];
@@ -328,12 +285,10 @@ export function house(line: readonly Pt[], x: number, w: number, h: number, sink
     const eave = w / 2 + 2.5;
     const windows: Pt[] = [];
     for (let i = 0; i < panes; i++) {
-        // Evenly spaced across the wall, a third of the way down it
         windows.push([n1(x + w * ((i + 0.5) / panes - 0.5)), n1(top + h * 0.38)]);
     }
     return {
         body: `M${pt(x - w / 2, b)}L${pt(x - w / 2, top)}L${pt(x - eave, top)}L${pt(x, roof)}L${pt(x + eave, top)}L${pt(x + w / 2, top)}L${pt(x + w / 2, b)}Z`,
-        // The moon catches one slope of every roof, as it catches the ridges
         ridge: `M${pt(x - eave, top)}L${pt(x, roof)}`,
         windows,
         chimney: h >= 18 ? [n1(x + w * 0.26), n1(roof + h * 0.22)] : undefined,
@@ -352,13 +307,11 @@ const MID_TREES =
     grove(MID, 1800, 16, 170, 16, 19) +
     scatter(MID, 300, 480, 5, 12, 61) +
     scatter(MID, 1020, 1280, 7, 12, 67);
-/* The hamlet's own trees: taller than its roofs behind and beside them, so the houses sit in a wood's lap */
 const TERRACE_TREES =
     grove(TERRACE, 1030, 5, 46, 26, 31) +
     grove(TERRACE, 1166, 5, 76, 34, 71) +
     grove(TERRACE, 1330, 7, 80, 30, 37) +
     scatter(TERRACE, 1214, 1262, 2, 26, 73);
-/* The near hills carry the biggest trees, largest at the picture's edges: scale is the last depth cue */
 const NEAR_TREES =
     grove(NEAR, 70, 9, 190, 58, 23) +
     grove(NEAR, 330, 10, 170, 30, 79) +
@@ -367,7 +320,6 @@ const NEAR_TREES =
     scatter(NEAR, 520, 900, 6, 17, 89) +
     scatter(NEAR, 1380, 1480, 3, 18, 97);
 
-/** The hamlet: six homes staggered in depth around one larger house. */
 const HAMLET = [
     house(TERRACE, 1066, 22, 12, 4, 1),
     house(TERRACE, 1102, 32, 17, 0, 2),
@@ -376,25 +328,20 @@ const HAMLET = [
     house(TERRACE, 1240, 26, 14, 6, 1),
     house(TERRACE, 1276, 20, 11, 2, 1),
 ];
-/** A lone farm on the mid ridge across the river: someone else is home too. */
 const FARM = house(MID, 556, 20, 10, 3, 1);
 
-/** The river. Its far reach lies across the valley under the moon; its near bend comes round the terrace toward us. */
 const RIVER_FAR = "M236,165Q330,158 430,160T612,163Q700,165 772,172L772,175Q690,170 612,169T430,167Q330,166 236,169Z";
 const RIVER_NEAR =
     "M520,207C650,203 770,206 852,219S944,250 950,290L1024,290C1016,256 976,230 904,215S660,209 520,210Z";
-/** Moonlight broken on the far reach, straight under the moon; a few ripples on the near bend. */
 const GLITTER = "M352,161.5H392M404,163.5H452M372,165.5H424M438,161.5H470M462,165H500M318,164H342";
 const RIPPLES = "M700,208.5H770M812,216H868M880,228H930M908,240H966M934,252H990";
 
-/** Lanterns down the lane from the hamlet to the water, and one at a wayside on the eastern slope. */
 const LANE: readonly Pt[] = [
     [1020, 237],
     [977, 251],
 ];
 const WAYSIDE: Pt = [1392, yAt(MID, 1392) + 9];
 
-/** A lone light on the tallest summit (the finale lights the same one from the other side). */
 export const BEACON: Pt = [1420, 8];
 
 const BAND = {
@@ -413,7 +360,6 @@ export function Grad({ id, top, base }: { id: string; top: string; base: string 
     );
 }
 
-/** A band of haze: clear at both edges, densest just below the middle. */
 export function Mist({ id, color }: { id: string; color: string }) {
     return (
         <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
@@ -424,7 +370,6 @@ export function Mist({ id, color }: { id: string; color: string }) {
     );
 }
 
-/** A warm light: a soft glow and a bright core, lit at its own moment of the ignition. */
 function Light({ at, x, y, r = 1.6 }: { at: number; x: number; y: number; r?: number }) {
     return (
         <g className="hero-lamp" style={cssVars({ "--at": `${at}ms` })}>
@@ -434,12 +379,6 @@ function Light({ at, x, y, r = 1.6 }: { at: number; x: number; y: number; r?: nu
     );
 }
 
-/**
- * The valley's mountains, one drawing for both ends of the page: the ghost range, the two massifs with their
- * moonlit and shaded faces, and a little cloud across their flanks. The hero sees them with the moon in the
- * west; `flip` is the same range from the valley's other end (the finale), where the moon has crossed to the
- * east, so the lit faces turn with it. `cloud` scales how much of the cloud shows.
- */
 export function Massifs({ id, rim, flip, cloud = 1 }: { id: string; rim?: string; flip?: boolean; cloud?: number }) {
     return (
         <g transform={flip ? `translate(${W}) scale(-1 1)` : undefined}>
@@ -450,7 +389,6 @@ export function Massifs({ id, rim, flip, cloud = 1 }: { id: string; rim?: string
                     base="var(--hero-land-haze)"
                 />
                 <Grad id={`${id}-distant`} top="var(--hero-land-distant)" base="var(--hero-land-haze)" />
-                {/* The faces fade by height, not by shape, so every summit loses its light and shadow at the same haze line */}
                 <linearGradient id={`${id}-lit`} gradientUnits="userSpaceOnUse" x1="0" y1="8" x2="0" y2="134">
                     <stop offset="0" stopColor="var(--hero-land-rim)" stopOpacity=".3" />
                     <stop offset="1" stopColor="var(--hero-land-rim)" stopOpacity="0" />
@@ -467,7 +405,6 @@ export function Massifs({ id, rim, flip, cloud = 1 }: { id: string; rim?: string
                 </filter>
             </defs>
             <path d={ridgeFill(GHOST)} fill={`url(#${id}-ghost)`} opacity=".5" filter={`url(#${id}-soft)`} />
-            {/* Softest and palest of the solid land, each summit split by the moon */}
             <g filter={`url(#${id}-soft)`}>
                 <path d={ridgeFill(PEAKS)} fill={`url(#${id}-distant)`} />
                 <path d={PEAKS_SHADE} fill={`url(#${id}-shade)`} />
@@ -496,7 +433,6 @@ export function Massifs({ id, rim, flip, cloud = 1 }: { id: string; rim?: string
     );
 }
 
-/** A lit window: a small pane of warm light in its own spill. */
 function Pane({ at, x, y }: { at: number; x: number; y: number }) {
     return (
         <g className="hero-lamp" style={cssVars({ "--at": `${at}ms` })}>
@@ -549,7 +485,6 @@ export function LandLayers() {
                 </defs>
 
                 <Massifs id="hl" rim="hero-land-rim" />
-                {/* The moon's wash on the haze beneath it */}
                 <ellipse cx="430" cy="128" rx="330" ry="58" fill="url(#hl-moonwash)" />
 
                 <path d={ridgeFill(FAR) + FAR_TREES} fill="url(#hl-far)" />
@@ -564,7 +499,6 @@ export function LandLayers() {
                 />
                 <rect y="124" width={W} height="80" fill="url(#hl-mist)" />
 
-                {/* The river's far reach, silvered where the moon stands over it */}
                 <path d={RIVER_FAR} fill="url(#hl-water)" />
                 <path
                     className="hero-land-rim"
@@ -585,14 +519,12 @@ export function LandLayers() {
                     strokeLinecap="round"
                     opacity=".14"
                 />
-                {/* Haze over the tree line, so the woods sink into the slope, and a bank of it pooled in each hollow */}
                 <rect y="176" width={W} height="70" fill="url(#hl-mist)" opacity=".7" />
                 <g filter="url(#hl-haze)" fill="var(--hero-land-haze)">
                     <ellipse cx="330" cy="212" rx="250" ry="6" opacity=".3" />
                     <ellipse cx="1560" cy="218" rx="270" ry="6" opacity=".3" />
                 </g>
 
-                {/* The near bend, coming round the terrace: it carries the lane's lamps on its surface */}
                 <path d={RIVER_NEAR} fill="url(#hl-bend)" opacity=".8" />
                 <path
                     className="hero-land-rim"
@@ -603,9 +535,7 @@ export function LandLayers() {
                     opacity=".28"
                 />
 
-                {/* The hamlet and its light, one group: portrait screens set it lower, under the bough that hangs there (hero.css) */}
                 <g className="hero-hamlet">
-                    {/* The hamlet's light spills over the valley behind it once it wakes, backlighting the roofs */}
                     <ellipse className="hero-land-glow" cx="1166" cy="212" rx="240" ry="64" fill="url(#hl-village)" />
 
                     <path
@@ -621,7 +551,6 @@ export function LandLayers() {
                         strokeLinecap="round"
                         opacity=".32"
                     />
-                    {/* What the lamps do to the ground: a pool round the homes, the lane's last lamp on the water */}
                     <g className="hero-land-glow">
                         <ellipse cx="1170" cy="234" rx="160" ry="28" fill="url(#hl-village)" />
                         <rect x="969" y="255" width="3" height="13" rx="1.5" fill="url(#hl-streak)" />

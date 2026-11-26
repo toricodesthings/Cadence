@@ -24,7 +24,6 @@ import { EFFORT_OPTIONS, PRIORITY_OPTIONS } from "../../tasks/task-choice-option
 
 type TaskPatch = NonNullable<NonNullable<NonNullable<ToolRenderContext<"update_tasks">["part"]>["input"]>["patch"]>;
 
-/** When it happens and for how long. */
 function timePills(patch: TaskPatch): MaybePill[] {
     const when =
         "scheduledStart" in patch || "dueDate" in patch
@@ -36,7 +35,6 @@ function timePills(patch: TaskPatch): MaybePill[] {
     ];
 }
 
-/** Every other field the patch sets or clears, in words. */
 function changePills(patch: TaskPatch): MaybePill[] {
     const priority = patch.priority != null ? PRIORITY_OPTIONS.find((o) => o.value === patch.priority) : undefined;
     const effort = patch.effort != null ? EFFORT_OPTIONS.find((o) => o.value === patch.effort) : undefined;
@@ -64,7 +62,6 @@ function changePills(patch: TaskPatch): MaybePill[] {
     ];
 }
 
-/** The card's words for one task or several (counting only the rows still ticked). */
 function updateCardText(count: number, kept: number, title: string, updated: number | undefined) {
     if (count > 1) {
         return {
@@ -76,7 +73,6 @@ function updateCardText(count: number, kept: number, title: string, updated: num
     return { eyebrow: "TASK UPDATE", primaryLabel: "Update", doneText: `Updated “${title}”.` };
 }
 
-/** Tags the patch adds, then those it takes off. */
 function useTagChanges(patch: TaskPatch) {
     const lookupTags = useTagsLookup();
     return [
@@ -93,7 +89,6 @@ type UpdateTargetsProps = {
     onToggle: (i: number) => (() => void) | undefined;
 };
 
-/** One task by name (with its rename), or a row per task the user can untick. */
 function UpdateTargets({ taskIds, title, rename, off, onToggle }: UpdateTargetsProps) {
     const lookupTitle = useTaskTitleLookup();
     if (taskIds.length === 1)
@@ -109,7 +104,6 @@ function UpdateTargets({ taskIds, title, rename, off, onToggle }: UpdateTargetsP
     );
 }
 
-/** Every change as pills: time, destination (in the first task's list unless it moves), the rest, then tags. */
 function UpdatePills({ patch, firstTaskId }: { patch: TaskPatch; firstTaskId: string | undefined }) {
     const lookupTask = useTaskLookup();
     const tags = useTagChanges(patch);
@@ -128,7 +122,6 @@ function UpdatePills({ patch, firstTaskId }: { patch: TaskPatch; firstTaskId: st
     );
 }
 
-/** Card for `update_tasks` (design §4.1): what changes, on one task or on rows the user can untick. */
 export function UpdateTasksCard({ ctx }: { ctx: ToolRenderContext<"update_tasks"> }) {
     const lookupTitle = useTaskTitleLookup();
     const { off, onToggle, removed } = useUnticked(ctx);

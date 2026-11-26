@@ -9,10 +9,6 @@ import { createOnce } from "../../platform/idempotency";
 import type { Tx } from "../../types/db";
 import { assertRowRoom } from "../../platform/storage-ceiling";
 
-/**
- * The caller's lists, each with their role and who it is shared with: their own first (oldest first), then the
- * ones shared with them (by when they joined). `id` narrows to one list. RLS decides what is visible.
- */
 export async function readProjects(tx: Tx, userId: string, id?: string): Promise<Project[]> {
     const rows = await tx
         .select()
@@ -54,7 +50,6 @@ export async function readProjects(tx: Tx, userId: string, id?: string): Promise
     return [...own, ...shared];
 }
 
-/** Create a project. A replayed idempotency key returns the first one. */
 export async function createProject(tx: Tx, userId: string, body: InsertProject, idempotencyKey?: string) {
     return createOnce(
         tx,
@@ -75,7 +70,6 @@ export async function createProject(tx: Tx, userId: string, body: InsertProject,
     );
 }
 
-/** Rename a project or change its emoji/colour. 404 when it isn't the caller's. */
 export async function updateProject(tx: Tx, userId: string, id: string, body: UpdateProject) {
     const [row] = await tx
         .update(projects)
@@ -86,10 +80,6 @@ export async function updateProject(tx: Tx, userId: string, id: string, body: Up
     return row;
 }
 
-/**
- * Delete a project for good; its sections go with it. Its tasks stay, with no
- * list, unless `trashOpenTasks` moves the open ones to Trash first.
- */
 export async function deleteProject(tx: Tx, userId: string, id: string, { trashOpenTasks = false } = {}) {
     const trashed = trashOpenTasks
         ? await tx
@@ -102,7 +92,6 @@ export async function deleteProject(tx: Tx, userId: string, id: string, { trashO
         .select({ kept: count() })
         .from(tasks)
         .where(and(eq(tasks.userId, userId), eq(tasks.projectId, id), ne(tasks.state, "ARCHIVED")));
-    // The foreign key clears each task's list and deletes the list's sections.
     const [row] = await tx
         .delete(projects)
         .where(and(eq(projects.id, id), eq(projects.userId, userId)))

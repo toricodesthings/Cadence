@@ -1,9 +1,3 @@
-/**
- * Full: learning from task notes. After a note has been quiet for 10 minutes, only the lines memory
- * has not read yet go through the same extraction as a chat; the note itself is never copied (only
- * a hash per line is kept, so an edit is learned from once). Plain-language facts about the person
- * only: the extraction prompt and the candidate filter are the chat's.
- */
 import { and, desc, eq, gt, lt, sql } from "drizzle-orm";
 import { todayIn } from "@cadence/domain/time";
 import removeMarkdown from "remove-markdown";
@@ -17,12 +11,9 @@ import { learnFromReading, type Admit, type LearnResult } from "./learn";
 import { readMemoryState } from "./memory-mode";
 import { contentHash } from "./memory-store";
 
-/** Shorter lines are headings, bullets and fragments, not statements. */
 const MIN_LINE_CHARS = 12;
-/** What one reading takes: about 6k tokens. */
 const READ_CHAR_BUDGET = 24_000;
 
-/** The notes quiet for `idleMinutes` (and not older than `withinDays`) that memory hasn't read since their last save. */
 export async function pendingNotes(
     tx: Tx,
     userId: string,
@@ -52,7 +43,6 @@ export async function pendingNotes(
     return rows.map((r) => r.taskId);
 }
 
-/** Lines of a note worth reading, as plain text. */
 export const linesOf = (body: string) =>
     body
         .split("\n")
@@ -94,7 +84,6 @@ export async function learnFromNote(
     const lines = linesOf(read.body);
     const hashes = await Promise.all(lines.map((l) => contentHash(l)));
     const fresh = lines.filter((_, i) => !read.seen.has(hashes[i]));
-    // Moves only from the read this started from: an overlapping run that already moved it wins, and this one writes nothing.
     const advance = async (tx: Tx) => {
         const moved = await tx
             .insert(aiMemoryNotes)

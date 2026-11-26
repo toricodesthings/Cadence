@@ -1,26 +1,3 @@
-/**
- * Scenario: Active Power User
- *
- * A fully-loaded Cadence workspace representing an engaged user with:
- * - 4 projects across work/personal/academic domains
- * - 8 task sections + 3 inbox sections
- * - 4 tags spanning work styles
- * - 17+ tasks covering every schedule kind (timed, deadline, duration, unmanaged, timetable)
- * - Subtasks, task metrics, task–tag associations
- * - 4 habits (active + archived) with log history
- * - Habit–tag associations
- * - 4 inbox items across capture/errands/reference
- * - AI memories (core + ephemeral)
- * - User metrics with burnout index
- * - Task notes on selected tasks
- * - NLP metadata on quick-added tasks
- * - Saved focus views (preset + composed)
- * - Notification-exercising tasks (reminder, due-today, overdue)
- * - Unmanaged tasks for backlog testing
- * - Full user settings with all notification channels enabled
- * - An AI conversation firing every assistant tool (see ai-showcase-conversation.ts)
- */
-
 import type { Tx } from "../../../types/db";
 import {
     createSeedProject,
@@ -85,12 +62,10 @@ function seedStartedOn(clock: SeedClock, dayOffset: number, yearsAgo: number): s
 }
 
 export async function seed(db: Tx, userId: string) {
-    // Everything is planned in the user's own zone: days as LocalDates, timed values as instants.
     const zone = await userZone(db, userId);
     const clock = seedClock(zone);
     const seedTask = (input: SeedTaskInput) => createSeedTask(userId, input, zone);
 
-    // ── Projects ─────────────────────────────────────────────────────
     const seededProjects = await db
         .insert(projects)
         .values([
@@ -107,7 +82,6 @@ export async function seed(db: Tx, userId: string) {
     const homeResetId = getRequiredRow(projectByName, "Home Reset", "project").id;
     const springSemesterId = getRequiredRow(projectByName, "Spring Semester", "project").id;
 
-    // ── Task sections ────────────────────────────────────────────────
     const seededSections = await db
         .insert(taskSections)
         .values([
@@ -128,7 +102,6 @@ export async function seed(db: Tx, userId: string) {
         return match;
     };
 
-    // ── Inbox sections ───────────────────────────────────────────────
     const seededInboxSections = await db
         .insert(inboxSections)
         .values([
@@ -140,7 +113,6 @@ export async function seed(db: Tx, userId: string) {
 
     const inboxSectionByName = new Map(seededInboxSections.map((s) => [s.name, s] as const));
 
-    // ── Tags ─────────────────────────────────────────────────────────
     const seededTags = await db
         .insert(tags)
         .values([
@@ -153,11 +125,9 @@ export async function seed(db: Tx, userId: string) {
 
     const tagByName = new Map(seededTags.map((t) => [t.name, t] as const));
 
-    // ── Tasks ────────────────────────────────────────────────────────
     const seededTasks = await db
         .insert(tasks)
         .values([
-            // 0 — Timed block today (Feature Launch)
             seedTask({
                 projectId: featureLaunchId,
                 sectionId: sectionByProjectAndName(featureLaunchId, "Today").id,
@@ -173,7 +143,6 @@ export async function seed(db: Tx, userId: string) {
                 reminderAt: seedDateTime(clock, 0, 13, 30),
                 effort: 2,
             }),
-            // 1 — All-day deadline today (no project)
             seedTask({
                 sectionId: sectionByProjectAndName(null, "Today").id,
                 title: "Call landlord about hallway leak",
@@ -185,7 +154,6 @@ export async function seed(db: Tx, userId: string) {
                 reminderAt: seedDateTime(clock, 0, 16, 0),
                 effort: 1,
             }),
-            // 2 — Timed block today (Client Ops)
             seedTask({
                 projectId: clientOpsId,
                 sectionId: sectionByProjectAndName(clientOpsId, "Today").id,
@@ -198,7 +166,6 @@ export async function seed(db: Tx, userId: string) {
                 priority: 2,
                 effort: 1,
             }),
-            // 3 — Waiting task (Client Ops)
             seedTask({
                 projectId: clientOpsId,
                 sectionId: sectionByProjectAndName(clientOpsId, "Today").id,
@@ -209,7 +176,6 @@ export async function seed(db: Tx, userId: string) {
                 waitingReminder: seedDateTime(clock, 1, 15, 0),
                 effort: 1,
             }),
-            // 4 — Recurring weekly (Client Ops)
             seedTask({
                 projectId: clientOpsId,
                 sectionId: sectionByProjectAndName(clientOpsId, "Later This Week").id,
@@ -220,7 +186,6 @@ export async function seed(db: Tx, userId: string) {
                 recurrenceRule: "FREQ=WEEKLY;BYDAY=MO",
                 priority: 1,
             }),
-            // 5 — Duration task (no project)
             seedTask({
                 sectionId: sectionByProjectAndName(null, "Later This Week").id,
                 title: "Outline Q2 research themes",
@@ -230,7 +195,6 @@ export async function seed(db: Tx, userId: string) {
                 durationEstimate: 120,
                 effort: 3,
             }),
-            // 6 — All-day duration with date range (Home Reset)
             seedTask({
                 projectId: homeResetId,
                 sectionId: sectionByProjectAndName(homeResetId, "Later This Week").id,
@@ -242,7 +206,6 @@ export async function seed(db: Tx, userId: string) {
                 priority: 1,
                 effort: 2,
             }),
-            // 7 — Timezone-locked timed block (Feature Launch)
             seedTask({
                 projectId: featureLaunchId,
                 sectionId: sectionByProjectAndName(featureLaunchId, "Later This Week").id,
@@ -257,7 +220,6 @@ export async function seed(db: Tx, userId: string) {
                 notBefore: seedDate(clock, 1),
                 effort: 2,
             }),
-            // 8 — Completed task (Feature Launch)
             seedTask({
                 projectId: featureLaunchId,
                 title: "Ship retrospective notes",
@@ -267,7 +229,6 @@ export async function seed(db: Tx, userId: string) {
                 dueDate: seedDate(clock, -1),
                 priority: 1,
             }),
-            // 9 — Archived task (Home Reset)
             seedTask({
                 projectId: homeResetId,
                 title: "Archive 2025 receipts",
@@ -275,7 +236,6 @@ export async function seed(db: Tx, userId: string) {
                 orderIndex: 10,
                 dueDate: seedDate(clock, -3),
             }),
-            // 10 — Recurring weekly timed (Client Ops)
             seedTask({
                 projectId: clientOpsId,
                 sectionId: sectionByProjectAndName(clientOpsId, "Later This Week").id,
@@ -288,7 +248,6 @@ export async function seed(db: Tx, userId: string) {
                 recurrenceRule: "FREQ=WEEKLY;BYDAY=TH",
                 effort: 2,
             }),
-            // 11 — Future deadline with reminder (no project)
             seedTask({
                 title: "Book dentist follow-up",
                 state: "ACTIVE",
@@ -297,7 +256,6 @@ export async function seed(db: Tx, userId: string) {
                 reminderAt: seedDateTime(clock, 4, 18, 0),
                 effort: 1,
             }),
-            // 12 — Timetable clock (Spring Semester)
             seedTask({
                 projectId: springSemesterId,
                 sectionId: sectionByProjectAndName(springSemesterId, "Weekly Anchors").id,
@@ -318,7 +276,6 @@ export async function seed(db: Tx, userId: string) {
         .returning();
     const taskByTitle = new Map(seededTasks.map((task) => [task.title, task] as const));
 
-    // ── Subtasks ─────────────────────────────────────────────────────
     const seededSubtasks = await db
         .insert(subtasks)
         .values([
@@ -355,7 +312,6 @@ export async function seed(db: Tx, userId: string) {
         ])
         .returning();
 
-    // ── Task metrics ─────────────────────────────────────────────────
     await db.insert(taskMetrics).values([
         {
             userId,
@@ -375,7 +331,6 @@ export async function seed(db: Tx, userId: string) {
         },
     ]);
 
-    // ── Task–tag associations ────────────────────────────────────────
     await db.insert(taskTags).values([
         {
             taskId: getRequiredRow(taskByTitle, "Draft launch announcement", "task").id,
@@ -423,7 +378,6 @@ export async function seed(db: Tx, userId: string) {
         },
     ]);
 
-    // ── Habits ───────────────────────────────────────────────────────
     const seededHabits = await db
         .insert(habits)
         .values([
@@ -481,7 +435,6 @@ export async function seed(db: Tx, userId: string) {
         .returning();
     const habitByTitle = new Map(seededHabits.map((habit) => [habit.title, habit] as const));
 
-    // ── Habit logs ───────────────────────────────────────────────────
     await db.insert(habitLogs).values([
         {
             userId,
@@ -539,7 +492,6 @@ export async function seed(db: Tx, userId: string) {
         },
     ]);
 
-    // ── Habit–tag associations ───────────────────────────────────────
     await db.insert(habitTags).values([
         {
             userId,
@@ -553,7 +505,6 @@ export async function seed(db: Tx, userId: string) {
         },
     ]);
 
-    // ── Inbox items ──────────────────────────────────────────────────
     const seededInboxItems = await db
         .insert(inboxItems)
         .values([
@@ -579,7 +530,6 @@ export async function seed(db: Tx, userId: string) {
         ])
         .returning();
 
-    // ── AI memories ──────────────────────────────────────────────────
     const today = seedDate(clock, 0);
     await db.insert(aiMemories).values([
         {
@@ -611,7 +561,6 @@ export async function seed(db: Tx, userId: string) {
         },
     ]);
 
-    // ── User metrics ─────────────────────────────────────────────────
     await db.insert(userMetrics).values({
         userId,
         rescheduleVelocity: 1.6,
@@ -619,7 +568,6 @@ export async function seed(db: Tx, userId: string) {
         lastCalculatedAt: seedDateTime(clock, 0, 6, 0),
     });
 
-    // ── Task notes ───────────────────────────────────────────────────
     await db.insert(taskNotes).values([
         createSeedTaskNote(userId, getRequiredRow(taskByTitle, "Draft launch announcement", "task").id, {
             body: "## Key Points\n\n- Retention up 14% QoQ\n- New onboarding funnel live\n- CTA needs A/B variant copy\n\nCheck with design before finalising the hero.",
@@ -629,7 +577,6 @@ export async function seed(db: Tx, userId: string) {
         }),
     ]);
 
-    // ── NLP metadata ─────────────────────────────────────────────────
     await db.insert(taskNlpMetadata).values([
         createSeedNlpMetadata(userId, getRequiredRow(taskByTitle, "Call landlord about hallway leak", "task").id, {
             sourceSurface: "quick_add",
@@ -654,7 +601,6 @@ export async function seed(db: Tx, userId: string) {
         }),
     ]);
 
-    // ── Saved focus views ────────────────────────────────────────────
     await db.insert(savedFocusViews).values([
         createSeedSavedFocusView(userId, {
             name: "Deep Work Only",
@@ -679,7 +625,6 @@ export async function seed(db: Tx, userId: string) {
         }),
     ]);
 
-    // ── Notification & feature-testing tasks ─────────────────────────
     const notifTasks = await db
         .insert(tasks)
         .values([
@@ -719,7 +664,6 @@ export async function seed(db: Tx, userId: string) {
         ])
         .returning();
 
-    // ── Unmanaged tasks (no date, no project) ────────────────────────
     await db.insert(tasks).values([
         seedTask({
             title: "Brainstorm podcast episode topics",
@@ -735,7 +679,6 @@ export async function seed(db: Tx, userId: string) {
         }),
     ]);
 
-    // ── Tag the notification-test tasks ──────────────────────────────
     await db.insert(taskTags).values([
         {
             taskId: notifTasks[0].id,
@@ -747,7 +690,6 @@ export async function seed(db: Tx, userId: string) {
         },
     ]);
 
-    // ── Yearly events ────────────────────────────────────────────────
     const seededEvents = await db
         .insert(personalEvents)
         .values([
@@ -794,7 +736,6 @@ export async function seed(db: Tx, userId: string) {
         ])
         .returning();
 
-    // ── AI showcase conversation ─────────────────────────────────────
     await seedAiShowcaseConversation(db, userId, {
         clock,
         tasks: [...seededTasks, ...notifTasks],
@@ -807,7 +748,6 @@ export async function seed(db: Tx, userId: string) {
         personalEvents: seededEvents,
     });
 
-    // ── Usage diagnostics seed data ──────────────────────────────────
     await db.insert(usageEvents).values([
         {
             userId,
@@ -884,7 +824,6 @@ export async function seed(db: Tx, userId: string) {
         },
     ]);
 
-    // ── User settings (all notification channels enabled) ────────────
     await db
         .update(users)
         .set({

@@ -33,7 +33,6 @@ describe("missing assets", () => {
     });
 });
 
-/** A limiter binding that allows `allowed` calls per key. */
 function limiter(allowed: number) {
     const seen = new Map<string, number>();
     return {

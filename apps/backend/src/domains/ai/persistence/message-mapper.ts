@@ -1,22 +1,8 @@
-/**
- * Pure row <-> UIMessage mapper for AI conversation persistence.
- *
- * We persist Vercel AI SDK `UIMessage` fidelity (`{ id, role, parts, metadata }`)
- * — NEVER ModelMessages (see docs/ai_upgrade/08). One DB row per UIMessage; the
- * `parts` and `metadata` arrays/objects are stored verbatim as jsonb. `status`
- * and `orderIndex` are persistence-only columns and are dropped when
- * reconstructing the UIMessage for the client.
- *
- * Everything here is PURE (no IO, no clock, no randomness) so it is trivially
- * unit-testable and safe to call from inside an RLS transaction.
- */
 import { aiMessages } from "../../../db/schema";
 import type { MessageRole, MessageStatus } from "@cadence/contracts/ai";
 
-/** The two enums we coerce into — canonical in @cadence/contracts/ai. */
 export type { MessageRole, MessageStatus };
 
-/** Narrow structural UIMessage shape — avoids generic friction with the SDK's `UIMessage<…>`. */
 export interface UIMessageLike {
     id: string;
     role: MessageRole;
@@ -24,7 +10,6 @@ export interface UIMessageLike {
     metadata: Record<string, unknown>;
 }
 
-/** A persisted `ai_messages` row projected to the fields the mapper cares about. */
 export interface StoredMessage {
     id: string;
     role: MessageRole;
@@ -34,21 +19,14 @@ export interface StoredMessage {
     orderIndex: number;
 }
 
-/** The insert payload accepted by `db.insert(aiMessages).values(...)`. */
 export type InsertRow = typeof aiMessages.$inferInsert;
 
 const VALID_ROLES: ReadonlySet<string> = new Set<MessageRole>(["user", "assistant", "system"]);
 
-/** Coerce an arbitrary string into the role enum, defaulting unknown values to 'user'. */
 function coerceRole(role: string): MessageRole {
     return VALID_ROLES.has(role) ? (role as MessageRole) : "user";
 }
 
-/**
- * Apply the user's approval decisions to the stored assistant message. Only parts
- * still waiting (`approval-requested`) change, and their approval id and signature
- * stay the server's own. Null when no decision matched a waiting part.
- */
 export function applyApprovals(
     message: UIMessageLike,
     decisions: { id: string; approved: boolean; reason?: string }[],
@@ -73,13 +51,6 @@ export function applyApprovals(
     return matched ? { ...message, parts } : null;
 }
 
-/**
- * Retrying a reply that failed after it already changed something: the changes
- * stay in Cadence either way, so the reply keeps the steps that finished and the
- * retry continues it. Starting over would hide those changes from the user and
- * the model alike. Null (a clean re-run) when `anchorId` isn't the second-to-last
- * row, the reply after it finished, or none of its finished steps wrote anything.
- */
 export function keepFinishedWrites(rows: StoredMessage[], anchorId: string): UIMessageLike | null {
     const at = rows.findIndex((row) => row.id === anchorId);
     const reply = rows[at + 1];
@@ -88,24 +59,16 @@ export function keepFinishedWrites(rows: StoredMessage[], anchorId: string): UIM
         const p = part as { type?: string; state?: string };
         return typeof p?.type === "string" && p.type.startsWith("tool-") && p.state === "output-available";
     };
-    // Each finished call keeps the step-start before it; partial text and failed calls go.
     const parts = reply.parts.filter(
         (part, i) =>
             finished(part) || ((part as { type?: string })?.type === "step-start" && finished(reply.parts[i + 1])),
     );
-    // Reads (get_*) change nothing, so a reply that only read starts over.
     const wrote = parts.some((part) => finished(part) && !(part as { type: string }).type.startsWith("tool-get_"));
     return wrote ? { id: reply.id, role: reply.role, parts, metadata: reply.metadata } : null;
 }
 
 const UNANSWERED = new Set(["input-available", "approval-requested", "approval-responded"]);
 
-/**
- * Tool calls left open in history (the user moved on without answering, the turn
- * was cut off, or a 0.18 proposal was never decided) replay as declined, so the
- * model never sees a call without a result and a retired tool name never fails
- * validation. Half-streamed calls are dropped.
- */
 export function settleUnanswered<T extends { role: string; parts: unknown[] }>(messages: T[]): T[] {
     return messages.map((message) => {
         if (message.role !== "assistant") return message;
@@ -126,10 +89,6 @@ export function settleUnanswered<T extends { role: string; parts: unknown[] }>(m
     });
 }
 
-/**
- * Reconstruct a render-faithful UIMessage from a DB row. Drops the
- * persistence-only `status`/`orderIndex` and keeps id/role/parts/metadata.
- */
 export function rowToUIMessage(row: StoredMessage): UIMessageLike {
     return {
         id: row.id,
@@ -139,7 +98,6 @@ export function rowToUIMessage(row: StoredMessage): UIMessageLike {
     };
 }
 
-/** The text parts of a user turn, joined; null when it has none (an image alone). */
 function userText(parts: unknown[] | undefined): string | null {
     const text = (parts ?? [])
         .map((p) =>
@@ -153,10 +111,6 @@ function userText(parts: unknown[] | undefined): string | null {
     return text || null;
 }
 
-/**
- * Produce the `ai_messages` insert payload for a UIMessage. Coerces role to the
- * enum and defaults missing `parts` to `[]` and `metadata` to `{}`.
- */
 export function uiMessageToRow(
     msg: { id: string; role: string; parts?: unknown[]; metadata?: Record<string, unknown> },
     ctx: {
@@ -173,7 +127,6 @@ export function uiMessageToRow(
         userId: ctx.userId,
         role,
         parts: msg.parts ?? [],
-        // The person's own words, for search_past_chats. Assistant text is never searched.
         searchText: role === "user" ? userText(msg.parts) : null,
         metadata: msg.metadata ?? {},
         status: ctx.status,
@@ -181,21 +134,14 @@ export function uiMessageToRow(
     };
 }
 
-/**
- * Next fractional ordering index within a thread. Mirrors the tasks/subtasks
- * doublePrecision convention — a plain increment keeps appends/retries from
- * renumbering the whole conversation.
- */
 export function nextOrderIndex(lastOrderIndex: number | null): number {
     return (lastOrderIndex ?? 0) + 1;
 }
 
-/** Reasoning formats whose plain-text entries need a signature to be replayed. */
 const SIGNED_REASONING_FORMATS: ReadonlySet<string> = new Set(["anthropic-claude-v1", "google-gemini-v1"]);
 
 function keepReasoningDetail(detail: unknown): boolean {
     const d = detail as { type?: string; format?: string; signature?: string };
-    // Same rule (and same default format) the OpenRouter provider applies on replay.
     if (d?.type !== "reasoning.text") return true;
     if (!SIGNED_REASONING_FORMATS.has(d.format ?? "anthropic-claude-v1")) return true;
     return !!d.signature;
@@ -209,7 +155,6 @@ function cleanMeta(meta: unknown, keep: (detail: unknown) => boolean): unknown {
     return { ...m, openrouter: { ...m.openrouter, reasoning_details: details.filter(keep) } };
 }
 
-/** Rewrite one message's reasoning details through `keep`, leaving every other part as it was. */
 function filterReasoning<T extends { parts: unknown[] }>(msg: T, keep: (detail: unknown) => boolean): T {
     return {
         ...msg,
@@ -225,24 +170,10 @@ function filterReasoning<T extends { parts: unknown[] }>(msg: T, keep: (detail: 
     };
 }
 
-/**
- * Drop unsigned reasoning summaries (Gemini/Claude `reasoning.text` without a
- * signature) from history before it goes back to the model. The provider would
- * strip them anyway — with a console warning every turn (openrouter
- * ai-sdk-provider #418/#423). Signed + encrypted entries (thought signatures
- * that tool calls depend on) are kept.
- */
 export function dropUnsignedReasoning<T extends { parts: unknown[] }>(messages: T[]): T[] {
     return messages.map((msg) => filterReasoning(msg, keepReasoningDetail));
 }
 
-/**
- * Drop reasoning left by a DIFFERENT model than the one running this turn. A
- * thought signature is issued by one model family and means nothing to another,
- * so once `model-router` switches a thread mid-conversation the earlier turns'
- * signed reasoning must not be replayed. A message with no recorded model is
- * left alone — pre-routing history, where the thread only ever had one model.
- */
 export function dropForeignReasoning<T extends { parts: unknown[]; metadata?: unknown }>(
     messages: T[],
     modelId: string,
@@ -254,7 +185,6 @@ export function dropForeignReasoning<T extends { parts: unknown[]; metadata?: un
     });
 }
 
-/** A read result's row lists shrink to their ids; other fields stay as they were. */
 function compactReadPart(part: unknown): unknown {
     const p = part as { type?: unknown; state?: unknown; output?: unknown };
     if (typeof p?.type !== "string" || !p.type.startsWith("tool-get_") || p.state !== "output-available") return part;
@@ -269,17 +199,8 @@ function compactReadPart(part: unknown): unknown {
     return { ...p, output };
 }
 
-/** Turns replayed whole (full read rows, turn context, images) before they compact together. */
 export const COMPACT_EVERY_TURNS = 4;
 
-/**
- * Index of the first message replayed whole; everything before it is compacted
- * (`compactOldReads`, no turn context, image stubs). The point moves only once every
- * {@link COMPACT_EVERY_TURNS} user turns, so older turns change together in one step
- * instead of on every turn: any change to replayed history invalidates the
- * provider's prompt cache (and the model's replayed reasoning) from that point on.
- * The turn before the current one always stays whole.
- */
 export function recentStart(messages: { role: string }[]): number {
     const users = messages.flatMap((m, i) => (m.role === "user" ? [i] : []));
     const current = users.length - 1;
@@ -287,11 +208,6 @@ export function recentStart(messages: { role: string }[]): number {
     return users[Math.floor((current - 1) / COMPACT_EVERY_TURNS) * COMPACT_EVERY_TURNS]!;
 }
 
-/**
- * Read results from assistant turns before `from` (default {@link recentStart})
- * shrink to `{count, ids}` before replay: the model keeps the ids it can act on,
- * not every row again on every later turn. Recent turns keep their full rows.
- */
 export function compactOldReads<T extends { role: string; parts: unknown[] }>(
     messages: T[],
     from = recentStart(messages),
@@ -301,7 +217,6 @@ export function compactOldReads<T extends { role: string; parts: unknown[] }>(
     );
 }
 
-/** A stored row as the client sees it: the replay-only turn context stays on the server. */
 export function toClientMessage(row: StoredMessage): UIMessageLike {
     const { turnContext: _, ...metadata } = row.metadata ?? {};
     return { ...rowToUIMessage(row), metadata };

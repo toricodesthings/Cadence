@@ -14,11 +14,6 @@ interface UseHabitsRangeOptions {
     enabled?: boolean;
 }
 
-/**
- * Routines with a log per scheduled day in [start, end] (a week, a month, or
- * just today). Every range shares the `weeklyAll` key prefix, so each
- * optimistic update covers them all.
- */
 export function useHabitsRange({ start, end, archived = false, enabled = true }: UseHabitsRangeOptions) {
     return useAuthedQuery(
         (client) => habitsRangeQueryOptions(client, { start, end, archived }),
@@ -26,7 +21,6 @@ export function useHabitsRange({ start, end, archived = false, enabled = true }:
     );
 }
 
-/** One range's query; shared with the offline prefetch so their keys match. */
 export function habitsRangeQueryOptions(
     client: ApiClient,
     { start, end, archived = false }: Omit<UseHabitsRangeOptions, "enabled">,
@@ -43,7 +37,6 @@ export function habitsRangeQueryOptions(
     });
 }
 
-/** Fetch all habits base settings, unconditionally */
 export function useAllHabits() {
     const client = useApiClient();
     const { authReady, isAuthenticated } = useAuthState();

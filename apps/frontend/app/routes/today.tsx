@@ -75,16 +75,16 @@ export default function TodayRoute() {
     const { onNextSection, onPrevSection } = useSectionNav();
     useKeyboardShortcuts({ onNextSection, onPrevSection });
 
-    const { data: tasks = [], isLoading } = useTasks({
+    const { data: tasks = [], isLoading: tasksLoading } = useTasks({
         state: "ACTIVE",
         effectiveOnOrBeforeDate: todayISO,
     });
-    // Routines are today-only: a missed one lets go and never shows here again.
-    const { data: habits = [] } = useHabitsRange({
+    const { data: habits = [], isLoading: habitsLoading } = useHabitsRange({
         start: todayISO,
         end: todayISO,
         enabled: !activeTagId,
     });
+    const isLoading = tasksLoading || (!activeTagId && habitsLoading);
 
     const filteredTasks = useMemo(() => {
         let result = activeTagId ? tasks.filter((task) => task.tagIds?.includes(activeTagId)) : tasks;
@@ -138,7 +138,6 @@ export default function TodayRoute() {
         for (const task of grouped.fixed) {
             const occurrence = getPassiveTimetableOccurrenceAnchor(task, todayISO);
             if (!occurrence || !task.scheduledStart) continue;
-            // The block's local time on today's occurrence, in the zone it was planned in.
             const zone = task.zone ?? getUserZone();
             const start = new Date(atLocal(occurrence, wallTimeOf(task.scheduledStart, zone), zone));
             const durationMs = task.scheduledEnd ? Date.parse(task.scheduledEnd) - Date.parse(task.scheduledStart) : 0;
@@ -152,7 +151,6 @@ export default function TodayRoute() {
         return items;
     }, [grouped, todayISO]);
 
-    // Fit today: one preview of today's untimed tasks in its gaps, opened from the controls menu only.
     const fit = useFitDay(todayISO);
     const fitTasks = useMemo(() => [...grouped.stillOpen, ...grouped.today], [grouped]);
     const fitReason = fitTodayReason(fit, fitTasks);
@@ -190,9 +188,7 @@ export default function TodayRoute() {
         />
     );
 
-    // A phone board shows one column at a time, so only a wider board folds Routines to a rail.
     const routinesHidden = !shell.isCompact && hideRoutines;
-    // Folded routines still count: their header (row) or rail (board) stays, so they can be opened again.
     const totalVisible = grouped.stillOpen.length + grouped.today.length + grouped.fixed.length + routinesCount;
 
     const renderTaskBucket = (tasks: Task[], cardVariant?: "list" | "board") => {
@@ -293,7 +289,6 @@ export default function TodayRoute() {
                       icon: Flame,
                       accentClass: "text-moonlit",
                       count: routinesHidden ? routinesCount : grouped.routinesOpen.length,
-                      // Row view folds with the header's ›; the board's eye shares the same remembered state.
                       boardHeaderAction: routinesToggle,
                       lineTint: "var(--color-moonlit)",
                       listFold: { open: !hideRoutines, toggle: toggleRoutines },

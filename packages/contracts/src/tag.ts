@@ -1,14 +1,10 @@
 import { z } from "zod";
 import { instantSchema } from "./common";
 
-// No .default()s on create schemas: an omitted field takes its DB column default, and
-// a default here would leak into the .partial() update schema and overwrite data.
 export const insertTagSchema = z.object({
-    /** Client-chosen id, so it can be used before it syncs. */
     id: z.uuid().optional(),
     name: z.string().trim().min(1).max(100),
     color: z.string().max(50).optional(),
-    /** Place among the person's tags; a new tag without one goes last. */
     sortOrder: z.number().optional(),
 });
 export type InsertTag = z.infer<typeof insertTagSchema>;
@@ -20,7 +16,6 @@ export const taskTagSchema = z.object({
     tagId: z.uuid(),
 });
 
-/** Link (or unlink) one tag on several tasks at once. */
 export const tagTasksSchema = z.object({
     taskIds: z.array(z.uuid()).min(1).max(500),
     linked: z.boolean(),
@@ -37,8 +32,6 @@ export const tagRowSchema = z.object({
 });
 export type TagRow = z.infer<typeof tagRowSchema>;
 
-// Entity mirrors the DB truthfully: `color` is nullable (the column has a default
-// but is not NOT NULL). Consumers coalesce to a fallback at the presentation edge.
 export const tagSchema = tagRowSchema;
 export type Tag = z.infer<typeof tagSchema>;
 

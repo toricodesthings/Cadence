@@ -7,7 +7,6 @@ import { Button } from "../primitives/Button";
 const ICON_BUTTON =
     "btn-icon shrink-0 cursor-pointer text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50";
 
-/** Common editing surface for task, event and habit details, in the rail or an overlay. */
 export function DetailPanelLayout({
     children,
     leading,
@@ -20,7 +19,6 @@ export function DetailPanelLayout({
 }: {
     children: ReactNode;
     leading: ReactNode;
-    /** Extra header actions, before expand and close. */
     trailing?: ReactNode;
     title: string;
     onClose: () => void;

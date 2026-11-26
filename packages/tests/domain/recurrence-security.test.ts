@@ -62,8 +62,6 @@ describe("bounded recurrence", () => {
     });
 
     it("finishes an impossible rule without searching to year 9999", () => {
-        // A wall-clock assertion guards the upstream no-candidate loop, which
-        // never invokes between's result callback. Leave ample CI headroom.
         const begin = performance.now();
         expect(expandSeries(series("FREQ=DAILY;BYMONTH=2;BYMONTHDAY=30"))).toEqual([]);
         expect(performance.now() - begin).toBeLessThan(1000);

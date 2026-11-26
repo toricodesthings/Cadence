@@ -11,7 +11,6 @@ import {
     type Zone,
 } from "./time";
 
-/** The day window (LocalDates, inclusive) and paging needed to expand schedule-scoped repeating tasks. */
 export interface ScheduleScopeFilters {
     from?: LocalDate;
     to?: LocalDate;
@@ -48,12 +47,10 @@ export function isScheduleScopedTaskQuery(filters: Pick<ScheduleScopeFilters, "f
     return Boolean(filters.from && filters.to);
 }
 
-/** The day a task sits on for the user: its start's day (timed) or its due day (all-day). */
 export function taskDay(task: Pick<TaskRow, "dueDate" | "scheduledStart">, zone: Zone): LocalDate | null {
     return task.scheduledStart ? dayOf(task.scheduledStart, zone) : task.dueDate;
 }
 
-/** A repeating task uses the shared day-based rule contract (`UNTIL` is inclusive). */
 export function validateTaskRecurrenceRule(recurrenceRule: string | null | undefined, zone: Zone = "UTC") {
     if (recurrenceRule) parseRecurrenceRule(recurrenceRule, zone);
 }
@@ -70,7 +67,6 @@ function seriesStart(task: TaskRow, userZone: Zone): { zone: Zone; start: Series
     };
 }
 
-/** The occurrence of a repeating task on or after `reference` (a day), else the one before it, else its start. */
 export function resolveOccurrenceAnchor(
     task: TaskRow & { recurrenceRule: string },
     reference: LocalDate,
@@ -89,11 +85,6 @@ export function resolveOccurrenceAnchor(
 
 export const SCHEDULE_WINDOW_MAX = 5000;
 
-/**
- * Expand a window of tasks: one-offs stay when their day is inside it, and each repeating
- * task becomes one instance per occurrence (`<seriesId>::<LocalDate>`). Timed series repeat in
- * the series zone, so the local time holds across DST changes.
- */
 export function expandScheduleScopedTasks<T extends TaskRow>(
     tasks: T[],
     filters: Pick<ScheduleScopeFilters, "from" | "to" | "limit" | "offset">,
@@ -142,7 +133,6 @@ export function expandScheduleScopedTasks<T extends TaskRow>(
             return Number(b.isPinned) - Number(a.isPinned);
         }
 
-        // Day first, then timed blocks in time order after the day's all-day items.
         const aDay = taskDay(a, userZone) ?? "";
         const bDay = taskDay(b, userZone) ?? "";
         if (aDay !== bDay) return aDay.localeCompare(bDay);
@@ -153,8 +143,6 @@ export function expandScheduleScopedTasks<T extends TaskRow>(
         return a.orderIndex - b.orderIndex;
     });
 
-    // Without a limit a view needs the whole window (a month of daily blocks passes 50);
-    // Expansion is bounded separately; this cap controls response pagination.
     const offset = filters.offset ?? 0;
     return items.slice(offset, offset + (filters.limit ?? SCHEDULE_WINDOW_MAX));
 }

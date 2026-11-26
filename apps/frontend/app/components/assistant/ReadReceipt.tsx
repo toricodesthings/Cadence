@@ -11,24 +11,10 @@ const LABELS: Record<ReceiptState, string> = {
     read: "Message read",
 };
 
-/**
- * iMessage / WhatsApp-style checkmark receipt shown under the latest user
- * message.
- *   - sent      → single muted check (in flight)
- *   - delivered → double muted check (request accepted / streaming begun)
- *   - read      → double accent-tinted check (assistant's turn has started)
- *
- * The icon cross-fades + lifts slightly between states for a tactile feel.
- */
 const ORDER: ReceiptState[] = ["sent", "delivered", "read"];
-/** Each forward step holds at least this long, so no stage is ever skipped. */
 const STEP_MS = 450;
 
 export function ReadReceipt({ state: target }: { state: ReceiptState }) {
-    // The shown state walks forward one stage at a time toward the real one: a
-    // reply that starts the instant the server accepts still reads sent →
-    // delivered → read. It only reaches a stage the real turn has reached (read
-    // implies the server accepted), and a first render shows the real state as-is.
     const [state, setState] = useState(target);
     useEffect(() => {
         const at = ORDER.indexOf(state);

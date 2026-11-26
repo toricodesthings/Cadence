@@ -7,10 +7,6 @@ const OPTIONS: Array<{ kind: RepeatKind; label: string; hint: string }> = [
     { kind: "fixed", label: "It just passes", hint: "Fixed" },
 ];
 
-/**
- * "If you miss one…" — the one question that tells Fixed, Routine and Task
- * apart. Shared by the task and routine editors.
- */
 export function RepeatKindPicker({
     value,
     onChange,
@@ -20,7 +16,6 @@ export function RepeatKindPicker({
     value: RepeatKind;
     onChange: (kind: RepeatKind) => void;
     disabled?: boolean;
-    /** Set when this item can't be Fixed yet (e.g. it has no time). */
     fixedUnavailableReason?: string | null;
 }) {
     return (

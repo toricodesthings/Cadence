@@ -1,4 +1,3 @@
-/** A module-level value for `useSyncExternalStore`: `get` is the snapshot, `set` notifies subscribers. */
 export function createExternalStore<T>(initial: T) {
     let value = initial;
     const listeners = new Set<() => void>();

@@ -1,10 +1,6 @@
 import { cn } from "../../../lib/utils";
 import type { NoteHeading } from "../../../lib/notes/note-outline";
 
-/**
- * Headings of the open note. Used as the desktop rail and inside the phone's Outline sheet.
- * The current heading is marked quietly; selecting one scrolls the real heading into view.
- */
 export function NoteOutline({
     headings,
     currentId,

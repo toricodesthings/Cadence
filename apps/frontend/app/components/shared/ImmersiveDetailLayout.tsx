@@ -8,10 +8,6 @@ interface ImmersiveDetailLayoutProps {
     className?: string;
 }
 
-/**
- * Shared detail shell for task, event and habit inspection/editing.
- * The inner panel owns the header contents; this layout owns the rhythm.
- */
 export function ImmersiveDetailLayout({
     header,
     children,

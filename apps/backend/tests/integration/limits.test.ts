@@ -14,7 +14,6 @@ beforeAll(startTestDb);
 
 const BIG = (n: number) => "x".repeat(n);
 
-/** The longest accepted value, one more refused: the contract's limit is the real edge, on both sides. */
 describe.each([
     ["task title", "/tasks", taskRoutes, 500, (v: string) => ({ title: v, orderIndex: 1 }), "title"],
     ["list name", "/projects", projectRoutes, 200, (v: string) => ({ name: v }), "name"],

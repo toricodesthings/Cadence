@@ -1,7 +1,6 @@
 import { toast } from "sonner";
 import { CADENCE_UNDO_DURATION } from "./cadence-toast";
 
-/** Thrown into a deferred mutation when the person pressed Undo; mutations roll back without an error toast. */
 export class UndoneError extends Error {
     constructor() {
         super("undone");
@@ -11,20 +10,14 @@ export class UndoneError extends Error {
 
 export const isUndone = (error: unknown): error is UndoneError => error instanceof UndoneError;
 
-/** A thing's name as a toast's line: one glance, so long titles are cut. */
 export const toastName = (title: string, max = 60): string =>
     title.length > max ? `${title.slice(0, max - 1).trimEnd()}…` : title;
 
 interface UndoToastOptions {
     description?: string;
-    /** Same id replaces the toast instead of stacking one per repeat. */
     id?: string | number;
 }
 
-/**
- * Toast for a change that has already happened and can be reversed (a task sent to Trash):
- * the message plus a working Undo. `onUndo` does the reversal.
- */
 export function toastUndo(message: string, onUndo: () => void, { description, id }: UndoToastOptions = {}) {
     return toast.message(message, {
         id,
@@ -34,14 +27,6 @@ export function toastUndo(message: string, onUndo: () => void, { description, id
     });
 }
 
-/**
- * Toast for a destructive change the server can't reverse (deleting a list, tag, routine or
- * conversation). The screen updates at once, but nothing is sent until the window closes:
- * resolves when it runs out (or the toast is swiped away), rejects with `UndoneError` on Undo.
- * Await it first thing in a mutation's `mutationFn`, after `onMutate` has hidden the item.
- *
- * Closing the tab inside the window leaves the item where it was, which is the safe way to fail.
- */
 export function undoWindow(message: string, { description, id }: UndoToastOptions = {}): Promise<void> {
     return new Promise((resolve, reject) => {
         let settled = false;

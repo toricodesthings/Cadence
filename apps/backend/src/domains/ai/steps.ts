@@ -1,8 +1,3 @@
-/**
- * Suggest steps: 3–7 small first steps for one task, as structured output from the chat model. It reads only the
- * task's own content (title, the first 1,000 characters of its note, its list, its existing steps) and stores nothing:
- * the person keeps steps as subtasks from the draft, through the normal subtask write.
- */
 import { generateText, Output } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { and, asc, eq } from "drizzle-orm";
@@ -18,11 +13,9 @@ import type { Env } from "../../types/env";
 import type { Tx } from "../../types/db";
 import stepsPrompt from "../../prompts/assistant/steps.md";
 
-/** Past this the person has already moved on; the manual field stays focused meanwhile. */
 export const STEPS_TIMEOUT_MS = 8_000;
 const NOTE_CHARS = 1_000;
 const INSTRUCTIONS = stepsPrompt.trimEnd();
-// Bounds live in the prompt and the cleanup below: a schema bound makes a near miss (8 steps) a failed draft.
 const replySchema = z.object({ steps: z.array(z.string()) });
 
 export interface StepsInput {
@@ -32,7 +25,6 @@ export interface StepsInput {
     existing: string[];
 }
 
-/** Everything the model may see about a task, and nothing else. A task that isn't the caller's is a 404. */
 export async function readStepsInput(tx: Tx, userId: string, taskId: string): Promise<StepsInput> {
     const [task] = await tx
         .select({ title: tasks.title, listName: projects.name, notes: taskNotes.body })
@@ -54,7 +46,6 @@ export async function readStepsInput(tx: Tx, userId: string, taskId: string): Pr
     };
 }
 
-/** The task as the model reads it: plain labelled data. */
 export function stepsPromptFor(input: StepsInput, smaller?: string[]): string {
     return [
         `Task title: ${input.title}`,
@@ -69,7 +60,6 @@ export function stepsPromptFor(input: StepsInput, smaller?: string[]): string {
         .join("\n\n");
 }
 
-/** Drafted steps, cleaned to ≤ 80 characters each, and the metered tokens it cost. Throws a 504 on timeout, else 502. */
 export async function suggestSteps(
     env: Env,
     userHash: string,

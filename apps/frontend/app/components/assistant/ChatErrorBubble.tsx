@@ -7,16 +7,6 @@ import { bubbleIn } from "../../lib/constants/motion";
 import { Reveal } from "../shared/Reveal";
 import { errorRef } from "../../lib/log";
 
-/**
- * One inline error bubble for both pre-stream (HTTP) and mid-stream (error part)
- * failures (design §8.1–§8.2). It lives IN the thread (persists), not a toast.
- *
- *  - retryable → a Retry button that re-sends the SAME clientMessageId (idempotent).
- *  - non-retryable → guidance only, no Retry.
- *  - requestId is tucked in a copyable "details" disclosure, never prominent.
- *  - a turn with photos can go again without them, and a failure can carry
- *    them to support, but only when the user taps to share (consent per incident).
- */
 export function ChatErrorBubble({
     error,
     onRetry,
@@ -50,9 +40,7 @@ export function ChatErrorBubble({
             await navigator.clipboard.writeText(errorRef(error));
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
-        } catch {
-            // Clipboard unavailable — silently no-op (the line is still readable).
-        }
+        } catch {}
     };
 
     return (

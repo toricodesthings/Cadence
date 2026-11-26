@@ -8,7 +8,6 @@ import { RoutineAgendaList, routineAgendaItems } from "../shared/RoutineAgendaRo
 
 const COLLAPSED_KEY = "cadence-routines-today-collapsed";
 
-/** A ring filling as today's routines are checked off, the count inside. `still` = no fill motion (low stimulation). */
 function ProgressRing({ done, total, still }: { done: number; total: number; still: boolean }) {
     const radius = 19;
     const length = 2 * Math.PI * radius;
@@ -35,11 +34,6 @@ function ProgressRing({ done, total, still }: { done: number; total: number; sti
     );
 }
 
-/**
- * The easy way to check in: today's routines as one-tap rows (the same rows as
- * Today), done ones folded, beside a ring with the count; side by side on wide
- * screens. Same surface as Today's routine section. Collapsing is remembered on this device.
- */
 export function RoutineTodayBand({
     habits,
     today,
@@ -50,7 +44,6 @@ export function RoutineTodayBand({
     habits: Habit[];
     today: string;
     bloom: boolean;
-    /** Wide screens: rows side by side across the full width. */
     columns: boolean;
     onOpen: (habitId: string) => void;
 }) {
@@ -71,7 +64,6 @@ export function RoutineTodayBand({
 
     return (
         <section aria-label="Today's routines" className="surface-card mb-4 rounded-[37px] px-2 py-2">
-            {/* Concentric: its rows are 28px pills at a 9px inset (1px border + 8px padding). */}
             <div className="flex min-h-14 items-center gap-3 px-2">
                 <ProgressRing done={done} total={items.length} still={!bloom} />
                 <span className="min-w-0 flex-1">

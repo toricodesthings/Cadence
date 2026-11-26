@@ -71,7 +71,6 @@ export function AssistantTab() {
         updateSettings.mutate({ assistant: patch });
     };
 
-    // Persona is the one voice setting (tone and length are part of it).
     const selectPersona = (value: Persona) => updateAssistant({ persona: value });
 
     return (
@@ -87,7 +86,6 @@ export function AssistantTab() {
                 </p>
             </div>
 
-            {/* ── Identity ── */}
             <SettingsSection title="Identity">
                 <SettingsRow
                     title="Assistant name"
@@ -116,7 +114,6 @@ export function AssistantTab() {
                 </SettingsRow>
             </SettingsSection>
 
-            {/* ── Personality ── persona is the single voice control */}
             <SettingsSection title="Personality">
                 <fieldset className="flex flex-col gap-3">
                     <legend className="sr-only">Assistant persona</legend>
@@ -137,7 +134,6 @@ export function AssistantTab() {
                 </fieldset>
             </SettingsSection>
 
-            {/* ── Behavior ── */}
             <SettingsSection title="Behavior">
                 {BEHAVIOR_SWITCHES.map(({ key, title, description }) => (
                     <SettingsRow key={key} title={title} description={description}>
@@ -149,17 +145,14 @@ export function AssistantTab() {
                 ))}
             </SettingsSection>
 
-            {/* ── Memory ── the mode is server-owned (POST /ai/memory/mode), never part of the settings PATCH */}
             <MemorySection />
 
-            {/* ── Custom Guidance ── full-width, never a SettingsRow (which caps width) */}
             <GuidanceSection
                 assistantName={assistantName}
                 value={customInstructions}
                 onChange={(customInstructions) => updateAssistant({ customInstructions })}
             />
 
-            {/* ── Conversations ── */}
             <SettingsSection title="Conversations">
                 <SettingsRow
                     title="Continue last conversation"
@@ -179,7 +172,6 @@ export function AssistantTab() {
                 </SettingsRow>
             </SettingsSection>
 
-            {/* ── Usage ── the same meters as /usage in the assistant */}
             <SettingsSection title="Usage">
                 <UsageMeters usage={usage} isLoading={usageLoading} />
                 <p className="text-xs text-twilight-text-soft">

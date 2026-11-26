@@ -4,11 +4,6 @@ import { useTags } from "../../hooks/tags/use-tags";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { Tip } from "../primitives/Tooltip";
 
-/**
- * Chip that surfaces the currently active tag filter; clicking it clears the filter.
- * Renders nothing when no filter is active. `header` placement (page header actions) is
- * desktop/tablet only; `body` placement is the compact fallback where the header is too tight.
- */
 export function ActiveFilterBar({ placement }: { placement: "header" | "body" }) {
     const { activeTagId, setActiveTag } = useTagFilterStore();
     const { data: tags = [] } = useTags();

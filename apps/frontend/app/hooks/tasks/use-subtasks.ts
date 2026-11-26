@@ -68,7 +68,7 @@ function reconcileSingleSubtaskCache(
     nextSubtask: Subtask,
     optimisticId?: string,
 ) {
-    if (!isOnlyWriteTo(queryClient, nextSubtask.id)) return; // A later write to it reads back instead.
+    if (!isOnlyWriteTo(queryClient, nextSubtask.id)) return;
     queryClient.setQueryData<CachedSubtask[]>(SUBTASKS_KEY(taskId), (old) =>
         replaceSubtask(Array.isArray(old) ? old : [], nextSubtask, optimisticId),
     );
@@ -98,10 +98,8 @@ export function useSubtasksByTaskIds(taskIds: string[]) {
     return useQuery({
         queryKey: BULK_SUBTASKS_KEY(uniqueTaskIds),
         enabled: uniqueTaskIds.length > 0 && authReady && isAuthenticated,
-        // Keep showing the last map while a changed list loads, so rows don't flicker.
         placeholderData: keepPreviousData,
         queryFn: async () => {
-            // The route takes 200 ids per call (about 7.5KB of URL).
             const maps = await Promise.all(
                 chunk(uniqueTaskIds, 200).map(async (ids) =>
                     unwrapResponse(await api.api.subtasks.$get({ query: { taskIds: ids.join(",") } })),
@@ -112,7 +110,6 @@ export function useSubtasksByTaskIds(taskIds: string[]) {
     });
 }
 
-/** `onMutate` for a subtask change: stop in-flight reads, remember the list, and show `edit` in the task's list and the bulk lists. */
 async function beginEdit(
     queryClient: QueryClient,
     taskId: string,
@@ -139,7 +136,6 @@ function settleEdit(queryClient: QueryClient, taskId: string, data: unknown, err
     void refetchAfterWrites(queryClient, SUBTASKS_KEY(taskId), true);
 }
 
-/** A `beginEdit` mutation's ends: put the list back on failure, then refetch unless it was queued offline. */
 const editEnds = (queryClient: QueryClient, taskId: string) => ({
     onError: (_err: unknown, _vars: unknown, context: { previous?: Subtask[] } | undefined) =>
         revertEdit(queryClient, taskId, context),
@@ -167,7 +163,6 @@ export function useCreateSubtask(taskId: string) {
             },
         ),
         onMutate: async (newSubtask) => {
-            // The first step written after "Break into steps?" is the answer the server records. Quiet if it can't.
             if (useTaskDetailIntentStore.getState().stepWritten(taskId)) {
                 void api.api.ai.memory.planning.offer
                     .$post({ json: { taskId, kind: "steps", outcome: "chosen" } })
@@ -196,7 +191,6 @@ export function useCreateSubtask(taskId: string) {
         },
         onError: (err, _vars, context) => {
             revertEdit(queryClient, taskId, context);
-            // The task was deleted elsewhere: it's gone from the screen too, so there is nothing to explain.
             if ((err as { status?: number }).status !== 404) toastError(err, "Couldn't add subtask");
         },
         onSettled: (data, error) => settleEdit(queryClient, taskId, data, error),

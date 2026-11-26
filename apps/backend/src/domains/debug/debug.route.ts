@@ -32,9 +32,6 @@ import type { Env } from "../../types/env";
 import type { Tx } from "../../types/db";
 import type { AuthVariables } from "../../platform/auth";
 
-// Router is defined below as a single CHAIN (after its helpers) so the route
-// schema flows into AppType for the Hono RPC client.
-
 type RlsClient = DbClient | Tx;
 
 function requireAdmin(c: Context<{ Bindings: Env; Variables: AuthVariables }>) {
@@ -48,51 +45,35 @@ function requireAdmin(c: Context<{ Bindings: Env; Variables: AuthVariables }>) {
     return { userId, userEmail };
 }
 
-// ── Schema-complete user data wipe ───────────────────────────────────
-// Deletion order: children → parents. Every user-owned table is listed
-// explicitly so that schema drift is immediately visible.
-// Tables without a userId column (taskTags) cascade via FK and are
-// not listed here — they are cleaned when the parent row is deleted.
-
 async function clearUserData(db: RlsClient, userId: string) {
-    // Standalone leaf tables
     await db.delete(savedFocusViews).where(eq(savedFocusViews.userId, userId));
     await db.delete(usageEvents).where(eq(usageEvents.userId, userId));
     await db.delete(mutationDedup).where(eq(mutationDedup.userId, userId));
-    // AI threads: messages (child) → memories (provenance FK is set-null) → conversations
     await db.delete(aiMessages).where(eq(aiMessages.userId, userId));
     await db.delete(aiMemories).where(eq(aiMemories.userId, userId));
     await db.delete(aiMemorySignals).where(eq(aiMemorySignals.userId, userId));
     await db.delete(aiConversations).where(eq(aiConversations.userId, userId));
     await db.delete(userMetrics).where(eq(userMetrics.userId, userId));
 
-    // Task children (before tasks)
     await db.delete(taskNlpMetadata).where(eq(taskNlpMetadata.userId, userId));
     await db.delete(taskNotes).where(eq(taskNotes.userId, userId));
     await db.delete(taskMetrics).where(eq(taskMetrics.userId, userId));
     await db.delete(subtasks).where(eq(subtasks.userId, userId));
 
-    // Tasks
     await db.delete(tasks).where(eq(tasks.userId, userId));
     await db.delete(taskSections).where(eq(taskSections.userId, userId));
 
-    // Habit children (before habits)
     await db.delete(habitTags).where(eq(habitTags.userId, userId));
     await db.delete(habitLogs).where(eq(habitLogs.userId, userId));
 
-    // Habits
     await db.delete(habits).where(eq(habits.userId, userId));
 
-    // Inbox
     await db.delete(inboxItems).where(eq(inboxItems.userId, userId));
     await db.delete(inboxSections).where(eq(inboxSections.userId, userId));
 
-    // Shared parents
     await db.delete(tags).where(eq(tags.userId, userId));
     await db.delete(projects).where(eq(projects.userId, userId));
 }
-
-// ── Routes ───────────────────────────────────────────────────────────
 
 export const debugRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
     .post("/clear", async (c) => {

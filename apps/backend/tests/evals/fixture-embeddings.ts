@@ -1,6 +1,3 @@
-/** Reuse identical synthetic fixture batches within this process only.
- * The loader belongs to one fixed model/configuration. Real recall and tool calls stay live.
- */
 export function createFixtureEmbedder(load: (texts: string[]) => Promise<number[][]>) {
     const batches = new Map<string, Promise<number[][]>>();
     return async (texts: string[]): Promise<number[][]> => {
@@ -21,7 +18,6 @@ export function createFixtureEmbedder(load: (texts: string[]) => Promise<number[
                     });
                 batches.set(key, pending);
             }
-            // Each isolated user gets its own vectors, even if a fixture mutates one.
             vectors.push(...(await pending).map((vector) => [...vector]));
         }
         return vectors;

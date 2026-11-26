@@ -6,11 +6,9 @@ import { routineTimeOn, timeMarksOn } from "@cadence/domain/repeats";
 import type { LocalDate } from "@cadence/domain/time";
 import { fromTimeValue } from "../../lib/utils/date-format";
 
-/** A routine day drawn as a task, carrying the routine's mark and colour for schedule pills. */
 export type VirtualHabitTask = Task & { habitEmoji?: string | null; habitColor?: string | null };
 import { getUserZone } from "../../lib/utils/user-zone";
 
-/** `habit-{id}--{day}[--{time}]` → its parts; null for a real task id. */
 export function parseVirtualHabitId(id: string): { habitId: string; day: LocalDate; time: string | null } | null {
     if (!id.startsWith("habit-")) return null;
     const [head, day, time] = id.split("--", 3);
@@ -18,10 +16,6 @@ export function parseVirtualHabitId(id: string): { habitId: string; day: LocalDa
     return { habitId: head.slice("habit-".length), day: day as LocalDate, time: time ?? null };
 }
 
-/**
- * Fetches habits for a date range and maps them to virtual Task objects
- * for rendering in calendar views alongside real tasks.
- */
 export function useVirtualHabitTasks(options: { start: LocalDate; end: LocalDate; enabled: boolean }): Task[] {
     const { data: rawHabits = [] } = useHabitsRange(options);
     const { session } = useAuthState();
@@ -37,7 +31,6 @@ export function useVirtualHabitTasks(options: { start: LocalDate; end: LocalDate
                             const turnHolder = h.days?.[l.targetDate]?.turn ?? h.today?.turn;
                             if (turnHolder && turnHolder !== me) return [];
                         }
-                        // A routine at set times is one block per time that isn't skipped; otherwise one block, unless the day was skipped.
                         const marks = h.times?.length ? timeMarksOn(h.times, l) : null;
                         const slots = marks
                             ? h
@@ -66,7 +59,6 @@ export function useVirtualHabitTasks(options: { start: LocalDate; end: LocalDate
                                     content: h.description,
                                     state: complete ? "COMPLETE" : "ACTIVE",
                                     orderIndex: 0,
-                                    // A timed routine day is a timed block (its wall time on that day); an anytime day is all-day.
                                     dueDate: time ? null : l.targetDate,
                                     endDate: null,
                                     scheduledStart: time ? fromTimeValue(l.targetDate, time) : null,
@@ -82,7 +74,6 @@ export function useVirtualHabitTasks(options: { start: LocalDate; end: LocalDate
                                     reminderSilenced: !h.reminderEnabled,
                                     recurrenceRule: h.recurrenceRule,
                                     isHabit: true,
-                                    // Routine identity for schedule pills (`RoutineMark` + `routineTone`); not part of the Task contract.
                                     habitEmoji: h.emoji,
                                     habitColor: h.colorAccent,
                                 }) as VirtualHabitTask,

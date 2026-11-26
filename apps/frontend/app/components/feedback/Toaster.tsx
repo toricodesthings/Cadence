@@ -10,11 +10,6 @@ import { useShellMode } from "../../hooks/ui/use-shell-mode";
 
 installCadenceToastTheme();
 
-/**
- * Mounted in its own body child, registered as a Radix dismissable-layer branch with pointer events on:
- * an open dialog or sheet sets `pointer-events: none` on the body and treats outside taps as dismissals,
- * and neither may apply to an Undo raised from inside it.
- */
 export function Toaster() {
     const shell = useShellMode();
     const [host, setHost] = useState<HTMLElement | null>(null);
@@ -33,8 +28,6 @@ export function Toaster() {
     return createPortal(
         <DismissableLayerBranch>
             <SonnerToaster
-                /* Compact shells drop the toast at the top, clear of the dock and the
-                   thumb zone, and let it be flicked away in any direction. */
                 position={shell.isCompact ? "top-center" : "bottom-right"}
                 theme="dark"
                 expand={false}

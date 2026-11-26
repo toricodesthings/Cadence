@@ -1,19 +1,14 @@
 import { animate, useMotionValue, useReducedMotionConfig } from "framer-motion";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
-/** Finger travel before the gesture picks an axis. */
 const LOCK_SLOP = 8;
-/** Horizontal must beat vertical by this much, so scrolling the column never moves it. */
 const DIRECTION_RATIO = 1.2;
-/** Past this share of the width a release turns the page; a flick (px/ms) needs only a little travel. */
 const COMMIT_SHARE = 0.35;
 const FLICK_SPEED = 0.4;
 const FLICK_MIN = 24;
-/** Space between neighbouring columns while they slide (the strip's `ml-4` / `mr-4`). */
 export const PAGE_GAP = 16;
 const SETTLE = { type: "spring", visualDuration: 0.38, bounce: 0 } as const;
 
-/** Where a released drag goes: 1 = next column, -1 = previous, 0 = back to this one. */
 export function settleDirection(dx: number, velocity: number, width: number): -1 | 0 | 1 {
     const flick =
         Math.abs(velocity) >= FLICK_SPEED && Math.abs(dx) >= FLICK_MIN && Math.sign(velocity) === Math.sign(dx);
@@ -21,13 +16,11 @@ export function settleDirection(dx: number, velocity: number, width: number): -1
     return dx < 0 ? 1 : -1;
 }
 
-/** Past the first or last column the page resists, the further the harder (iOS rubber band). */
 export const rubberBand = (dx: number, width: number) =>
     Math.sign(dx) * (1 - 1 / ((Math.abs(dx) * 0.55) / width + 1)) * width;
 
-/** A touch here belongs to something else: a field, a row being dragged, a sideways scroller. */
 function ownedElsewhere(target: EventTarget | null, root: HTMLElement): boolean {
-    if (document.querySelector('[aria-roledescription][aria-pressed="true"]')) return true; // dnd-kit drag in flight
+    if (document.querySelector('[aria-roledescription][aria-pressed="true"]')) return true;
     for (let el = target instanceof Element ? target : null; el && el !== root; el = el.parentElement) {
         if (el.matches("input, textarea, select, [contenteditable=''], [contenteditable='true'], [data-lens-item]"))
             return true;
@@ -51,12 +44,6 @@ type Gesture = {
     velocity: number;
 };
 
-/**
- * A compact board's columns as pages: the column follows the finger sideways with its neighbours beside it,
- * resists past the ends, and springs on release (carrying the flick's speed) to the next page or back.
- * `x` drives the strip; `peek` says when to mount the neighbours. Vertical scroll and dnd-kit's long-press
- * keep the finger: the axis is chosen once per touch, and a drag in flight cancels the swipe.
- */
 export function useColumnSwipe({
     index,
     count,
@@ -73,7 +60,6 @@ export function useColumnSwipe({
     const latest = useRef({ index, count, onChange, reduced });
     latest.current = { index, count, onChange, reduced };
 
-    // A new page (from a swipe or the chooser) sits at rest the frame it renders.
     useLayoutEffect(() => {
         x.jump(0);
     }, [index, x]);
@@ -112,7 +98,7 @@ export function useColumnSwipe({
                     cancel();
                     return;
                 }
-                e.preventDefault(); // ours now: no vertical drift, no browser back-swipe
+                e.preventDefault();
                 const dt = e.timeStamp - g.lastT;
                 if (dt > 0) g.velocity = (t.clientX - g.lastX) / dt;
                 g.lastX = t.clientX;

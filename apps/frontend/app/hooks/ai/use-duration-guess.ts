@@ -13,7 +13,6 @@ import { parseVirtualHabitId } from "../habits/use-virtual-habit-tasks";
 
 type Guessable = Pick<Task, "id" | "title" | "projectId">;
 
-/** The person's answers as estimator input. */
 export const toDurationEvidence = (
     rows: readonly ReturnType<typeof durationEvidenceRowSchema.parse>[],
 ): DurationEvidence[] =>
@@ -28,11 +27,6 @@ export const toDurationEvidence = (
         day: r.saidOn,
     }));
 
-/**
- * What a task usually takes this person, from their own answers, or nothing. The guess is computed here from the
- * evidence (Full only; Basic and Off fetch nothing), so a corrected answer changes it on the next render.
- * Returns a function: one fetch serves every row on a screen.
- */
 export function useDurationGuesser(): (task: Guessable) => DurationGuess | null {
     const client = useApiClient();
     const { authReady, isAuthenticated } = useAuthState();
@@ -47,11 +41,9 @@ export function useDurationGuesser(): (task: Guessable) => DurationGuess | null 
                 durationEvidenceRowSchema.parse(r),
             ),
     });
-    // A disabled query keeps its cached rows: outside Full they are never read.
     const rows = full ? data : undefined;
     const evidence = useMemo(() => toDurationEvidence(rows ?? []), [rows]);
     return useCallback(
-        // A routine's day on a schedule is a virtual task; its answers are filed under the routine.
         (task) =>
             evidence.length
                 ? estimateDuration(
@@ -68,7 +60,6 @@ export function useDurationGuesser(): (task: Guessable) => DurationGuess | null 
     );
 }
 
-/** The guess for one task. */
 export function useDurationGuess(task: Guessable): DurationGuess | null {
     const guess = useDurationGuesser();
     return useMemo(() => guess(task), [guess, task.id, task.title, task.projectId]); // eslint-disable-line react-hooks/exhaustive-deps -- only these fields matter

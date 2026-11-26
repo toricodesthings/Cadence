@@ -1,7 +1,3 @@
-/**
- * Find and replace inside the note editor. Matches are decorations: they never touch the
- * document, the Markdown, or the save generation. Replace All is one transaction, so one undo.
- */
 import { Extension, type Editor } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
@@ -20,7 +16,6 @@ interface FindState {
 const key = new PluginKey<FindState>("noteFind");
 const EMPTY: FindState = { query: "", matches: [], current: 0 };
 
-/** Positions of every case-insensitive occurrence of `query` within single text blocks. */
 export function findMatches(doc: PMNode, query: string): FindMatch[] {
     if (!query) return [];
     const needle = query.toLowerCase();
@@ -86,12 +81,10 @@ export const NoteFind = Extension.create({
 
 export const getFind = (editor: Editor): FindState => key.getState(editor.state) ?? EMPTY;
 
-/** Updates the query (and optionally the current match); decorations only, no document change. */
 export function setFind(editor: Editor, patch: { query?: string; current?: number }) {
     editor.view.dispatch(editor.state.tr.setMeta(key, patch).setMeta("addToHistory", false));
 }
 
-/** Move to the next/previous match (wrapping) and scroll it into view without taking focus. */
 export function stepFind(editor: Editor, direction: 1 | -1) {
     const s = getFind(editor);
     if (!s.matches.length) return;
@@ -109,7 +102,6 @@ export function replaceCurrent(editor: Editor, text: string) {
     editor.view.dispatch(editor.state.tr.insertText(text, match.from, match.to));
 }
 
-/** Every match at once, one undo step. Returns how many were replaced. */
 export function replaceAll(editor: Editor, text: string): number {
     const { matches } = getFind(editor);
     if (!matches.length) return 0;

@@ -3,14 +3,9 @@ import type { Habit } from "@cadence/contracts/habit";
 import { sortRoutines, type RoutineSort } from "../../lib/utils/habits";
 import { SortableRoutines } from "./SortableRoutines";
 import { useRovingGrid } from "../../hooks/ui/use-roving-grid";
-import { isLoggable, logsByDay, RoutineWeekRow, weekGridColumns, type RoutineDay } from "./RoutineWeekRow";
+import { isLoggable, logsByDay, RoutineWeekHeader, RoutineWeekRow, type RoutineDay } from "./RoutineWeekRow";
 import { CheeringOnSection } from "./RoutineShareMeta";
 
-/**
- * The week: one `RoutineWeekRow` per routine under a sticky day header (phone:
- * stacked cards). The grid is one tab stop; arrows move between days, Space
- * toggles, S skips, E opens the routine; each row's grip drags it. `lead` (the Today band) scrolls with it.
- */
 export function HabitsCanvas({
     days,
     habits,
@@ -29,7 +24,6 @@ export function HabitsCanvas({
     days: RoutineDay[];
     habits: Habit[];
     sort: RoutineSort;
-    /** A drag picks Custom. */
     onSortChange: (sort: RoutineSort) => void;
     today: string;
     stacked: boolean;
@@ -97,38 +91,7 @@ export function HabitsCanvas({
                     {...gridProps}
                     className="surface-card min-w-[36rem] rounded-[24px] p-2"
                 >
-                    <div
-                        role="row"
-                        className={`photo-shell-surface layer-shell-base sticky top-0 grid ${weekGridColumns(showWeekCount)} items-end rounded-2xl bg-twilight-deep/75 px-2 py-2 backdrop-blur-xl`}
-                    >
-                        <span />
-                        {days.map((day) => {
-                            const isToday = day.iso === today;
-                            return (
-                                <span key={day.iso} role="columnheader" className="flex flex-col items-center gap-1">
-                                    <span
-                                        className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${isToday ? "text-accent-primary" : "text-twilight-text-soft"}`}
-                                    >
-                                        {day.short}
-                                    </span>
-                                    <span
-                                        className={`flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-medium tabular-nums ${isToday ? "bg-accent-primary font-semibold text-[var(--primary-foreground)]" : "text-twilight-text"}`}
-                                    >
-                                        {day.dayNum}
-                                    </span>
-                                </span>
-                            );
-                        })}
-                        {showWeekCount ? (
-                            <span
-                                role="columnheader"
-                                className="text-right text-[11px] font-medium text-twilight-text-muted"
-                            >
-                                This week
-                            </span>
-                        ) : null}
-                    </div>
-                    {/* Today's cells join into one column, rounded at its ends. */}
+                    <RoutineWeekHeader days={days} today={today} showWeekCount={showWeekCount} role="row" />
                     <SortableRoutines habits={sorted} sort={sort} onSortChange={onSortChange} layout="list">
                         {(ordered) => (
                             <div className="mt-1 flex flex-col [&>*:first-child_[data-today]]:rounded-t-2xl [&>*:last-child_[data-today]]:rounded-b-2xl">

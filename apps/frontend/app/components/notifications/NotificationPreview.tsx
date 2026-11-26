@@ -9,15 +9,12 @@ import { Tip } from "../primitives/Tooltip";
 import { NotificationRow } from "./NotificationRow";
 import { HEADER_ICON_BUTTON } from "../layout/PageHeader";
 
-/** Desktop's quick glance; compact shells open the full sheet directly. */
 export function NotificationPreview({
     side = "right",
     placement = "rail",
 }: {
     side?: "right" | "bottom";
-    /** `rail` is the ghost icon in the icon rail; `header` is the page header's control family. */ placement?:
-        | "rail"
-        | "header";
+    placement?: "rail" | "header";
 }) {
     const [open, setOpen] = useState(false);
     const { notifications, unreadCount, markRead, dismiss } = useNotificationCenter();

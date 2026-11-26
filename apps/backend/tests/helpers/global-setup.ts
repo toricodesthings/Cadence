@@ -1,9 +1,3 @@
-/**
- * Builds the test database once per run: a fresh PGlite with the worker's role and
- * every journaled migration, saved as a data-dir snapshot each test file loads.
- * Starting Postgres (initdb) is the slow part, ~2s; a file loading the snapshot
- * takes ~0.4s, so parallel files stay far inside the hook timeout.
- */
 import { PGlite } from "@electric-sql/pglite";
 import { vector } from "@electric-sql/pglite-pgvector";
 import { pg_trgm } from "@electric-sql/pglite/contrib/pg_trgm";
@@ -23,9 +17,7 @@ declare module "vitest" {
 
 export default async function setup(project: TestProject) {
     const pg = new PGlite({ extensions: { vector, pg_trgm } });
-    // As on Neon, the worker's role exists before the first migration, which grants it table access.
     await pg.exec("CREATE ROLE api_worker NOLOGIN;");
-    // Neon Auth's user table lives in this database on Neon; the sharing functions read name and image from it.
     await pg.exec(
         'CREATE SCHEMA neon_auth; CREATE TABLE neon_auth."user" (id uuid PRIMARY KEY, name text, image text, email text);',
     );

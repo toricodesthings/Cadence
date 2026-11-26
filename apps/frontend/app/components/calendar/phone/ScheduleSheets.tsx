@@ -5,7 +5,6 @@ import { UtilitySheet } from "../../shared/UtilitySheet";
 import { Button } from "../../primitives/Button";
 import { dayLabel, usePlaceTask } from "../../holding/PlaceSheet";
 
-/** Holding's Ready tasks, placed onto the day you're looking at with one tap each. */
 export function ReadyToPlaceSheet({
     open,
     dateIso,
@@ -49,11 +48,6 @@ export function ReadyToPlaceSheet({
     );
 }
 
-/**
- * Relief for a heavy day: today's open tasks, all chosen, moved in one step to
- * tomorrow or off the calendar (dates cleared), with one Undo. Fixed blocks and routines are
- * never offered; they aren't owed. Nothing moves until the user taps.
- */
 export function LightenTodaySheet({
     open,
     tasks,
@@ -68,7 +62,6 @@ export function LightenTodaySheet({
     const [chosen, setChosen] = useState<Set<string>>(() => new Set());
     useEffect(() => {
         if (open) setChosen(new Set(tasks.map((task) => task.id)));
-        // Re-seed only when the sheet opens; later list changes keep the user's picks.
         // oxlint-disable-next-line react/exhaustive-deps -- deps are deliberate here
     }, [open]);
 

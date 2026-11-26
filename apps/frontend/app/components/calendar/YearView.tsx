@@ -14,16 +14,11 @@ interface MiniMonthProps {
     month: number;
     taskDateCounts: Map<LocalDate, number>;
     holidayDateSet?: Set<LocalDate>;
-    /** The user's birthday this year */
     birthdayDate?: LocalDate | null;
-    /** Days that have personal events */
     personalEventDateSet?: Set<LocalDate>;
-    /** Personal event density by day */
     personalEventDateCounts?: Record<LocalDate, number>;
     today: LocalDate;
-    /** Jump to month view for this month */
     onSelectMonth: (month: number) => void;
-    /** Jump to day view for a specific day */
     onSelectDay: (day: LocalDate) => void;
 }
 
@@ -41,7 +36,6 @@ type MiniDayProps = Pick<
     dayStr: LocalDate;
 };
 
-/** One day: tinted by how many tasks it holds, with holiday, birthday and event marks. */
 function MiniDay({
     day,
     dayStr,
@@ -60,7 +54,6 @@ function MiniDay({
     const hasPersonalEvent = Boolean(personalEventDateSet?.has(dayStr));
     const personalEventCount = personalEventDateCounts?.[dayStr] ?? 0;
 
-    // Heatmap: opacity scales with density (1→0.25, 2→0.4, 3→0.55, 4+→0.7)
     const heatOpacity = taskCount === 0 ? 0 : Math.min(0.7, 0.15 + taskCount * 0.15);
 
     return (
@@ -134,7 +127,6 @@ function MiniMonth({
 
     return (
         <div data-lift className="surface-card flex flex-col gap-3 rounded-2xl p-4 transition-colors">
-            {/* Month name */}
             <button
                 type="button"
                 onClick={() => onSelectMonth(month)}
@@ -143,7 +135,6 @@ function MiniMonth({
                 {MONTHS[month]}
             </button>
 
-            {/* Day-of-week headers */}
             <div className="grid grid-cols-7">
                 {DAYS_SHORT.map((d, i) => (
                     <div
@@ -155,7 +146,6 @@ function MiniMonth({
                 ))}
             </div>
 
-            {/* Day cells */}
             <div className="grid grid-cols-7 gap-y-0.5">
                 {cells.map((day, i) =>
                     day ? (
@@ -184,15 +174,10 @@ export interface YearViewProps {
     year: number;
     tasks: Task[];
     holidayDateSet?: Set<LocalDate>;
-    /** The user's birthday this year */
     birthdayDate?: LocalDate | null;
-    /** Days with personal events */
     personalEventDateSet?: Set<LocalDate>;
-    /** Personal event density by day */
     personalEventDateCounts?: Record<LocalDate, number>;
-    /** Switch to month view for a specific month */
     onSelectMonth: (month: number) => void;
-    /** Switch to day view for a specific day */
     onSelectDay: (day: LocalDate) => void;
     compact?: boolean;
 }
@@ -210,7 +195,6 @@ export function YearView({
 }: YearViewProps) {
     const today = useToday();
 
-    // LocalDate → task count, for the heatmap density
     const taskDateCounts = useMemo(() => {
         const map = new Map<LocalDate, number>();
         for (const t of tasks) {
@@ -246,11 +230,6 @@ export function YearView({
     );
 }
 
-/**
- * Year on a phone, the way a pocket calendar shows it: twelve small months,
- * each one a single tap target that opens the month. Days are a glance, not
- * buttons; they'd be far too small to hit.
- */
 function PhoneYear({
     year,
     taskDateCounts,

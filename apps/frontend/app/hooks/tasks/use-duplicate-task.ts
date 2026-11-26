@@ -6,7 +6,6 @@ import { withOfflineSupport } from "../../lib/api/offline-mutation";
 import { taskCache } from "./optimistic-helpers";
 import { toastError } from "../../lib/utils/error-toast";
 
-/** Duplicate a task — server generates new ID, appends "(copy)" to title */
 export function useDuplicateTask() {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -23,7 +22,6 @@ export function useDuplicateTask() {
         ),
 
         onSuccess: () => {
-            // The copy's tags are added server-side and aren't in the response.
             taskCache.invalidate(queryClient);
         },
 

@@ -6,7 +6,6 @@ import { SPRINGS } from "../../lib/constants/motion";
 const ARROW =
     "btn-icon cursor-pointer rounded-xl text-twilight-text-muted hover:bg-white/[0.06] hover:text-twilight-text";
 
-/** Jumps back to the period holding today; greyed out while you're already there. `compact` is the tablet header's small pill. */
 export function PeriodTodayButton({
     isCurrent,
     onToday,
@@ -28,7 +27,6 @@ export function PeriodTodayButton({
     );
 }
 
-/** Page header period nav: ‹ Today ›. `unit` names the step for the arrows ("week" → "Previous week"). */
 export function PeriodNav({
     unit,
     isCurrent,
@@ -59,10 +57,6 @@ export function PeriodNav({
     );
 }
 
-/**
- * Laptop: ‹ Today › lives in the bottom-right corner, where the thumb-and-eye rest, so the header keeps its room.
- * The same three controls as `PeriodNav`; overlays sit on a higher layer and simply cover it.
- */
 export function PeriodDock(props: {
     unit: string;
     isCurrent: boolean;
@@ -76,7 +70,6 @@ export function PeriodDock(props: {
     );
 }
 
-/** Phone: a floating Today pill, bottom left (the add orb owns bottom right), shown only while you're away from today. */
 export function PeriodTodayPill({
     show,
     reducedMotion,

@@ -4,12 +4,6 @@ import { subtasks } from "../../db/schema";
 import { AppError } from "../../platform/errors";
 import type { Tx } from "../../types/db";
 
-/**
- * Add, change and remove a task's checklist steps in the caller's transaction.
- * Every subtask id must be on this task: one foreign id fails the batch (404)
- * before anything is written. `order` lists existing steps in their new order
- * (steps it leaves out follow, as they were); new steps go after the last one.
- */
 export async function editSubtasks(
     tx: Tx,
     userId: string,
@@ -40,7 +34,6 @@ export async function editSubtasks(
         if (found.length !== ids.length) throw new AppError(404, "NOT_FOUND", "Subtask not found on this task");
     }
 
-    // Pipelined on the transaction's connection, not one round trip per subtask.
     await Promise.all(
         update
             .filter(({ title, isComplete }) => title !== undefined || isComplete !== undefined)

@@ -194,7 +194,6 @@ function ModePicker({ location }: { location: UserLocation }) {
     );
 }
 
-/** Where Cadence thinks you are, and (when you choose yourself) the fields to change it, in one card. */
 function LocationCard({
     location,
     locale,
@@ -242,7 +241,6 @@ function LocationCard({
     );
 }
 
-/** Explains why precise mode is (or isn't) working, and offers the one action that helps. */
 function PreciseStatus({ location }: { location: UserLocation }) {
     if (location.mode !== "precise") return null;
     const { permissionState, isLocating, preciseFailed, place } = location;

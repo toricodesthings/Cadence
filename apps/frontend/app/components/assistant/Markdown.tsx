@@ -6,23 +6,6 @@ import { ArrowRight } from "lucide-react";
 import { useUtilityNavigation } from "../../hooks/ui/use-utility-navigation";
 import { useStepOutOfAssistant } from "../../hooks/ai/use-step-out-of-assistant";
 
-/**
- * Discord-flavoured markdown renderer for chat bubbles.
- *
- * Themed entirely with twilight/accent tokens so it adapts to both the dark
- * "Twilight" and light "Daylight" palettes. Deliberately avoids syntax
- * highlighting libraries to keep the bundle lean — code blocks are rendered as
- * a themed, horizontally-scrollable monospace surface.
- *
- * Raw HTML is NOT enabled (no rehype-raw), so react-markdown's default
- * sanitization keeps user/assistant text safe. Images never render: an injected
- * `![](https://x/?d=…)` would leak data the moment it loads.
- *
- * In-app links (`/today`, `?settings=assistant`) navigate in place; everything
- * else opens as an external link.
- */
-
-/** Same-origin path. `//host` and `/\host` are protocol-relative and leave the app. */
 export function isInAppPath(href: string): boolean {
     return href.startsWith("/") && !href.startsWith("//") && !href.startsWith("/\\");
 }
@@ -30,7 +13,6 @@ export function isInAppPath(href: string): boolean {
 const LINK_CLASS =
     "font-medium text-accent-primary underline decoration-accent-primary/40 underline-offset-2 transition-colors hover:decoration-accent-primary";
 
-/** The plain text a link shows. */
 function textOf(node: ReactNode): string {
     if (typeof node === "string" || typeof node === "number") return String(node);
     if (Array.isArray(node)) return node.map(textOf).join("");
@@ -39,7 +21,6 @@ function textOf(node: ReactNode): string {
     return "";
 }
 
-/** An external link's host, when its text doesn't already show it: a steered reply can't hide where a click goes. */
 export function hiddenHost(href: string, text: string): string | null {
     try {
         const host = new URL(href).hostname.replace(/^www\./, "");
@@ -85,19 +66,14 @@ function AssistantLink({ href = "", children }: { href?: string; children?: Reac
 }
 
 const components: Components = {
-    // Paragraphs — tight leading inside a bubble, no margin on the last one.
     p: ({ children }) => <p className="my-0.5 first:mt-0 last:mb-0">{children}</p>,
 
-    // Emphasis. Discord's `__underline__` is parsed by remark as strong/emphasis
-    // depending on context; we render `<strong>` bold and `<em>` italic, and map
-    // the `<u>`/`<del>` cases to underline / strikethrough.
     strong: ({ children }) => <strong className="font-semibold text-twilight-text">{children}</strong>,
     em: ({ children }) => <em className="italic">{children}</em>,
     del: ({ children }) => <del className="opacity-80 line-through">{children}</del>,
 
     a: ({ href, children }) => <AssistantLink href={href}>{children}</AssistantLink>,
 
-    // Inline vs block code. `inline` is provided by react-markdown's code renderer.
     code: ({ className, children, ...props }) => {
         const isBlock = /language-/.test(className ?? "") || String(children).includes("\n");
         if (!isBlock) {
@@ -134,8 +110,6 @@ const components: Components = {
     ),
     li: ({ children }) => <li className="pl-0.5">{children}</li>,
 
-    // Headings — sized down sensibly so they read as emphasis inside a chat
-    // bubble rather than page headings.
     h1: ({ children }) => (
         <h1 className="mt-1.5 mb-0.5 font-display text-[15px] font-semibold text-twilight-text first:mt-0">
             {children}
@@ -184,5 +158,4 @@ function MarkdownImpl({ children }: { children: string }) {
     );
 }
 
-/** Memoized so re-renders during streaming don't re-parse stable messages. */
 export const Markdown = memo(MarkdownImpl);

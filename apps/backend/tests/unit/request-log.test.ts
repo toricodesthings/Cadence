@@ -62,8 +62,6 @@ describe("request logging", () => {
         });
 
         expect(warnSpy).toHaveBeenCalledTimes(1);
-        // Workers Logs indexes the logged OBJECT directly — assert we pass an
-        // object, not a JSON string (which would collapse into one blob field).
         const payload = warnSpy.mock.calls[0][0] as Record<string, any>;
         expect(typeof payload).toBe("object");
         expect(payload).toMatchObject({
@@ -84,10 +82,7 @@ describe("request logging", () => {
             taskIdsCount: 3,
             state: "ACTIVE",
         });
-        // An explicit failure log marks the request as logged, so the request
-        // context middleware will not emit a duplicate `request_completed` line.
         expect(ctx.get("logged")).toBe(true);
-        // Sensitive data must not leak
         expect(JSON.stringify(payload)).not.toContain("Bearer secret");
         expect(JSON.stringify(payload)).not.toContain("Do not leak me");
         expect(JSON.stringify(payload)).not.toContain("scheduledStart");

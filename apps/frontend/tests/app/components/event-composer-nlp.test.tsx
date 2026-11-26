@@ -4,7 +4,6 @@ import { PersonalEventEditorDialog } from "../../../app/components/events/Person
 import { Provider } from "../../../app/components/primitives/Tooltip";
 import { stubTouch } from "../../helpers";
 
-// Real parser and real composers: under four parallel zone runs a wait needs more than the 1s default.
 configure({ asyncUtilTimeout: 5000 });
 
 const saveThought = vi.fn();

@@ -6,12 +6,6 @@ import { formatErrorResponse } from "../../src/platform/errors";
 
 export const TEST_USER_ID = "11111111-1111-4111-8111-111111111111";
 
-/**
- * Mounts a domain router behind the same error handler + request-context
- * middleware the real app uses, with a fixed authenticated `userId` standing
- * in for the auth middleware's output. Shared by every route contract/
- * integration test so the pipeline setup lives in one place.
- */
 export function createTestApp(mountPath: string, routes: HonoApp<any>, userId: string = TEST_USER_ID) {
     const app = new Hono<{ Variables: AuthVariables }>();
     app.onError((err, c) => {
@@ -27,11 +21,6 @@ export function createTestApp(mountPath: string, routes: HonoApp<any>, userId: s
     return app;
 }
 
-/**
- * A JSON client for one router, acting as `userId`. Awaits every `waitUntil`
- * task before returning, so background writes (metrics, usage events) are
- * visible to the next assertion.
- */
 export function apiAs(userId: string, mountPath: string, routes: HonoApp<any>, env: Record<string, unknown> = {}) {
     const app = createTestApp(mountPath, routes, userId);
     return async (method: string, path: string, body?: unknown, headers: Record<string, string> = {}) => {
@@ -58,11 +47,6 @@ export function apiAs(userId: string, mountPath: string, routes: HonoApp<any>, e
 const LOOKS_LIKE_DATETIME = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
 const STRICT_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
-/**
- * API invariant, checked on every integration response: date-times go out in one
- * format, strict ISO ("2026-03-09T12:00:00.000Z"), never Postgres text
- * ("2026-03-09 12:00:00+00"), so clients can echo any value back unchanged.
- */
 function assertIsoTimestamps(value: unknown, path = "body") {
     if (typeof value === "string") {
         if (LOOKS_LIKE_DATETIME.test(value) && !STRICT_ISO.test(value)) {

@@ -26,7 +26,6 @@ const STARS: Star[] = (() => {
     return out;
 })();
 
-/** Cumulative star sets: 6 spring · 8 summer · 18 autumn · 26 winter. */
 const STAR_SETS: readonly (readonly [number, number, string | undefined])[] = [
     [0, 6, undefined],
     [6, 8, "ls-stars-8"],
@@ -37,7 +36,6 @@ const STAR_SETS: readonly (readonly [number, number, string | undefined])[] = [
 const MARIA =
     "M537,290a11,8 0 1,0 22,0a11,8 0 1,0 -22,0M564,306a8,6 0 1,0 16,0a8,6 0 1,0 -16,0M550,318a6,4 0 1,0 12,0a6,4 0 1,0 -12,0";
 
-/** Six twinklers as three opacity-animated pairs of distant stars (keeps the animation budget). */
 const TWINKLE_PAIRS: readonly { a: Pt; b: Pt; dur: number; delay: number }[] = [
     { a: [1250, 84], b: [1470, 196], dur: 4.3, delay: -1.2 },
     { a: [150, 372], b: [296, 236], dur: 5.9, delay: -3.1 },
@@ -52,7 +50,6 @@ function twinkleStyle({ a, b, dur, delay }: (typeof TWINKLE_PAIRS)[number]) {
     });
 }
 
-/** Drifting cloud bank (one 1920-wide tile, y 120–420): [cx, base, width, height]. */
 const DRIFT_CLOUDS = (
     [
         [640, 372, 300, 58],
@@ -62,7 +59,6 @@ const DRIFT_CLOUDS = (
     ] as const
 ).map(([cx, base, w, h], i) => cloud(cx, base, w, h, 71 + i));
 
-/** Spring's overcast: wider, flatter clouds that stay put. */
 const SPRING_CLOUDS = (
     [
         [300, 220, 420, 50],
@@ -76,7 +72,6 @@ const SPRING_CLOUDS = (
     ] as const
 ).map(([cx, base, w, h], i) => cloud(cx, base, w, h, 81 + i));
 
-/** Glassy cloud: a faint underside nudged down-right (warmed by the valley glow on low clouds), a thin specular crest peeking above, then the body; the tile's group opacity makes the whole cloud translucent. */
 function Cloud({ d, low }: { d: string; low?: boolean }) {
     return (
         <>
@@ -127,14 +122,12 @@ export function LoadingSky() {
             <g className="ls-key ls-moon">
                 <circle cx={MOON[0]} cy={MOON[1]} r="360" fill="url(#ls-key-halo-wide)" />
                 <circle cx={MOON[0]} cy={MOON[1]} r="170" fill="url(#ls-key-halo)" />
-                {/* Summer: the key light is the sun, so it throws a wider, warmer haze */}
                 <circle className="ls-summer" cx={MOON[0]} cy={MOON[1]} r="290" fill="url(#ls-key-halo)" opacity=".8" />
                 <circle className="ls-summer" cx={MOON[0]} cy={MOON[1]} r="54" fill="url(#ls-key-disk)" />
                 <circle cx={MOON[0]} cy={MOON[1]} r="42" fill="url(#ls-key-disk)" />
                 <path className="ls-night" d={MARIA} fill="var(--loading-sky-zenith)" opacity=".05" />
             </g>
 
-            {/* Spring's rain cloud: a soft deck over the whole sky, drawn over the moon so it only glows through */}
             <g className="ls-spring ls-spring-clouds">
                 <rect width="1920" height="470" fill="url(#ls-overcast)" />
                 <g filter="url(#ls-blur-far)">
@@ -147,7 +140,6 @@ export function LoadingSky() {
     );
 }
 
-/** HTML-level sky motion (compositor-only): star twinklers and the drifting cloud band. */
 export function LoadingSkyMotion() {
     return (
         <>
@@ -159,7 +151,6 @@ export function LoadingSkyMotion() {
                     <svg viewBox="0 120 3840 300" preserveAspectRatio="none">
                         <g id="ls-cloud-tile" opacity=".54" filter="url(#ls-blur-cloud)">
                             {DRIFT_CLOUDS.map((d, i) => (
-                                // Every other cloud is optional: winter keeps a clearer sky
                                 <g key={d} className={i % 2 ? "ls-cloud-opt" : undefined}>
                                     <Cloud d={d} low={i === 0 || i === 2} />
                                 </g>
@@ -173,10 +164,6 @@ export function LoadingSkyMotion() {
     );
 }
 
-/**
- * The loading sky's stars on their own, as a page backdrop (the consent page). Crops the
- * star band (y 0–620) to cover its box; twinkles with the scene's global `ls-twinkle`.
- */
 export function StarField({ className = "" }: { className?: string }) {
     return (
         <svg className={className} viewBox="0 0 1920 620" preserveAspectRatio="xMidYMid slice" aria-hidden="true">

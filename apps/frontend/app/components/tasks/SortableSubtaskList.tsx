@@ -17,7 +17,6 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import type { ReactNode } from "react";
 
-/** Anything ordered by `orderIndex`: subtasks, or a routine's steps (their array position). */
 interface Sortable {
     id: string;
     orderIndex: number;

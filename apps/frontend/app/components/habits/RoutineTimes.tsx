@@ -10,13 +10,11 @@ import { getUserZone, today } from "../../lib/utils/user-zone";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 import { RoutineCheckList } from "./RoutineSteps";
 
-/** "8:00 AM, 2:00 PM and 8:00 PM" in the user's time format. */
 export function listTimes(times: readonly string[]): string {
     const labels = times.map(formatWallTime);
     return labels.length > 1 ? `${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}` : (labels[0] ?? "");
 }
 
-/** The next time a row starts at: four hours after the last, else the first free half hour. */
 export function nextTime(times: readonly string[]): string {
     const last = times.at(-1);
     const hour = last ? Number(last.slice(0, 2)) + 4 : 9;
@@ -32,11 +30,6 @@ export function nextTime(times: readonly string[]): string {
     );
 }
 
-/**
- * A routine's daily times, one row each, with Add time. Sorted on every change;
- * a time already in the list is ignored. Emits at least one time (the composer and
- * editor decide what fewer means).
- */
 export function RoutineTimes({
     times,
     onChange,
@@ -44,7 +37,6 @@ export function RoutineTimes({
 }: {
     times: readonly string[];
     onChange: (times: string[]) => void;
-    /** Leads the live summary, e.g. "Every day". */
     cadence?: string;
 }) {
     const set = (next: string[]) => onChange([...new Set(next)].sort());
@@ -89,7 +81,6 @@ export function RoutineTimes({
     );
 }
 
-/** A past day's check-in happened at that day's time, not now. */
 const pastCheckIn = (date: string, time: string) => (date < today() ? atLocal(date, time, getUserZone()) : undefined);
 
 function markedText(clearing: boolean, next: "COMPLETED" | "SKIPPED", at: string) {
@@ -97,11 +88,6 @@ function markedText(clearing: boolean, next: "COMPLETED" | "SKIPPED", at: string
     return next === "COMPLETED" ? `Done at ${formatTime(at)}` : "Skipped";
 }
 
-/**
- * One day's times to check off one by one: each row says exactly what it records
- * ("Done at 2:07 PM"), Skip and Undo touch just that time, and a later time is
- * never completed by an earlier tap. Mirrors the step checklist.
- */
 export function RoutineTimeChecklist({
     habit,
     date,
@@ -120,7 +106,6 @@ export function RoutineTimeChecklist({
         const clearing = previous?.status === next;
         const action = timeAction(time, clearing ? "PENDING" : next, pastCheckIn(date, time));
         resolve({ targetDate: date, ...action });
-        // The mark shows in place; only touch, where a stray tap is likely, gets an Undo toast (as the day cells do).
         if (!isTouch) return;
         const undo = () =>
             resolve({
@@ -133,7 +118,6 @@ export function RoutineTimeChecklist({
         });
     };
 
-    // Backfill in one tap: every time not yet marked is done (skipped ones stay skipped).
     const open = times.filter((time) => !marks[time]);
     const checkAll = () => {
         for (const time of open)

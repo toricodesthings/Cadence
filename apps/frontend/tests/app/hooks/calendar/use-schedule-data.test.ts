@@ -22,6 +22,7 @@ vi.mock("../../../../app/hooks/tasks/use-tasks", () => ({
         return { data: options.hasNoDate ? mocks.holding : mocks.tasks };
     },
 }));
+vi.mock("../../../../app/hooks/sharing/use-load-share", () => ({ useLoadShare: () => () => 1 }));
 vi.mock("../../../../app/hooks/core/use-settings", () => ({ useSettings: () => ({ data: mocks.settings }) }));
 vi.mock("../../../../app/hooks/environment/use-holiday-overlay", () => ({
     useHolidayOverlay: (options: unknown) => {

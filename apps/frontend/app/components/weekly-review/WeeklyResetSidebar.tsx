@@ -1,7 +1,6 @@
 import { ArrowLeft, Flower2, Inbox, ListTodo, Flame, CalendarRange, Check, MessagesSquare } from "lucide-react";
 import { Button } from "../primitives/Button";
 
-/** The reset's steps. Ids stay stable (saved step indexes keep working); `stabilize` shows as "Loose ends". */
 export const STEPS = [
     { id: "intro", title: "Welcome", icon: Flower2 },
     { id: "inbox", title: "Captures", icon: Inbox },
@@ -13,15 +12,10 @@ export const STEPS = [
 
 export type StepNavProps = {
     currentStep: number;
-    /** What's left on each step (null where nothing is counted). */
     counts: readonly (number | null)[];
     onStep: (step: number) => void;
 };
 
-/**
- * Any step is one click away: steps are independent, so jumping loses nothing. A path joins the step marks and
- * lights up behind you as you go.
- */
 export function WeeklyResetSidebar({
     currentStep,
     counts,
@@ -49,7 +43,6 @@ export function WeeklyResetSidebar({
                     const Icon = isPast && !count ? Check : step.icon;
                     return (
                         <li key={step.id} className="relative">
-                            {/* The path to the next mark: a quiet track, lit once you're past this step. */}
                             {idx < STEPS.length - 1 ? (
                                 <span
                                     aria-hidden="true"

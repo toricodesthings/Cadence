@@ -4,7 +4,6 @@ import { ExternalLink } from "./ExternalLink";
 
 const LINK = "font-medium text-accent-primary underline-offset-2 hover:underline";
 
-/** "Terms of Service and Privacy Policy", each opening cadenceapp.cloud in the browser. */
 export function LegalLinks() {
     return (
         <>
@@ -19,7 +18,6 @@ export function LegalLinks() {
     );
 }
 
-/** One tick box in the sign-up card's glass style. */
 export function ConsentCheck({
     checked,
     onChange,

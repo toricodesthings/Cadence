@@ -12,6 +12,7 @@ import { useSettings } from "../core/use-settings";
 import { useDurationGuesser } from "../ai/use-duration-guess";
 import { usePlanningEvidence } from "../ai/use-planning-evidence";
 import { useProjects } from "../projects/use-projects";
+import { useLoadShare } from "../sharing/use-load-share";
 import { useTasks } from "./use-tasks";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
@@ -22,11 +23,6 @@ import { getUserZone, today, useToday } from "../../lib/utils/user-zone";
 
 export type FitPlacement = FitDayResult["placed"][number];
 
-/**
- * Fit today, on the device: the day's untimed tasks, their known lengths and the busy blocks, and the one rule
- * (`@cadence/domain/fit-day`) over them. Today's own set includes what's still open from earlier days, first.
- * `plan(ordered)` lays out the given tasks (Today passes its visible order) or the day's own order.
- */
 export function useFitDay(day: LocalDate, enabled = true) {
     const todayDay = useToday();
     const isToday = day === todayDay;
@@ -41,35 +37,33 @@ export function useFitDay(day: LocalDate, enabled = true) {
     const { data: projects } = useProjects();
     const { data: settings } = useSettings();
     const hours = useMemo(() => dayHoursOf(settings), [settings]);
+    const shareOf = useLoadShare();
 
     const candidates = useMemo(() => {
         const zone = getUserZone();
-        const open = (own.data ?? []).filter(isFitCandidate);
-        // Still open from earlier days first, as Today shows them.
+        const open = (own.data ?? []).filter((t) => isFitCandidate(t) && shareOf(t) === 1);
         return [
             ...open.filter((t) => (taskDay(t, zone) ?? day) < day),
             ...open.filter((t) => (taskDay(t, zone) ?? day) >= day),
         ];
-    }, [day, own.data]);
+    }, [day, own.data, shareOf]);
     const byId = useMemo(() => new Map(candidates.map((t) => [t.id, t])), [candidates]);
-    // A routine is a point in the day, never a block to keep clear of.
     const busy = useMemo<Busy[]>(
         () =>
             busyBlocks(
-                (onDay.data ?? []).filter((t) => !t.isHabit),
+                (onDay.data ?? []).filter((t) => !t.isHabit && shareOf(t) > 0),
                 "",
             ),
-        [onDay.data],
+        [onDay.data, shareOf],
     );
     const minutesOf = useCallback((task: Task) => fitMinutes(task, guessOf(task)), [guessOf]);
 
-    /** Lays `tasks` (default: the day's own order) into the day's gaps, around `busy` plus `alsoBusy`. */
     const plan = useCallback(
         (tasks: readonly Task[] = candidates, alsoBusy: readonly Busy[] = []): FitDayResult => {
             const zone = getUserZone();
             return fitDay(
                 tasks
-                    .filter(isFitCandidate)
+                    .filter((t) => isFitCandidate(t) && shareOf(t) === 1)
                     .map((t) => ({ ...t, minutes: minutesOf(t), notBefore: t.notBefore ?? null })),
                 { day, zone, now: new Date().toISOString(), ...hours, busy: [...busy, ...alsoBusy] },
                 (t, feasible) =>
@@ -85,7 +79,7 @@ export function useFitDay(day: LocalDate, enabled = true) {
                     ),
             );
         },
-        [busy, candidates, day, evidence, minutesOf, projects, hours, todayDay],
+        [busy, candidates, day, evidence, minutesOf, projects, hours, todayDay, shareOf],
     );
 
     const ready = !!own.data && !!onDay.data;
@@ -97,7 +91,6 @@ export function useFitDay(day: LocalDate, enabled = true) {
 
 export type FitDay = ReturnType<typeof useFitDay>;
 
-/** Why the menu item can't help right now, or null when it can. Kept in place, disabled, rather than hidden. */
 export function fitTodayReason(fit: FitDay, tasks: readonly Task[], now = new Date()): string | null {
     const zone = getUserZone();
     if (dayWindow(today(), fit.hours, zone).to <= now.getTime()) return "Today's gaps have passed";
@@ -108,11 +101,6 @@ export function fitTodayReason(fit: FitDay, tasks: readonly Task[], now = new Da
     return result.placed.length || result.notSized.length ? null : "Nothing untimed fits today's gaps";
 }
 
-/**
- * `POST /tasks/place` for a whole preview, then one toast with one Undo. Undo sends each task's values from before;
- * a task edited since keeps the person's edit and the toast says so. Throws the request's error (a 409 names the
- * changed tasks in `issues`), so the preview can look again.
- */
 export function usePlaceTasks() {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -144,7 +132,6 @@ export function usePlaceTasks() {
                 try {
                     await send(previous.map((p) => ({ ...p, expectedUpdatedAt: versions.get(p.id)! })));
                 } catch (error) {
-                    // Put back the rest; what changed since keeps the person's edit.
                     const changed = new Set(
                         (error as { issues?: { path: string }[] }).issues?.map((i) => i.path) ?? [],
                     );

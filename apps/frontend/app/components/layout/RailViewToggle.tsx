@@ -6,15 +6,6 @@ import { Tip } from "../primitives";
 import type { RailView } from "../../stores/right-panel-store";
 import { SPRINGS } from "../../lib/constants/motion";
 
-/**
- * Compact icon toggle pinned to the top-right of the shared right rail. Lets the
- * user flip between the contextual panel and the Cadence assistant whenever the
- * contextual panel is present, without closing either. Selecting "Cadence" while
- * the assistant is closed opens it (handled by the parent's `onChange`).
- *
- * The active pill slides via a shared `layoutId`, so switching feels continuous
- * rather than a hard swap. Under reduced motion the global guard zeroes it out.
- */
 export function RailViewToggle({
     view,
     onChange,
@@ -30,7 +21,6 @@ export function RailViewToggle({
     ];
 
     return (
-        // Header-height strip so the pill centers on the panel header's title row.
         <div className="pointer-events-none absolute right-4 top-0 z-40 flex h-(--shell-header-h) items-center">
             <div
                 role="tablist"

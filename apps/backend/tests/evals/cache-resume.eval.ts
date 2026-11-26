@@ -1,4 +1,3 @@
-/** Reuse an existing probe's private epoch-b prefix after a real >60-minute gap: only three new calls. */
 import { expect, it } from "vitest";
 import { generateText } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";

@@ -13,15 +13,10 @@ import { wallTimeOf } from "@cadence/domain/time";
 import { getUserZone } from "../../lib/utils/user-zone";
 import { toastError } from "../../lib/utils/error-toast";
 
-/** One time of a routine at set times, stamped now so a queued or retried write keeps when it really happened. */
 export function timeAction(time: string, status: ResolveHabitAction["status"], at = new Date().toISOString()) {
     return { time, status, at };
 }
 
-/**
- * Every "check this routine in" tap (Today, Schedule, Upcoming, a list) sends a whole-day COMPLETED.
- * For a routine at set times that means the next open time, never the whole day.
- */
 function withNextTime(queryClient: QueryClient, habitId: string, vars: ResolveVariables): ResolveVariables {
     if (vars.time || vars.status !== "COMPLETED") return vars;
     const habit = queryClient
@@ -39,7 +34,6 @@ function withNextTime(queryClient: QueryClient, habitId: string, vars: ResolveVa
     return time ? { ...vars, ...timeAction(time, "COMPLETED") } : vars;
 }
 
-/** Pass `habitId` per call when one hook instance resolves many habits (e.g. schedule rows). */
 type ResolveVariables = ResolveHabitAction & { habitId?: string };
 
 export function useResolveHabit(boundHabitId?: string) {
@@ -75,12 +69,10 @@ export function useResolveHabit(boundHabitId?: string) {
             await habitCache.cancel(queryClient);
             const snapshot = habitCache.snapshot(queryClient);
 
-            // Helper to update a habit's log status in-place
             const applyUpdate = (habits: Habit[] | undefined): Habit[] | undefined => {
                 return transformListCache(habits, (items) =>
                     items.map((habit) => {
                         if (habit.id !== habitId) return habit;
-                        // Same rule as the server: step marks decide the day's status.
                         const stepIds = (habit.steps ?? []).map((step) => step.id);
                         const next = habit.times?.length
                             ? applyTimeMark(
@@ -106,16 +98,14 @@ export function useResolveHabit(boundHabitId?: string) {
                 );
             };
 
-            // Update the flat list (habits.all)
             queryClient.setQueriesData<Habit[]>({ queryKey: queryKeys.habits.all }, applyUpdate);
 
-            // Update each weekly query variant
             queryClient.setQueriesData<Habit[]>({ queryKey: queryKeys.habits.weeklyAll }, applyUpdate);
 
             return { snapshot };
         },
         onSuccess: (result) => {
-            if (!result || !isLastWrite(queryClient)) return; // Queued offline, or a later write reads back
+            if (!result || !isLastWrite(queryClient)) return;
             reconcileHabitInCaches(queryClient, result.habit);
         },
         onError: (err, _action, context) => {
@@ -123,7 +113,6 @@ export function useResolveHabit(boundHabitId?: string) {
             toastError(err, "Couldn't update routine");
         },
         onSettled: (data, error) => {
-            // Clearing or skipping a day takes its "Took" answer with it on the server: the cached one is stale.
             void queryClient.invalidateQueries({ queryKey: queryKeys.ai.routineDurationAll });
             habitCache.settle(queryClient, data, error);
         },

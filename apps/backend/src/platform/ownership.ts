@@ -3,11 +3,6 @@ import { inboxSections, projects, tags, taskSections, tasks } from "../db/schema
 import { AppError, throwIfNotFound } from "./errors";
 import type { Tx } from "../types/db";
 
-/**
- * Verify that a single-row entity (keyed by `id`, owned via `userId`) belongs
- * to the given user. Throws 404 if it does not exist, 403 if it belongs to
- * another user. `label` names the entity in the error message.
- */
 async function assertRowOwnership(
     tx: Tx,
     table: typeof projects | typeof taskSections | typeof inboxSections,
@@ -20,16 +15,10 @@ async function assertRowOwnership(
     if (row.userId !== userId) throw new AppError(403, "FORBIDDEN", `${label} belongs to another user`);
 }
 
-/**
- * Verify that a project belongs to the given user.
- * Throws 403 if the project exists but belongs to another user.
- * Throws 404 if the project does not exist.
- */
 export async function assertProjectOwnership(tx: Tx, userId: string, projectId: string) {
     await assertRowOwnership(tx, projects, userId, projectId, "Project");
 }
 
-/** An owned section must belong to the task's effective list (null = unscoped). */
 async function assertSectionOwnership(tx: Tx, userId: string, sectionId: string, projectId?: string | null) {
     const [row] = await tx
         .select({ userId: taskSections.userId, projectId: taskSections.projectId })
@@ -43,11 +32,6 @@ async function assertSectionOwnership(tx: Tx, userId: string, sectionId: string,
     }
 }
 
-/**
- * Verify that all tag IDs belong to the given user.
- * Throws 403 if any tag belongs to another user.
- * Throws 404 if any tag does not exist.
- */
 async function assertTagsOwnership(tx: Tx, userId: string, tagIds: string[]) {
     if (tagIds.length === 0) return;
     const uniqueIds = [...new Set(tagIds)];
@@ -60,10 +44,6 @@ async function assertTagsOwnership(tx: Tx, userId: string, tagIds: string[]) {
     }
 }
 
-/**
- * Validate all cross-entity references in a single call.
- * Skips any reference that is null/undefined.
- */
 export async function assertOwnership(
     tx: Tx,
     userId: string,
@@ -78,7 +58,6 @@ export async function assertOwnership(
     await Promise.all(checks);
 }
 
-/** The task must exist and be this user's; otherwise 404, as if it were absent. */
 export async function assertTaskOwnership(tx: Tx, userId: string, taskId: string) {
     const [task] = await tx
         .select({ id: tasks.id })

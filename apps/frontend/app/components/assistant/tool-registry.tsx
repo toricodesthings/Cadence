@@ -45,33 +45,17 @@ import { FindTimeCard, FitDayCard } from "./widgets/PlanCards";
 import { Sparkles } from "lucide-react";
 import { TOOL_CATALOG, isToolName, type ToolKind, type ToolName } from "@cadence/contracts/ai-tools";
 
-/**
- * Tool-part registry: chip copy and card per tool. Names and classes come from
- * `@cadence/contracts/ai-tools`, so a tool added or removed there fails tsc here.
- *
- * Three classes, all executed on the server:
- *  - read  → subtle activity chip; a proposed plan (`find_time`, `fit_day`) also gets its card, whose Place is the person's tap.
- *  - write → an approval card: it waits for a tap when the server asks for one,
- *    otherwise it arrives done and shows settled.
- *  - capture → never waits (capture_to_inbox); quiet confirm chip.
- *  - ask → the assistant's question (ask_user); answered as the user's next message.
- */
-
 interface ToolDescriptor {
     class: ToolKind;
-    /** Read/capture chip copy (design §9.2). */
     label: string;
-    /** Write card renderer; each takes its own tool's context, the dispatcher passes the part as received. */
     render?: (ctx: ToolRenderContext<never>) => React.ReactNode;
 }
 
-/** A write card that takes only the tool's context. */
 const card =
     <N extends ToolName>(Card: React.ComponentType<{ ctx: ToolRenderContext<N> }>) =>
     (ctx: ToolRenderContext<N>) => <Card ctx={ctx} />;
 
 const TOOL_REGISTRY: { [N in ToolName]: { label: string; render?: (ctx: ToolRenderContext<N>) => React.ReactNode } } = {
-    // ── read → activity chip ──────────────────────────────────────────────
     get_tasks: { label: "Checked your tasks" },
     get_task_detail: { label: "Checked your tasks" },
     get_projects: { label: "Checked your lists" },
@@ -91,7 +75,6 @@ const TOOL_REGISTRY: { [N in ToolName]: { label: string; render?: (ctx: ToolRend
     recall: { label: "Thought back to what you told me" },
     search_past_chats: { label: "Looked through your past chats" },
 
-    // ── write → approval cards ────────────────────────────────────────────
     create_tasks: { label: "Added tasks", render: card(TaskBatchCard) },
     duplicate_tasks: { label: "Copied tasks", render: card(DuplicateTasksCard) },
     update_tasks: { label: "Changed tasks", render: card(UpdateTasksCard) },
@@ -129,17 +112,13 @@ const TOOL_REGISTRY: { [N in ToolName]: { label: string; render?: (ctx: ToolRend
 
     update_settings: { label: "Changed settings", render: card(SettingsCard) },
 
-    // ── remember → one-line receipt with Undo, never an approval ───────────
     remember: { label: "Remembered", render: card(RememberReceipt) },
 
-    // ── capture → quiet confirmation chip ─────────────────────────────────
     capture_to_inbox: { label: "Saved to your inbox" },
 
-    // ── ask → a question to tap or type an answer to ──────────────────────
     ask_user: { label: "Asked you", render: card(AskCard) },
 };
 
-/** Writes the server no longer offers, still in older threads: the capture ones render settled, the rest through their successor's card. */
 const RETIRED_CAPTURE_WRITES = new Set(["structure_inbox_item", "structure_captures"]);
 const RETIRED_WRITES: Record<string, (ctx: RetiredRenderContext) => React.ReactNode> = {
     create_event: (ctx) => <CreateEventCard ctx={ctx} />,
@@ -148,10 +127,6 @@ const RETIRED_WRITES: Record<string, (ctx: RetiredRenderContext) => React.ReactN
     update_focus_view: (ctx) => <UpdateFocusViewCard ctx={ctx} />,
 };
 
-/**
- * Proposals from before 0.19 (the client wrote them, then saved a decision) and retired
- * writes. Old threads still hold them, so they render settled and read-only: applied or not.
- */
 function RetiredProposal({ applied }: { applied: boolean }) {
     const label = "Earlier suggestion";
     return (
@@ -169,19 +144,12 @@ function RetiredProposal({ applied }: { applied: boolean }) {
     );
 }
 
-/** Resolve the descriptor for a tool name, or undefined for unknown tools. */
 export function getToolDescriptor(toolName: string | undefined): ToolDescriptor | undefined {
     return toolName && isToolName(toolName)
         ? { class: TOOL_CATALOG[toolName].kind, ...TOOL_REGISTRY[toolName] }
         : undefined;
 }
 
-/**
- * Dispatcher for a single tool part. Write cards and capture render their own UI;
- * read parts are collected and rendered as one grouped chip by the panel, so
- * here a read part renders nothing (returns null) — see `collectReadLabels`.
- * Unknown tools degrade to a neutral "Working…" chip (forward-compatible).
- */
 export function ToolPart({
     part,
     answer,
@@ -190,11 +158,8 @@ export function ToolPart({
 }: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     part: any;
-    /** Answers the part's approval request; absent while a turn runs or on an older reply. */
     answer?: ToolRenderContext["answer"];
-    /** The part sits on an older reply. */
     stale?: boolean;
-    /** Answers an `ask_user` question as the user's next message. */
     reply?: ToolRenderContext["reply"];
 }) {
     const toolName = safeToolName(part);
@@ -206,7 +171,6 @@ export function ToolPart({
     if (retired) return <>{retired({ part, toolName: toolName!, answer, stale })}</>;
 
     if (!descriptor) {
-        // Unknown / future tool → neutral chip.
         return (
             <ToolActivityChip
                 calls={[
@@ -224,7 +188,6 @@ export function ToolPart({
     }
 
     if (descriptor.class === "read" && !descriptor.render) {
-        // Read chips are grouped per-turn by the panel; nothing to render solo.
         return null;
     }
 
@@ -235,12 +198,10 @@ export function ToolPart({
     return <>{descriptor.render?.({ part, toolName: toolName!, answer, stale, reply })}</>;
 }
 
-/** Still running: an errored or denied call has settled too, so it must stop spinning. */
 export function isInFlight(part: { state?: string } | undefined): boolean {
     return part?.state === "input-streaming" || part?.state === "input-available";
 }
 
-/** Ran and failed: thrown or rejected (`output-error`), or a tool's own `{ ok: false }`. */
 export function isFailed(part: { state?: string; output?: unknown } | undefined): boolean {
     const output = part?.output;
     return (
@@ -253,13 +214,11 @@ export function isFailed(part: { state?: string; output?: unknown } | undefined)
     );
 }
 
-/** Safely extract a tool name from a part, tolerating non-tool parts. */
 export function safeToolName(part: { type?: string }): string | undefined {
     if (typeof part?.type !== "string" || !part.type.startsWith("tool-")) return undefined;
     return part.type.slice("tool-".length);
 }
 
-/** True when a part is a read-class tool part (used for grouped chip collection). */
 export function isReadToolPart(part: { type?: string }): boolean {
     const name = safeToolName(part);
     return !!name && isToolName(name) && TOOL_CATALOG[name].kind === "read";
@@ -270,7 +229,6 @@ export type MessageSegment =
     | { kind: "reads"; calls: ToolCall[]; pending: boolean }
     | { kind: "card"; part: AssistantToolPart };
 
-/** Merge adjacent text/read parts in stream order; writes and questions stand alone. */
 export function buildSegments(parts: UIMessage["parts"]): MessageSegment[] {
     const segments: MessageSegment[] = [];
     for (const part of parts) {
@@ -285,7 +243,6 @@ export function buildSegments(parts: UIMessage["parts"]): MessageSegment[] {
                 continue;
             }
             const name = safeToolName(part);
-            // A read with a card (a proposed plan) shows its card once it has its answer; the chip covers the wait.
             if (name && getToolDescriptor(name)?.render && part.state === "output-available") {
                 segments.push({ kind: "card", part });
                 continue;

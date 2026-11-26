@@ -36,7 +36,6 @@ export const searchRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }
         }));
         return c.json({ data });
     })
-    // POST so the query never lands in a URL log.
     .post("/did-you-mean", apiValidator("json", didYouMeanQuerySchema), async (c) => {
         const { query } = c.req.valid("json");
         const task = await didYouMean(c.env, c.get("userId"), query, "search");

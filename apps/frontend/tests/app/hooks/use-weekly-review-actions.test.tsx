@@ -4,7 +4,6 @@ import type { InboxItem } from "@cadence/contracts/inbox";
 import { useWeeklyReviewActions } from "../../../app/hooks/core/use-weekly-review-actions";
 import { today } from "../../../app/lib/utils/user-zone";
 
-// Real parser and real composers: under four parallel zone runs a wait needs more than the 1s default.
 configure({ asyncUtilTimeout: 5000 });
 
 const process = vi.fn();

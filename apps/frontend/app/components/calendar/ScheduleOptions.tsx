@@ -146,7 +146,6 @@ export function ScheduleOptions({
     );
 }
 
-/** A menu row (`MENU_TOGGLE_ROW`): icon, label, an optional shortcut, and the switch the whole row toggles. */
 function ToggleRow({
     icon: Icon,
     label,

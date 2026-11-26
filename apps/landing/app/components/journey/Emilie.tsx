@@ -7,11 +7,6 @@ import { Drift } from "./Drift";
 import { Panel } from "./Panel";
 import { Sigil } from "./Sigil";
 
-/**
- * The keystone: Emilie, between autumn and winter, the page's one full-width chapter. She wears no season:
- * her light is the lantern's, the same ember that has ridden the bough's growth front down the page. The
- * app draws her as a light, never a face, so the page does too: a core in a sigil, beside the conversation.
- */
 export function Emilie() {
     return (
         <section

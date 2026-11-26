@@ -1,11 +1,3 @@
-/**
- * Consolidation: for each new fact, which known fact (if any) does it repeat, or give a new value for?
- * One small call over all of a reading's candidates. The model sees opaque keys (k1, k2…) and can only name
- * one of those or nothing, so it can't invent a merge, and any other reply means "new".
- *
- * Why not the decision model (as placement uses): on the eval it abstains whenever the value changed
- * ("works afternoons now" vs "works mornings"), which is the case that matters most; see tests/evals/memory.eval.ts.
- */
 import { generateText, Output } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { z } from "zod";
@@ -28,13 +20,11 @@ export interface ConsolidationItem {
     near: NearFact[];
 }
 
-/** For each item, the id of the known fact it repeats or updates, or null. Never throws: any failure means "new". */
 export async function consolidate(env: Env, userHash: string, items: ConsolidationItem[]): Promise<(string | null)[]> {
     const none: (string | null)[] = items.map(() => null);
     const withNear = items.map((item, i) => ({ item, i })).filter(({ item }) => item.near.length > 0);
     if (withNear.length === 0 || !env.OPENROUTER_API_KEY) return none;
 
-    // Opaque keys per known fact; the same fact keeps one key across items.
     const keys = new Map<string, string>();
     const byKey = new Map<string, string>();
     const keyOf = (id: string) => {
@@ -79,7 +69,6 @@ export async function consolidate(env: Env, userHash: string, items: Consolidati
         for (const m of output.matches) {
             const target = withNear[m.new - 1];
             const id = m.known ? byKey.get(m.known) : undefined;
-            // Only a fact that was offered for that item can be named.
             if (target && id && target.item.near.some((k) => k.id === id)) out[target.i] = id;
         }
         return out;

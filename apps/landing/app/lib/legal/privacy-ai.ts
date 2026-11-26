@@ -1,9 +1,5 @@
 import type { LegalDoc } from "./types";
 
-/*
- * The Privacy Policy's assistant sections: the AI assistant, its memory, and connected assistants.
- * Same rule as privacy.ts: update in the same change as any data-flow change.
- */
 export const AI_SECTIONS: LegalDoc["sections"] = [
     {
         id: "ai-assistant",

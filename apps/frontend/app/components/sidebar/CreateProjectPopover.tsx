@@ -5,7 +5,6 @@ import { Button } from "../primitives/Button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../primitives/Dialog";
 import { ListIdentityFields } from "../shared/ProjectColorPicker";
 
-/** Dialog form for creating a new project — optimistic insert */
 export function CreateProjectPopover() {
     const [name, setName] = useState("");
     const [colorAccent, setColorAccent] = useState("luminous-amber");

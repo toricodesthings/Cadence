@@ -27,9 +27,7 @@ export interface RouteAction {
     icon: LucideIcon;
     onSelect: () => void;
     danger?: boolean;
-    /** Kept in place but greyed out, with this reason under its label. */
     disabledReason?: string;
-    /** Phones can word or wire an action differently (no inline add input, for one). */
     compact?: { label?: string; onSelect?: () => void };
 }
 
@@ -40,14 +38,11 @@ interface TaskRouteControlsProps {
     onViewChange: (view: ViewMode) => void;
     sortMode: SortMode;
     onSortModeChange: (mode: SortMode) => void;
-    /** Set while a task is selected and its panel isn't already beside the list. */
     onOpenDetails?: () => void;
     actions?: RouteAction[];
-    /** Name of the actions group on phones. */
     actionsLabel?: string;
 }
 
-/** View, sort, and TaskRouteControls props shared by bucketed task routes (`today`, `upcoming`). */
 export function useTaskRouteControls(
     routeKey: string,
     title: string,
@@ -70,7 +65,6 @@ export function useTaskRouteControls(
     };
 }
 
-/** The header controls every task list route shares: focus views, view + sort, and the route's own actions, on phone or desktop. */
 export function TaskRouteControls({
     routeKey,
     title,

@@ -1,9 +1,3 @@
-/**
- * The day-one effect. On choosing Full, the last 90 days of the person's chats and notes are read, newest
- * first, in batches of about 6k tokens, a few batches a night. Progress lives in
- * `users.settings.assistant.memoryBackfill` (server-owned). Chats the live job already covers (the last
- * 3 days, or anything behind a conversation's cursor) are skipped, so nothing is learned twice.
- */
 import { and, desc, eq, gt, gte, isNull, lt, or, sql } from "drizzle-orm";
 import { textOf } from "./message-text";
 import { todayIn } from "@cadence/domain/time";
@@ -23,9 +17,7 @@ import type { MemoryPage } from "@cadence/contracts/memory";
 export const BACKFILL_DAYS = 90;
 const READ_CHAR_BUDGET = 24_000;
 const BATCHES_PER_NIGHT = 4;
-/** The live job covers chats and notes this recent. */
 const LIVE_DAYS = 3;
-/** Nights in a row a batch broke before the log says the person is stuck (an error, not a warning). */
 const STUCK_NIGHTS = 3;
 
 export interface Backfill {
@@ -33,11 +25,8 @@ export interface Backfill {
     before: string;
     chats: "pending" | "done";
     notes: "pending" | "done";
-    /** Facts saved or updated by the catch-up so far. */
     learned?: number;
-    /** When both chats and notes finished. */
     doneAt?: string;
-    /** Nights in a row that a batch broke; reset by a night that reads something. */
     failedNights?: number;
 }
 
@@ -52,13 +41,8 @@ export const isBackfilling = (backfill: Backfill | null | undefined): boolean =>
     !!backfill && (backfill.chats === "pending" || backfill.notes === "pending");
 
 const DAY_MS = 24 * 60 * 60_000;
-/** How long the "Done" line stays after the catch-up finishes. */
 const DONE_SHOWN_DAYS = 7;
 
-/**
- * A reflective, not exact, share of the catch-up done: chats by how far back the read has reached (newest first,
- * so it starts at 5% and runs to 85%), then 90% while notes are read. Costs no query: it comes from the progress record.
- */
 export function catchUpOf(backfill: Backfill | null | undefined, now: Date): MemoryPage["catchUp"] {
     if (!backfill) return null;
     const learned = backfill.learned ?? 0;
@@ -83,7 +67,6 @@ async function saveBackfill(tx: Tx, userId: string, backfill: Backfill): Promise
         .where(eq(users.id, userId));
 }
 
-/** Merges into the stored progress, if a catch-up is still recorded (leaving Full clears it). */
 async function patchBackfill(
     tx: Tx,
     userId: string,
@@ -97,7 +80,6 @@ async function patchBackfill(
     return next;
 }
 
-/** Runs up to a night's batches. Returns how many batches read something. */
 export async function backfillForUser(env: Env, userId: string, now: Date = new Date()): Promise<number> {
     const db = getDbClient(env);
     const userHash = await hashIdentifier(userId);
@@ -127,7 +109,6 @@ export async function backfillForUser(env: Env, userId: string, now: Date = new 
                                 eq(aiMessages.role, "user"),
                                 gte(aiMessages.createdAt, backfill!.since),
                                 lt(aiMessages.createdAt, backfill!.before),
-                                // Clear drew a line: nothing said before it is read back.
                                 state.notBefore ? gt(aiMessages.createdAt, state.notBefore) : undefined,
                                 lt(aiConversations.lastMessageAt, liveFrom),
                                 sql`coalesce(${aiConversations.metadata} ->> 'learn', 'true') <> 'false'`,
@@ -159,7 +140,6 @@ export async function backfillForUser(env: Env, userId: string, now: Date = new 
                         today,
                         messages: taken.map(({ id, text }) => ({ id, text })),
                         source: "backfill" as const,
-                        // Once a night per person (the hourly cron's 03:00 run), so no run overlaps it: always moves.
                         advance: async (t: Tx): Promise<boolean> => {
                             await saveBackfill(t, userId, { ...backfill!, before: oldest });
                             return true;
@@ -167,7 +147,6 @@ export async function backfillForUser(env: Env, userId: string, now: Date = new 
                     };
                 }
 
-                // Notes: ones outside the live window that memory hasn't read at all, newest first.
                 const notes = await tx
                     .select({ taskId: taskNotes.taskId, body: taskNotes.body })
                     .from(taskNotes)
@@ -189,13 +168,11 @@ export async function backfillForUser(env: Env, userId: string, now: Date = new 
                     const lines = linesOf(note.body);
                     const text = lines.join("\n");
                     const hashes = await Promise.all(lines.map((l) => contentHash(l)));
-                    // A note with nothing to read is still marked read, so it isn't offered again.
                     if (used + text.length > READ_CHAR_BUDGET && taken.length > 0) break;
                     used += text.length;
                     taken.push({ taskId: note.taskId, text: text.slice(0, READ_CHAR_BUDGET), hashes });
                 }
                 if (taken.length === 0) {
-                    // Notes come after chats, so this is the end of the whole catch-up.
                     await saveBackfill(tx, userId, { ...backfill!, notes: "done", doneAt: now.toISOString() });
                     finished = true;
                     return { kind: "advanced" as const };
@@ -230,7 +207,6 @@ export async function backfillForUser(env: Env, userId: string, now: Date = new 
                 { state: step.state, today: step.today },
                 step.advance,
             );
-            // A failed read leaves the cursor: stop for tonight and retry on the next pass.
             if (result.failed) {
                 failed = true;
                 break;
@@ -248,7 +224,6 @@ export async function backfillForUser(env: Env, userId: string, now: Date = new 
     return batches;
 }
 
-/** Keeps the count of what the catch-up learned and of nights in a row it broke (STUCK_NIGHTS logs an error), and logs the finish with the total. */
 async function recordNight(
     env: Env,
     userId: string,

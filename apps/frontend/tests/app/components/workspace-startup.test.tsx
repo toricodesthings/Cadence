@@ -69,7 +69,6 @@ describe("workspace startup", () => {
         expect(screen.queryByTestId("startup")).not.toBeNull();
         await act(async () => projects.resolve("Projects ready"));
         await waitFor(() => expect(screen.queryByTestId("startup")).toBeNull());
-        // The flight starts first; the workspace shows a painted frame later.
         expect(container.querySelector("[inert]")).not.toBeNull();
         await waitFor(() => expect(container.querySelector("[inert]")).toBeNull());
     });

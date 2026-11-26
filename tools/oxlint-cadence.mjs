@@ -14,7 +14,6 @@ const calleeName = (callee) =>
 
 const isComparison = (n) => n.type === "BinaryExpression" && /^[!=]==?$/.test(n.operator);
 
-/** Every string literal and template quasi under `node` (skips object keys and `x === "…"` operands). */
 function strings(node, out = []) {
     if (!node || typeof node !== "object" || isComparison(node)) return out;
     if (node.type === "Literal" && typeof node.value === "string") out.push({ node, text: node.value });
@@ -30,10 +29,6 @@ function strings(node, out = []) {
     return out;
 }
 
-/**
- * Calls `check(parts, root)` once per class context: a JSX `className` value, or a cn/clsx/cva/twMerge
- * call that is not already inside one. `parts` are the strings in that context.
- */
 function classContexts(check) {
     let depth = 0;
     const isClassAttr = (n) => n.name.type === "JSXIdentifier" && n.name.name === "className" && n.value;
@@ -57,10 +52,8 @@ function classContexts(check) {
 }
 
 const tokens = (text) => text.split(/\s+/).filter(Boolean);
-// Strip variant prefixes (hover:, md:, data-[x]:, group-hover:) and the important marker.
 const utility = (token) => token.slice(token.lastIndexOf(":") + 1).replace(/^!/, "");
 
-/** A rule that reports each class token matching one of `bans` ([regex, messageId]). */
 const tokenRule = (messages, bans) => ({
     meta: { type: "suggestion", messages },
     create(context) {
@@ -127,7 +120,6 @@ const noDomTitle = {
     },
 };
 
-// Any focus style other than removing the outline counts (inputs: focus:border-*, menus: data-[highlighted]:*).
 const showsFocus = (t) =>
     /(^|:)(focus|focus-visible|focus-within|data-\[highlighted\]):/.test(t) && !t.endsWith("outline-none");
 

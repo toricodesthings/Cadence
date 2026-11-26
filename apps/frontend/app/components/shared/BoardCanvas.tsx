@@ -8,11 +8,6 @@ import { ChipScroller } from "./ChipScroller";
 import { SegmentedControl } from "../primitives/SegmentedControl";
 import { Tip } from "../primitives";
 
-/**
- * Shared board column sizing across every board view (Capture, Today, Upcoming, Lists, Tags):
- * columns grow evenly to fill available horizontal space when they fit, and hold a comfortable
- * minimum width so extra columns overflow into horizontal scroll with a visible cut-off cue.
- */
 export const BOARD_COLUMN_MIN_WIDTH = "min-w-[min(clamp(24rem,30vw,30rem),78vw)]";
 
 export interface BoardColumn {
@@ -25,10 +20,7 @@ export interface BoardColumn {
     content: React.ReactNode;
     footer?: React.ReactNode;
     collapsed?: boolean;
-    /** Collapsed: the whole rail is one button that calls this (shows the column). */
     onExpand?: () => void;
-    /** Compact shells: the column chooser already names the column, so the
-     * shell drops its own title row instead of repeating it. */
     titleHidden?: boolean;
 }
 
@@ -37,14 +29,10 @@ interface BoardCanvasProps {
     mobileMode?: "single" | "pager";
     emptyState?: React.ReactNode;
     className?: string;
-    /** Compact shells: control the chosen column from outside. */
     activeColumnId?: string;
     onActiveColumnChange?: (id: string) => void;
-    /** Compact shells: control pinned beside the column chooser (it doesn't scroll), e.g. manage sections. */
     compactTrailing?: React.ReactNode;
-    /** Kept for call-site compatibility; all open board columns now fill evenly above the shared minimum width. */
     fill?: boolean;
-    /** Each open column's icon leads its title (Capture). */
     headerIcons?: boolean;
 }
 
@@ -78,7 +66,6 @@ function ColumnHeader({ title, count, description, headerAction, titleHidden, ic
 }
 
 function CollapsedRail({ title, count, icon, onExpand }: Pick<BoardColumn, "title" | "count" | "icon" | "onExpand">) {
-    // One button, the whole rail: icon on the open header's line, the count under it.
     return (
         <Tip label={`Show ${title} (${count})`} side="right">
             <button
@@ -149,7 +136,6 @@ export function BoardCanvas({
         setLocalId(id);
         onActiveColumnChange?.(id);
     };
-    // Which way the last change went, so the new column slides in from that side.
     const [enterFrom, setEnterFrom] = useState(0);
     const chooser = useRef<HTMLDivElement>(null);
     const chooseColumn = (id: string) => {
@@ -161,7 +147,6 @@ export function BoardCanvas({
         0,
         columns.findIndex((c) => c.id === activeColumnId),
     );
-    // A swipe has already slid the page into place: no second entrance.
     const swipe = useColumnSwipe({
         index: activeIndex,
         count: columns.length,
@@ -170,7 +155,6 @@ export function BoardCanvas({
             setActiveColumnId(columns[i].id);
         },
     });
-    // Keep the chosen chip in sight when the chooser overflows (a swipe can land on a hidden one).
     useEffect(() => {
         chooser.current
             ?.querySelector('[aria-checked="true"]')
@@ -222,7 +206,6 @@ export function BoardCanvas({
                 </div>
 
                 <div ref={swipe.ref} className="min-h-0 flex-1 overflow-hidden">
-                    {/* The pages strip: the finger moves it, with the neighbours beside the current column while it does. */}
                     <motion.div style={{ x: swipe.x }} className="relative h-full">
                         {swipe.peek && prevColumn ? (
                             <div

@@ -1,25 +1,13 @@
-/**
- * Client-side note suggestion engine.
- * Analyzes note body and returns quiet, optional, non-intrusive suggestions
- * that help the user structure their writing without any AI dependency.
- *
- * Server-assisted AI suggestions can be layered on top in the future.
- */
-
 export interface NoteSuggestion {
     id: string;
     type: "structure" | "actionable" | "format";
     title: string;
     description: string;
-    /** Suggested text to insert (if applicable) */
     insert?: string;
-    /** Where to insert (if applicable) */
     insertAt?: "cursor" | "end";
-    /** The editor action that carries it out, from the command registry. */
     command?: "heading" | "checklist" | "convert-subtasks";
 }
 
-/** Detect unstructured long notes that could benefit from headings. */
 function suggestHeadings(body: string): NoteSuggestion | null {
     const lines = body.split("\n");
     const hasHeading = lines.some((l) => /^#{1,6}\s+/.test(l));
@@ -37,7 +25,6 @@ function suggestHeadings(body: string): NoteSuggestion | null {
     return null;
 }
 
-/** Detect actionable lines (todo-like items without checkboxes). */
 function suggestCheckboxes(body: string): NoteSuggestion | null {
     const actionablePatterns = /^[-*]\s+(need to|must|should|remember to|don't forget|TODO|FIXME)/im;
     const hasCheckboxes = /^- \[[ x]\]/m.test(body);
@@ -54,7 +41,6 @@ function suggestCheckboxes(body: string): NoteSuggestion | null {
     return null;
 }
 
-/** Suggest splitting very long single-paragraph notes. */
 function suggestParagraphBreaks(body: string): NoteSuggestion | null {
     const paragraphs = body.split(/\n{2,}/).filter((p) => p.trim());
     if (paragraphs.length === 1 && body.trim().split(/\s+/).length > 150) {
@@ -68,7 +54,6 @@ function suggestParagraphBreaks(body: string): NoteSuggestion | null {
     return null;
 }
 
-/** Detect notes with many bullet points that could become subtasks. */
 function suggestSubtaskConversion(body: string): NoteSuggestion | null {
     const bulletLines = body.split("\n").filter((l) => /^[-*+]\s+\S/.test(l.trim()));
     if (bulletLines.length >= 5) {
@@ -83,10 +68,6 @@ function suggestSubtaskConversion(body: string): NoteSuggestion | null {
     return null;
 }
 
-/**
- * Run all suggestion checks against the note body.
- * Returns at most 2 suggestions to keep UI quiet.
- */
 export function deriveNoteSuggestions(body: string): NoteSuggestion[] {
     if (!body || body.trim().length < 50) return [];
 

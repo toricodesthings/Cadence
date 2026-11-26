@@ -8,7 +8,6 @@ import { useRestoreTask } from "./use-restore-task";
 import { toastName, toastUndo } from "../../lib/utils/undo-toast";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
-/** Move a task to trash (ARCHIVED state) with optimistic removal from active caches */
 export function useArchiveTask() {
     const client = useApiClient();
     const queryClient = useQueryClient();

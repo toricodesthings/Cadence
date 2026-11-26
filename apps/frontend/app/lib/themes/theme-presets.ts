@@ -1,11 +1,3 @@
-/**
- * Seasonal & curated theme preset definitions.
- *
- * Each preset bundles a base mode, accent palette, and optional surface tint
- * into a unified visual experience. Selecting a preset applies all three;
- * overriding any component switches to "custom".
- */
-
 import type { PaletteId } from "./accent-palettes";
 
 export type ThemePresetId =

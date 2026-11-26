@@ -3,7 +3,6 @@ import { persist } from "zustand/middleware";
 import type { FocusViewDefinition, FocusViewPreset } from "@cadence/nlp/focus-views";
 import type { FocusViewSource, SavedFocusView as SavedFocusViewEntity } from "@cadence/contracts/settings";
 
-/** A saved view as the store holds it, hydrated from `saved_focus_views`. */
 export type SavedFocusView = Pick<SavedFocusViewEntity, "id" | "name" | "isPinned" | "orderIndex"> &
     Partial<Pick<SavedFocusViewEntity, "presetKey" | "icon" | "color">> & {
         definition: FocusViewDefinition;

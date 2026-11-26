@@ -7,7 +7,6 @@ import * as DropdownMenu from "../primitives/DropdownMenu";
 import { resolveTagColor } from "../../lib/utils/color-resolver";
 import { TagPickerList, TagPickerSheet } from "./TagPickerSubmenu";
 
-/** Tag chips plus the shared picker: a menu on desktop, a sheet on compact. A chip removes its tag: hover shows the ×, touch always does. */
 export function TagField({
     tagIds,
     onAdd,

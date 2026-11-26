@@ -3,34 +3,26 @@ import { wallTimeOf } from "@cadence/domain/time";
 import { taskMinutes } from "@cadence/domain/task-length";
 import { getUserZone } from "../user-zone";
 
-/** Height in px for each 1-hour block in the time grid */
 export const HOUR_HEIGHT = 72;
 
-/** Number of vertical hour blocks in a full day */
 const HOURS_IN_DAY = 24;
 
-/** Total height of the full-day time grid */
 export const DAY_GRID_HEIGHT = HOUR_HEIGHT * HOURS_IN_DAY;
 
-/** Minutes elapsed since midnight on the user's wall clock at this instant */
 export function minutesFromMidnight(instant: string): number {
     const [h, m] = wallTimeOf(instant, getUserZone()).split(":").map(Number);
     return h * 60 + m;
 }
 
-/** Calculate the top offset (px) for a task chip based on its scheduledStart */
 function taskTop(task: Task): number {
     if (!task.scheduledStart) return 0;
     return (minutesFromMidnight(task.scheduledStart) / 60) * HOUR_HEIGHT;
 }
 
-/** Height (px) of a routine marker and of the shortest span, so nothing renders as a blank sliver */
 export const MARKER_HEIGHT = 24;
 
-/** The shortest rendered height of a block (15 minutes of grid), so a 5-minute task stays visible and tappable. */
 export const MIN_BLOCK_HEIGHT = HOUR_HEIGHT / 4;
 
-/** Height (px) of a task chip: its real length, never below `MIN_BLOCK_HEIGHT`. Collisions use the same rendered length. */
 function taskHeight(task: Task): number {
     return Math.max(MIN_BLOCK_HEIGHT, (taskMinutes(task) / 60) * HOUR_HEIGHT);
 }
@@ -58,7 +50,6 @@ type TimedTaskWithRange = {
 
 function getTaskRange(task: Task): TimedTaskWithRange {
     const start = task.scheduledStart ? minutesFromMidnight(task.scheduledStart) : 0;
-    // Collide on the rendered length: two 5-minute blocks at 9:00 and 9:05 sit side by side, never one over the other.
     return { task, start, end: start + Math.max(taskMinutes(task), (MIN_BLOCK_HEIGHT / HOUR_HEIGHT) * 60) };
 }
 
@@ -112,10 +103,6 @@ function buildSpanLayouts(spans: Task[]): TimedTaskLayout[] {
     return layouts;
 }
 
-/**
- * One day's timed items. Routines are points that never take column width from a span:
- * points whose bands overlap share one marker, and a marker over a span docks as a badge on it.
- */
 export function buildTimedTaskLayouts(tasks: Task[]): TimedTaskLayout[] {
     const timed = tasks.filter((task) => task.scheduledStart);
     const layouts = buildSpanLayouts(timed.filter((task) => !task.isHabit));

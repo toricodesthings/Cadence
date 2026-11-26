@@ -16,14 +16,8 @@ import type { RoutineSort } from "../../lib/utils/habits";
 import { useUpdateHabit } from "../../hooks/habits/use-update-habit";
 import { useReducedMotionSetting } from "../../hooks/ui/use-reduced-motion";
 
-/** The slide neighbours make while a routine is dragged past them. */
 const SLIDE = { duration: 240, easing: "cubic-bezier(0.22, 1, 0.36, 1)" };
 
-/**
- * Drag to reorder routines (by their grip). A drop switches the page to Custom and saves the new
- * order: one midpoint write when the neighbours leave room, otherwise the visible list laid out again.
- * The dropped order is held on screen until those writes settle, so nothing jumps back meanwhile.
- */
 export function SortableRoutines({
     habits,
     sort,
@@ -34,7 +28,6 @@ export function SortableRoutines({
     habits: Habit[];
     sort: RoutineSort;
     onSortChange: (sort: RoutineSort) => void;
-    /** "list": rows or stacked cards; "grid": month cards that wrap. */
     layout: "list" | "grid";
     children: (ordered: Habit[]) => ReactNode;
 }) {
@@ -57,7 +50,6 @@ export function SortableRoutines({
         setHeld(next.map((habit) => habit.id));
         if (sort !== "custom") onSortChange("custom");
 
-        // A preset's order isn't the stored one, and tied neighbours leave no midpoint: lay it all out again.
         const [prev, after] = [next[to - 1]?.sortOrder, next[to + 1]?.sortOrder];
         const mid = computeMidpointIndex(prev, after, 0);
         const fits = sort === "custom" && (prev === undefined || mid > prev) && (after === undefined || mid < after);
@@ -66,7 +58,6 @@ export function SortableRoutines({
             : next
                   .map((habit, index) => ({ id: habit.id, sortOrder: computeGappedOrderIndex(index + 1) }))
                   .filter((write, index) => next[index].sortOrder !== write.sortOrder);
-        // A failed write rolls back and says so itself (useUpdateHabit).
         void Promise.allSettled(writes.map((write) => updateHabit.mutateAsync(write))).finally(() => setHeld(null));
     };
 
@@ -82,7 +73,6 @@ export function SortableRoutines({
     );
 }
 
-/** One routine's place in `SortableRoutines`: spread `style` and `ref` on its row or card, and put `grip` beside its name. */
 export function useSortableRoutine(habit: Habit) {
     const reducedMotion = useReducedMotionSetting();
     const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
@@ -110,5 +100,4 @@ export function useSortableRoutine(habit: Habit) {
     return { ref: setNodeRef, style, grip, isDragging };
 }
 
-/** The lift a dragged row or card gets. */
 export const DRAGGING = "shadow-[0_12px_40px_rgba(0,0,0,0.3)]";

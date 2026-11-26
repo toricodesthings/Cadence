@@ -10,7 +10,6 @@ describe("groupFurtherOut", () => {
 
     it("shows the next four calendar weeks one by one, then months, in date order", () => {
         setDateFormatConfig({ ...initial, weekStartsOn: 1 });
-        // Sunday 11 Oct: Further out starts Mon 19 Oct, so weeks run until Mon 16 Nov.
         const groups = groupFurtherOut(
             [
                 at("2026-12-03"),
@@ -35,7 +34,6 @@ describe("groupFurtherOut", () => {
 
     it("follows the user's week start, and a week never splits across the month switch", () => {
         setDateFormatConfig({ ...initial, weekStartsOn: 0 });
-        // Sunday-first: Further out's first week is Sun 18 Oct; weeks run until Sun 15 Nov.
         const groups = groupFurtherOut([at("2026-11-14"), at("2026-11-15"), at("2026-11-01")], "2026-10-11");
         expect(groups.map((group) => group.label)).toEqual(["Week of Nov 1", "Week of Nov 8", "Rest of November"]);
     });

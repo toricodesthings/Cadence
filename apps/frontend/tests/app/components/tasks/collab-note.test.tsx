@@ -38,7 +38,6 @@ describe("collaborative notes UI helpers", () => {
         expect(faces()).toEqual(["u-me"]);
         expect(screen.getByRole("status").textContent).toContain("Only you here");
 
-        // The same person in a second tab, or yourself in another tab, never doubles up.
         rerender(ui("synced", [sam, { ...sam, clientId: 9 }, { ...kai, userId: "u-me" }]));
         expect(faces()).toEqual(["u-me", "u-sam"]);
         expect(screen.getByRole("status").textContent).toContain("Me Self, Sam Chen here");
@@ -54,7 +53,6 @@ describe("collaborative notes UI helpers", () => {
         const editor = { isDestroyed: false, commands: { setContent } } as never;
         Object.defineProperty(handle.provider, "synced", { value: true, configurable: true });
 
-        // Another peer with a lower clientID is present -> defer seeding to them.
         const lowerPeer = handle.doc.clientID - 1;
         vi.spyOn(handle.provider.awareness, "getStates").mockReturnValue(
             new Map([
@@ -65,7 +63,6 @@ describe("collaborative notes UI helpers", () => {
         handle.seedOnce(editor, "Hello world");
         expect(setContent).not.toHaveBeenCalled();
 
-        // Only this client (or higher peers) -> seed once.
         vi.spyOn(handle.provider.awareness, "getStates").mockReturnValue(
             new Map([[handle.doc.clientID, { user: { id: "u-1", name: "Ada" } }]]),
         );

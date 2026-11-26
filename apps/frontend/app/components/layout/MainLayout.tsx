@@ -15,6 +15,7 @@ import { ResponsiveOverlayPanel } from "../shared/ResponsiveOverlayPanel";
 import { RailViewToggle } from "./RailViewToggle";
 import { useKeyboardShortcuts } from "../../hooks/core/use-keyboard-shortcuts";
 import { Loading } from "../shared/Loading";
+import { AssistantPanelSkeleton } from "../shared/DetailPanelSkeleton";
 import { DeferredMount } from "../shared/DeferredMount";
 import { FindTimeSheet } from "../tasks/FindTimeSheet";
 import { useFindTimeStore } from "../../stores/find-time-store";
@@ -76,14 +77,8 @@ const FloatingActionBar = lazy(() =>
 );
 const TaskNoteRoom = lazy(() => import("../tasks/TaskNoteRoom").then((m) => ({ default: m.TaskNoteRoom })));
 
-/** Matches the contextual side panel's slide envelope (home.tsx) so the
- * assistant opens/closes at the same calibre. */
 const ASSISTANT_PANEL_MOTION = { duration: 0.26, ease: [0.16, 1, 0.3, 1] as const };
 
-/** Crossfade calibre for flipping the rail between the contextual panel and
- * Cadence (both stay mounted; the active pane drives the rail width while the
- * outgoing pane fades + drifts out beneath it). Slightly longer + softer than
- * the open/close so the swap reads as a glide rather than a cut. */
 const RAIL_SWITCH_MOTION = { duration: 0.34, ease: [0.16, 1, 0.3, 1] as const };
 
 const PAGE_TITLES: Record<string, string> = {
@@ -98,15 +93,8 @@ const PAGE_TITLES: Record<string, string> = {
     "/weekly-review": "Weekly Reset",
 };
 
-/** The assistant panel's glass surface, shown while its code loads. */
 function AssistantShell({ width }: { width?: number }) {
-    return (
-        <div
-            aria-hidden="true"
-            style={width ? { width } : undefined}
-            className={`surface-shell h-full shrink-0 ${width ? "photo-shell-surface" : "w-full"}`}
-        />
-    );
+    return <AssistantPanelSkeleton width={width} />;
 }
 
 interface ShellHeaderConfig {
@@ -136,23 +124,16 @@ export function MainLayout({
     children: React.ReactNode;
     requireAuth?: boolean;
     sidePanel?: React.ReactNode;
-    /** Whether the contextual panel currently has something to show. When false,
-     * the rail's "Context" tab is suppressed and the assistant gets the rail
-     * outright. Defaults to `Boolean(sidePanel)`. */
     sidePanelActive?: boolean;
     onCloseSidePanel?: () => void;
-    /** Label for the contextual tab in the rail toggle (e.g. "Calendar", "Review"). */
     sidePanelLabel?: string;
     headerCenter?: React.ReactNode;
     headerRight?: React.ReactNode;
     compactHeaderRightInline?: boolean;
-    /** Compact-shell-only control rendered before the page identity, replacing
-     * the workspace menu button every compact route gets by default. */
     compactHeaderLeading?: React.ReactNode;
     customSidebar?: React.ReactNode;
     hideHeader?: boolean;
     hideContextualOrb?: boolean;
-    /** Focused pages keep only the shared icon rail, at every shell size. */
     navigationMode?: "workspace" | "rail";
     pageTitle?: string;
     shellHeader?: ShellHeaderConfig;
@@ -176,7 +157,6 @@ export function MainLayout({
         setHeaderMenus((count) => count + 1);
         return () => setHeaderMenus((count) => count - 1);
     }, []);
-    // Rail mode is a wide-screen layout; compact screens keep the phone header and dock.
     const railOnly = navigationMode === "rail" && !shell.isCompact;
     const isUtilityPage = location.pathname === "/browse";
     const {
@@ -197,23 +177,16 @@ export function MainLayout({
         toggleAssistantPanel();
     }, [assistantPanelOpen, navigate, railOnly, toggleAssistantPanel]);
 
-    // The rail is mutually exclusive. Opening the assistant claims the rail
-    // (Cadence tab); closing it hands the rail back to the contextual panel.
-    // Manual tab switches (via the segmented toggle) aren't disturbed because
-    // this only fires when the assistant's open state actually changes.
     useEffect(() => {
         setRailView(assistantPanelOpen ? "assistant" : "context");
     }, [assistantPanelOpen, setRailView]);
 
-    // Opening a contextual panel (e.g. task details) claims the rail on top of
-    // Cadence; closing it hands the rail back to the assistant if it's open.
     const contextPanelPresent = sidePanelActive ?? Boolean(sidePanel);
     useEffect(() => {
         if (contextPanelPresent) setRailView("context");
         else if (useAssistantStore.getState().assistantPanelOpen) setRailView("assistant");
     }, [contextPanelPresent, setRailView]);
 
-    // Compact has no global tag filter: a `?tag=` deep link opens that tag's page instead.
     const deepLinkTag = shell.isCompact ? new URLSearchParams(location.search).get("tag") : null;
     useEffect(() => {
         if (deepLinkTag) navigate(`/tag/${encodeURIComponent(deepLinkTag)}`, { replace: true });
@@ -233,8 +206,6 @@ export function MainLayout({
     const { preferences } = useDesktopCommandPreferences();
 
     useEffect(() => {
-        // Dev preview: stays up until Escape, or for `detail.duration` ms when given.
-        // `detail.season` previews that season; the real one is restored on close.
         let timer: ReturnType<typeof setTimeout> | undefined;
         let realSeason: string | null | undefined;
         const root = document.documentElement;
@@ -272,8 +243,6 @@ export function MainLayout({
         };
     }, []);
 
-    // Global assistant shortcut (⌘/Ctrl + I) — invokable from anywhere except the
-    // Weekly Reset ritual, where the focused step flow owns the keyboard.
     useEffect(() => {
         const handleAssistantHotkey = (e: KeyboardEvent) => {
             if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "i") {
@@ -286,11 +255,6 @@ export function MainLayout({
         return () => window.removeEventListener("keydown", handleAssistantHotkey);
     }, [handleAssistantToggle, location.pathname]);
 
-    // Search resolves by shell mode (§4.5). The dense, keyboard-first command
-    // palette is reserved for the full `wide` workspace; every narrower shell
-    // (laptop, tablet, phone) gets the dedicated MobileSearchSheet so a
-    // less-wide screen never lands on the desktop dialog. Every entry point —
-    // sidebar tap, ⌘K, and the focus-search shortcut — routes through here.
     const openSearch = useCallback(() => {
         if (shell.isWide) {
             setCommandOpen(true);
@@ -329,13 +293,11 @@ export function MainLayout({
         onShortcutReference: () => setShortcutsRefOpen((o) => !o),
     });
 
-    // Local alerts from the notification center's list (devices the server can't push to) and taps on pushed reminders
     const { allNotifications, unreadCount } = useNotificationCenter();
     useBrowserNotifications(allNotifications);
     useNotificationTapRouting();
     useInstalledApp(unreadCount);
 
-    // Sync appearance settings (theme, motion) to the DOM
     useThemeSync();
 
     useEffect(() => {
@@ -350,9 +312,6 @@ export function MainLayout({
         settings?.tasks?.intelligence?.nlpEnabled,
     ]);
 
-    // Keep search surfaces coherent across a shell-mode flip (e.g. a window
-    // crossing the wide breakpoint): the command palette never lingers below
-    // `wide`, and the mobile sheet never lingers on the wide workspace.
     useEffect(() => {
         if (shell.isWide) {
             setMobileSearchOpen(false);
@@ -408,28 +367,15 @@ export function MainLayout({
         );
     }
 
-    // The sign-in redirect is on its way; the scene holds until the auth page takes it over.
     if (requireAuth && !isAuthenticated) {
         return <Loading />;
     }
 
-    // ── Shared right rail (mutually exclusive context panel ↔ assistant) ──
     const sidePanelPresent = contextPanelPresent;
-    // Cadence claims the rail when it owns the active tab, or when there's no
-    // contextual panel to compete with.
     const assistantInRail = shell.isWide && assistantPanelOpen && (railView === "assistant" || !sidePanelPresent);
-    // Not gated on `sidePanelPresent`: the context pane must stay in-flow while
-    // it closes so its own exit (width → 0) animates instead of snapping shut.
     const contextInRail = shell.isWide && !assistantInRail;
-    // The toggle rides along while the contextual panel holds the rail — so the
-    // user can flip to Cadence (opening it if needed). It hides once Cadence
-    // claims the rail, since the assistant's own header X hands the rail back and
-    // the toggle would otherwise collide with those controls.
     const railToggleVisible = shell.isWide && sidePanelPresent && !assistantInRail;
 
-    // Selecting "Cadence" opens the assistant if it's closed; the open-state
-    // effect above then claims the rail. Selecting the contextual tab just flips
-    // the view, leaving the assistant mounted (and hidden) so the thread survives.
     const handleRailViewChange = (next: RailView) => {
         if (next === "assistant" && !assistantPanelOpen) {
             toggleAssistantPanel();
@@ -440,7 +386,6 @@ export function MainLayout({
 
     const headerTitle = shellHeader?.title ?? resolvedPageTitle;
     const desktopApp = IS_DESKTOP_RUNTIME && shell.isDesktop;
-    // The update notice stays in the header; the layout scale lives in the ⋮ (`LayoutScaleMenu`).
     const desktopStatus =
         desktopApp && desktopUpdate ? (
             <button
@@ -452,7 +397,6 @@ export function MainLayout({
                 Update {desktopUpdate.version}
             </button>
         ) : null;
-    // The layout scale sits in the page's ⋮; a page without one gets a ⋮ holding just the scale.
     const scaleMenu = desktopApp && headerMenus === 0 ? <HeaderScaleMenu /> : null;
 
     const headerIdentityProps = {
@@ -460,8 +404,6 @@ export function MainLayout({
         icon: shellHeader?.icon,
         accentColor: shellHeader?.accentColor,
     };
-    /* Compact shells have no sidebar, so every route keeps the workspace menu
-       (Today, Upcoming, projects, tags) one tap away from the header. */
     const workspaceMenuButton = compactHeaderLeading ?? (
         <Tooltip.Tip label="Workspace menu">
             <button
@@ -535,8 +477,6 @@ export function MainLayout({
 
     return (
         <HeaderMenuClaimProvider value={claimHeaderMenu}>
-            {/* Compact headers pad under the iOS status bar themselves; the wide shell
-                (iPad landscape home-screen app) starts below it. Zero elsewhere. */}
             <div
                 className={`h-dvh overflow-hidden relative ${shell.isCompact && !railOnly ? "compact-navigation-shell" : "pt-[env(safe-area-inset-top)]"}`}
             >
@@ -570,8 +510,6 @@ export function MainLayout({
                     )}
 
                     <div className="flex min-w-0 flex-1 flex-col min-h-0">
-                        {/* Off phone the header is a single row, so it takes the shared
-                        height and its bottom border lines up with side-panel headers. */}
                         {!hideHeader &&
                             !railOnly &&
                             (shell.isPhone ? (
@@ -627,14 +565,9 @@ export function MainLayout({
                         {shell.isCompact && !railOnly && <MobileTabBar />}
                     </div>
 
-                    {/* ── Shared right rail — shows the contextual panel OR the Cadence
-                        assistant, never both. A segmented toggle (rendered only when
-                        both are available) flips between them without closing either. ── */}
                     {shell.isWide && !railOnly ? (
                         <div
                             className="relative flex h-full self-stretch shrink-0 items-stretch overflow-hidden"
-                            // Panel headers pad their right edge by this so the floating
-                            // view toggle never covers their own actions.
                             style={{ "--rail-toggle-reserve": railToggleVisible ? "5.5rem" : "0px" } as CSSProperties}
                         >
                             {railToggleVisible ? (
@@ -645,11 +578,6 @@ export function MainLayout({
                                 />
                             ) : null}
 
-                            {/* Contextual panel — always mounted (its own AnimatePresence
-                                handles open/close). On a tab flip it crossfades + drifts
-                                beneath Cadence: the active pane is in-flow and drives the
-                                rail width, the inactive one is lifted out of flow so it
-                                never fights for space. */}
                             <motion.div
                                 initial={false}
                                 animate={{ opacity: contextInRail ? 1 : 0, x: contextInRail ? 0 : -16 }}
@@ -666,9 +594,6 @@ export function MainLayout({
                                 {sidePanel}
                             </motion.div>
 
-                            {/* Cadence — width animates on open/close; its content crossfades
-                                on a tab flip. Kept mounted (not unmounted) when the Context
-                                tab is active so the conversation thread survives flips. */}
                             <AnimatePresence initial={false}>
                                 {assistantPanelOpen ? (
                                     <motion.div
@@ -694,8 +619,6 @@ export function MainLayout({
                                             style={{ willChange: "transform, opacity" }}
                                             className="flex h-full min-w-0 flex-1 items-stretch"
                                         >
-                                            {/* Optional, even when persisted open: never part of startup.
-                                                The glass shell holds the rail at reveal; the chat fills in. */}
                                             <Suspense fallback={<AssistantShell width={assistantPanelWidth + 4} />}>
                                                 <AssistantSidePanel
                                                     width={assistantPanelWidth}
@@ -709,10 +632,6 @@ export function MainLayout({
                         </div>
                     ) : null}
 
-                    {/* On non-wide shells the assistant shares the calendar's
-                        mobile surface: a bottom sheet (drag handle + rounded top)
-                        on phone/tablet, a side panel on laptop. `fill` lets the
-                        chat own its header / scroll / pinned composer. */}
                     {!shell.isWide && !railOnly ? (
                         <ResponsiveOverlayPanel
                             ariaLabel="Cadence assistant"

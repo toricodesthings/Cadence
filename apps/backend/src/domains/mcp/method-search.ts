@@ -1,7 +1,6 @@
 import { setSearchRanker, type SearchItem } from "@cloudflare/codemode";
 import { rankMethods } from "@cadence/search/methods";
 
-/** SDK words → the words people use. Routines are `habit` in code, Lists `project`, Capture `inbox`. */
 export const CADENCE_SYNONYMS = {
     habit: ["routine"],
     project: ["list"],
@@ -22,7 +21,6 @@ export const CADENCE_SYNONYMS = {
 
 const WANTS_DELETE = /delet|remov|trash|erase|discard/i;
 
-/** Ranks the SDK's methods for Code Mode's `search` and `codemode.search()`; null = the library ranks as before. */
 export function cadenceRanker(query: string, items: SearchItem[]) {
     const byPath = new Map(items.map((item) => [item.path, item]));
     const hits = rankMethods(
@@ -30,7 +28,6 @@ export function cadenceRanker(query: string, items: SearchItem[]) {
         items.map((item) => ({ id: item.path, name: item.method.replaceAll("_", " "), text: item.description ?? "" })),
         { synonyms: CADENCE_SYNONYMS },
     );
-    // A plain noun ("birthday") shouldn't surface a destructive method first.
     const calm = (id: string, score: number) =>
         byPath.get(id)!.method.startsWith("delete_") && !WANTS_DELETE.test(query) ? Math.round(score / 2) : score;
     if (!hits) return null;

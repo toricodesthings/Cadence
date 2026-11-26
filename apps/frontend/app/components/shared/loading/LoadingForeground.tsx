@@ -1,12 +1,3 @@
-/**
- * Logo and wordmark. Per-mode looks come from tokens; motion from loading-scene.css.
- *
- * The logo is inlined so its parts can move: it grows in, holds while petals fall, and folds back, on a loop.
- * It sits in a lantern glow that lights as it grows, ringed by two thin moon-halo
- * arcs that turn slowly in opposite directions (crisp vector lines, to match the scene).
- */
-
-/** Circumference of the r=46 ring is ~289; each dash pattern sums to that so the arcs tile once. */
 import { useLayoutEffect, useRef, type Ref, type RefObject } from "react";
 import logoSvg from "../../../../public/logo.svg?raw";
 
@@ -15,7 +6,6 @@ const RING_B = "120 40 4 125";
 
 function HaloRing({ variant, dash, sparks }: { variant: "a" | "b"; dash: string; sparks: readonly number[] }) {
     return (
-        // The spin turns this box, not the svg: Chrome keeps an animated svg off the compositor.
         <div className={`ls-halo-ring ls-halo-ring-${variant}`} aria-hidden="true">
             <svg viewBox="0 0 100 100">
                 <circle
@@ -43,19 +33,12 @@ function HaloRing({ variant, dash, sparks }: { variant: "a" | "b"; dash: string;
     );
 }
 
-/** Reduced motion: the tokens set `--ls-still: none`, and motion jumps to its end. */
 const isStill = (el: Element) => getComputedStyle(el).getPropertyValue("--ls-still").trim() === "none";
 
-// The fill's clip box overhangs the text by the glow (1.5em a side); at `p` its edge sits at p × (text + 1.5em).
 const fillAt = (p: number) => `calc(${p - 1} * (100% - 1.5em)) 0`;
 const textAt = (p: number) => `calc(${1 - p} * (100% - 1.5em)) 0`;
 const CREEP_MS = 8000;
 
-/**
- * Fills the title to `progress`: quickly to each new mark, then a slow creep toward 90% so a long wait
- * still moves. Never backwards. A clip box slides one way and the text inside slides back, both on the
- * compositor, so the fill stays smooth while the workspace renders underneath.
- */
 function useTitleFill(fillRef: RefObject<HTMLSpanElement | null>, progress: number | undefined) {
     const run = useRef<{ from: number; to: number; anims: Animation[] }>({ from: 0.1, to: 0.1, anims: [] });
     useLayoutEffect(() => {
@@ -86,8 +69,6 @@ function useTitleFill(fillRef: RefObject<HTMLSpanElement | null>, progress: numb
             else if (progress > now()) go(progress, 420, "cubic-bezier(0.22, 1, 0.36, 1)", creep);
             else if (!run.current.anims.length) creep();
         };
-        // A fill the compositor is already moving reads 0% until the busy main thread hears it started,
-        // so retargeting it then would jump the bar back. Wait for its start; the newest mark wins.
         const current = run.current.anims[0];
         if (!current?.pending) return apply();
         let live = true;
@@ -101,7 +82,6 @@ function useTitleFill(fillRef: RefObject<HTMLSpanElement | null>, progress: numb
     }, [fillRef, progress]);
 }
 
-/** `slotRef` receives the box the current request's children portal into, under the wordmark. */
 export function LoadingForeground({
     title,
     progress,
@@ -118,10 +98,7 @@ export function LoadingForeground({
     useLayoutEffect(() => {
         const column = columnRef.current;
         if (!column) return;
-        // The column is centred, so a wider title, a settling font or a message under the wordmark
-        // snaps every part to a new spot. Glide each part there instead, in step with the title swap.
         const parts = [...column.querySelectorAll<HTMLElement>(".ls-logo-block, .ls-wordmark, .ls-rule")];
-        // Each part's centre against its positioned parent's centre: transform-free, and blind to window size.
         const place = (el: HTMLElement) => {
             const parent = el.offsetParent as HTMLElement | null;
             return parent

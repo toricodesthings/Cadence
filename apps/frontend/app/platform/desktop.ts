@@ -34,7 +34,6 @@ interface SingleInstancePayload {
     cwd: string;
 }
 
-/** Static page served by the local OAuth listener (no React here): mirrors CardPage's logo + header, in the original warm palette. */
 const OAUTH_CALLBACK_SUCCESS_HTML = `<!doctype html>
 <html lang="en">
     <head>
@@ -192,16 +191,12 @@ async function stopOauthServer() {
     const activePort = oauthServerPort;
     oauthServerPort = null;
 
-    await cancelOauthServer(activePort).catch(() => {
-        // The plugin server exits after a successful callback, so cancel can race harmlessly.
-    });
+    await cancelOauthServer(activePort).catch(() => {});
 }
 
 function publishOauthCallback(rawUrl: string) {
     try {
         const callbackUrl = new URL(rawUrl);
-        // Kept only while nobody is listening; a delivered callback must not be
-        // replayed when the app remounts for the signed-in account.
         latestOauthCallback = oauthSubscribers.size === 0 ? callbackUrl : null;
 
         void stopOauthServer();
@@ -210,7 +205,6 @@ function publishOauthCallback(rawUrl: string) {
             listener(callbackUrl);
         });
     } catch {
-        // Never log the URL or the parse error: both can carry the OAuth code.
         log.error("desktop-oauth", "Sign-in returned a link Cadence couldn't read.");
     }
 }
@@ -270,7 +264,6 @@ function firstCadenceUrl(urls: Iterable<string>): URL | null {
 
 const restoredStores = new Set<string>();
 
-/** Runs a social flow through the local OAuth listener: starts it, asks the auth server for the provider URL, and opens it in the system browser. */
 async function beginSocialRedirect(
     action: "sign-in" | "linking",
     callbackURL: string | undefined,
@@ -317,7 +310,6 @@ export const desktopRuntime = {
     async requestNotificationPermission(): Promise<NotificationPermissionState> {
         return normalizeNotificationPermission(await requestPermission());
     },
-    // The notification plugin answers "granted" without asking Windows, so permission here is a hint, not a check.
     async sendNotification(notification: {
         title: string;
         body?: string;
@@ -328,7 +320,6 @@ export const desktopRuntime = {
         if (!hasTauriRuntime()) throw new Error("Desktop notifications need the Cadence app.");
         if (!(await isPermissionGranted())) throw new Error("Notifications aren't allowed.");
 
-        // The plugin has no activation callback; a tap opens Cadence, not the reminder's page.
         sendDesktopNotification({ title: notification.title, body: notification.body, icon: notification.icon });
     },
     async openExternalUrl(url: string): Promise<void> {
@@ -403,7 +394,7 @@ export const desktopRuntime = {
     },
     async platformFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
         if (!hasTauriRuntime()) {
-            return fetch(input, init); // nosemgrep
+            return fetch(input, init);
         }
 
         const request = input instanceof Request ? new Request(input, init) : new Request(input, init);
@@ -436,7 +427,6 @@ export const desktopRuntime = {
             date: update.date,
             body: update.body,
             install: async (onProgress) => {
-                // Download progress on the taskbar button; cleared on failure so it never sticks.
                 const win = getCurrentWindow();
                 let total = 0;
                 let received = 0;
@@ -469,8 +459,6 @@ export const desktopRuntime = {
             return null;
         }
 
-        // A torn write leaves the file unreadable: restore the last good copy before the first load.
-        // The query cache is rebuildable, so only protected stores pay for a snapshot after each save.
         if (!restoredStores.has(storeName)) {
             restoredStores.add(storeName);
             await invoke("store_restore_if_corrupt", { name: storeName }).catch(() => undefined);

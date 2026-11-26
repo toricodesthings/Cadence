@@ -1,9 +1,3 @@
-/**
- * Memory's per-person work: forgotten facts past their Undo window are reduced to a label, and chats and notes
- * idle for 10 minutes are learned from. Events queue it with a delay (`scheduleLearn`, `scheduleScrub`); the
- * daily backstop (`runMemoryJob`) lists who still has work from `memory_user_ids` (SECURITY DEFINER, ids only).
- * Everything runs per user under RLS.
- */
 import { and, desc, eq, gt, gte, lt, max, sql } from "drizzle-orm";
 import { aiConversations, taskNotes } from "../../../db/schema";
 import { getDbClient } from "../../../platform/db";
@@ -26,31 +20,19 @@ import {
     type MemoryMessage,
 } from "./queue";
 
-/** Per run: how many people and how many chats each, so a backlog drains over a few minutes instead of one burst. */
 const USERS_PER_RUN = 10;
 const CONVERSATIONS_PER_USER = 3;
 const NOTES_PER_USER = 3;
-/** Notes older than this are the backfill's (a chat's window is the same). */
 const RECENT_DAYS = 3;
 
-/** Extraction calls per person per day: only a chat or note with something new to read counts. OpenRouter's account limit sits behind it. */
 export const DAILY_EXTRACTIONS = 15;
 
-/**
- * True while the person is under their day's extraction budget, counting this one. A day is the UTC day: the
- * budget is cost control, not a promise about "today". No Redis (or an error) means no cap, never a stuck job.
- */
 export async function withinDailyCap(env: Env, userId: string, now: Date): Promise<boolean> {
     return withinDailyBudget(env, "memory-extract", await hashIdentifier(userId), DAILY_EXTRACTIONS, now, {
         failOpen: true,
     });
 }
 
-/**
- * One person's turn: forgotten facts scrubbed, then their idle chats and notes read, with the extraction budget as
- * the stop. `activeAt` is the latest moment a chat or note still in progress was touched: it isn't idle yet, so its
- * reading is due 10 minutes after that.
- */
 export async function learnForUser(
     env: Env,
     userId: string,
@@ -121,15 +103,9 @@ export async function learnForUser(
     return { scrubbed, learned, activeAt: pending.activeAt };
 }
 
-/** A person's `learn` message stays "in flight" this long, so a slow reading isn't queued again every minute. */
 const IN_FLIGHT_SECONDS = 5 * 60;
-/** With a queue the cron only lists and enqueues, so it can take far more people than the in-process loop. */
 const QUEUED_USERS_PER_RUN = 500;
 
-/**
- * The people with no `learn` message queued in the last few minutes, claimed in one pipelined round trip (one
- * subrequest however many people). No Redis or an error: everyone (writes are fenced, so a duplicate is only wasted work).
- */
 async function claimLearn(env: Env, userIds: string[]): Promise<string[]> {
     const redis = getRateLimitRedis(env);
     if (!redis || userIds.length === 0) return userIds;
@@ -144,11 +120,9 @@ async function claimLearn(env: Env, userIds: string[]): Promise<string[]> {
     }
 }
 
-/** The daily backstop: anyone whose delayed message was lost (or never sent) still gets read and scrubbed. */
 export async function runMemoryJob(env: Env, now: Date = new Date()): Promise<void> {
     const db = getDbClient(env);
     try {
-        // Without a queue, a random few: someone at their daily cap with chats still waiting must not hold the same slots.
         const queued = Boolean(env.MEMORY_QUEUE);
         const rows = await db
             .select({ id: sql<string>`u.id` })
@@ -179,10 +153,6 @@ export async function runMemoryJob(env: Env, now: Date = new Date()): Promise<vo
     }
 }
 
-/**
- * After a reading: while the person is still going, the same message comes back when their latest chat or note
- * goes idle (the pending key stays, so new turns don't queue another); otherwise the sitting is done.
- */
 async function followUpLearn(env: Env, userId: string, activeAt: string | null) {
     const redis = getRateLimitRedis(env);
     const key = await learnPendingKey(userId);
@@ -195,10 +165,6 @@ async function followUpLearn(env: Env, userId: string, activeAt: string | null) 
     await sendMemoryMessages(env, [{ kind: "learn", userId, at: new Date().toISOString() }], delaySeconds);
 }
 
-/**
- * The queue consumer: one message per person. A unit that fails (or `nightlyForUser`, which reports failure as
- * null) is retried by the queue, then lands in the dead-letter queue; a malformed message is dropped.
- */
 export async function handleMemoryBatch(batch: MessageBatch<unknown>, env: Env): Promise<void> {
     let done = 0;
     let retried = 0;
@@ -227,7 +193,7 @@ export async function handleMemoryBatch(batch: MessageBatch<unknown>, env: Env):
             msg.ack();
             done++;
         } catch {
-            msg.retry(); // after wrangler.jsonc retry_delay
+            msg.retry();
             retried++;
         }
     }

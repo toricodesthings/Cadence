@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 
-/** Decorative navigation indicator; the owning control supplies its accessible label. */
 export function ActivityBadge({ count, className }: { count?: ReactNode; className?: string }) {
     if (count === 0) return null;
     return (

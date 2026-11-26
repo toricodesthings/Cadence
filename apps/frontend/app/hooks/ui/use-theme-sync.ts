@@ -10,7 +10,6 @@ import { GRADIENT_PRESETS } from "../../lib/themes/gradient-presets";
 import { THEME_PRESET_MAP, type ThemePresetId } from "../../lib/themes/theme-presets";
 import { resolveLoadingSeason } from "../../lib/themes/season";
 
-/** Set an attribute on `<html>`, or remove it when the value is null (its default). */
 function useRootAttribute(name: string, value: string | null) {
     useEffect(() => {
         if (value === null) document.documentElement.removeAttribute(name);
@@ -18,7 +17,6 @@ function useRootAttribute(name: string, value: string | null) {
     }, [name, value]);
 }
 
-/** Background tokens for a photo, a theme preset's suggested gradient, or a custom colour or gradient; null = the theme's own. */
 function customBackgroundTokens(
     photoBase: string | null,
     backgroundMode: string,
@@ -40,23 +38,6 @@ function customBackgroundTokens(
     };
 }
 
-/**
- * Syncs appearance settings to data attributes on `<html>`, driving
- * CSS custom property overrides in app.css.
- *
- * Attributes managed:
- *   data-theme       — "daylight" | absent (twilight default)
- *   data-motion      — "reduced" | "full" | absent (system)
- *   data-accent      — "subtle" | "vivid" | absent (balanced)
- *   data-density     — "compact" | absent (comfortable)
- *   data-palette     — palette id | absent (lantern default)
- *   data-theme-preset — preset id | absent (default)
- *   data-bg-mode     — "custom" | absent (theme default); a photo uses "custom" too
- *   data-bg-image    — "on" while a photo background is applied
- *   data-loading-season / data-loading-mode — loading scene variant (also set by the head boot script)
- *
- * Also syncs `dateTime` settings to the global date format configuration.
- */
 export function useThemeSync() {
     const { data: settings } = useSettings();
     const { layoutScale, scaleFactor } = useDesktopLayoutScale();
@@ -75,9 +56,6 @@ export function useThemeSync() {
     } = settings?.appearance ?? {};
     const { timeDisplay = "12h", dateStyle = "mdy", weekStart = "Monday" } = settings?.dateTime ?? {};
 
-    // ── Photo background ──
-    // A photo decides its own light/dark and accents: the interface has to read
-    // against the picture the user actually sees, not the theme they last picked.
     const photo = useMemo(() => {
         if (backgroundMode !== "image" || !backgroundImage) return null;
         const tone = derivePhotoTone(backgroundImage.dominant, backgroundImage.brightness);
@@ -87,7 +65,6 @@ export function useThemeSync() {
 
     const effectiveTheme = photo ? (photo.tone.isDark ? "twilight" : "daylight") : theme;
 
-    // ── Theme sync ──
     useEffect(() => {
         const root = document.documentElement;
 
@@ -111,7 +88,6 @@ export function useThemeSync() {
         apply(effectiveTheme as "twilight" | "daylight");
     }, [effectiveTheme]);
 
-    // ── Native frame sync (desktop only; "system" follows Windows) ──
     useEffect(() => {
         if (!IS_DESKTOP_RUNTIME) return;
         void syncNativeWindowTheme(
@@ -119,7 +95,6 @@ export function useThemeSync() {
         );
     }, [effectiveTheme]);
 
-    // ── Attributes, absent at their defaults ──
     useRootAttribute("data-motion", motion === "system" ? null : motion);
     useRootAttribute("data-accent", accentIntensity === "balanced" ? null : accentIntensity);
     useRootAttribute("data-density", density === "comfortable" ? null : density);
@@ -129,12 +104,10 @@ export function useThemeSync() {
         themePreset === "default" || themePreset === "daylight-default" ? null : themePreset,
     );
 
-    // ── Loading scene season (its own setting, never the theme) ──
     useEffect(() => {
         document.documentElement.setAttribute("data-loading-season", resolveLoadingSeason(loadingSeason));
     }, [loadingSeason]);
 
-    // ── Custom background sync ──
     const customBgTokens = useMemo(
         () =>
             customBackgroundTokens(
@@ -151,7 +124,6 @@ export function useThemeSync() {
         const root = document.documentElement;
         if (!customBgTokens) {
             root.removeAttribute("data-bg-mode");
-            // Clean up any inline custom bg tokens
             const style = root.style;
             for (let i = style.length - 1; i >= 0; i--) {
                 const prop = style[i];
@@ -174,9 +146,6 @@ export function useThemeSync() {
         }
     }, [customBgTokens]);
 
-    // ── Photo accent sync ──
-    // Inline properties beat the [data-palette] rules, so the photo's accents
-    // win while it is applied and hand back cleanly when it isn't.
     useEffect(() => {
         const root = document.documentElement;
         const style = root.style;
@@ -209,7 +178,6 @@ export function useThemeSync() {
         root.style.setProperty("--desktop-layout-scale", scaleFactor.toFixed(2));
     }, [layoutScale, scaleFactor]);
 
-    // ── Persist appearance cache for blocking script (prevents FOUC) ──
     useEffect(() => {
         try {
             localStorage.setItem(
@@ -223,12 +191,9 @@ export function useThemeSync() {
                     loadingSeason,
                 }),
             );
-        } catch {
-            /* quota exceeded — non-critical */
-        }
+        } catch {}
     }, [effectiveTheme, palette, themePreset, backgroundMode, motion, loadingSeason]);
 
-    // ── Date/time format sync ──
     useEffect(() => {
         setDateFormatConfig({
             timeDisplay,

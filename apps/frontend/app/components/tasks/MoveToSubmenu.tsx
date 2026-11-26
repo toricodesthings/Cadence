@@ -12,14 +12,11 @@ const CURRENT = "bg-white/[0.04] text-accent-primary";
 interface MoveToSubmenuProps {
     currentProjectId: string | null;
     currentSectionId?: string | null;
-    /** A list alone files it unsectioned; a section is picked straight from the list's own submenu. */
     onSelect: (projectId: string | null, sectionId: string | null) => void;
-    /** Hide "No list" where it means nothing (a thought already has no list). */
     hideNoList?: boolean;
     MenuComponents?: GenericMenu;
 }
 
-/** One list: a plain row, or a submenu of its sections when it has any. */
 function ListRow({
     Menu,
     project,

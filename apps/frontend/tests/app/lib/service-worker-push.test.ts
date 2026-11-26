@@ -7,7 +7,6 @@ const source = readFileSync(new URL("../../../public/sw.js", import.meta.url), "
 
 type Client = { focus: () => Promise<void>; postMessage: (m: unknown) => void; visibilityState?: string };
 
-/** idb-keyval's store as sw.js opens it: one object store, requests that complete with their transaction. */
 function fakeIndexedDb(saved: Map<string, unknown>) {
     return {
         open: () => {

@@ -9,7 +9,6 @@ import { Switch } from "../primitives/Switch";
 import { FieldRow, VALUE_BTN } from "../shared/DetailPanelSections";
 import { DeadlinePickerPopover } from "./DeadlinePickerPopover";
 
-/** Personal reminder row shared by `TaskEditor` and `TaskViewPanel` (reminders are per-person on shared tasks). */
 export function TaskReminderRow({ task }: { task: Task }) {
     const [reminderOpen, setReminderOpen] = useState(false);
     const { data: settings } = useSettings();

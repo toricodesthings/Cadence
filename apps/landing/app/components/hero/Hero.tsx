@@ -9,17 +9,9 @@ import { HeroLandscape } from "./HeroLandscape";
 import { HeroSky } from "./HeroSky";
 import { HeroWordmark } from "./HeroWordmark";
 
-/*
- * The Twilight Bough. The intro is pure CSS and plays from the SSR HTML; the
- * only JS settles it early (any input) and drives the desktop pointer
- * parallax. Once settled, the tab remembers it: a refresh starts in the short
- * return entrance instead (flagged before first paint, see lib/intro.ts).
- */
-
 const INTRO_MS = 2900;
 const PARALLAX_AT = 2600;
 
-/** Six motes rising from near the bough tips toward the wordmark: [x %, y %, size px, dx px, dur s]. */
 const SPARKS: readonly (readonly [number, number, number, number, number])[] = [
     [16, 64, 6, 40, 11],
     [24, 74, 4, 56, 14],
@@ -32,18 +24,12 @@ const SPARKS: readonly (readonly [number, number, number, number, number])[] = [
 export function Hero() {
     const ref = useRef<HTMLElement>(null);
 
-    /*
-     * The intro waits at its first frame until the page is ready (lib/intro.ts), so its clock starts
-     * here rather than at first paint. Settle: any input jumps it to its end frame, and the tab
-     * remembers it (the intro plays once per tab session).
-     */
     useEffect(() => {
         const hero = ref.current;
         if (!hero) return;
         let settled = false;
         let done = 0;
         const events = ["scroll", "pointerdown", "keydown", "touchstart"] as const;
-        // Once the intro is settled and running there is nothing left to listen for.
         function detach() {
             events.forEach((e) => window.removeEventListener(e, onInput));
             document.removeEventListener("visibilitychange", onVisible);
@@ -54,9 +40,7 @@ export function Hero() {
             hero.classList.add("is-settled");
             try {
                 sessionStorage.setItem(INTRO_KEY, "1");
-            } catch {
-                // Storage blocked: the intro simply plays again next time.
-            }
+            } catch {}
         };
         function onInput() {
             settle();
@@ -85,20 +69,12 @@ export function Hero() {
         };
     }, []);
 
-    // Pause every hero animation while it is scrolled out of view; resume when it returns (no IntersectionObserver: lib/viewport.ts).
     useEffect(() => {
         const hero = ref.current;
         if (!hero) return;
         return watchViewport([hero], (el, _share, near) => el.classList.toggle("is-offscreen", !near));
     }, []);
 
-    /*
-     * Pointer parallax (fine pointers, desktop widths, motion allowed). Each layer
-     * marked `data-depth` gets its own `translate`, written straight onto that
-     * element: a custom property on the hero would restyle every SVG node inside
-     * it on each frame. The layers are promoted in hero.css, so a move is
-     * composite-only.
-     */
     useEffect(() => {
         const hero = ref.current;
         if (!hero) return;
@@ -119,7 +95,6 @@ export function Hero() {
         let last = 0;
         let enabled = false;
         const tick = (now: number) => {
-            // Eased per 60 Hz frame, scaled by elapsed time so it glides the same at any refresh rate.
             const k = 1 - Math.pow(0.92, last ? Math.min(4, (now - last) / 16.667) : 1);
             last = now;
             x += (tx - x) * k;
@@ -137,7 +112,6 @@ export function Hero() {
         const kick = () => {
             if (!raf) raf = requestAnimationFrame(tick);
         };
-        // Viewport-relative: the effect only runs while the hero fills the screen, and it avoids a layout read per event.
         const onMove = (e: PointerEvent) => {
             if (!enabled) return;
             tx = (e.clientX / window.innerWidth) * 2 - 1;
@@ -194,7 +168,6 @@ export function Hero() {
                 ))}
             </div>
             <div className="hero-layer hero-vignette" aria-hidden="true" />
-            {/* Night falls over the scene as the moon sets (hero.css); under the words, which stay crisp */}
             <div className="hero-dim" aria-hidden="true" />
             <HeroWordmark />
             <span className="hero-cue" aria-hidden="true" />

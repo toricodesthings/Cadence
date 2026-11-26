@@ -1,6 +1,3 @@
-// @cadence/nlp — shared NLP package for Cadence task intelligence
-// Pure TypeScript, no DOM assumptions, safe for web + Worker + mobile
-
 export * from "./core/index.js";
 export { parse, parseCanonicalNlpEnvelope } from "./parse/index.js";
 export { cleanTitle } from "./title/index.js";
@@ -11,3 +8,12 @@ export { applyFocusView } from "./focus-views/apply.js";
 export type { FocusViewDefinition, FocusViewPreset, FocusViewComposerResult } from "./focus-views/index.js";
 export { suggestEffort, meaningOf } from "./effort/index.js";
 export type { EffortEvidence, EffortSuggestion, EffortLevel } from "./effort/index.js";
+export { analyzeDayPulse, analyzeTaskCues, cueEffortOf } from "./day-pulse/index.js";
+export type {
+    DayPulse,
+    DayPulseInput,
+    DayPulseItem,
+    DayPulseKind,
+    DayPulseTone,
+    TaskCueAnalysis,
+} from "./day-pulse/index.js";

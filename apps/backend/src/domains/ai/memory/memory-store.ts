@@ -1,10 +1,3 @@
-/**
- * Memory facts: every read and write of `ai_memories`, RLS-scoped (the caller supplies `tx`).
- * One row per fact, free text (`content`); a typed `value` only where code computes with it.
- * Embeddings are produced by the caller, outside any transaction.
- *
- * Content is untrusted user text: the prompt composer fences it. Never log content.
- */
 import {
     and,
     asc,
@@ -43,10 +36,8 @@ import {
 import type { Tx } from "../../../types/db";
 import { hideGroupReports, showGroupReports } from "./duration";
 
-/** How long a forgotten fact's text is kept so Undo can bring it back. */
 export const UNDO_WINDOW_MINUTES = 10;
 
-/** sha256 hex of the lowercased, whitespace-collapsed text: exact repeats, and a forgotten fact's tombstone. */
 export async function contentHash(text: string): Promise<string> {
     const normalized = text.toLowerCase().replace(/\s+/g, " ").trim();
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalized));
@@ -105,13 +96,8 @@ const FACT_COLUMNS = {
 
 const active = (userId: string) => and(eq(aiMemories.userId, userId), eq(aiMemories.status, "active"));
 
-/** Sources and kinds Basic may read: only what the person said (or told the chat), never what Full learned from activity. */
 const BASIC_SOURCES = ["explicit", "chat"] as const;
 
-/**
- * The one predicate for what a mode may read. Full reads every active fact; Basic only what the person said.
- * What Full learned stays stored when the person returns to Basic: it is unused until they return to Full.
- */
 export const usableBy = (userId: string, mode: MemoryMode | null) =>
     mode === "full"
         ? active(userId)
@@ -121,7 +107,6 @@ export const usableBy = (userId: string, mode: MemoryMode | null) =>
               notInArray(aiMemories.kind, [...FULL_ONLY_KINDS]),
           );
 
-/** `usableBy` as raw SQL for the profile's CTE. */
 const usableSql = (mode: MemoryMode | null) =>
     mode === "full"
         ? sql`TRUE`
@@ -134,7 +119,6 @@ export interface NewFact {
     kind: MemoryKind;
     content: string;
     value?: Record<string, unknown> | null;
-    /** From `embedText`; null when the embedding call failed (the fact is still saved and searchable by words). */
     embedding?: number[] | null;
     embeddingModel?: string | null;
     saidOn: string;
@@ -145,11 +129,9 @@ export interface NewFact {
     pinned?: boolean;
     conversationId?: string | null;
     messageId?: string | null;
-    /** Hashed instead of the text when the wording carries counts that change (patterns, durations). */
     key?: string;
 }
 
-/** The row a new fact inserts; optional fields default to empty. */
 function newFactRow(userId: string, fact: NewFact, hash: string) {
     const {
         value = null,
@@ -181,7 +163,6 @@ function newFactRow(userId: string, fact: NewFact, hash: string) {
     };
 }
 
-/** The fact already holding these words (`hash`), other than `exceptId`: an active one first, else a forgotten one. */
 async function factWithHash(tx: Tx, userId: string, hash: string, exceptId?: string) {
     const [same] = await tx
         .select({ id: aiMemories.id, status: aiMemories.status })
@@ -193,15 +174,11 @@ async function factWithHash(tx: Tx, userId: string, hash: string, exceptId?: str
                 exceptId ? sql`${aiMemories.id} <> ${exceptId}` : undefined,
             ),
         )
-        .orderBy(asc(aiMemories.status)) // 'active' sorts before 'forgotten'
+        .orderBy(asc(aiMemories.status))
         .limit(1);
     return same;
 }
 
-/**
- * Inserts a fact. An exact repeat (same normalized text) of an active fact reinforces it instead;
- * a repeat of a forgotten one is refused (`null`), so a forgotten thing isn't relearned.
- */
 export async function insertFact(
     tx: Tx,
     userId: string,
@@ -217,8 +194,6 @@ export async function insertFact(
     const [row] = await tx
         .insert(aiMemories)
         .values(newFactRow(userId, fact, hash))
-        // Two writers saving the same new words at once (a chat and a note, or `remember` and the job): the
-        // second waits for the first to commit, inserts nothing, and reinforces the row the first one made.
         .onConflictDoNothing({
             target: [aiMemories.userId, aiMemories.contentHash],
             where: sql`${aiMemories.status} = 'active'`,
@@ -234,7 +209,6 @@ export async function insertFact(
     return { id: winner.id, created: false };
 }
 
-/** A repeat: seen once more, today. No rewrite. */
 export async function reinforceFact(tx: Tx, userId: string, id: string, today: string): Promise<void> {
     await tx
         .update(aiMemories)
@@ -242,7 +216,6 @@ export async function reinforceFact(tx: Tx, userId: string, id: string, today: s
         .where(and(eq(aiMemories.userId, userId), eq(aiMemories.id, id), eq(aiMemories.status, "active")));
 }
 
-/** An update: new wording or value, same `saidOn`, re-embedded. A correction is stated, so it is never inferred. */
 export async function updateFact(
     tx: Tx,
     userId: string,
@@ -257,8 +230,6 @@ export async function updateFact(
     },
 ): Promise<boolean> {
     const hash = await contentHash(patch.content);
-    // The new words are another row's (content_hash is unique among active facts): an active one is the same fact
-    // seen again, so this one folds into it; forgotten words are never brought back.
     const same = await factWithHash(tx, userId, hash, id);
     if (same?.status === "forgotten") return false;
     if (same) {
@@ -287,7 +258,6 @@ export async function updateFact(
     return rows.length > 0;
 }
 
-/** The page's cursor: where the last fact shown sits in `lastSeenOn desc, createdAt desc, id desc`. */
 const encodeCursor = (row: { lastSeenOn: string; createdAt: string; id: string }) =>
     btoa(JSON.stringify([row.lastSeenOn, row.createdAt, row.id]))
         .replaceAll("+", "-")
@@ -304,14 +274,12 @@ function decodeCursor(cursor: string): [string, string, string] | null {
     }
 }
 
-/** 30 of the person's active facts, newest mention first, after `cursor` (the end of the previous page). */
 export async function listFacts(
     tx: Tx,
     userId: string,
     cursor?: string,
 ): Promise<{ facts: MemoryFact[]; nextCursor: string | null }> {
     const after = cursor ? decodeCursor(cursor) : null;
-    // createdAt at full microsecond precision, or the cursor would sit just behind the row it names.
     const createdAt = sql<string>`to_json(${aiMemories.createdAt}) #>> '{}'`;
     const rows = await tx
         .select({ ...FACT_COLUMNS, createdAt })
@@ -333,7 +301,6 @@ export async function listFacts(
     };
 }
 
-/** Forgotten items, as topic labels only (the text is scrubbed once the Undo window passes). */
 export async function listForgotten(tx: Tx, userId: string): Promise<{ id: string; label: string }[]> {
     const rows = await tx
         .select({
@@ -348,7 +315,6 @@ export async function listForgotten(tx: Tx, userId: string): Promise<{ id: strin
     return rows.map((row) => ({ id: row.id, label: row.content }));
 }
 
-/** Forgets one fact now. Its text stays for the Undo window, then {@link scrubForgotten} reduces it to a label. */
 export async function forgetFact(
     tx: Tx,
     userId: string,
@@ -361,8 +327,6 @@ export async function forgetFact(
             status: "forgotten",
             forgottenAt: sql`now()`,
             updatedAt: sql`now()`,
-            // The model's topic, if it gave one: the scrub falls back to the kind's name.
-            // A duration fact keeps its group, so Undo can bring its answers back with it.
             value: sql`NULLIF(CASE WHEN ${label ?? null}::text IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('label', ${label ?? null}::text) END || CASE WHEN ${aiMemories.value} ? 'group' THEN jsonb_build_object('group', ${aiMemories.value} -> 'group') ELSE '{}'::jsonb END, '{}'::jsonb)`,
         })
         .where(and(eq(aiMemories.userId, userId), eq(aiMemories.id, id), eq(aiMemories.status, "active")))
@@ -374,14 +338,11 @@ export async function forgetFact(
         });
     const row = rows[0];
     if (!row) return null;
-    // Forgetting a duration hides the answers behind it too, until Undo's window ends (every caller: page, chat, MCP).
     if (row.kind === "duration" && row.group) await hideGroupReports(tx, userId, row.group);
-    // So does forgetting a "when you plan" pattern: the choices it was counted from.
     if (row.kind === "pattern" && row.group?.startsWith("slot:")) await hidePlanningGroup(tx, userId, row.group);
     return { id: row.id, content: row.content };
 }
 
-/** Undo: back to active inside the window. Returns the fact, or null when it's gone or the window passed. */
 export async function restoreFact(tx: Tx, userId: string, id: string): Promise<MemoryFact | null> {
     const rows = await tx
         .update(aiMemories)
@@ -401,14 +362,12 @@ export async function restoreFact(tx: Tx, userId: string, id: string): Promise<M
         )
         .returning(FACT_COLUMNS);
     if (!rows[0]) return null;
-    // Undo brings back what the fact was counted from: a duration's answers, a "when you plan" pattern's choices.
     const group = rows[0].kind === "duration" || rows[0].kind === "pattern" ? await groupOf(tx, userId, id) : null;
     if (group && rows[0].kind === "duration") await showGroupReports(tx, userId, group);
     if (group?.startsWith("slot:") && rows[0].kind === "pattern") await showPlanningGroup(tx, userId, group);
     return toFact(rows[0]);
 }
 
-/** The group a pattern or duration fact stands for (kept through Forget so Undo can restore what it was counted from). */
 async function groupOf(tx: Tx, userId: string, id: string): Promise<string | null> {
     const [row] = await tx
         .select({ group: sql<string | null>`${aiMemories.value} ->> 'group'` })
@@ -417,7 +376,6 @@ async function groupOf(tx: Tx, userId: string, id: string): Promise<string | nul
     return row?.group ?? null;
 }
 
-/** The slot records a "when you plan" pattern was counted from: "slot:all" is every one, "slot:<list>" that list's. */
 const slotRecords = (userId: string, group: string, extra: SQL) => {
     const list = group.slice("slot:".length);
     return and(
@@ -440,7 +398,6 @@ async function showPlanningGroup(tx: Tx, userId: string, group: string): Promise
         .where(slotRecords(userId, group, sql`${planningRecords.forgottenAt} IS NOT NULL`));
 }
 
-/** Undo for a save: the fact was new, so it goes. Only what was just created (the receipt's own id). */
 export async function deleteFact(tx: Tx, userId: string, id: string): Promise<boolean> {
     const rows = await tx
         .delete(aiMemories)
@@ -449,11 +406,6 @@ export async function deleteFact(tx: Tx, userId: string, id: string): Promise<bo
     return rows.length > 0;
 }
 
-/**
- * The chats' facts when their source goes (a chat deleted, or switched to "Don't learn from this chat"): what only
- * that chat taught goes with it; a fact seen again elsewhere (`seenCount > 1`) keeps its words and loses the link.
- * Called before the chat is deleted, while the link still exists.
- */
 export async function dropChatFacts(tx: Tx, userId: string, conversations: string[] | SQLWrapper): Promise<void> {
     const from = inArray(aiMemories.sourceConversationId, conversations);
     await tx.delete(aiMemories).where(and(active(userId), eq(aiMemories.seenCount, 1), from));
@@ -463,10 +415,6 @@ export async function dropChatFacts(tx: Tx, userId: string, conversations: strin
         .where(and(eq(aiMemories.userId, userId), from));
 }
 
-/**
- * Facts read from a task note, or from an old chat by the catch-up, whose source is gone (the note deleted, the chat deleted):
- * the ones nothing else repeated go. Nightly, whatever the mode. A note's facts carry its task id as their source id.
- */
 export async function dropOrphanedFacts(tx: Tx, userId: string): Promise<number> {
     const rows = await tx
         .delete(aiMemories)
@@ -491,7 +439,6 @@ export async function dropOrphanedFacts(tx: Tx, userId: string): Promise<number>
     return rows.length;
 }
 
-/** Clear all: every fact, forgotten tombstones included. */
 export async function clearFacts(tx: Tx, userId: string): Promise<number> {
     const rows = await tx.delete(aiMemories).where(eq(aiMemories.userId, userId)).returning({ id: aiMemories.id });
     return rows.length;
@@ -507,13 +454,7 @@ const KIND_LABEL: Record<MemoryKind, string> = {
     assist: "what helps",
 };
 
-/**
- * Once the Undo window has passed, a forgotten fact keeps only a topic label: the model's topic, else the
- * kind's name. Its hash stays so the same words are never relearned, and so does its embedding, so a paraphrase
- * isn't either ({@link isForgotten}); its text and value are dropped.
- */
 export async function scrubForgotten(tx: Tx, userId: string): Promise<number> {
-    // The answers behind a forgotten duration fact, and the choices behind a forgotten pattern, go with it once Undo can no longer bring it back.
     await tx
         .delete(durationReports)
         .where(
@@ -530,8 +471,6 @@ export async function scrubForgotten(tx: Tx, userId: string): Promise<number> {
                 sql`${planningRecords.forgottenAt} <= now() - make_interval(mins => ${UNDO_WINDOW_MINUTES})`,
             ),
         );
-    // A forgotten "when you plan" pattern leaves no tombstone: its choices are gone, so if the person keeps planning
-    // that way it may be learned again from new ones (and forgotten again).
     const expired = sql`${aiMemories.forgottenAt} <= now() - make_interval(mins => ${UNDO_WINDOW_MINUTES})`;
     await tx
         .delete(aiMemories)
@@ -568,7 +507,6 @@ export async function scrubForgotten(tx: Tx, userId: string): Promise<number> {
     return rows.length;
 }
 
-/** Which of these fact ids the mode may still read (active, and usable by it): replayed memory reads check them. */
 export async function usableFactIds(tx: Tx, userId: string, mode: MemoryMode, ids: string[]): Promise<string[]> {
     if (!ids.length) return [];
     const rows = await tx
@@ -578,7 +516,6 @@ export async function usableFactIds(tx: Tx, userId: string, mode: MemoryMode, id
     return rows.map((r) => r.id);
 }
 
-/** Active facts, newest wording first, that have an embedding and changed since `since`: the nightly merge's candidates. */
 export async function changedFacts(
     tx: Tx,
     userId: string,
@@ -603,10 +540,6 @@ export async function changedFacts(
     return rows.map((r) => ({ id: r.id, kind: r.kind, embedding: r.embedding!, embeddingModel: r.embeddingModel! }));
 }
 
-/**
- * Folds `dropId` into `keepId` (the one seen more recently): the first mention and the counts survive,
- * the repeat goes. Both must still be active; returns whether it merged.
- */
 export async function mergeFacts(tx: Tx, userId: string, keepId: string, dropId: string): Promise<boolean> {
     const rows = await tx
         .select({
@@ -633,12 +566,6 @@ export async function mergeFacts(tx: Tx, userId: string, keepId: string, dropId:
     return true;
 }
 
-/**
- * Makes the activity-learned facts (patterns and durations) equal what the signals say now: those no
- * longer true are removed, new ones added, and one whose counts moved is reworded in place. Each is
- * identified by its `key`, not its wording, so a pattern the person forgot is never added back (its
- * tombstone hash holds) however its numbers change. Capped at 60 between them. Returns how many changed.
- */
 export async function syncActivityFacts(
     tx: Tx,
     userId: string,
@@ -710,9 +637,7 @@ export async function syncActivityFacts(
     return changed;
 }
 
-/** Inferred facts nobody reinforced for 60 days are dropped; stated and pinned facts never decay. */
 export async function deleteDecayed(tx: Tx, userId: string, today: string): Promise<number> {
-    // Anything the person didn't say outright; activity facts are re-derived nightly instead.
     const rows = await tx
         .delete(aiMemories)
         .where(
@@ -728,7 +653,6 @@ export async function deleteDecayed(tx: Tx, userId: string, today: string): Prom
     return rows.length;
 }
 
-/** Facts whose `validThrough` has passed (a day's grace) are dropped. */
 export async function deleteExpired(tx: Tx, userId: string, today: string): Promise<number> {
     const rows = await tx
         .delete(aiMemories)
@@ -750,7 +674,6 @@ export interface NearFact {
     distance: number;
 }
 
-/** The closest active facts (of one kind, or any) by cosine distance: an exact scan over one person's few hundred small vectors. */
 export async function nearestFacts(
     tx: Tx,
     userId: string,
@@ -776,11 +699,6 @@ export async function nearestFacts(
     return rows.map((row) => ({ ...row, distance: Number(row.distance) }));
 }
 
-/**
- * Is this (a paraphrase of) something the person asked to forget? A forgotten fact keeps its embedding after the
- * scrub, so a statement within {@link FORGOTTEN_DISTANCE} of a tombstone of the same kind and model is the same thing
- * said again and is not learned (the tombstone's id comes back). Without an embedding the exact-text tombstone (`content_hash`) still applies.
- */
 export const FORGOTTEN_DISTANCE = 0.15;
 export async function isForgotten(
     tx: Tx,
@@ -808,11 +726,8 @@ export async function isForgotten(
     return row && Number(row.distance) <= FORGOTTEN_DISTANCE ? row.id : null;
 }
 
-/** About 500 tokens each for the profile that rides along every turn and for what recall adds. */
 export const PROFILE_CHAR_BUDGET = 2_000;
-/** Life facts whose last relevant day falls inside this window are in the profile; the rest wait for recall. */
 const PROFILE_LIFE_WINDOW_DAYS = 30;
-/** A stated fact not seen for this long gets one gentle "still true?" the next time it matters. */
 const STALE_AFTER_DAYS = 365;
 
 export interface ProfileLine {
@@ -820,16 +735,9 @@ export interface ProfileLine {
     content: string;
     saidOn: string;
     sensitive: boolean;
-    /** Last mentioned over a year ago: ask once, in passing, before relying on it. */
     stale?: boolean;
 }
 
-/**
- * The always-present profile: pinned facts, preferences, quirks and constraints, and life facts dated
- * within the next 30 days, newest mention first. Any budget left (a person with a small memory has plenty)
- * is filled with their other life facts and what helped, newest first, so the model simply knows them.
- * Patterns and durations are never in it: they come through recall. Built deterministically with no model call.
- */
 export async function loadProfile(
     tx: Tx,
     userId: string,
@@ -841,7 +749,6 @@ export async function loadProfile(
 
 type ProfileRow = Pick<FactRow, "id" | "content" | "saidOn" | "lastSeenOn" | "sensitive">;
 
-/** Profile and exact recall coverage from ONE statement snapshot, under the caller's RLS identity. */
 export async function loadProfileCoverage(
     tx: Tx,
     userId: string,
@@ -876,7 +783,6 @@ export async function loadProfileCoverage(
     const lines = withinBudget(row.core, today);
     const used = lines.reduce((n, l) => n + l.content.length, 0);
     if (used < PROFILE_CHAR_BUDGET) {
-        // Exclude all core rows, including those too large to fit: retain existing selection semantics.
         const taken = new Set(row.core.map((r) => r.id));
         lines.push(
             ...withinBudget(
@@ -889,7 +795,6 @@ export async function loadProfileCoverage(
     return { lines, hasRecallCandidates: row.eligible_count > lines.length };
 }
 
-/** Revalidate only the facts a stored context actually used; additions do not invalidate its prefix. */
 export async function loadContextFacts(
     tx: Tx,
     userId: string,
@@ -941,12 +846,6 @@ function withinBudget(
 const RRF_K = 60;
 const FUSED_FROM_EACH = 20;
 
-/**
- * Hybrid recall: Postgres full-text and exact cosine over this person's facts, fused with reciprocal
- * rank fusion (k = 60) and nudged by how often a fact was seen and by life facts about to matter.
- * Returns up to `limit` facts not already in the profile, within the character budget.
- * `embedding` is null when the query couldn't be embedded: words alone still work.
- */
 export async function recallFacts(
     tx: Tx,
     userId: string,
@@ -961,8 +860,6 @@ export async function recallFacts(
     },
 ): Promise<ProfileLine[]> {
     const { text, embedding, model, today, exclude, mode, limit = 8 } = input;
-    // A turn is a sentence, not a search box: any shared word counts (OR), ranked by how many. Letters and digits only,
-    // so the text can never be tsquery syntax.
     const terms = [...new Set(text.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? [])].slice(0, 24).join(" | ");
     const words = terms
         ? await tx
@@ -1014,22 +911,16 @@ export async function recallFacts(
 export interface PastChatHit {
     conversationId: string;
     title: string | null;
-    /** When it was said (an instant): the caller names the day in the person's zone. */
     at: string;
     snippet: string;
 }
 
-/**
- * The person's own words in past chats, by words (Postgres full-text on `search_text`; messages are
- * never embedded). `after` / `before` bound when it was said.
- */
 export async function searchPastChats(
     tx: Tx,
     userId: string,
     input: { query: string; after?: string; before?: string; excludeConversationId?: string; limit?: number },
 ): Promise<PastChatHit[]> {
     const query = sql`websearch_to_tsquery('english', ${input.query})`;
-    // The expression the GIN index is built on (migration 0016).
     const document = sql`to_tsvector('english', coalesce(${aiMessages.searchText}, ''))`;
     const rows = await tx
         .select({

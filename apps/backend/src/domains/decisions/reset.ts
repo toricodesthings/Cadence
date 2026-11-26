@@ -1,10 +1,3 @@
-/**
- * Weekly Reset guesses: for each row being sorted, the likely bucket (today, this week, next week, later; or for a
- * waiting row, activate or keep waiting). The model picks a bucket only; the device turns "this week" into a day.
- *
- * Rows are read here under RLS from their ids (another person's id simply isn't found), never from client text.
- * One `decide` request per call (one budget unit), one named question per row. No notes and no subtask text.
- */
 import { OPEN_TASK_STATES } from "@cadence/contracts/task";
 import { and, eq, inArray } from "drizzle-orm";
 import { RESET_DISPOSITIONS, type ResetDisposition, type ResetSuggestionsRequest } from "@cadence/contracts/planning";
@@ -13,6 +6,7 @@ import { weekRoom } from "@cadence/domain/fit-day";
 import { inboxItems, projects, taskMetrics, tasks } from "../../db/schema";
 import { getDbClient } from "../../platform/db";
 import { hashIdentifier } from "../../platform/log";
+import { withLoadShares } from "../../platform/load-share";
 import { withRls } from "../../platform/rls";
 import { userZone } from "../../platform/user-zone";
 import { readTasks } from "../tasks/tasks.service";
@@ -27,7 +21,6 @@ const TITLE_CHARS = 200;
 const MEMORY_CHARS = 600;
 const MOVE_WINDOW_DAYS = 28;
 
-/** What each option means to the model. */
 const LABELS: Record<ResetDisposition, string> = {
     today: "Do it today.",
     this_week: "Later this week, on a day with room.",
@@ -120,14 +113,13 @@ export async function resetSuggestions(
                         title: t.title.slice(0, TITLE_CHARS),
                         ...(t.projectId && { list: lists.get(t.projectId) }),
                         ageDays: age(t.createdAt),
-                        // ponytail: the count only when the last move is within 28 days; a per-move log if this reads wrong.
                         movesLast28Days: t.lastMoved && age(t.lastMoved) <= MOVE_WINDOW_DAYS ? (t.moves ?? 0) : 0,
                         ...(t.dueDate && { dueInDays: daysBetween(today, t.dueDate) }),
                         ...(t.effort && { effort: ["low", "medium", "high"][t.effort - 1] }),
                         ...(t.durationEstimate && { minutes: t.durationEstimate }),
                         ...(waiting && {
                             waitingOn: t.waitingOn?.slice(0, 80) ?? null,
-                            daysWaiting: age(t.updatedAt), // ponytail: last change stands in for when the wait began
+                            daysWaiting: age(t.updatedAt),
                             ...(t.waitingReminder && { checkInDay: dayOf(t.waitingReminder, zone) }),
                         }),
                     },
@@ -136,7 +128,8 @@ export async function resetSuggestions(
         }
         if (!rows.length) return null;
 
-        const week = weekRoom(await readTasks(tx, userId, { from: today, to: addDays(today, 6) }), {
+        const weekTasks = await readTasks(tx, userId, { from: today, to: addDays(today, 6) }, { shared: true });
+        const week = weekRoom(await withLoadShares(tx, userId, weekTasks), {
             from: today,
             days: 7,
             zone,
@@ -157,7 +150,6 @@ export async function resetSuggestions(
     return askReset(env, loaded.rows, loaded.state, await hashIdentifier(userId));
 }
 
-/** One question per row (`r1`, `r2`, … as in the state), answered only with that row's options. Shared with the eval. */
 export function resetQuestions(rows: readonly Row[]): {
     questions: Record<string, DecisionQuestion>;
     kinds: Record<string, DecisionKind>;
@@ -178,7 +170,6 @@ export function resetQuestions(rows: readonly Row[]): {
     return { questions, kinds };
 }
 
-/** One request for every row: one call, one budget unit. Returns the confident picks by row id. */
 async function askReset(
     env: Env,
     rows: readonly Row[],

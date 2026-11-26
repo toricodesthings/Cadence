@@ -99,7 +99,6 @@ describe("ShareRoutineSheet", () => {
         expect((screen.getByRole("radio", { name: /Do it together/i }) as HTMLButtonElement).disabled).toBe(true);
         expect(screen.getByText("Next: Sam")).toBeTruthy();
 
-        // When today is Sam's turn (index 1), Next rotates around to Tori (index 0).
         rerender(
             <ShareRoutineSheet
                 habit={{ ...baseHabit, today: { turn: SAM, others: [], cheers: [] } }}

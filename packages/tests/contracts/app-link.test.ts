@@ -63,7 +63,7 @@ describe("parseWebsite / linkedUrl", () => {
             expect(schema.parse({ linkedUrl: null })).toHaveProperty("linkedUrl", null);
             expect(schema.parse({})).not.toHaveProperty("linkedUrl");
             expect(schema.safeParse({ linkedUrl: "javascript:alert(1)" }).success).toBe(false);
-            expect(schema.safeParse({ linkedUrl: "https://example.com" }).success).toBe(false); // unnormalised: the client sends parseWebsite's form
+            expect(schema.safeParse({ linkedUrl: "https://example.com" }).success).toBe(false);
         }
     });
 });

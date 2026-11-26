@@ -18,18 +18,11 @@ import { reason } from "../utils/error-toast";
 
 const api = apiClient.api;
 
-/** A replay mustn't send the version check (see toRequests). */
 function without<T extends object>(payload: T, key: string): T {
     const { [key]: _, ...rest } = payload as Record<string, unknown>;
     return rest as T;
 }
 
-/**
- * The HTTP request(s) an op becomes. URLs come from the typed client so a
- * renamed route fails typecheck. Replays skip `expectedUpdatedAt`: a queued
- * edit carries only the fields the user touched, so the later write wins
- * field by field (see the 0.24 conflict policy).
- */
 export function toRequests(op: MutationOp): WalRequest[] {
     const url = (u: URL) => u.href;
     switch (op.type) {
@@ -60,7 +53,6 @@ export function toRequests(op: MutationOp): WalRequest[] {
         case "batch_reschedule":
             return [{ method: "POST", url: url(api.tasks.batch.reschedule.$url()), json: op.payload }];
         case "batch_delete":
-            // Older builds queued more than the route's 50-id cap.
             return chunk(op.payload.taskIds, 50).map((taskIds) => ({
                 method: "POST",
                 url: url(api.tasks.batch.delete.$url()),
@@ -117,7 +109,6 @@ export function toRequests(op: MutationOp): WalRequest[] {
         case "unprocess_inbox":
             return [{ method: "POST", url: url(api.inbox[":id"].unprocess.$url({ param: { id: op.id } })) }];
         case "upsert_note": {
-            // The session's bookkeeping stays on this device; only what the route reads is sent.
             const { branch: _b, baseBody: _t, opId, ...json } = op.payload;
             return [
                 {
@@ -196,10 +187,7 @@ async function send(entry: WalEntry): Promise<void> {
             authenticated: true,
             method: request.method,
             headers: {
-                // A create's key is its entity id, the same key its online call sent,
-                // so a create that landed before the connection dropped isn't made twice.
                 "Idempotency-Key": index ? `${request.key ?? entry.id}:${index}` : (request.key ?? entry.id),
-                // When the person made it, so the server can tell a late replay from a choice made just now.
                 "X-Queued-At": new Date(entry.createdAt).toISOString(),
                 ...(request.json !== undefined && { "Content-Type": "application/json" }),
             },
@@ -209,11 +197,6 @@ async function send(entry: WalEntry): Promise<void> {
     }
 }
 
-/**
- * The note changed elsewhere while this edit waited. Edits to different places are
- * combined; overlapping ones wait for the user (Sync review) with the local text kept
- * on the entry. Prose is never overwritten or appended.
- */
 async function reconcileQueuedNote(op: Extract<MutationOp, { type: "upsert_note" }>): Promise<"done" | "conflict"> {
     const noteUrl = api.tasks[":taskId"].note.$url({ param: { taskId: op.taskId } }).href;
     const res = await authenticatedFetch(noteUrl, { authenticated: true });
@@ -233,16 +216,11 @@ async function reconcileQueuedNote(op: Extract<MutationOp, { type: "upsert_note"
     return "done";
 }
 
-// ── WAL Replay ──
-
 type EntryResult = "done" | "offline" | { error: string; conflict?: boolean };
 
 function classify(err: unknown, entry: WalEntry): EntryResult {
-    // An account change mid-replay (say, a warm start's session came back as someone else)
-    // got no answer: the change stays pending for its own account.
     const aborted = err instanceof DOMException && err.name === "AbortError";
     if (aborted || isNetworkFailure(err) || (err instanceof ApiErrorResponse && err.isRetryable)) return "offline";
-    // Deletes win: a change to something deleted elsewhere is dropped.
     if (err instanceof ApiErrorResponse && err.status === 404 && !entry.op.type.startsWith("create_")) return "done";
     return { error: reason(err) };
 }
@@ -266,12 +244,6 @@ async function replayOne(entry: WalEntry): Promise<EntryResult> {
 
 type ReplayOutcome = "done" | "offline" | "idle";
 
-/**
- * Replay pending entries in order, one tab at a time. A network failure stops
- * and leaves the rest pending; a change to something deleted elsewhere is
- * dropped (deletes win); anything after a failed change to the same item
- * waits with it instead of failing on its own.
- */
 export async function replayWal(queryClient: QueryClient): Promise<ReplayOutcome> {
     let outcome: ReplayOutcome = "idle";
     await withReplayLock(async () => {
@@ -310,29 +282,18 @@ export async function replayWal(queryClient: QueryClient): Promise<ReplayOutcome
             }
         }
         if (outcome !== "offline") outcome = replayed ? "done" : "idle";
-        // Resync with the server, keeping inactive views cached for the next time offline.
         if (replayed) await invalidateWorkspaceCaches(queryClient);
     });
     return outcome;
 }
 
-/**
- * Retry failed entries then replay.
- */
 export async function retryAndReplay(queryClient: QueryClient): Promise<void> {
     await retryFailedEntries();
     await replayWal(queryClient);
 }
 
-// ── Triggers ──
-
 const BACKOFF_MS = [5_000, 15_000, 60_000, 5 * 60_000];
 
-/**
- * Replay on startup, on `online`, when the app comes to the front, and on a
- * backoff timer while a replay stopped for the network. iOS has no background
- * sync, so these are the only chances it gets.
- */
 export function startWalSync(queryClient: QueryClient): () => void {
     let timer: number | undefined;
     let attempt = 0;
@@ -350,7 +311,6 @@ export function startWalSync(queryClient: QueryClient): () => void {
         }
     };
     const onVisible = () => document.visibilityState === "visible" && void run();
-    // Background Sync fired while the app is open: the service worker leaves it to us.
     const onWorkerMessage = (event: MessageEvent) => event.data?.type === "cadence-wal-replay" && void run();
 
     void run();
@@ -370,7 +330,6 @@ export function startWalSync(queryClient: QueryClient): () => void {
 
 let replayTrigger: (() => Promise<void>) | null = null;
 
-/** Ask the running sync loop to replay soon (after a write was queued while online). */
 export function requestReplay(): void {
     void replayTrigger?.();
 }

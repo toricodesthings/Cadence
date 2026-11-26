@@ -1,6 +1,3 @@
-// A production preview on the dev origin can leave a worker serving old,
-// unhashed CSS and modules. Merely skipping registration in dev doesn't remove it.
-// Run before hydration; reload only when unregistering this tab's controller.
 export const DEV_SERVICE_WORKER_CLEANUP_SCRIPT = String.raw`
 (async function () {
   if (!("serviceWorker" in navigator)) return;

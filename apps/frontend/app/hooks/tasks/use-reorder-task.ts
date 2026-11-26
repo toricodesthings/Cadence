@@ -7,7 +7,6 @@ import { reconcileTaskInCaches } from "../../lib/api/cache-sync";
 import { transformListCache } from "../../lib/api/cache-guards";
 import { withOfflineSupport } from "../../lib/api/offline-mutation";
 
-/** Reorder a task via fractional index — component handles optimistic array reorder */
 export function useReorderTask() {
     const client = useApiClient();
     const queryClient = useQueryClient();
@@ -59,7 +58,7 @@ export function useReorderTask() {
             return { snapshot };
         },
         onSuccess: (task) => {
-            if (!task) return; // Queued offline
+            if (!task) return;
             reconcileTaskInCaches(queryClient, task);
         },
         onError: (err, _vars, context) => taskCache.fail(queryClient, err, context, "Couldn't reorder task"),

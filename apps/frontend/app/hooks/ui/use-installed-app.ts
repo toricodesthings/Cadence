@@ -3,21 +3,14 @@ import { useLocation } from "react-router";
 import { noteWorkspacePath, rememberRoute } from "../../lib/resume-route";
 import { isInstalledApp, keepAppStorage, syncAppBadge } from "../../platform/installed-app";
 
-/**
- * Mounted once in the workspace shell: what the installed app does that a tab doesn't. It saves the screen
- * for the next launch (`lib/resume-route.ts`), mirrors the bell's unread count on the app icon, and asks
- * once to keep its storage.
- */
 export function useInstalledApp(unreadCount: number) {
     const { pathname, search } = useLocation();
 
-    // Tabs need this too, so it comes before the installed-app gate below.
     useEffect(() => noteWorkspacePath(pathname, search), [pathname, search]);
 
     useEffect(() => {
         if (!isInstalledApp()) return;
         rememberRoute(pathname);
-        // Hidden is when iOS may close the app: the time saved is when the person last saw this screen.
         const onHide = () => {
             if (document.visibilityState === "hidden") rememberRoute(pathname);
         };
@@ -27,7 +20,6 @@ export function useInstalledApp(unreadCount: number) {
 
     useEffect(() => {
         void syncAppBadge(unreadCount);
-        // sw.js raises the badge for pushes while hidden; on return the bell's count is the truth again.
         const onShow = () => {
             if (document.visibilityState === "visible") void syncAppBadge(unreadCount);
         };

@@ -1,26 +1,3 @@
-/**
- * Cadence Frontend — Cloudflare Worker Entry Point
- *
- * Static assets (the SPA build) are served by the `assets` configuration in
- * wrangler.jsonc. Only paths listed in `assets.run_worker_first` reach this
- * worker first.
- *
- * Neon Auth is served from the app's own origin so its cookies are
- * first-party. Browsers that block third-party cookies (every iOS browser,
- * Safari, Firefox strict mode) otherwise drop the OAuth session challenge
- * cookie and sign-in never completes.
- *
- * - `/assets/*` reaches this worker only for a missing file (hashed assets are served
- *   directly, immutable via `_headers`): it answers 404, never the SPA shell.
- * - `/api/v1/*` goes to the backend Worker over the BACKEND service binding, so the
- *   app's API is same-origin (no CORS preflight per read, no second TLS handshake).
- * - `/api/auth/*` is a transparent proxy to Neon Auth. Cookie values are
- *   forwarded byte-for-byte; only Set-Cookie flags are rewritten for this origin.
- * - `/auth/callback?neon_auth_session_verifier=…` exchanges the single-use
- *   verifier once, on the navigation, then navigates (same-origin, via script)
- *   to the same URL without it, so the SPA never races duplicate exchanges.
- */
-
 const AUTH_PROXY_PREFIX = "/api/auth/";
 const API_PREFIX = "/api/v1/";
 const AUTH_CALLBACK_PATH = "/auth/callback";
@@ -31,7 +8,6 @@ const AUTH_ERROR_PARAM = "auth_error";
 const REQUEST_HEADERS = ["authorization", "content-type", "referer", "user-agent"];
 const RESPONSE_HEADERS = ["content-type", "location", "set-auth-jwt", "set-auth-token", "x-neon-ret-request-id"];
 
-/** The Neon Auth cookies from the request, values untouched. */
 function neonCookies(request: Request): string[] {
     return (request.headers.get("cookie") ?? "")
         .split(";")
@@ -39,11 +15,6 @@ function neonCookies(request: Request): string[] {
         .filter((part) => part.startsWith(NEON_COOKIE_PREFIX));
 }
 
-/**
- * Rewrites an upstream Set-Cookie for this origin without touching its value.
- * Keeps Neon's SameSite=None; Secure policy on these first-party cookies.
- * Neon Auth validates Origin on state-changing requests.
- */
 function firstPartyCookie(setCookie: string): string {
     const parts = setCookie
         .split(";")
@@ -75,7 +46,6 @@ async function fetchNeonAuth(
     const hasBody = request.method !== "GET" && request.method !== "HEAD";
 
     return fetch(upstream, {
-        // nosemgrep
         method: request.method,
         headers,
         body: hasBody ? (body ?? (await request.arrayBuffer())) : undefined,
@@ -89,7 +59,6 @@ function appendCookies(target: Headers, upstream: Response) {
     }
 }
 
-/** Sign-in, sign-up, codes, resets: what a password guesser or a mail bomber would POST. */
 const SENSITIVE_PATHS = [
     "sign-in/",
     "sign-up/",
@@ -102,7 +71,6 @@ const SENSITIVE_PATHS = [
     "change-password",
     "delete-user",
 ];
-/** The POSTs that send an email: also limited per address, whatever the IP. */
 const MAIL_PATHS = [
     "sign-up/email",
     "email-otp/send-verification-otp",
@@ -127,7 +95,6 @@ async function sha256Hex(text: string): Promise<string> {
     return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-/** The lowercased `email` of a JSON body, if it has one. */
 function emailOf(body: ArrayBuffer): string | undefined {
     try {
         const email = (JSON.parse(new TextDecoder().decode(body)) as { email?: unknown }).email;
@@ -137,11 +104,6 @@ function emailOf(body: ArrayBuffer): string | undefined {
     }
 }
 
-/**
- * True when this request is within the proxy's limits. Every request counts per IP (generously: sessions refresh
- * constantly and offices share an IP); sensitive POSTs count tighter; mail-sending POSTs also count per address.
- * A missing binding (local preview) never blocks.
- */
 async function withinAuthLimits(
     env: Env,
     request: Request,
@@ -173,11 +135,6 @@ async function proxyAuth(request: Request, env: Env, url: URL): Promise<Response
     return new Response(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers });
 }
 
-/**
- * Leaves the callback with a same-origin, script-initiated navigation instead
- * of a 302, so the SPA document is not the end of the cross-site redirect
- * chain (Google → Neon → here).
- */
 function continueTo(target: string, headers: Headers): Response {
     const href = JSON.stringify(target).replace(/</g, "\\u003c");
     const nonce = crypto.randomUUID().replace(/-/g, "");
@@ -207,7 +164,6 @@ async function exchangeVerifier(request: Request, env: Env, url: URL): Promise<R
     } else {
         const body = await upstream.text();
         const code = /"code"\s*:\s*"([A-Z_]+)"/.exec(body)?.[1] ?? `HTTP_${upstream.status}`;
-        // An object, like the backend logger, so Workers Logs indexes each field.
         console.warn({ event: "auth_callback_failed", source: "auth", status: upstream.status, code });
         cleanUrl.searchParams.set(AUTH_ERROR_PARAM, code);
     }
@@ -218,12 +174,10 @@ async function exchangeVerifier(request: Request, env: Env, url: URL): Promise<R
 export default {
     async fetch(request: Request, env: Env): Promise<Response> {
         const url = new URL(request.url);
-        // Only a missing file gets here (see the header): a 404, never the SPA shell cached as a chunk.
         if (url.pathname.startsWith("/assets/")) {
             return new Response("Asset not found", { status: 404, headers: { "Cache-Control": "no-store" } });
         }
 
-        // Untouched: headers (CF-Connecting-IP for rate limits), body and Server-Timing pass through.
         if (url.pathname.startsWith(API_PREFIX)) return env.BACKEND.fetch(request);
 
         if (url.pathname.startsWith(AUTH_PROXY_PREFIX)) {

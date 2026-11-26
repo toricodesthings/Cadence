@@ -1,13 +1,3 @@
-/**
- * React hook that bridges @cadence/nlp with the existing QuickAddParsedToken system.
- *
- * Provides real-time NLP parsing for task input fields, returning tokens,
- * a cleaned title, and structured metadata — all while maintaining backward
- * compatibility with the existing QuickAddActionTray and DeadlinePickerPopover.
- *
- * Section 16.1: NLP code is lazy-loaded — never in the main shell bundle.
- * The parse module is dynamically imported and cached after first use.
- */
 import { useState, useEffect, useMemo, useCallback, useContext } from "react";
 import { StartupRenderContext } from "./core/use-workspace-startup";
 import type { ParseResult, ParsedEntity } from "@cadence/nlp/core";
@@ -19,7 +9,6 @@ import type { QuickAddParsedToken, QuickAddParseResult } from "../lib/utils/quic
 import { nlpClock } from "../lib/utils/date-format";
 import { getUserZone } from "../lib/utils/user-zone";
 
-// Lazy module cache — loaded once, shared across all hook instances
 let parseModuleCache: { parse: (typeof import("@cadence/nlp/parse"))["parse"] } | null = null;
 let parseModulePromise: Promise<void> | null = null;
 
@@ -34,16 +23,11 @@ function ensureParseModule(): Promise<void> {
 
 export type ParseFn = (typeof import("@cadence/nlp/parse"))["parse"];
 
-/** The parser for event handlers (chrono-node never rides on the first screen). */
 export async function loadParse(): Promise<ParseFn> {
     await ensureParseModule();
     return parseModuleCache!.parse;
 }
 
-/**
- * The parser for synchronous use in render: null until loaded. Loads only while `needed`,
- * and workspace startup waits for it.
- */
 export function useParseModule(needed: boolean): ParseFn | null {
     const [parse, setParse] = useState<ParseFn | null>(() => parseModuleCache?.parse ?? null);
     const trackRender = useContext(StartupRenderContext);
@@ -84,7 +68,6 @@ const ALL_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>([
     "durationMinutes",
 ]);
 
-/** What a full task can store from typed words (a surface that stores less passes its own set). */
 export const TASK_FIELDS: ReadonlySet<DraftField> = new Set<DraftField>([...ALL_FIELDS, "notBefore", "reminderAt"]);
 
 interface UseNlpParseOptions {
@@ -93,51 +76,32 @@ interface UseNlpParseOptions {
     tags: Array<{ id: string; name: string }>;
     ignoredTokenIds?: string[];
     dismissedEntityIds?: string[];
-    /** Suggested entity ids the user chose to use. */
     acceptedEntityIds?: string[];
-    /** Fields set by hand; a present key (even null) beats the words. */
     manual?: DraftDecisions["manual"];
-    /** "Keep as written": no interpretation for this draft. */
     literal?: boolean;
-    /** What the surface can store; the rest stays in the title. */
     capabilities?: ReadonlySet<DraftField>;
-    /** The surface stores a month and day only (a yearly event). */
     monthDayOnly?: boolean;
     sourceSurface?: SourceSurface;
     dateStyle?: "mdy" | "dmy" | "ymd";
-    /** Accepted for old callers; presentation never changes what is understood. */
     lowStimulationMode?: boolean;
     enabled?: boolean;
 }
 
 export interface NlpParseOutput extends QuickAddParseResult {
-    /** Full NLP parse result for metadata storage */
     parseResult: ParseResult;
-    /** Human-readable summary like "Cadence understood: ..." */
     summary: string;
-    /** Waiting-on person extracted from input */
     waitingOn: string | null;
-    /** Duration estimate in minutes */
     durationMinutes: number | null;
-    /** §11.5: Human-readable label for the detected date (not raw ISO) */
     dueHumanLabel: string | null;
-    /** Timed start (an Instant) when a date entity carries a time of day */
     scheduledStart: string | null;
-    /** End of a typed range ("2pm to 3pm"), an Instant */
     scheduledEnd: string | null;
-    /** Recognized but not applied: the user may choose these */
     suggestions: ParsedEntity[];
-    /** Language this surface cannot store (kept in the title) */
     unfit: ParsedEntity[];
-    /** Recognized and applied to the draft */
     applied: ParsedEntity[];
-    /** False only while the parser module is still loading and the text needs it */
     ready: boolean;
-    /** Every field of the draft as it will save */
     fields: DraftFields;
 }
 
-/** Maps an entity to a chip-style token (id, label, raw words). */
 function entityToToken(entity: ParsedEntity): QuickAddParsedToken | null {
     const kind = {
         scheduled_start: "date",
@@ -172,7 +136,6 @@ const emptyResult = (input: string, sourceSurface: SourceSurface): ParseResult =
     overallConfidence: null,
 });
 
-/** The draft for `options` right now: parse, then the shared domain policy. No debounce, no stale state. */
 export function computeNlp(
     parse: ParseFn | null,
     options: UseNlpParseOptions,
@@ -242,10 +205,6 @@ export function computeNlp(
     };
 }
 
-/**
- * The live draft of a parsed field. It is computed during render, so what is shown is what Enter saves;
- * `finalize` covers the one gap (the parser module still loading) by waiting for it and recomputing.
- */
 export function useNlpParse(options: UseNlpParseOptions): NlpParseOutput & { finalize: () => Promise<NlpParseOutput> } {
     const { enabled = true, input } = options;
     const parse = useParseModule(enabled && Boolean(input.trim()));

@@ -21,7 +21,6 @@ const cohort = {
 };
 let finished = false;
 
-/** Local fixed-name marks only. Delivery is gated separately by account settings. */
 export function startupMark(name: `${Exclude<Phase, "api" | "api_body">}.${"start" | "ready"}`) {
     if (typeof window === "undefined" || marks.has(name) || finished) return;
     const time = performance.now();
@@ -36,10 +35,8 @@ export function resetStartupTiming(collect = true) {
     finished = !collect;
 }
 
-/** True until reveal (or a disabled/finished collection): after that, reads aren't measured. */
 export const startupCollecting = () => !finished && !marks.has("reveal.ready");
 
-// A delivery batch holds 50 samples: eight phases, 30 headers reads (the legacy cap) and 11 bodies.
 const READ_CAPS = { api: 30, api_body: 11 };
 
 export function recordStartupRead(
@@ -51,7 +48,6 @@ export function recordStartupRead(
 ) {
     const end = performance.now();
     if (startupCollecting() && reads.filter((r) => r.phase === phase).length < READ_CAPS[phase]) {
-        // Headers rows carry their start offset so reads can be placed on a timeline.
         reads.push({
             ...details,
             phase,
@@ -76,7 +72,6 @@ const EXACT_ENDPOINTS: Record<string, PerformanceSample["endpoint"]> = {
     "/tags": "tags",
 };
 
-/** Endpoints known by their path's shape, checked in order. */
 const PATTERN_ENDPOINTS: [RegExp, PerformanceSample["endpoint"]][] = [
     [/^\/tasks\/[^/]+$/, "task_detail"],
     [/^\/settings\/focus-views/, "focus_views"],
@@ -84,7 +79,6 @@ const PATTERN_ENDPOINTS: [RegExp, PerformanceSample["endpoint"]][] = [
     [/\/subtasks/, "subtasks"],
 ];
 
-/** Which task list a `/tasks` read is: history, schedule, capture or open. */
 function tasksEndpoint(params: URLSearchParams): PerformanceSample["endpoint"] {
     if (["COMPLETE", "ARCHIVED"].includes(params.get("state") ?? "")) return "tasks_history";
     if (params.has("from")) return "tasks_schedule";
@@ -92,7 +86,6 @@ function tasksEndpoint(params: URLSearchParams): PerformanceSample["endpoint"] {
     return "tasks_open";
 }
 
-/** Never retain URLs, task IDs or arbitrary query predicates in diagnostic dimensions. */
 export function startupEndpoint(url: URL): PerformanceSample["endpoint"] {
     const path = url.pathname.replace(/^\/api\/v1/, "").replace(/(.)[/]$/, "$1");
     if (path === "/tasks") return tasksEndpoint(url.searchParams);
@@ -133,7 +126,6 @@ export function collectStartupSamples(
     context: Pick<PerformanceSample, "route" | "platform" | "viewport" | "cache">,
 ): PerformanceSample[] {
     if (finished) return [];
-    // This metric is navigation startup, not an account switch hours into a tab.
     if ((marks.get("reveal.ready") ?? performance.now()) > 600_000) {
         finished = true;
         return [];
@@ -155,7 +147,6 @@ export function collectStartupSamples(
         });
         performance.measure?.(`cadence.startup.${phase}`, { start, end });
     };
-    // Boot: navigation until React first renders the auth provider (JS download, parse, evaluate).
     const sessionStart = marks.get("session.start");
     if (sessionStart !== undefined) add("boot", 0, sessionStart);
     for (const phase of ["session", "restore", "jwt", "required_data", "visible_assets", "reveal_frame"] as const) {

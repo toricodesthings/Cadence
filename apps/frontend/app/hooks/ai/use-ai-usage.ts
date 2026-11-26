@@ -1,11 +1,3 @@
-/**
- * AI usage budget (GET /ai/usage) — rate-limit transparency.
- *
- * The backend meters chat on rolling 5h/7d request+token windows; this hook
- * lets the panel show "≈ N messages left · resets in …" BEFORE a 429 instead
- * of only at rejection. Refetched by the panel after each completed turn
- * (invalidate on streaming → ready), so the numbers track real spend.
- */
 import { useQuery } from "@tanstack/react-query";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";

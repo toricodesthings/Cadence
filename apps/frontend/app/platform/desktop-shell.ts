@@ -9,7 +9,6 @@ export const QUICK_CAPTURE_TAB_EVENT = "cadence://quick-capture-tab";
 const QUICK_CAPTURE_COMPLETE_EVENT = "cadence://quick-capture-complete";
 export const GLOBAL_QUICK_CAPTURE_SHORTCUT = "CommandOrControl+Shift+C";
 
-// Loaded on use, so the web build's first screen never carries the Tauri window API.
 const tauriWindow = () => import("@tauri-apps/api/window");
 const getCurrentWindow = async () => (await tauriWindow()).getCurrentWindow();
 
@@ -60,7 +59,6 @@ export async function listenForDesktopCommands(handler: (payload: DesktopCommand
     });
 }
 
-/** The command a cold launch was started with (a Jump List task), handed over once. */
 export async function takeLaunchCommand(): Promise<DesktopCommandPayload | null> {
     if (!hasDesktopWindow()) {
         return null;
@@ -70,10 +68,8 @@ export async function takeLaunchCommand(): Promise<DesktopCommandPayload | null>
     return invoke<DesktopCommandPayload | null>("take_launch_command").catch(() => null);
 }
 
-/** Whether `saveTextAs` can ask where to save; a browser downloads instead. */
 export const hasNativeSaveAs = hasDesktopWindow;
 
-/** Native Save As in the app (Rust owns the dialog and the write): true saved, false cancelled. */
 export async function saveTextAs(fileName: string, contents: string): Promise<boolean> {
     const { invoke } = await import("@tauri-apps/api/core");
     return invoke<boolean>("save_text_as", { fileName, contents });
@@ -117,10 +113,6 @@ export async function readRememberedDesktopWorkspaceRoute() {
     return getWebStorage()?.getItem(DESKTOP_LAST_ROUTE_FALLBACK_KEY) ?? null;
 }
 
-/**
- * Tints the native frame (titlebar, caption buttons, menu) to match the app's resolved appearance.
- * "system" hands control back to Windows. Every open window gets it, so Quick Capture matches too.
- */
 export async function syncNativeWindowTheme(theme: "twilight" | "daylight" | "system") {
     if (!hasDesktopWindow()) {
         return;

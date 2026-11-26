@@ -28,7 +28,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     const { results, query } = useUniversalSearch(rawQuery, open);
     const openNoteRoom = useNoteRoomStore((s) => s.open);
 
-    // Reset on open/close
     useEffect(() => {
         if (open) {
             setRawQuery("");
@@ -38,7 +37,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         }
     }, [open]);
 
-    // Build flat list for keyboard navigation
     const flatResults = useMemo(() => {
         const flat: { group: string; item: SearchResult }[] = [];
         for (const group of GROUP_ORDER) {
@@ -52,7 +50,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         return flat;
     }, [results]);
 
-    // Reset selection when results change
     useEffect(() => {
         setSelectedIndex(0);
     }, [flatResults.length, query]);
@@ -62,7 +59,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             onOpenChange(false);
             trackUsageEvent("command_palette.result_opened", { object_type: result.kind as never });
 
-            // If the match was in notes/headings, open note room instead
             if (result.noteAction) {
                 openNoteRoom(result.noteAction.taskId, result.noteAction.taskTitle, result.noteAction.scrollToHeading);
                 return;
@@ -105,13 +101,11 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         }
     };
 
-    // Scroll selected into view
     useEffect(() => {
         const el = listRef.current?.querySelector(`[data-index="${selectedIndex}"]`);
         el?.scrollIntoView({ block: "nearest" });
     }, [selectedIndex]);
 
-    // Group for rendering
     const groupedForRender = useMemo(() => {
         const groups: { key: string; label: string; items: { item: SearchResult; flatIndex: number }[] }[] = [];
         let idx = 0;
@@ -135,7 +129,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 className="flex flex-col gap-0 overflow-hidden p-0 sm:top-[14%] sm:max-w-2xl sm:translate-y-0"
                 onKeyDown={handleKeyDown}
             >
-                {/* Search input */}
                 <div className="flex min-h-18 items-center gap-3 border-b border-twilight-border px-6 py-4">
                     <SearchField
                         ref={inputRef}
@@ -151,7 +144,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     <DialogCloseButton className="-mr-2" aria-label="Close search" />
                 </div>
 
-                {/* Results */}
                 <div
                     ref={listRef}
                     className="max-h-[min(60vh,32rem)] overflow-y-auto px-3 pb-3 pt-1 scrollbar-thin"
@@ -219,7 +211,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                     )}
                 </div>
 
-                {/* Footer hint */}
                 <div className="flex items-center gap-5 border-t border-twilight-border px-6 py-3.5 text-xs text-twilight-text-muted">
                     {(
                         [

@@ -23,11 +23,6 @@ type Stage = "relative" | "shorter" | "longer" | "absolute" | "more" | "other";
 
 const point = (minutes: number): DurationValue => ({ kind: "point", minutes });
 
-/**
- * The answers to "How long did it take?", at most six to a row. With a reference ("about 45 min?") the first row
- * compares to it, since "shorter or longer" is easier than recalling a number; without one it is steps that double.
- * `onPick` says whether the answer came from the relative stage (anchored by the number shown).
- */
 export function DurationChoices({
     reference,
     onPick,
@@ -42,9 +37,7 @@ export function DurationChoices({
     onSkip: () => void;
     skipLabel?: string;
     disabled?: boolean;
-    /** A length to offer first and pre-selected (a guess being planned with); picking it stores it like any chip. */
     suggested?: number;
-    /** One length only, no ranges (a plan has one length). */
     pointsOnly?: boolean;
 }) {
     const [stage, setStage] = useState<Stage>(reference ? "relative" : "absolute");
@@ -167,13 +160,6 @@ type Phase =
 
 const statusOf = (error: unknown) => (error as { status?: number } | null)?.status;
 
-/**
- * "How long did it take?": optional quick picks on completion (Full). A tap shows Saving…, then
- * "Saved · 45 min · Change" only once the server has stored it, or "Couldn't save · Retry" with the value kept.
- * The countdown waits while saving, failing, or while the pointer or focus is inside, so a keyboard or
- * screen-reader user is never timed out mid-reach. Skipping does nothing and costs nothing. If the task was
- * reopened meanwhile (409) the toast closes quietly: the person undid it themselves.
- */
 export function DurationChips({
     id,
     title,
@@ -197,7 +183,7 @@ export function DurationChips({
         try {
             const view = await onSave(value, anchored);
             if (view) setPhase({ kind: "saved", view });
-            else toast.dismiss(id); // stored nothing (memory is no longer Full): never a fake Saved
+            else toast.dismiss(id);
         } catch (error) {
             if (statusOf(error) === 409) toast.dismiss(id);
             else setPhase({ kind: "error", value, anchored });
@@ -210,7 +196,6 @@ export function DurationChips({
     const name = toastName(title, 40);
     const label = (value: DurationValue) => formatValue(value);
     return (
-        // The Cadence toast is the card: no surface of its own, or it shows a border inside a border.
         // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- pointer convenience; keyboard path is on the inner controls
         <div
             ref={box}

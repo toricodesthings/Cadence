@@ -16,7 +16,6 @@ vi.mock("../../../app/hooks/habits/use-habits", () => ({
 vi.mock("../../../app/hooks/core/use-settings", () => ({
     useSettings: () => ({ data: { notifications: { showHabitNavDueCount: state.enabled } } }),
 }));
-// The hook reads the user's today; the zone store itself is covered with user-zone.
 vi.mock("../../../app/lib/utils/user-zone", () => ({ useToday: () => "2026-09-23" }));
 vi.mock("../../../app/hooks/auth/use-auth-state", () => ({ useAuthState: () => ({ session: null }) }));
 beforeEach(() => {

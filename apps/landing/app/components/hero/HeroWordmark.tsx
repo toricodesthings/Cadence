@@ -3,7 +3,6 @@ import { ArrowIcon, GitHubIcon } from "~/components/icons";
 import { HERO_SENTENCE, REPO_URL, SIGN_UP_LABEL, SIGN_UP_URL, SITE_NAME, SITE_TAGLINE } from "~/lib/site";
 import { cssVars } from "~/lib/geometry";
 
-/** The loading screen's wordmark, larger, then one tagline, one sentence, two buttons and a scroll cue. */
 export function HeroWordmark() {
     return (
         <div className="hero-copy" data-depth={-3}>
@@ -15,8 +14,6 @@ export function HeroWordmark() {
                 </span>
                 <span className="hero-rule hero-rule-r" aria-hidden="true" />
             </h1>
-            {/* Filigree crest between the name and the lines under it, drawn in like ink (hero.css): the diamond
-          is traced, stems and curls run out of it, the hairlines follow a spark to the sky, the star kindles */}
             <div className="hero-divider" aria-hidden="true">
                 <span className="hero-divider-arm hero-divider-arm-l">
                     <span className="hero-divider-line" />
@@ -32,7 +29,6 @@ export function HeroWordmark() {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                         >
-                            {/* Both halves start at the top point, so the trace runs down each side at once */}
                             <path className="hero-ink hero-ink-diamond" d="M0 -11 11 0 0 11" pathLength={1} />
                             <path className="hero-ink hero-ink-diamond" d="M0 -11 -11 0 0 11" pathLength={1} />
                             {[1, -1].map((side) => (

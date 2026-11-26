@@ -31,19 +31,11 @@ interface SectionedTaskListProps {
     onSelectTask?: (id: string) => void;
     showUngroupedAddTask?: boolean;
     rationaleByTaskId?: Record<string, string | null | undefined>;
-    /** Additional content to render at the end */
     footer?: React.ReactNode;
-    /** Compact: open the sections sheet, renaming the given section id ("" for none). */
     onManageSections?: (focus: string) => void;
-    /** A filter is on: fold away sections it leaves empty. */
     hideEmptySections?: boolean;
 }
 
-/**
- * Task list with user-defined collapsible section headers.
- * Until the user creates a section, tasks stay in one normalized list.
- * Once sections exist, tasks without a sectionId render under "Unsectioned".
- */
 export function SectionedTaskList({
     tasks,
     projectId = null,
@@ -60,11 +52,9 @@ export function SectionedTaskList({
     const updateSection = useUpdateSection(projectId);
     const deleteSection = useDeleteSection(projectId);
     const shell = useShellMode();
-    // Someone who can only view a shared list adds, moves and renames nothing; only its owner deletes a section.
     const access = useListAccess(projectId);
     const reorder = useSectionReorder(projectId, sections);
     const sensors = useSortSensors();
-    // Compact shells add through the route's orb and sections sheet instead of inline fields.
     const inlineAdd = !shell.isCompact && access.canEdit;
     const manageInSheet = shell.isCompact && access.canEdit && onManageSections;
     const addSectionChip = manageInSheet ? (
@@ -73,18 +63,16 @@ export function SectionedTaskList({
         </div>
     ) : null;
 
-    // Folded sections, remembered on this device (ids are unique, so one key serves every list).
     const [foldedRaw, setFoldedRaw] = useDeviceValue("cadence-fold:list-sections");
     const collapsedSections = useMemo(() => {
         try {
             return new Set<string>(foldedRaw ? (JSON.parse(foldedRaw) as string[]) : []);
         } catch {
-            return new Set<string>(); // Unreadable: start with everything open.
+            return new Set<string>();
         }
     }, [foldedRaw]);
     const [editingSection, setEditingSection] = useState<string | null>(null);
 
-    // Unsectioned has no id of its own, so its fold is keyed by the list.
     const ungroupedKey = `ungrouped:${projectId ?? "none"}`;
     const ungroupedFolded = collapsedSections.has(ungroupedKey);
 
@@ -113,7 +101,6 @@ export function SectionedTaskList({
     };
 
     const hasCustomSections = sections.length > 0;
-    // Drag lives on wide screens; compact moves sections from its sheet.
     const draggable = !manageInSheet && access.canEdit;
     const onSectionDragEnd = ({ active, over }: DragEndEvent) => {
         if (!over || active.id === over.id) return;
@@ -141,7 +128,6 @@ export function SectionedTaskList({
         );
     }
 
-    // Phone rows: sections sit open on the page like Today's (fading line, no box); Board already boxes them.
     const sectionSurfaceClass = shell.isCompact ? "mt-2" : "";
     const titleClass = shell.isCompact
         ? "text-[12px] font-semibold uppercase tracking-[0.18em] text-twilight-text"
@@ -167,7 +153,6 @@ export function SectionedTaskList({
 
     return (
         <div className={`flex flex-col gap-3 ${shell.isCompact ? "pb-2" : "gap-1"}`}>
-            {/* Unsectioned tasks (no section) */}
             {(ungroupedTasks.length > 0 || hasCustomSections) && (
                 <Reveal open={!(hideEmptySections && ungroupedTasks.length === 0)}>
                     <div className={shell.isCompact ? sectionSurfaceClass : "mt-4"}>
@@ -217,7 +202,6 @@ export function SectionedTaskList({
                 </Reveal>
             )}
 
-            {/* User-defined sections */}
             {wrapSections(
                 sections.map((section, index) => {
                     const sectionTasks = sectionTaskMap.get(section.id) ?? [];
@@ -233,7 +217,6 @@ export function SectionedTaskList({
                             >
                                 {(grip) => (
                                     <>
-                                        {/* Section header */}
                                         <div className="flex items-center gap-2 group">
                                             {grip ? <span className="-ml-2 -mr-0.5 flex">{grip}</span> : null}
                                             <Tip label={isCollapsed ? "Expand" : "Collapse"}>
@@ -276,7 +259,6 @@ export function SectionedTaskList({
 
                                             <div className={lineClass} />
 
-                                            {/* Section context menu */}
                                             {access.canEdit && (
                                                 <SectionMenu
                                                     canDelete={access.isOwner}
@@ -294,7 +276,6 @@ export function SectionedTaskList({
                                             )}
                                         </div>
 
-                                        {/* Section tasks */}
                                         <AnimatePresence initial={false}>
                                             {!isCollapsed && (
                                                 <SectionTasks
@@ -317,7 +298,6 @@ export function SectionedTaskList({
                 }),
             )}
 
-            {/* Add section button */}
             {inlineAdd && <AddSectionControl onCreate={handleCreateSection} />}
             {addSectionChip}
 
@@ -326,7 +306,6 @@ export function SectionedTaskList({
     );
 }
 
-/** A section's block where it can't be dragged (compact): the same shape, no grip. */
 function PlainSection({
     className,
     children,
@@ -341,10 +320,8 @@ function PlainSection({
 
 type SectionMenuProps = {
     section: TaskSection;
-    /** Only the owner of a shared list deletes a section. */
     canDelete: boolean;
     compact: boolean;
-    /** Compact with a sections sheet: one button opens it instead of the menu. */
     onManage?: (focus: string) => void;
     onRename: () => void;
     onDelete: () => void;
@@ -429,7 +406,6 @@ type SectionTasksProps = Pick<SectionedTaskListProps, "selectedTaskId" | "onSele
     inlineAddClass: string;
 };
 
-/** An open section's tasks (or its empty line) and, on wide screens, its add field. */
 function SectionTasks({
     section,
     tasks,

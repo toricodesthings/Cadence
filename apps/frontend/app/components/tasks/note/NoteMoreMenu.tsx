@@ -48,11 +48,6 @@ function Row({
     );
 }
 
-/**
- * The ⋯ menu, in both rooms: one popover that drills into sub-panels instead of opening a sheet.
- * Format/Insert rows appear only where the surface has no toolbar for them (desktop and tablet);
- * on a phone those live in the Aa and + panels.
- */
 export function NoteMoreMenu({
     editor,
     compactToolbar,
@@ -64,12 +59,10 @@ export function NoteMoreMenu({
     trigger,
 }: {
     editor: Editor | null;
-    /** Phone: Format/Insert are panels, so this menu leaves them out. */
     compactToolbar: boolean;
     wordCount: number;
     body: string;
     sourceMode: boolean;
-    /** Room-level actions: find, outline, copy, download, edit markdown, convert. */
     onAction: (id: NoteCommandId) => void;
     onRunCommand: (id: NoteCommandId) => void;
     trigger?: ReactNode;

@@ -7,10 +7,8 @@ import { createOnce } from "../../platform/idempotency";
 import type { Tx } from "../../types/db";
 import { assertRowRoom } from "../../platform/storage-ceiling";
 
-/** A palette colour for a tag nobody coloured (index 0 is the grey "default"). */
 const randomTagColor = () => TAG_PALETTE[1 + Math.floor(Math.random() * (TAG_PALETTE.length - 1))];
 
-/** Where a new tag goes: after the person's last one. */
 async function nextSortOrder(tx: Tx, userId: string) {
     const [row] = await tx
         .select({ last: max(tags.sortOrder) })
@@ -19,7 +17,6 @@ async function nextSortOrder(tx: Tx, userId: string) {
     return (row?.last ?? 0) + 1000;
 }
 
-/** One name, one tag (any case): a create or rename onto a name already used is refused. */
 async function oneTagPerName<T>(write: () => Promise<T>): Promise<T> {
     try {
         return await write();
@@ -30,7 +27,6 @@ async function oneTagPerName<T>(write: () => Promise<T>): Promise<T> {
     }
 }
 
-/** Create a tag. A replayed idempotency key returns the first one. */
 export async function createTag(tx: Tx, userId: string, body: InsertTag, idempotencyKey?: string) {
     return createOnce(
         tx,
@@ -54,11 +50,6 @@ export async function createTag(tx: Tx, userId: string, body: InsertTag, idempot
     );
 }
 
-/**
- * A tag id for each name, in order (blank names skipped): an existing tag matches
- * its name case-insensitively, a new name makes one tag even when repeated in
- * another case. Lets one write tag by name without a read first.
- */
 export async function findOrCreateTags(tx: Tx, userId: string, names: string[]) {
     const wanted = new Map(
         names
@@ -80,14 +71,12 @@ export async function findOrCreateTags(tx: Tx, userId: string, names: string[]) 
     if (missing.length) {
         await assertRowRoom(tx, userId, "tags", missing.length);
         const first = await nextSortOrder(tx, userId);
-        // A concurrent writer may make the same name first: the unique index skips ours, the re-read finds theirs.
-        await tx
-            .insert(tags)
-            .values(
-                missing.map(([, name], i) => ({ userId, name, color: randomTagColor(), sortOrder: first + i * 1000 })),
-            )
-            .onConflictDoNothing();
-        await findByName(missing.map(([key]) => key));
+        const rows = missing.map(([, name], i) => sql`(${userId}, ${name}, ${randomTagColor()}, ${first + i * 1000})`);
+        const result = await tx.execute<{ id: string; name: string }>(sql`
+            INSERT INTO tags (user_id, name, color, sort_order) VALUES ${sql.join(rows, sql`, `)}
+            ON CONFLICT (user_id, lower(name)) DO SELECT RETURNING id, name`);
+        const made = Array.isArray(result) ? result : (result as unknown as { rows: typeof result }).rows;
+        for (const tag of made) ids.set(tag.name.toLowerCase(), tag.id);
     }
     return names
         .map((name) => name.trim())
@@ -95,7 +84,6 @@ export async function findOrCreateTags(tx: Tx, userId: string, names: string[]) 
         .map((name) => ids.get(name.toLowerCase())!);
 }
 
-/** Rename, recolour or move a tag. 404 when it isn't the caller's. */
 export async function updateTag(tx: Tx, userId: string, id: string, body: UpdateTag) {
     const [row] = await oneTagPerName(() =>
         tx
@@ -108,7 +96,6 @@ export async function updateTag(tx: Tx, userId: string, id: string, body: Update
     return row;
 }
 
-/** Delete a tag for good; it comes off every task and routine (the links cascade). */
 export async function deleteTag(tx: Tx, userId: string, id: string) {
     const [row] = await tx
         .delete(tags)
@@ -118,5 +105,4 @@ export async function deleteTag(tx: Tx, userId: string, id: string) {
     return row;
 }
 
-// Auto-tag: the only door for other domains.
 export { placeTagIds, retagForMove } from "./auto-tag";

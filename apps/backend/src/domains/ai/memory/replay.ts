@@ -1,8 +1,3 @@
-/**
- * What an earlier turn's memory reads may still tell the model. A `recall` or `search_past_chats` result stays in the
- * stored history, but a turn replays it only while the person's mode still allows what it shows: after Full → Basic,
- * or a Forget, the model gets `{ redacted: true }` instead. The stored history is untouched.
- */
 import type { MemoryMode } from "@cadence/contracts/memory";
 
 type Part = { type?: unknown; state?: unknown; output?: unknown };
@@ -14,7 +9,6 @@ const isRead = (part: Part, tool: string) =>
     !!part.output &&
     typeof part.output === "object";
 
-/** The fact ids replayed `recall` results cite. */
 export function citedFactIds(messages: readonly Message[]): string[] {
     const ids = new Set<string>();
     for (const message of messages) {
@@ -28,10 +22,6 @@ export function citedFactIds(messages: readonly Message[]): string[] {
     return [...ids];
 }
 
-/**
- * Replaces the memory reads the person's mode no longer allows. `allowed` is the cited ids that may still be read
- * (active, and usable by the mode); with memory off nothing may be.
- */
 export function redactMemoryReads<T extends Message>(
     messages: readonly T[],
     mode: MemoryMode,

@@ -7,7 +7,6 @@ import * as DropdownMenu from "../primitives/DropdownMenu";
 import { Tip } from "../primitives";
 import type { ConversationListItem } from "@cadence/contracts/ai";
 
-/** Compact, calm relative time ("2m ago", "Yesterday", "Mon"). */
 function relativeTime(iso: string | null): string {
     if (!iso) return "";
     const then = new Date(iso).getTime();
@@ -26,11 +25,6 @@ function relativeTime(iso: string | null): string {
     return formatShortDate(iso);
 }
 
-/**
- * A single saved-conversation row (design §7.1–§7.2). Title + relative time +
- * one-click Archive/Unarchive + an overflow menu (Rename inline / Delete). The whole row is a
- * button; the menu is a Radix dropdown for full keyboard nav.
- */
 export function ConversationListItem({
     conversation,
     active,
@@ -43,13 +37,11 @@ export function ConversationListItem({
 }: {
     conversation: ConversationListItem;
     active: boolean;
-    /** Client fallback when the server hasn't titled the thread yet (§5.4). */
     fallbackTitle?: string;
     onSelect: () => void;
     onRename: (title: string) => void;
     onArchive: (archived: boolean) => void;
     onDelete: () => void;
-    /** Present while memory is on: the "Don't learn from this chat" switch for this thread. */
     onToggleLearn?: (learn: boolean) => void;
 }) {
     const [editing, setEditing] = useState(false);
@@ -117,8 +109,6 @@ export function ConversationListItem({
 
     return (
         <div
-            // border-l-2 is always present (transparent when inactive) so the
-            // active accent rule never nudges row content sideways.
             className={`group flex items-center justify-between rounded-xl border-l-2 px-3 py-2.5 text-sm transition-colors ${
                 active
                     ? "border-accent-primary bg-accent-primary/8 text-twilight-text"

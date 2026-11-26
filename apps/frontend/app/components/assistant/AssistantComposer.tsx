@@ -39,7 +39,6 @@ const APPROVAL_MODES: Record<ApprovalMode, { label: string; icon: React.ReactNod
         hint: (name) => `${name} applies every change, deletes included`,
     },
 };
-/** What the empty message box suggests, a few seconds each: what the assistant can do, in Cadence's words. */
 const PROMPT_IDEAS = [
     "Capture: call the dentist tomorrow",
     "What’s on Today?",
@@ -101,16 +100,12 @@ export function AssistantComposer({
             clearPendingMessage();
         }
     }, [pendingMessage, clearPendingMessage, onInputChange]);
-    // Slash commands run in the app (no chat turn). Typing `/` opens the menu and
-    // narrows it; the `/` button opens all of it over a draft without touching the
-    // text. Escape hides the menu until the text changes.
     const [slashIndex, setSlashIndex] = useState(0);
     const [slashMode, setSlashMode] = useState<"auto" | "dismissed" | "forced">("auto");
     const slashCommands: readonly SlashCommand[] =
         slashMode === "forced" ? SLASH_COMMANDS : slashMode === "dismissed" ? [] : filterSlashCommands(input);
     const activeSlash = slashCommands[Math.min(slashIndex, slashCommands.length - 1)];
     const runSlashCommand = (command: SlashCommand) => {
-        // Clear only a typed `/word`; a draft under the button's menu stays.
         if (/^\/\S*$/.test(input.trim())) onInputChange("");
         setSlashIndex(0);
         setSlashMode("auto");
@@ -121,7 +116,6 @@ export function AssistantComposer({
     const toggleSlashMenu = () => {
         textareaRef.current?.focus();
         if (slashCommands.length > 0) {
-            // Open → close: drop a typed `/word`, or the button's menu.
             if (slashMode !== "forced") onInputChange("");
             setSlashMode("auto");
         } else if (!input.trim()) {
@@ -133,7 +127,6 @@ export function AssistantComposer({
         setSlashIndex(0);
     };
 
-    /** Keys the open slash menu takes over; true when the key was handled. */
     const handleSlashKey = (e: React.KeyboardEvent, active: SlashCommand): boolean => {
         const n = slashCommands.length;
         if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -142,7 +135,6 @@ export function AssistantComposer({
         } else if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey && !isTouch)) {
             runSlashCommand(active);
         } else if (e.key === "Escape") {
-            // Only the menu closes, not the panel.
             e.stopPropagation();
             setSlashMode("dismissed");
         } else {
@@ -159,7 +151,6 @@ export function AssistantComposer({
         else onSend(input);
     };
 
-    // Cycle the suggestions only while they show (an empty box).
     const [idea, setIdea] = useState(0);
     useEffect(() => {
         if (input) return;
@@ -167,7 +158,6 @@ export function AssistantComposer({
         return () => clearInterval(t);
     }, [input]);
 
-    // Auto-grow the textarea up to a comfortable cap.
     useEffect(() => {
         const el = textareaRef.current;
         if (!el) return;
@@ -176,12 +166,7 @@ export function AssistantComposer({
     }, [input, textareaRef]);
 
     return (
-        <form
-            onSubmit={handleSubmit}
-            // The mobile sheet shell already pads for the home indicator.
-            className={`shrink-0 px-3 pt-2 ${isMobile && isTouch ? "pb-1" : "pb-3"}`}
-        >
-            {/* Offline / input-cap notice (design §8.4 / §9.4) */}
+        <form onSubmit={handleSubmit} className={`shrink-0 px-3 pt-2 ${isMobile && isTouch ? "pb-1" : "pb-3"}`}>
             <AnimatePresence>
                 {!online || inputNotice ? (
                     <motion.p
@@ -232,14 +217,12 @@ export function AssistantComposer({
                     aria-activedescendant={activeSlash ? slashOptionId(activeSlash.id) : undefined}
                     onKeyDown={(e) => {
                         if (activeSlash && handleSlashKey(e, activeSlash)) return;
-                        // Touch keyboards: Return is a newline; the send button sends.
                         if (e.key === "Enter" && !e.shiftKey && !isTouch) {
                             e.preventDefault();
                             handleSubmit();
                         }
                     }}
                     onPaste={(e) => {
-                        // Office apps put the text and a picture of it on the clipboard: keep the text.
                         const data = e.clipboardData;
                         if (
                             data.getData("text/plain") ||
@@ -285,7 +268,6 @@ export function AssistantComposer({
                     <Tip label="Commands" side="top">
                         <button
                             type="button"
-                            // Keep the textarea focused so the menu's keys keep working.
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={toggleSlashMenu}
                             aria-label="Commands"
@@ -313,8 +295,6 @@ export function AssistantComposer({
                     />
                 </div>
             </div>
-            {/* Footer: the low-budget hint takes the line over the AI disclaimer
-                only while a usage window is actually running low (§9.4). */}
             <p className="mt-1.5 truncate text-center text-[10px] text-twilight-text-muted">
                 {usageNotice ?? `${assistantName} is AI and can make mistakes.`}
             </p>
@@ -397,7 +377,6 @@ function AttachmentStatus({ uploading, kind }: { uploading: boolean; kind: "PDF"
     );
 }
 
-/** Approval mode — Ask first (default), Auto (all but permanent deletes) or Full. */
 function ApprovalModeMenu({ assistantName }: { assistantName: string }) {
     const { approvalMode, setApprovalMode } = useAssistantStore();
     return (

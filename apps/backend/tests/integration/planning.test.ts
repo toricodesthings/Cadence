@@ -29,7 +29,6 @@ const sql = async <T = any>(text: string, params: unknown[] = []): Promise<T[]> 
     asOwner(async (pg) => (await pg.query<T>(text, params)).rows);
 const setMode = (mode: "off" | "basic" | "full") => memory("POST", "/mode", { mode });
 const tomorrow = () => addDays(todayIn(ZONE), 1);
-/** A time tomorrow, so the window is never clamped to "now". */
 const at = (time: string, day = tomorrow()) => atLocal(day, time, ZONE);
 const newTask = async (title = "Lab report", extra: { project?: string; recurrence?: string } = {}) =>
     (
@@ -91,7 +90,7 @@ describe("a manual drop onto a time", () => {
         const timed = await newTask("Already timed");
         await drop(timed, "09:00");
         expect(await slots()).toHaveLength(1);
-        await drop(timed, "19:00"); // moving a block isn't deciding when to start
+        await drop(timed, "19:00");
         expect(await slots()).toHaveLength(1);
 
         const series = await newTask("Class", { recurrence: "FREQ=WEEKLY;BYDAY=MO" });
@@ -213,9 +212,8 @@ describe("the pattern and Forget", () => {
         ]);
         await learnForUser(env, userId, new Date());
         expect(await slots()).toEqual([]);
-        expect(await patternFact()).toBeUndefined(); // no tombstone
+        expect(await patternFact()).toBeUndefined();
 
-        // Forget is not a switch: choosing again records, and enough new choices bring the pattern back.
         await drop(await newTask("After forget"), "19:00");
         expect(await slots()).toHaveLength(1);
         await seed();
@@ -259,7 +257,6 @@ describe("planning offers", () => {
         await sql("UPDATE tasks SET state = 'WAITING', waiting_on = 'Sam' WHERE id = $1", [waiting]);
         expect(await offers()).toEqual({ steps: [slipping], later: [waiting] });
 
-        // A step already written, or a deadline this week, takes the offer away.
         await sql("INSERT INTO subtasks (task_id, user_id, title, order_index) VALUES ($1, $2, 'Outline', 1)", [
             slipping,
             userId,

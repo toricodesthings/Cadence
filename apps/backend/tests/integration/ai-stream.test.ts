@@ -12,7 +12,6 @@ const { getDbClientMock, withRlsMock, getRedisMock } = vi.hoisted(() => ({
 
 vi.mock("../../src/platform/db", () => ({ getDbClient: getDbClientMock }));
 vi.mock("../../src/platform/rls", () => ({
-    // Invoke the callback with a dummy tx — the repo is mocked, so tx is unused.
     withRls: (_db: unknown, userId: string, fn: (tx: unknown) => unknown) => withRlsMock(userId, fn),
 }));
 vi.mock("../../src/platform/redis", () => ({ getRedis: getRedisMock }));
@@ -30,7 +29,6 @@ const saveAssistantMessageMock = vi.mocked(saveAssistantMessage);
 
 beforeEach(() => {
     vi.clearAllMocks();
-    // Default: withRls just runs the callback with a dummy tx.
     withRlsMock.mockImplementation((_userId: string, fn: (tx: unknown) => unknown) => fn({}));
 });
 
@@ -77,8 +75,6 @@ describe("GET /ai/chat/:id/stream (resume)", () => {
     });
 
     it("grace-replays a just-finished stream via lastStreamId (no live stream)", async () => {
-        // The active pointer is already cleared (turn finished), but the chunk-log is
-        // still alive within the close grace window — a slightly-late re-attach replays it.
         const redis = new FakeRedis();
         const userKey = await hashIdentifier(TEST_USER_ID);
         await openStream(redis as any, userKey, SID, {
@@ -100,8 +96,6 @@ describe("GET /ai/chat/:id/stream (resume)", () => {
     });
 
     it("204 when the recently-finished log is gone (reaped), so the client falls back to the DB", async () => {
-        // lastStreamId points at a stream whose Redis log is already gone (TTL reaped):
-        // readMeta is null, so there is nothing to replay → 204 (client falls back to DB).
         getRedisMock.mockReturnValue(new FakeRedis());
         getConversationMock.mockResolvedValue({ id: CONV_ID, activeStreamId: null, lastStreamId: SID });
         const res = await app.request(`/ai/chat/${CONV_ID}/stream`);
@@ -154,7 +148,7 @@ describe("POST /ai/chat/:id/stop", () => {
 
         const res = await post({});
         expect(((await res.json()) as any).data).toEqual({ success: true });
-        expect(redis.commandLog).not.toContain("set"); // no abort flag written
+        expect(redis.commandLog).not.toContain("set");
     });
 
     it("does not stop a newer turn when activeStreamId mismatches", async () => {
@@ -173,8 +167,6 @@ describe("POST /ai/chat/:id/stop", () => {
         const userKey = await hashIdentifier(TEST_USER_ID);
         getRedisMock.mockReturnValue(redis);
         getConversationMock.mockResolvedValue({ id: CONV_ID, activeStreamId: SID });
-        // The snapshot is only accepted when the owner-scoped stream meta names
-        // this exact assistant message id (anti-forgery gate).
         await openStream(redis as any, userKey, SID, {
             conversationId: CONV_ID,
             userId: TEST_USER_ID,
@@ -233,7 +225,7 @@ describe("POST /ai/chat/:id/stop", () => {
             activeStreamId: SID,
             assistantMessage: { ...assistantMessage, parts: [assistantMessage.parts[2]] },
         });
-        expect(saveAssistantMessageMock).not.toHaveBeenCalled(); // nothing left to store
+        expect(saveAssistantMessageMock).not.toHaveBeenCalled();
     });
 
     it("rejects a snapshot naming a DIFFERENT message id (no history overwrite)", async () => {
@@ -248,8 +240,6 @@ describe("POST /ai/chat/:id/stop", () => {
             model: "test-model",
         });
 
-        // Crafted snapshot targeting some OTHER persisted row → silently skipped,
-        // but the stop itself still succeeds.
         const assistantMessage = {
             id: "older-row-id",
             role: "assistant" as const,

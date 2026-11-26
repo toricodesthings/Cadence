@@ -15,7 +15,6 @@ interface MenuGroup {
     items: Array<{ id: string; label: string; icon: LucideIcon }>;
 }
 
-/** The menu's categories under their headings; Profile and About sit apart, and phones skip Shortcuts. */
 function menuGroups(isPhone: boolean): MenuGroup[] {
     const groups: MenuGroup[] = [];
     for (const item of SETTINGS_CATEGORIES) {

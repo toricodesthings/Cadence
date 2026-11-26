@@ -47,7 +47,6 @@ function HabitMenuShell({
     );
 }
 
-/** The ⋯ button on a routine row or card. */
 export function HabitMenu({ habit, onEdit }: { habit: Habit; onEdit: () => void }) {
     return (
         <HabitMenuShell habit={habit}>
@@ -79,7 +78,6 @@ export function HabitMenu({ habit, onEdit }: { habit: Habit; onEdit: () => void 
     );
 }
 
-/** Right-click on a routine row or card: the same items as the ⋯ menu. Desktop only: touch uses ⋯. */
 export function HabitContextMenu({
     habit,
     onEdit,
@@ -167,7 +165,6 @@ function HabitMenuItems({
 
     return (
         <>
-            {/* Recovery actions first */}
             {actions.isPaused ? (
                 <Menu.Item className={ITEM} onSelect={actions.resume}>
                     <Play size={12} aria-hidden="true" />

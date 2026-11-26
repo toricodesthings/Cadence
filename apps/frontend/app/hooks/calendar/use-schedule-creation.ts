@@ -12,7 +12,6 @@ interface ScheduleCreationState {
 }
 const anchor = () => ({ anchorX: window.innerWidth / 2, anchorY: 140 });
 
-/** The draft highlight and popover open/close together. */
 export function useScheduleCreation(currentDate: LocalDate) {
     const [popover, setPopover] = useState<ScheduleCreationState | null>(null);
     const close = useCallback(() => setPopover(null), []);

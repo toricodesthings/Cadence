@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-/** Quiet trailing count shared by text navigation links. */
 export function PlainNavCount({ count }: { count?: ReactNode }) {
     if (count === undefined || count === 0) return null;
     return (

@@ -1,8 +1,3 @@
-/**
- * Task writes shared by the REST routes and the assistant's tools. Each takes the
- * caller's RLS transaction and returns rows; metrics run after commit through
- * `trackTaskChanges`.
- */
 import { OPEN_TASK_STATES } from "@cadence/contracts/task";
 import { and, asc, eq, inArray, isNull, ne, notInArray, sql, type SQL } from "drizzle-orm";
 import { tracing } from "cloudflare:workers";
@@ -41,8 +36,6 @@ import { writeNote } from "../notes/notes.service";
 import { placeTagIds, retagForMove } from "../tags/tags.service";
 import { assertRowRoom, assertStorageRoom } from "../../platform/storage-ceiling";
 
-// Query pieces other domains (the AI tools) reuse; tasks.service is the only door into this domain.
-/** A task's when: the columns a reschedule or a temporal check reads. */
 const WHEN_COLUMNS = {
     dueDate: tasks.dueDate,
     endDate: tasks.endDate,
@@ -54,25 +47,15 @@ const WHEN_COLUMNS = {
 export { hasNoDay, inDayWindow, onOrBefore } from "./task-filters";
 export { buildTaskWhereClause, readTasks } from "./tasks.read";
 
-// ── Utility ───────────────────────────────────────────────────────────
-
 type NewTask = Omit<typeof tasks.$inferInsert, "userId"> & { effortOrigin?: "manual" | "accepted" | null };
 type TaskPatch = Omit<UpdateTask, "expectedUpdatedAt" | "findTime">;
 
-/**
- * The provenance columns that go with a written `effort`: a value the person chose (or a suggestion they accepted) is
- * recorded as such; anything else (the assistant, an import, a clear) leaves it unknown, so it never counts as evidence.
- */
 export function effortProvenance(effort: number | null | undefined, origin: "manual" | "accepted" | null | undefined) {
     return effort != null && origin
         ? { effortOrigin: origin, effortChosenAt: sql`NOW()` }
         : { effortOrigin: null, effortChosenAt: null };
 }
 
-/**
- * Effort guess columns after a write: a chosen Effort, or a new title or list, makes the guess stale and clears it
- * (and a "no thanks" with it); a "no thanks" in the same write is kept.
- */
 export function guessAfterWrite(patch: {
     effort?: unknown;
     title?: unknown;
@@ -83,7 +66,6 @@ export function guessAfterWrite(patch: {
         return { effortGuess: null, effortGuessSource: patch.effortGuessSource, effortGuessAt: null };
     if (patch.title !== undefined || patch.projectId !== undefined)
         return { effortGuess: null, effortGuessSource: null, effortGuessAt: null };
-    // A chosen Effort ends the guess but keeps a "no thanks", so clearing the Effort later doesn't bring it back.
     if (patch.effort !== undefined && patch.effort !== null) {
         return {
             effortGuess: null,
@@ -94,7 +76,6 @@ export function guessAfterWrite(patch: {
     return {};
 }
 
-/** A task as the assistant drafts it: plain fields, plus checklist steps and a note. */
 export type TaskDraft = Partial<
     Pick<
         InsertTask,
@@ -115,21 +96,17 @@ export type TaskDraft = Partial<
 > & {
     title: string;
     subtasks?: string[];
-    /** A class or shift that just passes (Fixed). */
     fixed?: boolean;
     note?: string;
 };
 
-/** A write's temporal fields as the columns to store, in the user's zone. */
 export function temporalColumns(fields: TaskTemporalFields & { notBefore?: string | null }, zone: Zone) {
     const temporal = normalizeTaskTemporalFields(fields, zone);
     return "notBefore" in fields ? { ...temporal, notBefore: normalizeHiddenUntil(fields.notBefore) } : temporal;
 }
 
-/** Where a task sits in time, before a change: its start, or else its day. */
 export type TaskSlot = { scheduledStart: string | null; dueDate: string | null };
 
-/** The slots of these tasks as they are now, by id (read before a change, so memory can see what moved). */
 export async function slotsOf(tx: Tx, userId: string, taskIds: string[]): Promise<Map<string, TaskSlot>> {
     const rows = await tx
         .select({ id: tasks.id, scheduledStart: tasks.scheduledStart, dueDate: tasks.dueDate })
@@ -138,7 +115,6 @@ export async function slotsOf(tx: Tx, userId: string, taskIds: string[]): Promis
     return new Map(rows.map((row) => [row.id, { scheduledStart: row.scheduledStart, dueDate: row.dueDate }]));
 }
 
-/** Metrics and usage events for committed task writes. Best-effort, never blocks the caller. */
 export function trackTaskChanges(
     waitUntil: (promise: Promise<unknown>) => void,
     db: DbClient,
@@ -147,10 +123,8 @@ export function trackTaskChanges(
         created?: string[];
         rescheduled?: { id: string; scheduledStart: string | null; dueDate: string | null }[];
         completed?: string[];
-        /** What each rescheduled task's slot was before, by id. With `env`, the change is also a signal for memory. */
         from?: Map<string, TaskSlot>;
     },
-    /** Set by routes only: the change was made by the person in the app (never the assistant, MCP or an import). */
     byPerson?: { env: Env },
 ) {
     const { created = [], rescheduled = [], completed = [], from } = changes;
@@ -188,12 +162,6 @@ export function trackTaskChanges(
     if (events.length) waitUntil(tracing.enterSpan("tasks.metrics.events", () => trackBatchEvents(db, userId, events)));
 }
 
-// ── API shape ─────────────────────────────────────────────────────────
-
-/**
- * A task row as the API sends it. Writes only accept priority 0–4 and effort 1–3
- * (the contract validates them), so the columns narrow to their literal unions.
- */
 export function toTask(
     row: TaskRow & Pick<Task, "seriesId" | "isRecurringInstance" | "occurrenceStart" | "occurrenceEnd">,
     tagIds: string[],
@@ -208,7 +176,6 @@ export function toTask(
     };
 }
 
-/** Overlay the caller's personal reminders onto shared tasks they don't own (owner's reminder never leaks). */
 export async function overlayPersonalReminders<
     T extends Pick<TaskRow, "id" | "userId" | "reminderAt" | "reminderSilenced">,
 >(tx: Tx, callerId: string, rows: T[]): Promise<T[]> {
@@ -234,7 +201,6 @@ export async function overlayPersonalReminders<
     });
 }
 
-/** Upsert (or delete when `reminderAt: null`) a collaborator's personal reminder on a shared task. */
 export async function upsertPersonalReminder(
     tx: Tx,
     userId: string,
@@ -267,7 +233,6 @@ export async function upsertPersonalReminder(
     return row;
 }
 
-/** `toTask` for rows fresh from a write: loads their tag ids in one query. */
 export async function withTagIds(tx: Tx, rows: TaskRow[]): Promise<Task[]> {
     const links = rows.length
         ? await tracing.enterSpan("tasks.tags.read", () =>
@@ -290,16 +255,12 @@ export async function withTagIds(tx: Tx, rows: TaskRow[]): Promise<Task[]> {
     );
 }
 
-// ── Create ────────────────────────────────────────────────────────────
-
-/** A timed Fixed series starts on its first block; it has no deadline. */
 const isTimedFixedSeries = (t: {
     interactionMode?: string | null;
     recurrenceRule?: string | null;
     scheduledStart?: string | null;
 }) => t.interactionMode === "timetable" && Boolean(t.recurrenceRule && t.scheduledStart);
 
-/** Insert one task (temporal fields already normalized) and link its tags. */
 export async function createTask(
     tx: Tx,
     userId: string,
@@ -333,10 +294,6 @@ export async function createTask(
     return { row, tagIds: allTagIds };
 }
 
-/**
- * Create drafted tasks with their checklist steps and notes, all in the caller's
- * transaction: one bad reference (another user's list, say) and none are created.
- */
 export async function createTasks(
     tx: Tx,
     userId: string,
@@ -399,10 +356,6 @@ export async function createTasks(
     return created;
 }
 
-/**
- * Copy a task as a new open one: same fields, tags and note text, "(copy)" on
- * the title unless one is given. Checklist steps and reminders aren't copied.
- */
 export async function duplicateTask(tx: Tx, userId: string, id: string, title?: string) {
     const [original] = await tx
         .select()
@@ -453,29 +406,20 @@ export async function duplicateTask(tx: Tx, userId: string, id: string, title?: 
     );
 }
 
-// ── Update ────────────────────────────────────────────────────────────
-
 type StoredTemporal = Pick<TaskRow, "dueDate" | "endDate" | "scheduledStart" | "scheduledEnd" | "zone">;
 
-/** A multi-day task's last day after its first day moves: the span is kept. */
 function movedEndDate(existing: StoredTemporal, dueDate: string | null | undefined) {
     return dueDate && existing.dueDate && existing.endDate
         ? addDays(existing.endDate, daysBetween(existing.dueDate, dueDate))
         : existing.endDate;
 }
 
-/**
- * A patch laid over the stored task, as the fields to validate. A time edit re-plans the task in the
- * user's zone; a day edit on a multi-day task moves its end by the same amount; turning a timed task
- * into an all-day one (or back) leaves nothing of the other shape behind.
- */
 function mergeTemporal(existing: StoredTemporal, body: TaskPatch): TaskTemporalFields {
     const has = (key: keyof TaskPatch) => body[key] !== undefined;
     const startsNull = body.scheduledStart === null;
     const timeEdit = has("scheduledStart") || has("scheduledEnd");
     const dueDate = has("dueDate") ? body.dueDate : existing.dueDate;
     const scheduledStart = has("scheduledStart") ? body.scheduledStart : existing.scheduledStart;
-    // Leaving timed behind (start cleared) forgets the old end; becoming timed forgets the old end day.
     const scheduledEnd = has("scheduledEnd") ? body.scheduledEnd : startsNull ? null : existing.scheduledEnd;
     const endDate = has("endDate")
         ? body.endDate
@@ -491,10 +435,6 @@ function mergeTemporal(existing: StoredTemporal, body: TaskPatch): TaskTemporalF
     };
 }
 
-/**
- * A patch that depends on the stored row (placement, dates, repeats): the row is locked and
- * version-checked, the section follows the list, and dates merge with what's stored.
- */
 async function patchOverStored(
     tx: Tx,
     userId: string,
@@ -533,10 +473,6 @@ async function patchOverStored(
     };
 }
 
-/**
- * The write's version check for a simple edit. The API exposes milliseconds; Postgres stores
- * microseconds. Match the same instant comparison as assertNoConflict, including timezone offsets.
- */
 function sameVersionSql(expectedUpdatedAt: string): SQL {
     const expectedDate = new Date(expectedUpdatedAt);
     return Number.isNaN(expectedDate.getTime())
@@ -544,13 +480,10 @@ function sameVersionSql(expectedUpdatedAt: string): SQL {
         : sql`date_trunc('milliseconds', ${tasks.updatedAt}) = ${expectedDate.toISOString()}::timestamptz`;
 }
 
-/** Apply a patch to one task. `expectedUpdatedAt` turns a stale edit into a 409. */
 export async function updateTask(tx: Tx, userId: string, id: string, body: TaskPatch, expectedUpdatedAt?: string) {
     const placementChanged = body.projectId !== undefined || body.sectionId !== undefined;
     const temporalChanged = hasTaskTemporalMutation(body);
     const needsExisting = placementChanged || temporalChanged || body.recurrenceRule !== undefined;
-    // Simple edits don't depend on the stored row. UPDATE takes the row lock and
-    // checks its version atomically, avoiding a separate SELECT FOR UPDATE trip.
     const stored = needsExisting
         ? await patchOverStored(tx, userId, id, body, expectedUpdatedAt, { placementChanged, temporalChanged })
         : undefined;
@@ -567,7 +500,6 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
         }
     }
 
-    // A changed Effort carries who chose it; the origin is never a column the caller writes directly.
     const { effortOrigin, ...columns } = patch as typeof patch & { effortOrigin?: "manual" | "accepted" };
     const provenance = {
         ...(columns.effort !== undefined ? effortProvenance(columns.effort as number | null, effortOrigin) : {}),
@@ -583,7 +515,6 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
             .returning(),
     );
     if (!row && expectedUpdatedAt && !needsExisting) {
-        // Only a rejected write needs this read, to distinguish 404 from 409.
         const [existing] = await tracing.enterSpan("tasks.update.conflict", () =>
             tx
                 .select({ updatedAt: tasks.updatedAt })
@@ -598,10 +529,6 @@ export async function updateTask(tx: Tx, userId: string, id: string, body: TaskP
     return row;
 }
 
-/**
- * Re-own a caller's task (plus its subtasks and note) into a shared list where the caller has edit access,
- * preserving the caller's reminder in `task_personal` and dropping their personal learning rows.
- */
 export async function moveTaskToSharedList(
     tx: Tx,
     taskId: string,
@@ -614,14 +541,12 @@ export async function moveTaskToSharedList(
     return Boolean(row?.ok);
 }
 
-/** Drop a user's personal learning rows on a task (used when moving an unshared task into a shared list). */
 export async function dropTaskLearningRows(tx: Tx, userId: string, taskId: string): Promise<void> {
     await tx.delete(taskMetrics).where(and(eq(taskMetrics.userId, userId), eq(taskMetrics.taskId, taskId)));
     await tx.delete(taskNlpMetadata).where(and(eq(taskNlpMetadata.userId, userId), eq(taskNlpMetadata.taskId, taskId)));
     await tx.delete(aiMemoryNotes).where(and(eq(aiMemoryNotes.userId, userId), eq(aiMemoryNotes.taskId, taskId)));
 }
 
-/** The same patch and tag changes on several tasks. Any missing task fails the whole batch (404). */
 export async function updateTasks(
     tx: Tx,
     userId: string,
@@ -634,8 +559,6 @@ export async function updateTasks(
     }: { taskIds: string[]; patch: TaskPatch; addTagIds?: string[]; removeTagIds?: string[]; tagOwnerId?: string },
 ) {
     if (addTagIds.length) await assertOwnership(tx, tagOwnerId, { tagIds: addTagIds });
-    // Issued together: postgres.js pipelines them on the transaction's connection, so the
-    // batch costs a couple of round trips instead of two per task.
     const rows = await Promise.all(taskIds.map((id) => updateTask(tx, userId, id, patch)));
     if (addTagIds.length) {
         await tx
@@ -649,12 +572,6 @@ export async function updateTasks(
     return rows;
 }
 
-/**
- * Fit today's placements, or their Undo, all or nothing: every task must be the caller's (404), open, one-off and not
- * Fixed (400), and unchanged since the client read it (409, `issues` naming each changed id by `path`). Returns the
- * written tasks and each one's time fields from before, which are the Undo. No slot record and no reschedule signal:
- * these were Cadence's proposals for untimed tasks, so they teach nothing.
- */
 export async function placeTasks(tx: Tx, userId: string, items: PlaceTaskItem[]) {
     const ids = items.map((item) => item.id);
     if (new Set(ids).size !== ids.length) throw new AppError(400, "VALIDATION_ERROR", "Each task can be placed once");
@@ -711,12 +628,10 @@ export async function placeTasks(tx: Tx, userId: string, items: PlaceTaskItem[])
     };
 }
 
-/** True when this write is what made the task Done: the `tasks_completed_at` trigger stamps `completed_at` with the same instant as `updated_at`. */
 export function justCompleted(task: { completedAt: string | null; updatedAt: string }): boolean {
     return !!task.completedAt && sameVersion(task.completedAt, task.updatedAt);
 }
 
-/** Move tasks to a state (Done, Trash, back to open, Waiting, with its check-in). Unknown ids, and Fixed blocks asked to be Done, are skipped. */
 export async function setTaskState(
     tx: Tx,
     userId: string,
@@ -743,11 +658,6 @@ export async function setTaskState(
         .returning();
 }
 
-/**
- * Move tasks: to one exact `scheduledStart`, or to a local `date` where each keeps its own
- * time (all-day stays all-day), in the user's zone. Fixed blocks stay put unless they're all
- * that was asked to move. Done and Trashed tasks are skipped.
- */
 export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, scheduledStart, date }: BatchReschedule) {
     const zone = await userZone(tx, userId);
     if (!date) {
@@ -766,7 +676,6 @@ export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, schedul
         .from(tasks)
         .where(and(eq(tasks.userId, userId), inArray(tasks.id, taskIds), inArray(tasks.state, OPEN_TASK_STATES)));
     const onlyFixed = rows.every((row) => row.interactionMode === "timetable");
-    // Each task gets its own values; the updates are pipelined like `updateTasks`.
     return Promise.all(
         rows
             .filter((row) => row.interactionMode !== "timetable" || onlyFixed)
@@ -781,10 +690,8 @@ export async function rescheduleTasks(tx: Tx, userId: string, { taskIds, schedul
     );
 }
 
-/** Where `reorderTasks` puts its tasks: the top or bottom of their list, or next to another task. */
 export type TaskPlacement = { to: "top" | "bottom" } | { beforeTaskId: string } | { afterTaskId: string };
 
-/** The order indexes the moved tasks land between; undefined = an open end. */
 function placementBounds(
     siblings: { id: string; orderIndex: number }[],
     placement: TaskPlacement,
@@ -805,11 +712,6 @@ function placementBounds(
         : [siblings[at].orderIndex, siblings[at + 1]?.orderIndex];
 }
 
-/**
- * Place tasks one after another, in the order given, within the manual order of
- * the first task's list (no list = the unlisted tasks). Only the moved tasks
- * change; they land between their new neighbours' order indexes.
- */
 export async function reorderTasks(tx: Tx, userId: string, taskIds: string[], placement: TaskPlacement) {
     const moving = await tx
         .select({ id: tasks.id, projectId: tasks.projectId })
@@ -840,8 +742,6 @@ export async function reorderTasks(tx: Tx, userId: string, taskIds: string[], pl
               : hi !== undefined
                 ? hi - ORDER_INDEX_GAP * (n - i)
                 : ORDER_INDEX_GAP * i;
-    // ponytail: halving the gap on every insert-between loses precision after ~50 moves
-    // into one spot; the REST reorder's full rebalance (orderedTaskIds) resets it.
     await Promise.all(
         taskIds.map((id, i) =>
             tx
@@ -853,9 +753,6 @@ export async function reorderTasks(tx: Tx, userId: string, taskIds: string[], pl
     return { moved: n };
 }
 
-// ── Delete ────────────────────────────────────────────────────────────
-
-/** Permanently delete tasks (not Trash). Returns the deleted rows; unknown ids are skipped. */
 export async function deleteTasks(tx: Tx, userId: string, taskIds: string[]) {
     return tx
         .delete(tasks)
@@ -863,7 +760,6 @@ export async function deleteTasks(tx: Tx, userId: string, taskIds: string[]) {
         .returning();
 }
 
-/** Empty Trash: permanently delete every trashed task. Returns how many went. */
 export async function deleteTrashedTasks(tx: Tx, userId: string) {
     const deleted = await tx
         .delete(tasks)

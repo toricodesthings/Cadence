@@ -84,7 +84,6 @@ describe("toMinimalTask", () => {
             recurrenceRule: "FREQ=WEEKLY",
         };
         expect(toMinimalTask(occurrence, "UTC")).toMatchObject({ id: "t1", fixedBlock: true, repeats: true });
-        // An active Fixed block just passes: no "ACTIVE" to read as not done yet.
         expect(toMinimalTask({ ...occurrence, state: "ACTIVE" }, "UTC").state).toBeUndefined();
         expect(toMinimalTask({ ...occurrence, state: "ARCHIVED" }, "UTC").state).toBe("ARCHIVED");
         expect(toMinimalTask(baseTask, "UTC").fixedBlock).toBeUndefined();
@@ -101,7 +100,7 @@ describe("toMinimalTask", () => {
         expect(toMinimalTask(task, "America/Toronto")).toMatchObject({
             scheduledStart: "2026-06-10T14:00:00-04:00",
             scheduledEnd: "2026-06-10T15:30:00-04:00",
-            dueDate: "2026-06-10", // a day stays a day: never shifted by the zone
+            dueDate: "2026-06-10",
         });
     });
 
@@ -120,14 +119,14 @@ describe("toMinimalTask", () => {
 
 describe("taskDay", () => {
     it("puts a timed task on the day its start has in the user's zone", () => {
-        const lateEvening = { dueDate: null, scheduledStart: "2026-06-11T02:30:00.000Z" }; // 22:30 on the 10th in Toronto
+        const lateEvening = { dueDate: null, scheduledStart: "2026-06-11T02:30:00.000Z" };
 
         expect(taskDay(lateEvening, "America/Toronto")).toBe("2026-06-10");
         expect(taskDay(lateEvening, "UTC")).toBe("2026-06-11");
     });
 
     it("keeps an all-day task on its stored day in every zone, and is null when undated", () => {
-        const allDay = { dueDate: "2026-10-05", scheduledStart: null }; // the COMP3000 case
+        const allDay = { dueDate: "2026-10-05", scheduledStart: null };
 
         for (const tz of ["Pacific/Kiritimati", "Pacific/Pago_Pago", "America/Toronto", "UTC"])
             expect(taskDay(allDay, tz)).toBe("2026-10-05");
@@ -240,10 +239,8 @@ describe("tool registry", () => {
             expect(schema).not.toContain('"default":');
         }
         expect((await text(lean)).length).toBeLessThan((await text(padded)).length);
-        // A record keeps its value schema: a habit day's steps map step ids to a status.
         const log = (await asSchema(lean.log_habit.inputSchema).jsonSchema) as any;
         expect(log.properties.stepStatus.additionalProperties).toBeTruthy();
-        // A null, or a field that only clears, still means the same on the lean schema.
         const sent = (await asSchema(lean.get_tasks.inputSchema).validate!({ query: "x", projectId: null })) as any;
         expect(JSON.parse(JSON.stringify(sent.value))).toEqual({ query: "x", limit: 20 });
         const update = (await asSchema(lean.update_tasks.inputSchema).jsonSchema) as any;
@@ -302,7 +299,6 @@ describe("tool registry", () => {
         const nil = "00000000-0000-0000-0000-000000000000";
         const id = "6f1c1a52-8f0e-4c1a-9d8e-2b7f3c4d5e6f";
 
-        // JSON drops the symbol that carries what was ignored, as persisting the call does.
         const plain = (result: unknown) => JSON.parse(JSON.stringify(result));
         expect(
             plain(
@@ -325,14 +321,12 @@ describe("tool registry", () => {
         })) as any;
         expect(sent.success).toBe(true);
         expect(plain(sent.value)).toEqual({ query: "COMP3005", state: "ACTIVE", projectId: id, limit: 20 });
-        // Optional fields offer null as "not used"; null where it can't clear is dropped without remark.
         const model = (await tasks.jsonSchema) as any;
         expect(model.properties.query.type).toEqual(["string", "null"]);
         expect(model.properties.state.enum).toContain(null);
         const nulled = (await tasks.validate!({ query: "COMP3005", projectId: null, sort: null })) as any;
         expect(plain(nulled.value)).toEqual({ query: "COMP3005", limit: 20 });
         expect(nulled.value[Object.getOwnPropertySymbols(nulled.value)[0]]).toBeUndefined();
-        // Inside an array of drafts too: luna's real first call, every optional field null.
         const created = (await asSchema(tools.create_tasks.inputSchema).validate!({
             tasks: [
                 {
@@ -363,15 +357,12 @@ describe("tool registry", () => {
             title: "Call mom",
             scheduledStart: "2026-09-24T18:00:00-04:00",
         });
-        // From a capture: null reminder/hide-until/fixed set nothing, so the capture rule holds.
         const fromCapture = (await asSchema(tools.create_tasks.inputSchema).validate!({
             tasks: [{ title: "Buy ink", fixed: null, reminderAt: null, hideUntil: null, note: "", inboxItemId: id }],
         })) as any;
         expect(fromCapture.success).toBe(true);
-        // A real mistake still fails.
         expect((await tasks.validate!({ state: "DONE", minPriority: 0 })).success).toBe(false);
 
-        // In a patch, null and [] change nothing and `clear` empties a field; a rejected "" goes, a valid 0 stays.
         const updateTasks = asSchema(tools.update_tasks.inputSchema);
         const update = (await updateTasks.validate!({
             taskIds: [id],
@@ -381,7 +372,6 @@ describe("tool registry", () => {
             taskIds: [id],
             patch: { priority: 0, reminderAt: null, clear: ["reminderAt"] },
         });
-        // Luna's real "undo": every patch field null. It used to wipe dates, list and recurrence; now it changes nothing and says so.
         const wipe = (await updateTasks.validate!({
             taskIds: [id],
             patch: {
@@ -401,7 +391,6 @@ describe("tool registry", () => {
         })) as any;
         expect(wipe.success).toBe(false);
         expect(String(wipe.error?.message)).toContain("Nothing to change");
-        // The model's patch: a `clear` list of what can be emptied, and no field says null clears.
         const patch = ((await updateTasks.jsonSchema) as any).properties.patch.properties;
         expect(patch.clear.items.enum).toEqual(
             expect.arrayContaining(["dueDate", "reminderAt", "projectId", "sectionId", "recurrenceRule"]),
@@ -412,7 +401,6 @@ describe("tool registry", () => {
             "The day it sits on, or its deadline, YYYY-MM-DD (never a time). Only a day the user said.",
         );
 
-        // The tool's result tells the model what was dropped.
         const help = asSchema(tools.get_cadence_help.inputSchema);
         const [topic] = ((await help.jsonSchema) as any).properties.topic.enum;
         const input = ((await help.validate!({ topic, listId: nil })) as any).value;
@@ -521,7 +509,6 @@ describe("which calls wait for a tap", () => {
         expect(approval("ask", "create_tag")).toBe("user-approval");
         expect(approval("ask", "get_tasks")).toBeUndefined();
         expect(approval("ask", "capture_to_inbox")).toBeUndefined();
-        // Every catalog read, not only get_*: find_time and fit_day have no approval card to tap.
         for (const [name, spec] of Object.entries(TOOL_CATALOG))
             if (spec.kind === "read") expect([name, approval("ask", name)]).toEqual([name, undefined]);
     });
@@ -603,7 +590,7 @@ describe("a time in a day field is refused with a way forward", () => {
 });
 
 describe("resolveDueWindow (user's local dates)", () => {
-    const today = "2026-06-05"; // a Friday
+    const today = "2026-06-05";
 
     it.each([
         ["overdue", "Sunday", { to: "2026-06-04" }],

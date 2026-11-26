@@ -102,6 +102,7 @@ vi.mock("../../../app/hooks/tasks/use-subtasks", () => ({
 vi.mock("../../../app/components/holding/PlaceSheet", () => ({
     useWeekLoad: () => ({ lightest: "2026-11-25" }),
     usePlaceTask: () => vi.fn(),
+    useThoughtAsTask: () => vi.fn(),
     CaptureColumnDrop: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
     PlaceDndProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
@@ -343,7 +344,6 @@ describe("Capture merged empty state", () => {
             </MemoryRouter>,
         );
 
-        // Only one greeting on screen — inside the special empty state, not above CaptureInput.
         expect(screen.getAllByText(/Good afternoon,/)).toHaveLength(1);
         expect(container.querySelector('[data-capture-clear="list"]')).not.toBeNull();
         expect(screen.getByTestId("capture-input")).toBeTruthy();
@@ -361,7 +361,6 @@ describe("Capture merged empty state", () => {
             </MemoryRouter>,
         );
 
-        // Top greeting is back above CaptureInput and the merged empty state is gone.
         expect(container.querySelector("[data-capture-clear]")).toBeNull();
         expect(screen.getAllByText(/Good afternoon,/)).toHaveLength(1);
         expect(screen.getByRole("heading", { name: /^New\b/ })).toBeTruthy();
@@ -386,7 +385,6 @@ describe("Capture merged empty state", () => {
         expect(coolClearNight).toBeGreaterThan(freezingSnowNight);
         expect(freezingSnowNight).toBeLessThanOrEqual(5);
 
-        // No-weather fallback still follows a smooth day-period spectrum.
         expect(skyWarmth("afternoon", null)).toBeGreaterThan(skyWarmth("morning", null));
         expect(skyWarmth("morning", null)).toBeGreaterThan(skyWarmth("evening", null));
         expect(skyWarmth("evening", null)).toBeGreaterThan(skyWarmth("night", null));

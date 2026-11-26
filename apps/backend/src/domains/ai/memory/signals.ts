@@ -1,20 +1,10 @@
-/**
- * Full: what the person did themselves, and the patterns and durations that follow from it.
- *
- * Signals are written only for changes made in the app by the person (the route says so: the assistant,
- * MCP and imports never count), and only while the mode is Full. Patterns are computed from them, and
- * durations from the person's answers (`duration_reports`), deterministically in the nightly pass, with no
- * model call. Pure functions here, so the rules are testable without a database.
- */
 import { addDays, daysBetween, dayOf, formatInZone, type LocalDate, type Zone } from "@cadence/domain/time";
 import { timeOfDay, type TimeOfDay } from "@cadence/domain/find-time";
 import { estimateDuration, type DurationEvidence } from "@cadence/nlp/duration";
 import { STOP } from "@cadence/nlp/effort";
 
-/** The window patterns are read over, and how long signals are kept. */
 export const PATTERN_WINDOW_DAYS = 28;
 export const SIGNAL_RETENTION_DAYS = 90;
-/** At least this many events, on at least this many days in at least this many weeks, with this share in one bucket, or nothing is claimed. One bad week is not a pattern. */
 const MIN_EVENTS = 5;
 const MIN_DAYS = 3;
 const MIN_WEEKS = 2;
@@ -22,13 +12,11 @@ const MIN_SHARE = 0.7;
 
 export { timeOfDay, type TimeOfDay };
 
-/** Monday-based week number; 1970-01-05 was a Monday. */
 const weekOf = (day: LocalDate) => Math.floor(daysBetween("1970-01-05", day) / 7);
 const weekdayOf = (day: LocalDate) => formatInZone(day, "UTC", { weekday: "long" }, "en-US").toLowerCase();
 const hourIn = (instant: string, zone: Zone) =>
     Number(formatInZone(instant, zone, { hour: "numeric", hourCycle: "h23" }, "en-US"));
 
-/** "tuesday|early": the slot something was planned in (an all-day task has no time: "tuesday|day"). */
 export function slotBucket(slot: { scheduledStart: string | null; dueDate: string | null }, zone: Zone): string | null {
     if (slot.scheduledStart) {
         return `${weekdayOf(dayOf(slot.scheduledStart, zone))}|${timeOfDay(hourIn(slot.scheduledStart, zone))}`;
@@ -36,7 +24,6 @@ export function slotBucket(slot: { scheduledStart: string | null; dueDate: strin
     return slot.dueDate ? `${weekdayOf(slot.dueDate)}|day` : null;
 }
 
-/** "evening" for a completion instant. */
 export const completionBucket = (instant: string, zone: Zone): string => timeOfDay(hourIn(instant, zone));
 
 export interface SignalRow {
@@ -48,7 +35,6 @@ export interface SignalRow {
 
 export interface DerivedFact {
     kind: "pattern" | "duration";
-    /** What the fact is about, without its counts: the same pattern keeps one row as its numbers move, and a forgotten one stays forgotten. */
     key: string;
     content: string;
     value: Record<string, unknown>;
@@ -64,13 +50,11 @@ const PHRASE: Record<string, string> = {
 };
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-/** Patterns over the last 28 days. A pattern needs real repetition; below the rule nothing is claimed. */
 export function derivePatterns(rows: SignalRow[], today: LocalDate): DerivedFact[] {
     const from = addDays(today, -(PATTERN_WINDOW_DAYS - 1));
     const inWindow = rows.filter((r) => r.on >= from && r.on <= today);
     const groups = new Map<string, SignalRow[]>();
     for (const row of inWindow) {
-        // A routine's pattern is per routine; the others are one pattern each over all the person's changes.
         const key = row.kind === "routine" ? `routine|${row.subject}` : row.kind;
         groups.set(key, [...(groups.get(key) ?? []), row]);
     }
@@ -104,12 +88,10 @@ export function derivePatterns(rows: SignalRow[], today: LocalDate): DerivedFact
     return out;
 }
 
-/** One answer to "how long did it take?" with the group it belongs to (`duration_reports`). */
 export interface ReportRow extends DurationEvidence {
     group: string;
 }
 
-/** "Lab report usually takes about 45 minutes (based on 6 of your answers)": one fact per group the estimator is sure of. */
 export function deriveDurations(rows: readonly ReportRow[], today: LocalDate): DerivedFact[] {
     const byGroup = new Map<string, ReportRow[]>();
     for (const row of rows) byGroup.set(row.group, [...(byGroup.get(row.group) ?? []), row]);
@@ -132,14 +114,8 @@ export function deriveDurations(rows: readonly ReportRow[], today: LocalDate): D
     return out;
 }
 
-/** Where a title stops being the thing and starts being its context: "Email Sam re: invoice", "Read - ch. 3", "Gym (legs)". */
 const CONTEXT_CUT = /\bre:|\s-\s|:|\(/;
 
-/**
- * The normalized "group" a one-off task belongs to for durations: its first 3 meaningful words, lower case,
- * with filler words and 1-2 digit numbers dropped ("Lab 3" is "Lab 4") but course-like numbers kept
- * ("STAT 3503" is not "STAT 2509").
- */
 export function durationGroup(title: string): string {
     const words = (text: string) =>
         text
@@ -148,13 +124,10 @@ export function durationGroup(title: string): string {
             .split(/\s+/)
             .filter(Boolean);
     const meaningful = words(title.split(CONTEXT_CUT)[0]).filter((w) => !STOP.has(w) && !/^\d{1,2}$/.test(w));
-    // A title that is all context or filler ("Re: invoice", "The 3") still gets a group: its plain words.
     return meaningful.length ? meaningful.slice(0, 3).join(" ") : words(title).slice(0, 4).join(" ");
 }
 
-/** A repeating task is one row that returns, so its reports group by the row; anything else by its title. */
 export const groupOfTask = (task: { id: string; title: string; recurrenceRule: string | null }): string =>
     task.recurrenceRule ? `series:${task.id}` : durationGroup(task.title);
 
-/** The 90-day cut for pruning. */
 export const retentionCutoff = (today: LocalDate): LocalDate => addDays(today, -SIGNAL_RETENTION_DAYS);

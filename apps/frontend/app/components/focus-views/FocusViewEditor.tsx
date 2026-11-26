@@ -24,7 +24,6 @@ type FormProps = {
     onDone: () => void;
 };
 
-/** Name, icon and colour, with a live preview of the row it makes. Enter saves. */
 function FocusViewForm({ initial, submitLabel, onSubmit, onDone }: FormProps) {
     const [name, setName] = useState(initial.name);
     const [icon, setIcon] = useState<FocusViewIcon>(initial.icon ?? DEFAULT_ICON);
@@ -114,7 +113,6 @@ function FocusViewForm({ initial, submitLabel, onSubmit, onDone }: FormProps) {
 }
 
 type FocusViewEditorProps = {
-    /** The view being edited or saved; null keeps the dialog closed. */
     initial: FocusViewLook | null;
     title: string;
     submitLabel: string;
@@ -122,7 +120,6 @@ type FocusViewEditorProps = {
     onClose: () => void;
 };
 
-/** Save or edit a view: one small dialog for its name, icon and colour. */
 export function FocusViewEditor({ initial, title, submitLabel, onSubmit, onClose }: FocusViewEditorProps) {
     return (
         <Dialog.Dialog open={initial !== null} onOpenChange={(open) => !open && onClose()}>

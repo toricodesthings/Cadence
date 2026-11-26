@@ -1,17 +1,12 @@
-// Personal Effort suggestion: from the levels this person chose on similar tasks, never from a rule about words.
-// Pure and deterministic: evidence and the reference day come in; a suggestion or nothing comes out.
 import { daysBetweenLocal, type LocalDate } from "../core/index.js";
 
 export type EffortLevel = 1 | 2 | 3;
 
-/** One earlier task whose Effort the person chose (the caller has already checked it may count). */
 export interface EffortEvidence {
     title: string;
     projectId: string | null;
     level: EffortLevel;
-    /** "manual" is a direct choice; "accepted" is a suggestion they agreed to, which counts for less. */
     origin: "manual" | "accepted";
-    /** The day the choice was made. */
     day: LocalDate;
 }
 
@@ -19,21 +14,14 @@ export type EffortSuggestion =
     | { kind: "level"; level: EffortLevel; support: number }
     | { kind: "range"; low: EffortLevel; high: EffortLevel; support: number };
 
-/** Evidence older than this stops counting. */
 export const EVIDENCE_WINDOW_DAYS = 365;
-/** At most this many of the closest, most recent matches are weighed. */
 export const MAX_EVIDENCE = 12;
-/** Total weight needed before anything is suggested (two clear choices). */
 export const MIN_SUPPORT = 1.5;
-/** Titles must be this alike (Jaccard on meaningful words). "Class X Lab" is not "Class Y Lab". */
 export const MIN_SIMILARITY = 0.8;
-/** One level must hold this share to be suggested alone. */
 export const SINGLE_SHARE = 0.7;
-/** Two adjacent levels together must hold this share, each with at least `RANGE_FLOOR`, to be suggested as a range. */
 export const RANGE_SHARE = 0.85;
 export const RANGE_FLOOR = 0.25;
 
-/** Shared with the duration estimate: an answer's weight halves every this many days. */
 export const HALF_LIFE_DAYS = 120;
 export const STOP = new Set([
     "a",
@@ -53,9 +41,6 @@ export const STOP = new Set([
     "up",
 ]);
 
-/** The words that carry a task's meaning: lower case, no punctuation, no filler, no 1-2 digit numbering (Lab 3 is Lab 4; STAT 3503 is not STAT 2509). */
-// Read-only sets shared across calls: guesses compare every task against every past choice on each render.
-// ponytail: cleared whole at the cap; an LRU only if titles churn past it.
 const MEANINGS = new Map<string, ReadonlySet<string>>();
 const MEANINGS_CAP = 5_000;
 
@@ -78,7 +63,6 @@ function readMeaning(title: string): Set<string> {
     return new Set(words);
 }
 
-/** Jaccard overlap of two titles' meaningful words. */
 export function similarity(a: ReadonlySet<string>, b: ReadonlySet<string>): number {
     if (a.size === 0 || b.size === 0) return 0;
     let both = 0;
@@ -86,10 +70,6 @@ export function similarity(a: ReadonlySet<string>, b: ReadonlySet<string>): numb
     return both / (a.size + b.size - both);
 }
 
-/**
- * Suggest an Effort for `title` from `evidence`, or nothing. Sparse, stale, unlike or contradictory history
- * abstains: a wrong guess costs more than a missing one.
- */
 export function suggestEffort(
     title: string,
     projectId: string | null,
@@ -99,7 +79,6 @@ export function suggestEffort(
     const query = meaningOf(title);
     const matches = evidence
         .map((e) => ({ e, sim: similarity(query, meaningOf(e.title)), age: daysBetweenLocal(e.day, today) }))
-        // A different list is a different context (another course, another project).
         .filter(
             ({ e, sim, age }) =>
                 sim >= MIN_SIMILARITY &&
@@ -110,7 +89,6 @@ export function suggestEffort(
         .sort((x, y) => y.sim - x.sim || x.age - y.age)
         .slice(0, MAX_EVIDENCE);
 
-    // An accepted suggestion is evidence about the suggestion, not the task: at least one choice must be the person's own.
     if (!matches.some(({ e }) => e.origin === "manual")) return null;
 
     const weight: Record<EffortLevel, number> = { 1: 0, 2: 0, 3: 0 };

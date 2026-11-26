@@ -1,23 +1,4 @@
-/*
- * LOADING SCREEN TOKENS
- *
- * Keyed off `data-loading-season` / `data-loading-mode` on <html>, which the
- * head boot script sets before first paint. The bare `.loading-screen` rule is
- * the date-free default: autumn twilight (Tsukimi night).
- *
- * `--ls-*` visibility tokens are `display` values that gate season/mode-only
- * elements, so the markup stays identical for every combination.
- *
- * Season × Mode:
- *   spring twilight — misty rain at dusk        spring daylight — overcast morning
- *   summer twilight — warm starlit night        summer daylight — golden afternoon
- *   autumn twilight — harvest-moon night        autumn daylight — amber golden hour
- *   winter twilight — cold moonlit snowscape    winter daylight — bright frosty morning
- */
-
-/* ── Autumn twilight (default) ── */
 .loading-screen {
-    /* Fire — fixed across seasons; the accent never colours flame */
     --loading-flame-core: #fff4d2;
     --loading-flame-mid: #ffc837;
     --loading-flame-edge: #ff8008;
@@ -29,7 +10,6 @@
     --loading-sky-zenith: #171638;
     --loading-sky-glow: #5a2a14;
     --loading-sky-plum: #221630;
-    /* Light hanging in the air along the horizon and pooled between the ranges: autumn's last sunset, spring's fog, summer's gold. Clear elsewhere. */
     --ls-afterglow: #b4562a;
     --ls-afterglow-core: #e59a52;
     --loading-haze-far: #3a2a3e;
@@ -49,7 +29,6 @@
     --loading-building-front-base: #5a2e1d;
     --loading-building-back-top: #0d090b;
     --loading-building-back-base: #3d201a;
-    /* Close values between neighbouring ridges: the crests separate by a soft step, not a hard line */
     --loading-mountain-far: #2c2232;
     --loading-mountain-mid: #241e30;
     --loading-mountain-near: #1d1a26;
@@ -58,7 +37,6 @@
     --loading-water-deep: #0d0a16;
     --loading-star-color: #ffffff;
     --loading-particle-color: #c4622a;
-    /* Night roofs: no sun on the tiles, so the tops sit a step darker; lanterns warm the eaves */
     --loading-roof-front-start: #a8421e;
     --loading-roof-front-end: #481507;
     --loading-roof-side-start: #571905;
@@ -66,13 +44,12 @@
     --loading-window-center: #fff1b8;
     --loading-window-edge: var(--loading-flame-edge);
 
-    /* Visibility gates */
     --ls-autumn: block;
     --ls-spring: none;
     --ls-summer: none;
     --ls-winter: none;
-    --ls-crowns: block; /* leafy crowns and the woods band: autumn + summer */
-    --ls-boughs: block; /* corner boughs: autumn + summer */
+    --ls-crowns: block;
+    --ls-boughs: block;
     --ls-night: block;
     --ls-key: block;
     --ls-lan-opt: block;
@@ -83,26 +60,21 @@
     --ls-spring-cloud: 0.2;
     --ls-window-glow-o: 0.4;
 
-    /* Derived */
     --ls-star-cool: #dfe8ff;
     --ls-star-warm: #ffe9c4;
-    /* Ridge bases fade into the sky glow behind them, so hills and sky share one atmosphere */
     --ls-far-base: color-mix(in srgb, var(--loading-mountain-far) 50%, var(--loading-sky-horizon));
     --ls-midfar-base: color-mix(in srgb, var(--loading-mountain-mid) 55%, var(--loading-mist-warm));
     --ls-near-base: color-mix(in srgb, var(--loading-mountain-near) 62%, var(--loading-mist-warm));
     --ls-distant-base: color-mix(in srgb, var(--loading-haze-far) 70%, var(--loading-sky-glow));
     --ls-shrine: color-mix(in srgb, var(--loading-haze-far) 72%, var(--loading-mountain-far));
-    /* A warm shade on the ridge face, never lighter than the ridge, or it reads as a rim line on the peaks */
     --ls-canopy: color-mix(in srgb, var(--loading-foliage-shade) 50%, var(--loading-mountain-mid));
     --ls-crown-lit: color-mix(in srgb, var(--loading-foliage-lit) 45%, var(--loading-foliage-shade));
-    /* Foreground boughs are nearest the viewer and furthest from every light: dark crimson, with a few moon-caught leaves */
     --ls-bough-leaf: color-mix(in srgb, var(--loading-foliage-lit) 32%, var(--loading-foliage-shade));
     --ls-bough-lit: color-mix(in srgb, var(--loading-foliage-lit) 56%, var(--loading-foliage-shade));
     --ls-ground: color-mix(in srgb, var(--loading-mountain-near) 78%, var(--loading-building-back-base));
     --ls-stone: color-mix(in srgb, var(--loading-building-back-base) 45%, var(--loading-mountain-near));
     --ls-window-dark: color-mix(in srgb, var(--loading-building-front-top) 70%, var(--loading-sky-mid));
     --ls-persimmon: color-mix(in srgb, var(--loading-foliage-lit) 75%, var(--loading-flame-mid));
-    /* The one sakura that blossoms in every season (the landing's tree), tinted by each season's night */
     --ls-petal: #f4c2d0;
     --ls-sakura-lit: color-mix(in srgb, #e0788c 58%, var(--ls-crown-lit));
     --ls-sakura-shade: color-mix(in srgb, #7a3a4c 35%, var(--loading-foliage-shade));
@@ -118,7 +90,6 @@
     --ls-lan-glow: color-mix(in srgb, var(--loading-flame-edge) 80%, var(--accent-primary, #ff9d00));
     --ls-ripple: color-mix(in srgb, var(--loading-water-top) 70%, var(--loading-rim));
 
-    /* Logo block — the accent fully drives the aura */
     --ls-aura-a: color-mix(in srgb, var(--accent-primary) 15%, transparent);
     --ls-aura-b: color-mix(in srgb, var(--accent-primary) 5%, transparent);
     --ls-aura-blend: screen;
@@ -130,7 +101,6 @@
     --ls-wordmark-halo: color-mix(in srgb, var(--loading-sky-zenith) 15%, transparent);
 }
 
-/* ── Spring twilight — warm rain at dusk: a veiled moon, fog in the valleys, the towns glowing through it ── */
 [data-loading-season="spring"] .loading-screen {
     --ls-afterglow: rgb(128 138 150 / 0.75);
     --ls-afterglow-core: rgb(176 166 156 / 0.6);
@@ -163,7 +133,6 @@
     --loading-roof-front-end: #403c48;
     --loading-roof-side-start: #55505e;
     --loading-roof-side-end: #201e28;
-    /* Blossom on the hill, dimmed by the rain */
     --loading-foliage-lit: #b98492;
     --loading-foliage-shade: #2a2536;
     --ls-autumn: none;
@@ -182,9 +151,7 @@
     --ls-star-warm: color-mix(in srgb, var(--loading-star-color) 60%, #ffe9c4);
 }
 
-/* ── Summer twilight — dusky summer evening, the sun low over olive hills (values sit halfway between the night scene and full daylight, so it stays in the app's key) ── */
 [data-loading-season="summer"] .loading-screen {
-    /* The low sun gilds the haze: gold on the horizon, never autumn's ember */
     --ls-afterglow: rgb(240 172 72 / 0.7);
     --ls-afterglow-core: rgb(255 222 150 / 0.7);
     --loading-sky-deep: #1a3858;
@@ -233,7 +200,6 @@
     --ls-wordmark-halo: color-mix(in srgb, var(--loading-sky-zenith) 36%, transparent);
 }
 
-/* ── Winter twilight — cold moonlit snowscape ── */
 [data-loading-season="winter"] .loading-screen {
     --ls-afterglow: transparent;
     --ls-afterglow-core: transparent;
@@ -268,7 +234,6 @@
     --loading-roof-side-end: #606878;
     --ls-autumn: none;
     --ls-winter: block;
-    /* Evergreens, frosted on the moon side */
     --loading-foliage-lit: #214840;
     --loading-foliage-shade: #0b1a22;
     --ls-boughs: none;
@@ -285,7 +250,6 @@
     --ls-star-warm: color-mix(in srgb, var(--loading-star-color) 60%, #ffe9c4);
 }
 
-/* ── Daylight (every season) ── */
 [data-loading-mode="daylight"] .loading-screen {
     --ls-afterglow: transparent;
     --ls-afterglow-core: transparent;
@@ -307,7 +271,6 @@
     --ls-wordmark-halo: color-mix(in srgb, var(--loading-sky-glow) 88%, transparent);
 }
 
-/* ── Spring daylight — overcast rainy morning ── */
 [data-loading-mode="daylight"][data-loading-season="spring"] .loading-screen {
     --loading-sky-deep: #7a8e9e;
     --loading-sky-mid: #98aab8;
@@ -343,7 +306,6 @@
     --loading-window-edge: #a0b0c0;
 }
 
-/* ── Summer daylight — golden afternoon, bright sky ── */
 [data-loading-mode="daylight"][data-loading-season="summer"] .loading-screen {
     --loading-sky-deep: #4a90c8;
     --loading-sky-mid: #68acd8;
@@ -377,7 +339,6 @@
     --ls-key: block;
 }
 
-/* ── Autumn daylight — amber golden hour ── */
 [data-loading-mode="daylight"][data-loading-season="autumn"] .loading-screen {
     --loading-sky-deep: #7a6030;
     --loading-sky-mid: #b88838;
@@ -414,7 +375,6 @@
     --loading-window-edge: #d8a850;
 }
 
-/* ── Winter daylight — bright frosty morning ── */
 [data-loading-mode="daylight"][data-loading-season="winter"] .loading-screen {
     --loading-sky-deep: #8aa8c0;
     --loading-sky-mid: #a8c0d8;

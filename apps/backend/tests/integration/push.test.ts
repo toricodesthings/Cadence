@@ -57,7 +57,6 @@ async function registerBrowser(env: TestEnv, userId: string, label = "Chrome on 
     return device;
 }
 
-/** A user with notifications on, one registered browser, and a clock in Toronto. */
 async function subscriber(env: TestEnv, notifications: Record<string, unknown> = {}) {
     const userId = await createUser({
         zone: "America/Toronto",
@@ -69,7 +68,7 @@ async function subscriber(env: TestEnv, notifications: Record<string, unknown> =
 const remind = (userId: string, title: string, at: string) =>
     sql("INSERT INTO tasks (user_id, title, order_index, reminder_at) VALUES ($1, $2, 1, $3)", [userId, title, at]);
 
-const NOW = new Date("2026-10-07T15:00:30Z"); // 11:00 in Toronto
+const NOW = new Date("2026-10-07T15:00:30Z");
 
 function pushService(status = 201) {
     const calls: string[] = [];
@@ -115,7 +114,6 @@ describe("devices", () => {
                 push: false,
             }),
         ]);
-        // Nothing to push to: the test must say so rather than pretend it sent one.
         expect((await api(userId, env)("POST", "/test", { installId })).status).toBe(409);
     });
 
@@ -154,13 +152,11 @@ describe("devices", () => {
         const endpoint = endpointFor();
         const body = { installId, kind: "computer", label: "Chrome", subscription: { endpoint, keys: await keys() } };
         await api(first, env)("PUT", "/devices", body);
-        // The browser resubscribes with a new endpoint: the same device, not a second one.
         await api(first, env)("PUT", "/devices", {
             ...body,
             subscription: { endpoint: endpointFor(), keys: await keys() },
         });
         expect((await api(first, env)("GET", "/devices")).body.data).toHaveLength(1);
-        // Someone else signs into that browser: the endpoint moves with it.
         await api(second, env)("PUT", "/devices", body);
         expect(await sql("SELECT user_id FROM devices WHERE endpoint = $1", [endpoint])).toEqual([{ user_id: second }]);
     });
@@ -175,7 +171,6 @@ describe("devices", () => {
         const listed = (await api(userId, env)("GET", "/devices")).body.data;
         expect(listed.find((d: any) => d.installId === installId).enabled).toBe(false);
         expect(listed.find((d: any) => d.installId === other.installId).enabled).toBe(true);
-        // A later visit from that browser must not silently switch it back on.
         await api(userId, env)("PUT", "/devices", { installId, kind: "computer", label: "Chrome on Windows" });
         expect(
             (await api(userId, env)("GET", "/devices")).body.data.find((d: any) => d.installId === installId).enabled,
@@ -205,7 +200,6 @@ describe("devices", () => {
     });
 });
 
-/** A person's clock over in-memory Durable Object storage; `alarm` is where it last armed itself. */
 function clockFor(env: TestEnv) {
     vi.stubGlobal(
         "WebSocketRequestResponsePair",
@@ -253,7 +247,6 @@ function clockFor(env: TestEnv) {
     };
 }
 
-/** A write happened (rebuild at `at`), then the alarm went off at `fireAt`. */
 async function replanAndFire(env: TestEnv, userId: string, at: Date, fireAt: Date = at) {
     const c = clockFor(env);
     await c.clock.replan(userId, at);
@@ -261,7 +254,6 @@ async function replanAndFire(env: TestEnv, userId: string, at: Date, fireAt: Dat
     return c;
 }
 
-/** A `REMINDER_CLOCK` binding that records whose clock was asked to rebuild. */
 function clockNamespace(replanned: string[], live: unknown[] = []) {
     return {
         idFromName: (name: string) => name,
@@ -314,7 +306,6 @@ describe("reminder clock", () => {
         const calls = pushService();
         const { clock, plan } = clockFor(env);
         await clock.replan(userId, NOW);
-        // The routine's 14:00 (15 min lead) today and tomorrow, all inside the 7-day plan.
         const planned = plan().entries.map((e) => new Date(e.at).toISOString());
         expect(planned.slice(0, 4)).toEqual([
             "2026-10-07T17:00:00.000Z",
@@ -322,7 +313,7 @@ describe("reminder clock", () => {
             "2026-10-07T17:45:00.000Z",
             "2026-10-08T17:45:00.000Z",
         ]);
-        expect(planned).toContain("2026-10-13T17:45:00.000Z"); // day 6 is planned too
+        expect(planned).toContain("2026-10-13T17:45:00.000Z");
 
         await sql("UPDATE tasks SET reminder_at = '2026-10-07T19:00:00Z' WHERE user_id = $1 AND title = 'Moved'", [
             userId,
@@ -348,7 +339,7 @@ describe("reminder clock", () => {
             [userId],
         );
         const calls = pushService();
-        await replanAndFire(env, userId, NOW); // no log exists yet today
+        await replanAndFire(env, userId, NOW);
         expect(count(calls, endpoint)).toBe(1);
     });
 
@@ -385,15 +376,12 @@ describe("reminder clock", () => {
         const db = (await import("../helpers/db")).getTestDb();
         const idsFor = async (u: string) => JSON.stringify((await loadReminderPlan(db, u, NOW))?.entries ?? []);
 
-        // Owner has notify=false, member has notify=true -> member gets it, owner doesn't.
         expect(await idsFor(member)).toContain(`personal-event::${id}::2026-10-08`);
         expect(await idsFor(owner)).not.toContain(`personal-event::${id}`);
 
-        // Member turns off their own notify -> none.
         await sql("UPDATE event_members SET notify = false WHERE event_id = $1 AND user_id = $2", [id, member]);
         expect(await idsFor(member)).not.toContain(`personal-event::${id}`);
 
-        // Member turns notify back on, then hides personal events from calendar -> none.
         await sql("UPDATE event_members SET notify = true WHERE event_id = $1 AND user_id = $2", [id, member]);
         await sql(
             "UPDATE users SET settings = jsonb_set(settings, '{calendar}', '{\"personalEvents\":{\"enabled\":false}}') WHERE id = $1",
@@ -419,13 +407,11 @@ describe("reminder clock", () => {
         const keysFor = async (u: string) =>
             ((await loadReminderPlan(db, u, NOW))?.entries ?? []).map((e) => e.key).join(",");
 
-        // On 2026-10-07 (NOW), it's owner's turn -> owner gets 10-07, Sam gets 10-08 (not 10-07), Kai (supporter) gets none.
         expect(await keysFor(owner)).toContain(`habit-reminder::${id}::2026-10-07`);
         expect(await keysFor(sam)).not.toContain(`habit-reminder::${id}::2026-10-07`);
         expect(await keysFor(sam)).toContain(`habit-reminder::${id}::2026-10-08`);
         expect(await keysFor(kai)).not.toContain(`habit-reminder::${id}`);
 
-        // Sam covers owner's 2026-10-07 turn -> owner's 2026-10-07 reminder disappears.
         await sql(
             "INSERT INTO habit_logs (habit_id, user_id, status, target_date) VALUES ($1, $2, 'COMPLETED', '2026-10-07')",
             [id, sam],
@@ -482,7 +468,7 @@ describe("reminder clock", () => {
         const calls = pushService();
         const { clock, state } = await replanAndFire(env, userId, NOW);
         expect(calls).toEqual([]);
-        expect(state.alarm).toBe(Date.parse("2026-10-07T16:00:00Z")); // 12:00 in Toronto
+        expect(state.alarm).toBe(Date.parse("2026-10-07T16:00:00Z"));
         await clock.fire(new Date(state.alarm!));
         expect(count(calls, endpoint)).toBe(1);
     });
@@ -496,7 +482,7 @@ describe("reminder clock", () => {
                 [userId, start, start],
             );
         const early = await subscriber(env);
-        await block(early.userId, "2026-10-07T15:10:00Z"); // starts in 10 min (default lead 10)
+        await block(early.userId, "2026-10-07T15:10:00Z");
         const tooFar = await subscriber(env);
         await block(tooFar.userId, "2026-10-07T15:40:00Z");
         const paused = await subscriber(env, { pausedUntil: "2026-10-07T16:00:00Z" });
@@ -510,7 +496,6 @@ describe("reminder clock", () => {
     it("keeps a repeating block's local time across the DST change", async () => {
         const env = await vapidEnv();
         const { userId } = await subscriber(env);
-        // Daily 09:00 in Toronto; Nov 1 2026 falls back from EDT (-4) to EST (-5).
         await sql(
             "INSERT INTO tasks (user_id, title, order_index, scheduled_start, scheduled_end, zone, recurrence_rule) VALUES ($1, 'Class', 1, '2026-10-30T13:00:00Z', '2026-10-30T14:00:00Z', 'America/Toronto', 'FREQ=DAILY')",
             [userId],
@@ -559,14 +544,14 @@ describe("reminder clock", () => {
             [userId],
         );
         const calls = pushService();
-        const { clock } = await replanAndFire(env, userId, NOW); // 11:00: the 09:00 alert is still owed today
+        const { clock } = await replanAndFire(env, userId, NOW);
         expect(count(calls, endpoint)).toBe(1);
         const [{ id: taskId }] = await sql("SELECT id FROM tasks WHERE user_id = $1", [userId]);
         await sql(
             "INSERT INTO notification_state (user_id, object_type, object_id, trigger_id, deferred_until) VALUES ($1, 'task', $2, $3, '2026-10-07T20:00:00Z')",
             [userId, taskId, `task-due::${taskId}::2026-10-07`],
         );
-        await clock.replan(userId, NOW); // the snooze is a write
+        await clock.replan(userId, NOW);
         await clock.fire(new Date("2026-10-07T20:00:30Z"));
         expect(count(calls, endpoint)).toBe(2);
     });
@@ -587,7 +572,6 @@ describe("reminder clock", () => {
     it("backs off a rebuild that keeps failing, never sooner than 5 minutes, and resets once one succeeds", async () => {
         const env = await vapidEnv();
         const { clock, state, data } = clockFor(env);
-        // An expired plan for an id Postgres rejects: every rebuild throws.
         await state.storage.put({ userId: "not-a-uuid", plan: { targets: [], entries: [], until: 0 } });
         const start = Date.now();
         await clock.alarm();
@@ -622,7 +606,6 @@ describe("reminder clock", () => {
         await clock.replan(userId, NOW);
         const firing = clock.fire(NOW);
         await vi.waitFor(() => expect(calls).toHaveLength(1));
-        // A delete lands mid-send and rebuilds the clock.
         await sql("DELETE FROM tasks WHERE user_id = $1 AND title = 'Deleted'", [userId]);
         await clock.replan(userId, NOW);
         release();
@@ -679,7 +662,7 @@ describe("reminder clock", () => {
         for (let minute = 0; minute < 4; minute++) await clock.fire(later(minute * 60_000));
         expect(count(calls, endpoint)).toBe(3);
         expect(count(calls, other.endpoint)).toBe(1);
-        expect(state.alarm).toBe(later(7 * 24 * 3600_000).getTime()); // no retry left: only the plan's end
+        expect(state.alarm).toBe(later(7 * 24 * 3600_000).getTime());
     });
 
     it("doesn't resend what the old minute cron already sent today", async () => {
@@ -709,7 +692,6 @@ describe("reminder clock", () => {
         await clock.forget();
         expect(state.alarm).toBeNull();
         expect(data.size).toBe(0);
-        // The deletion request's own replan (or any late write) runs after the account is gone: it keeps nothing either.
         await sql("DELETE FROM users WHERE id = $1", [userId]);
         await clock.replan(userId, NOW);
         expect(state.alarm).toBeNull();
@@ -734,7 +716,6 @@ describe("reminder clock", () => {
         expect(sockets[0].send.mock.calls).toEqual([['{"v":1}'], ['{"v":2}']]);
         expect(data.get("liveVersion")).toBe(2);
 
-        // No VAPID: the plan goes, the version and the sockets stay.
         const bare = clockFor({ ...env, VAPID_PRIVATE_KEY: undefined } as never);
         bare.sockets.push({ send: vi.fn(), close: vi.fn() });
         await bare.clock.replan(userId, NOW);
@@ -742,7 +723,7 @@ describe("reminder clock", () => {
         expect(bare.sockets[0].send.mock.calls).toEqual([['{"v":1}'], ['{"v":2}']]);
         expect(bare.sockets[0].close).not.toHaveBeenCalled();
         expect(bare.data.get("liveVersion")).toBe(2);
-        expect(bare.data.has("userId")).toBe(false); // nothing to send, so no account id kept
+        expect(bare.data.has("userId")).toBe(false);
     });
 
     it("doesn't ping the copy of Cadence that wrote, and a quiet replan pings nobody", async () => {
@@ -764,7 +745,7 @@ describe("reminder clock", () => {
         const env = await vapidEnv();
         const { clock, state, data } = clockFor(env);
         const start = Date.now();
-        await clock.replan("not-a-uuid", NOW); // Postgres rejects it: the rebuild fails, but the write's replan doesn't throw
+        await clock.replan("not-a-uuid", NOW);
         expect(data.get("stale")).toBe(true);
         expect(data.get("failures")).toBe(1);
         expect(state.alarm).toBeGreaterThanOrEqual(start + 5 * 60_000);
@@ -832,7 +813,6 @@ describe("what rebuilds a clock", () => {
             );
         await Promise.all(pending);
         expect(replanned).toEqual(["someone", "someone", "someone", "someone"]);
-        // The writer is named so it isn't pinged; a device's hello replans (who gets reminders) without a ping.
         expect(live).toEqual([
             { origin: "tab-1", quiet: false },
             { origin: "tab-1", quiet: false },
@@ -890,7 +870,6 @@ describe("what rebuilds a clock", () => {
 });
 
 describe("live reconnect tickets", () => {
-    /** WebSocketPair and a 101 Response exist only in the Workers runtime: stand-ins that record what the clock did. */
     function socketRuntime() {
         const opened: Array<{ sent: string[]; closed?: number; accepted: boolean }> = [];
         vi.stubGlobal(
@@ -966,7 +945,7 @@ describe("live reconnect tickets", () => {
         expect(ticket).toMatch(/^t\.8b1f3a4e-0000-4000-8000-000000000001\.[0-9a-f]{32}$/);
 
         await open(clock, ticket, "ticket");
-        expect(JSON.parse(opened[1].sent[0])).toEqual({ v: 0 }); // no new ticket for a ticket
+        expect(JSON.parse(opened[1].sent[0])).toEqual({ v: 0 });
         expect(accepted).toHaveLength(2);
 
         await open(clock, `${ticket.slice(0, -1)}${ticket.endsWith("0") ? "1" : "0"}`, "ticket");
@@ -1072,7 +1051,7 @@ describe("clock edges", () => {
     it("an alarm that throws re-arms itself with a growing backoff instead of stopping", async () => {
         const env = await vapidEnv();
         const { clock, state, data } = clockFor(env);
-        await state.storage.put("userId", "not-a-uuid"); // the rebuild this triggers fails in Postgres
+        await state.storage.put("userId", "not-a-uuid");
         const before = Date.now();
         await clock.alarm();
         expect(data.get("failures")).toBe(1);
@@ -1097,11 +1076,11 @@ describe("clock edges", () => {
         const env = await vapidEnv();
         const { userId } = await subscriber(env);
         const { clock, data } = clockFor(env);
-        const outcomes = { "not-a-uuid": { failures: 1 } }; // settleOutcomes writes this to Postgres and fails
+        const outcomes = { "not-a-uuid": { failures: 1 } };
         data.set("outcomes", outcomes);
         await clock.replan(userId, NOW);
         expect(data.get("stale")).toBe(true);
-        expect(data.get("outcomes")).toMatchObject(outcomes); // not lost: merged back for the retry
+        expect(data.get("outcomes")).toMatchObject(outcomes);
     });
 
     it("closes a socket once the client has gone, mapping abnormal codes to a normal close", () => {

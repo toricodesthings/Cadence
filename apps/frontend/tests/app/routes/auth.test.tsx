@@ -90,7 +90,6 @@ describe("auth route", () => {
         const { publishAuthState } = renderAuthPage("/auth/callback?redirectTo=/today");
         await act(() => vi.advanceTimersByTimeAsync(1_000));
         expect(authState.beginAuthRecovery).toHaveBeenCalledTimes(2);
-        // Simulate the shared provider publishing the recovered identity.
         publishAuthState();
         expect(screen.getByText("Workspace")).toBeTruthy();
     });
@@ -150,6 +149,21 @@ describe("auth route", () => {
         expect(link.getAttribute("href")).toBe("/auth/sign-up?redirectTo=%2Fjoin%2Fabc");
     });
 
+    it("opens a share link's sign-up with why they're here, and keeps the link on the way back to sign-in", () => {
+        renderAuthPage("/auth/sign-up?redirectTo=%2Fjoin%2Fabc");
+        expect(screen.getByText("Make an account to see what was shared with you.")).toBeTruthy();
+        const link = screen.getByRole("link", { name: "Sign in" });
+        expect(link.getAttribute("href")).toBe("/auth/sign-in?redirectTo=%2Fjoin%2Fabc");
+    });
+
+    it("says the same on sign-in from a share link, and nothing about sharing otherwise", () => {
+        const { unmount } = renderAuthPage("/auth/sign-in?redirectTo=%2Fjoin%2Fabc");
+        expect(screen.getByText("Sign in to see what was shared with you.")).toBeTruthy();
+        unmount();
+        renderAuthPage("/auth/sign-in?redirectTo=%2Ftoday");
+        expect(screen.getByText("Pick up where you left off.")).toBeTruthy();
+    });
+
     it("swaps to the sign-up editorial heading without reintroducing marketing split copy", () => {
         renderAuthPage("/auth/sign-up");
 
@@ -166,7 +180,6 @@ describe("auth route", () => {
         expect(social.matches(":disabled")).toBe(true);
         fireEvent.click(screen.getByRole("checkbox", { name: /accept the Terms of Service and Privacy Policy/ }));
         expect(social.matches(":disabled")).toBe(false);
-        // The ticks survive the round trip through Google/GitHub so the new account isn't asked again
         expect(takeSignUpTicks()).not.toBeNull();
         unmount();
 

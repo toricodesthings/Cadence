@@ -12,31 +12,19 @@ const DAYS_FULL = weekdayLabels(3);
 interface CalendarGridProps {
     year: number;
     month: number;
-    /** The selected day, or "" for none */
     selectedDate: LocalDate | "";
     datesWithTasks: Set<LocalDate>;
-    /** Days that have holidays (show a warmer ember marker) */
     holidayDays?: Set<LocalDate>;
-    /** The user's birthday this year (if it falls in this month) */
     birthdayDate?: LocalDate | null;
-    /** Days that have personal events (show a warm rose marker) */
     personalEventDays?: Set<LocalDate>;
-    /** Count of personal events per day for density-aware markers */
     personalEventCountsByDay?: Record<LocalDate, number>;
     onSelectDate: (day: LocalDate) => void;
-    /** "compact" = sidebar/picker, "full" = schedule page */
     variant?: "compact" | "full";
-    /**
-     * Full variant only — tasks grouped by LocalDate.
-     * Used to render CalendarTaskChip inside each cell.
-     */
     tasksByDay?: Record<LocalDate, Task[]>;
     onSelectTask?: (taskId: string) => void;
-    /** Right-click callback for creating a task via popover */
     onContextAdd?: (info: CalendarEventInfo) => void;
 }
 
-/** 7-column grid of calendar day cells — adapts to compact or full layout */
 export function CalendarGrid({
     year,
     month,
@@ -71,7 +59,6 @@ export function CalendarGrid({
 
     return (
         <div className={isCompact ? "" : "h-full flex flex-col"}>
-            {/* Day-of-week headers */}
             <div className="grid grid-cols-7 mb-1 shrink-0">
                 {dayLabels.map((d) => (
                     <div
@@ -88,7 +75,6 @@ export function CalendarGrid({
                 ))}
             </div>
 
-            {/* Day cells */}
             <div className={`grid grid-cols-7 ${isCompact ? "grid-rows-6 gap-0.5" : "gap-1.5 flex-1 auto-rows-[1fr]"}`}>
                 {cells.map((day, i) => (
                     <CalendarDayCell

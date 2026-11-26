@@ -4,7 +4,6 @@ import { requestReplay, toRequests } from "./mutation-executor";
 import { isNetworkFailure } from "../../types/api";
 import { isSessionHeld } from "./client";
 
-/** Writes to one entity run in order, so an edit never overtakes the create it depends on. */
 const lastWriteById = new Map<string, Promise<unknown>>();
 
 function afterPreviousWrites<T>(ids: string[], write: () => Promise<T>): Promise<T> {
@@ -19,13 +18,11 @@ function afterPreviousWrites<T>(ids: string[], write: () => Promise<T>): Promise
     return next;
 }
 
-/** Queued changes must land first, or this one could reach the server out of order. */
 function mustQueue(op: MutationOp): boolean {
     const ids = new Set(walTargetIds(op));
     return getWalSnapshot().some((e) => e.status !== "failed" || walTargetIds(e.op).some((id) => ids.has(id)));
 }
 
-/** Chromium only (Android): lets the service worker replay after the app is closed. */
 function registerBackgroundSync() {
     void navigator.serviceWorker
         ?.getRegistration()
@@ -45,15 +42,6 @@ async function enqueue(op: MutationOp) {
     requestReplay();
 }
 
-/**
- * Wraps a mutation function to support offline queueing.
- *
- * Online: calls the API function directly. Offline, on a network failure (weak
- * signal, timeout), before a warm start's session check answers, or while earlier changes wait in the queue: serializes the
- * operation to the durable WAL and returns `undefined`. 4xx/5xx answers still throw.
- *
- * Hooks should guard `onSuccess` against undefined results (queued case).
- */
 export function withOfflineSupport<TInput, TResult>(
     toOp: (input: TInput) => MutationOp,
     apiFn: (input: TInput) => Promise<TResult>,
@@ -61,7 +49,6 @@ export function withOfflineSupport<TInput, TResult>(
     return (input: TInput) => {
         const op = toOp(input);
         return afterPreviousWrites(walTargetIds(op), async () => {
-            // Before the session check answers a warm start, writes queue and replay once it does.
             if (!navigator.onLine || isSessionHeld() || mustQueue(op)) {
                 await enqueue(op);
                 return undefined;
@@ -77,7 +64,6 @@ export function withOfflineSupport<TInput, TResult>(
     };
 }
 
-/** A write that was queued (not answered, not failed): skip the refetch, or it would show the server's older copy until the queue syncs. */
 export function wasQueued(data: unknown, error: unknown): boolean {
     return data === undefined && !error;
 }

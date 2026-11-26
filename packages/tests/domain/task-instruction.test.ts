@@ -9,7 +9,7 @@ import {
     undoPatch,
 } from "@cadence/domain/task-instruction";
 
-const CLOCK = { today: "2026-10-06", now: "10:00", weekStart: "Sunday" as const }; // a Tuesday
+const CLOCK = { today: "2026-10-06", now: "10:00", weekStart: "Sunday" as const };
 const CAPS = new Set<DraftField>([
     "dueDate",
     "scheduledStart",

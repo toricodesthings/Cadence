@@ -10,7 +10,6 @@ import {
     WATER_D,
 } from "./loading-geometry";
 
-/** Rounded paper sky lantern, lit from within: soft stops, no dark rim, so it reads painted rather than photographic. */
 const LANTERN_BODY = "M -17,-26 Q 0,-33 17,-26 Q 19,-4 13,15 Q 0,19 -13,15 Q -19,-4 -17,-26 Z";
 const LANTERN_BODIES: Record<string, readonly [string, string, string, string]> = {
     amber: ["#FFF2C4", "var(--loading-flame-mid)", "#F7A03A", "#E4782C"],
@@ -25,9 +24,7 @@ const BULBS: readonly (readonly [number, number, number])[] = [
     [200, 35, 3],
     [250, 20, 3],
 ];
-/** Winter: every bulb on the string lights takes a colour. */
 const BULB_COLORS = ["#ff5a4a", "#9be27a", "#ffd166", "#7fd0ff", "#ff5a4a"];
-/** A swag of fir under an eave: [x0, x1, y, loops]; a red bow where each loop is pinned. */
 const garland = (x0: number, x1: number, y: number, loops: number) => {
     const w = (x1 - x0) / loops;
     return {
@@ -71,11 +68,9 @@ const radial = (id: string, color: string, stops: readonly (readonly [number, nu
     </radialGradient>
 );
 
-/** Shared scene defs. Lives in the backdrop SVG inside `.loading-screen` so token `var()`s in stops resolve; never hide it. */
 export function LoadingDefs() {
     return (
         <defs>
-            {/* Sky */}
             <radialGradient id="sky-grad" cx="50%" cy="100%" r="100%">
                 <stop offset="0%" stopColor="var(--loading-sky-horizon)" />
                 <stop offset="30%" stopColor="var(--loading-sky-mid)" />
@@ -88,19 +83,16 @@ export function LoadingDefs() {
                 <stop offset=".7" stopColor="var(--loading-sky-glow)" stopOpacity=".32" />
                 <stop offset="1" stopColor="var(--loading-sky-glow)" stopOpacity=".6" />
             </linearGradient>
-            {/* Town light lifting into the haze: hugs the ridge line instead of filling the mid-sky like a sunset */}
             <radialGradient id="ls-sky-glow" gradientUnits="userSpaceOnUse" cx="960" cy="830" r="600">
                 <stop offset="0" stopColor="var(--loading-sky-glow)" stopOpacity=".8" />
                 <stop offset=".4" stopColor="var(--loading-sky-glow)" stopOpacity=".32" />
                 <stop offset="1" stopColor="var(--loading-sky-glow)" stopOpacity="0" />
             </radialGradient>
-            {/* One key light for the whole landscape: cool moonlight falling off from the moon, laid over every ridge */}
             <radialGradient id="ls-moonlight" gradientUnits="userSpaceOnUse" cx="560" cy="300" r="1150">
                 <stop offset="0" stopColor="var(--loading-rim)" stopOpacity=".17" />
                 <stop offset=".4" stopColor="var(--loading-rim)" stopOpacity=".07" />
                 <stop offset="1" stopColor="var(--loading-rim)" stopOpacity="0" />
             </radialGradient>
-            {/* Lantern bounce off the near hill's lower flanks, behind the houses */}
             <linearGradient id="ls-town-bounce" gradientUnits="userSpaceOnUse" x1="0" y1="1080" x2="0" y2="780">
                 <stop offset="0" stopColor="var(--loading-flame-edge)" stopOpacity=".32" />
                 <stop offset=".3" stopColor="var(--loading-flame-edge)" stopOpacity=".14" />
@@ -110,7 +102,6 @@ export function LoadingDefs() {
                 <stop offset="0" stopColor="var(--loading-sky-zenith)" stopOpacity="0" />
                 <stop offset="1" stopColor="var(--loading-sky-zenith)" stopOpacity=".34" />
             </linearGradient>
-            {/* Moon is upper-left: the town's right-hand clusters sit a step into shadow with a night-blue cast; the hero cluster deeper still */}
             <filter id="ls-shade-r" colorInterpolationFilters="sRGB">
                 <feComponentTransfer>
                     <feFuncR type="linear" slope=".84" />
@@ -133,7 +124,6 @@ export function LoadingDefs() {
                 <rect width="1920" height="640" fill="url(#ls-star-fade)" />
             </mask>
 
-            {/* Key light (moon / sun) */}
             {radial("ls-key-halo-wide", "var(--loading-key)", [
                 [0, 0.05],
                 [0.5, 0.02],
@@ -155,8 +145,6 @@ export function LoadingDefs() {
                 <stop offset="1" stopColor="var(--loading-key-edge)" stopOpacity=".12" />
             </linearGradient>
 
-            {/* Landscape — each ridge's base lightens into the mist below it */}
-            {/* A summit's faces (bounding-box units, so one pair serves every peak): moonlit, and in its own shadow */}
             <linearGradient id="ls-face-lit" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0" stopColor="var(--loading-rim)" stopOpacity=".2" />
                 <stop offset=".85" stopColor="var(--loading-rim)" stopOpacity="0" />
@@ -165,7 +153,6 @@ export function LoadingDefs() {
                 <stop offset="0" stopColor="var(--loading-sky-zenith)" stopOpacity=".42" />
                 <stop offset=".85" stopColor="var(--loading-sky-zenith)" stopOpacity="0" />
             </linearGradient>
-            {/* Winter: snow lying on a summit's faces, and on the open hills from the crest down */}
             <linearGradient id="ls-snow-face" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0" stopColor="var(--ls-snow)" stopOpacity=".5" />
                 <stop offset=".8" stopColor="var(--ls-snow)" stopOpacity="0" />
@@ -178,7 +165,6 @@ export function LoadingDefs() {
                 <stop offset="0" stopColor="var(--ls-snow)" stopOpacity=".34" />
                 <stop offset="1" stopColor="var(--ls-snow)" stopOpacity=".06" />
             </linearGradient>
-            {/* Sunset haze pooled between the ranges (autumn dusk only; the token is transparent elsewhere) */}
             <linearGradient id="ls-haze-far" gradientUnits="userSpaceOnUse" x1="0" y1="540" x2="0" y2="800">
                 <stop offset="0" stopColor="var(--ls-afterglow)" stopOpacity="0" />
                 <stop offset=".6" stopColor="var(--ls-afterglow)" stopOpacity=".2" />
@@ -189,7 +175,6 @@ export function LoadingDefs() {
                 <stop offset=".7" stopColor="var(--ls-afterglow)" stopOpacity=".22" />
                 <stop offset="1" stopColor="var(--ls-afterglow)" stopOpacity=".3" />
             </linearGradient>
-            {/* The afterglow itself: a low ember band on the horizon, hottest behind the saddle */}
             <radialGradient
                 id="ls-afterglow"
                 gradientUnits="userSpaceOnUse"
@@ -242,7 +227,6 @@ export function LoadingDefs() {
                 ];
             })}
 
-            {/* Water */}
             <linearGradient id="water-grad" gradientUnits="userSpaceOnUse" x1="0" y1="965" x2="0" y2="1080">
                 <stop offset="0" stopColor="var(--loading-water-top)" stopOpacity=".95" />
                 <stop offset=".4" stopColor="var(--loading-water-mid)" stopOpacity=".98" />
@@ -272,7 +256,6 @@ export function LoadingDefs() {
                 <rect x="-20" y="950" width="1960" height="140" fill="url(#ls-ripple-gaps)" />
             </mask>
 
-            {/* Architecture */}
             <linearGradient id="wood-front" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--loading-building-front-base)" />
                 <stop offset="100%" stopColor="var(--loading-building-front-top)" />
@@ -317,7 +300,6 @@ export function LoadingDefs() {
                 />
             </pattern>
 
-            {/* Fire — fixed flame tokens, the accent only tints ≤20% of the lantern outer glow */}
             {radial("ls-bulb-glow", "var(--loading-flame-mid)", [
                 [0, 0.55],
                 [0.4, 0.2],
@@ -362,7 +344,6 @@ export function LoadingDefs() {
                     <stop offset="100%" stopColor={d} />
                 </radialGradient>
             ))}
-            {/* Logo halo rings — accent at the head of each arc, fading to moon-white and out */}
             <linearGradient id="ls-halo-grad" x1="0" y1="0" x2="1" y2="1">
                 <stop offset="0" stopColor="var(--accent-primary, #FFD166)" stopOpacity=".95" />
                 <stop offset=".55" stopColor="var(--loading-key)" stopOpacity=".4" />
@@ -374,13 +355,11 @@ export function LoadingDefs() {
                 <stop offset=".5" stopColor="var(--ls-cloud-top)" stopOpacity=".5" />
                 <stop offset="1" stopColor="var(--ls-cloud-top)" stopOpacity="0" />
             </linearGradient>
-            {/* Clouds — moonlit tops, underside warmed by the town glow */}
             <linearGradient id="ls-cloud-grad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0" stopColor="var(--ls-cloud-top)" />
                 <stop offset=".35" stopColor="var(--ls-cloud-top)" />
                 <stop offset="1" stopColor="var(--ls-cloud-base)" />
             </linearGradient>
-            {/* Specular rim: bright along the crest, gone by the underside (liquid-glass edge) */}
             <linearGradient id="ls-cloud-edge" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0" stopColor="var(--ls-cloud-rim)" stopOpacity=".85" />
                 <stop offset=".45" stopColor="var(--ls-cloud-rim)" stopOpacity=".2" />
@@ -399,7 +378,6 @@ export function LoadingDefs() {
             {blur("ls-blur-cloud", 1.1)}
             {blur("ls-blur-leaf", 0.9)}
 
-            {/* Sky lanterns: shared parts (faint paper ribs, inner light, flat rim, open base with its flame), three body colours, outer glow for far sprites */}
             <g id="lan-parts">
                 <path
                     d="M -7,-28 Q -9,-6 -10,16 M 7,-28 Q 9,-6 10,16 M 0,-29.5 V 17.5"
@@ -428,7 +406,6 @@ export function LoadingDefs() {
             ))}
             <circle id="lan-glow" cx="0" cy="5" r="40" fill="url(#lantern-glow-outer)" />
 
-            {/* Windows — glow is baked as a radial halo, no drop-shadow filters */}
             <g id="window-3d">
                 <ellipse cx="8" cy="12" rx="17" ry="19" fill="url(#ls-window-glow)" />
                 <rect width="16" height="24" fill="#140804" />
@@ -449,12 +426,10 @@ export function LoadingDefs() {
                 <polygon points="2,2 10,-2 10,16 2,20" fill="var(--ls-window-dark)" opacity="0.8" />
             </g>
 
-            {/* Roof ridges facing the moon, for the key-light highlight on the left-hand (moon-side) buildings */}
             <path id="ba-ridge" d="M-15,-5 L5,-40 Q40,-30 75,-40 L130,-65" />
             <path id="bb-ridge" d="M-5,-20 L25,-75 Q75,-60 125,-75 L195,-110 M-25,100 L10,40 M140,40 L225,0" />
             <path id="bc-ridge" d="M-20,0 L20,-60 Q100,-45 180,-60 L250,-90" />
 
-            {/* Buildings: shells (walls, roofs, cool moon rim on top/left roof edges) + lit / partly-unlit window sets */}
             <g id="ba-shell">
                 <polygon points="0,0 80,0 80,90 0,90" fill="url(#wood-front)" />
                 <polygon points="80,0 130,-25 130,65 80,90" fill="url(#wood-side)" />
@@ -484,7 +459,6 @@ export function LoadingDefs() {
                 <path d="M 220,0 L 290,-35 L 250,-90 L 180,-60 Z" fill="url(#roof-side)" />
                 <path d="M-20,0 L20,-60 Q100,-45 180,-60 L250,-90" {...ROOF_RIM} />
             </g>
-            {/* Winter decorations: a fir wreath with a red bow and berries, and garlands pinned with bows */}
             <g id="ls-wreath">
                 <circle r="7" fill="none" stroke="var(--ls-fir)" strokeWidth="4.6" />
                 <circle r="7" fill="none" stroke="var(--ls-fir-lit)" strokeWidth="2.2" strokeDasharray="2.4 2" />
@@ -588,14 +562,12 @@ export function LoadingDefs() {
                 </g>
             </g>
 
-            {/* Autumn motifs */}
             <path id="ls-crown-shape" d={CROWN} />
             <use id="ls-crown" href="#ls-crown-shape" fill="url(#ls-crown-grad)" />
             <g id="ls-crown-rimmed">
                 <use href="#ls-crown-shape" x="-1.8" y="-1.8" fill="var(--loading-rim)" opacity=".25" />
                 <use href="#ls-crown" />
             </g>
-            {/* The sakura: the same crown in blossom, lit and shaded like its neighbours */}
             <g id="ls-sakura">
                 <use href="#ls-crown-shape" x="-1.8" y="-1.8" fill="var(--loading-rim)" opacity=".25" />
                 <use href="#ls-crown-shape" fill="url(#ls-sakura-grad)" />
@@ -610,7 +582,6 @@ export function LoadingDefs() {
                 <path d="M0,0V44" stroke="#2a1a10" strokeWidth=".8" />
                 <path d={HOSHIGAKI} fill="var(--ls-persimmon)" />
             </g>
-            {/* Falling leaves: body takes the sprite's fill, one half shaded, veins in the sprite's --vein */}
             <path id="ls-maple" d={MAPLE_LEAF} />
             <path id="ls-ginkgo" d={GINKGO_LEAF} />
             <g id="ls-maple-art">

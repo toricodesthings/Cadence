@@ -25,7 +25,6 @@ import { useSettings } from "../../hooks/core/use-settings";
 import { motion } from "framer-motion";
 import { SPRINGS } from "../../lib/constants/motion";
 
-/** Main sidebar panel with live projects and inbox count */
 export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
     const [listsOpen, setListsOpen] = useState(true);
     const { data: projects, isLoading: projectsLoading } = useProjects();
@@ -107,8 +106,6 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
             className="flex h-full w-full min-w-0 shrink-0 flex-col pb-4"
             aria-label="Navigation panel"
         >
-            {/* Search bar — opens command palette for non-wide shells. Sits in a
-                header-height strip so its border lines up with the page header's. */}
             {onSearchOpen && (
                 <div className="flex h-(--shell-header-h) shrink-0 items-center border-b border-twilight-border px-3">
                     <SearchTrigger onClick={onSearchOpen} aria-label="Search workspace" />
@@ -116,7 +113,6 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
             )}
             <ScrollAreaWrapper>
                 <div className="min-w-0 px-3 py-5">
-                    {/* Primary nav */}
                     <nav aria-label="Main navigation" className="flex flex-col gap-0.5">
                         <NavLink
                             icon={Inbox}
@@ -148,7 +144,6 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
 
                     <div className="h-px bg-twilight-border my-5" aria-hidden="true" />
 
-                    {/* Projects */}
                     <div>
                         <div className="flex items-center justify-between px-3 mb-2">
                             <button
@@ -191,7 +186,6 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
 
                     <div className="h-px bg-twilight-border my-5" aria-hidden="true" />
 
-                    {/* Tags */}
                     <div>
                         <div className="flex items-center gap-2 px-3 mb-2">
                             <Button
@@ -233,14 +227,12 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
                             </Button>
                         </div>
                         <Reveal open={tagsOpen} id="tags-list">
-                            {/* Tag bubbles */}
                             <div
                                 className="flex min-w-0 flex-wrap gap-2 px-3"
                                 onDragOver={tagOrder.onDragOver}
                                 onDrop={tagOrder.onDrop}
                             >
                                 {(tagSearch ? filteredTags : tagOrder.ordered).map((tag, index) => (
-                                    // While a drag is live the others glide aside on a spring and the dropped tag settles into its slot.
                                     <motion.div
                                         key={tag.id}
                                         layout={tagOrder.active ? "position" : false}
@@ -249,7 +241,6 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
                                     >
                                         <TagBubble
                                             tag={tag}
-                                            // Positions in a filtered list are ambiguous, so searching turns reordering off.
                                             reorder={
                                                 tagSearch
                                                     ? undefined
@@ -267,7 +258,6 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
                                     </motion.div>
                                 ))}
                             </div>
-                            {/* Inline create tag */}
                             {showCreateTag && (
                                 <CreateTagInline
                                     onCreated={() => setShowCreateTag(false)}
@@ -279,7 +269,6 @@ export function SidebarPanel({ onSearchOpen }: { onSearchOpen?: () => void }) {
 
                     <div className="h-px bg-twilight-border my-5" aria-hidden="true" />
 
-                    {/* Bottom nav */}
                     <nav aria-label="Secondary navigation" className="flex flex-col gap-0.5">
                         {!userSettings?.tasks?.hideCompleted && (
                             <NavLink

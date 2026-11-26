@@ -13,18 +13,12 @@ import type { HolidayRecord } from "@cadence/contracts/proxy";
 import type { PersonalEvent } from "@cadence/contracts/personal-event";
 
 export interface WeekViewProps extends TimelineProps {
-    /** The 7 LocalDates of this week in the active configured order */
     weekDates: LocalDate[];
-    /** Tasks grouped by LocalDate */
     tasksByDate: Record<string, Task[]>;
     holidaysByDate?: Record<string, HolidayRecord[]>;
-    /** ISO date string of user's birthday this year (e.g. "2026-03-15") */
     birthdayDate?: string | null;
-    /** Personal events grouped by ISO date string */
     personalEventsByDate?: Record<string, PersonalEvent[]>;
-    /** Callback to switch to day view for a specific date */
     onJumpToDay?: (dateStr: string) => void;
-    /** The hour the timeline opens scrolled to. */
     startHour?: number;
 }
 
@@ -43,10 +37,8 @@ export function WeekView({
     startHour = 7,
 }: WeekViewProps) {
     const todayStr = useToday();
-    // Open at the user's chosen hour (7 AM by default)
     const scrollRef = useOpenAtHour(startHour);
 
-    // The series whose hover card is open: its chips light up, the rest dim.
     const [hoveredSeries, setHoveredSeries] = useState<string | null>(null);
     const hover = useMemo(() => ({ series: hoveredSeries, setSeries: setHoveredSeries }), [hoveredSeries]);
 
@@ -61,7 +53,6 @@ export function WeekView({
     return (
         <CalendarHoverContext.Provider value={hover}>
             <div className="surface-card m-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] sm:m-3">
-                {/* ── Day headers ── */}
                 <div className="shrink-0 flex">
                     <div className="w-14 shrink-0" />
                     {weekDates.map((ds) => {
@@ -149,7 +140,6 @@ export function WeekView({
                     })}
                 </div>
 
-                {/* ── All-day lane: bars across days, one-off tasks, a strip of routine marks ── */}
                 <div className="shrink-0 flex border-b border-twilight-border/30">
                     <div className="w-14 shrink-0 pr-2.5 pt-1">
                         <span className="block text-right text-[10px] uppercase tracking-widest text-twilight-text-muted/90 select-none">
@@ -165,13 +155,10 @@ export function WeekView({
                     />
                 </div>
 
-                {/* ── Scrollable time grid ── */}
                 <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-20">
                     <div className="flex" style={{ height: DAY_GRID_HEIGHT }}>
-                        {/* Time gutter */}
                         <TimeGutter hourHeight={HOUR_HEIGHT} />
 
-                        {/* Day columns */}
                         {weekDates.map((ds, index) => {
                             return (
                                 <div key={ds} className="relative flex-1 min-w-0">
