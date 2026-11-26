@@ -1,5 +1,5 @@
 import type { LocalDate } from "@cadence/domain/time";
-import { Skeleton } from "../primitives/Skeleton";
+import { Skeleton, SkeletonLines } from "../primitives/Skeleton";
 import { TimeGutter } from "./TimeGutter";
 import { useOpenAtHour } from "./TimedCalendarColumn";
 import { getDaysInMonth, getFirstDayOfWeek, isoDay, MONTH_NAMES, weekdayLabels } from "../../lib/utils/date-format";
@@ -38,10 +38,7 @@ function ScheduleRowSkeleton({ width }: { width: string }) {
     return (
         <div className="surface-card flex items-center gap-3 rounded-2xl px-3 py-3">
             <Skeleton className="h-4 w-12 shrink-0 rounded-lg" />
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                <Skeleton className="h-4 rounded-lg" style={{ width }} />
-                <Skeleton className="h-3 w-24 rounded-lg" />
-            </div>
+            <SkeletonLines primary={width} secondary="6rem" />
         </div>
     );
 }

@@ -2,7 +2,7 @@ import { useMemo, type ReactNode, type Ref } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowDown, Sunrise, AlarmClock, Inbox } from "lucide-react";
 import * as ScrollArea from "../primitives/ScrollArea";
-import { Skeleton } from "../primitives/Skeleton";
+import { AssistantMessagesSkeleton } from "../shared/DetailPanelSkeleton";
 import { ChatMessage, ChatAvatar, AssistantText } from "./MessageBubble";
 import { AssistantSigil } from "./AssistantSigil";
 import { ReadReceipt } from "./ReadReceipt";
@@ -82,7 +82,6 @@ export function StarterPrompts({ submitText }: { submitText: (text: string) => v
 }
 
 function RestoringThread({ reduceMotion }: { reduceMotion: boolean | null }) {
-    const lines = (widths: string[]) => widths.map((w) => <Skeleton key={w} className={`h-3 rounded-full ${w}`} />);
     return (
         <motion.div
             role="status"
@@ -92,15 +91,7 @@ function RestoringThread({ reduceMotion }: { reduceMotion: boolean | null }) {
             transition={{ duration: reduceMotion ? 0 : 0.2, ease: EASE_OUT_EXPO }}
             className="flex flex-col gap-6 pt-2"
         >
-            <div className="flex items-start gap-2.5">
-                <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
-                <div className="flex flex-1 flex-col gap-2 pt-1">{lines(["w-[85%]", "w-[70%]", "w-[45%]"])}</div>
-            </div>
-            <Skeleton className="ml-auto h-10 w-[55%] rounded-[20px] rounded-br-md bg-accent-primary/10" />
-            <div className="flex items-start gap-2.5">
-                <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
-                <div className="flex flex-1 flex-col gap-2 pt-1">{lines(["w-[78%]", "w-[60%]"])}</div>
-            </div>
+            <AssistantMessagesSkeleton />
         </motion.div>
     );
 }

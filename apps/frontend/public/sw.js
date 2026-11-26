@@ -2,7 +2,7 @@
 
 const CACHE_NAME = "cadence-shell-v3";
 const CACHE_PREFIX = "cadence-shell-";
-const PRECACHE = [];
+const PRECACHE = /*__PRECACHE__*/ [];
 const MANIFEST_KEY = "/__cadence-precache__";
 
 function isHtml(response) {

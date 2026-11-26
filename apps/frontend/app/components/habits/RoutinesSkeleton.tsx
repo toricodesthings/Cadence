@@ -1,4 +1,4 @@
-import { Skeleton } from "../primitives/Skeleton";
+import { Skeleton, SkeletonLines } from "../primitives/Skeleton";
 import { RoutineWeekHeader, weekGridColumns, type RoutineDay } from "./RoutineWeekRow";
 
 const ROW_WIDTHS = ["64%", "48%", "72%", "56%"];
@@ -8,10 +8,10 @@ function RoutineIdentitySkeleton({ index, className }: { index: number; classNam
     return (
         <div className={`flex min-w-0 items-center gap-3 ${className ?? ""}`}>
             <Skeleton className="h-9 w-9 shrink-0 rounded-lg" />
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                <Skeleton className="h-4 rounded-lg" style={{ width: ROW_WIDTHS[index % ROW_WIDTHS.length] }} />
-                <Skeleton className="h-3 rounded-lg" style={{ width: META_WIDTHS[index % META_WIDTHS.length] }} />
-            </div>
+            <SkeletonLines
+                primary={ROW_WIDTHS[index % ROW_WIDTHS.length]}
+                secondary={META_WIDTHS[index % META_WIDTHS.length]}
+            />
         </div>
     );
 }

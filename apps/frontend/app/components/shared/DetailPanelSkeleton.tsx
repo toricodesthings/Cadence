@@ -1,13 +1,10 @@
-import { Skeleton } from "../primitives/Skeleton";
+import { Skeleton, SkeletonLines } from "../primitives/Skeleton";
 
 function DetailAccordionSkeleton({ titleWidth, summaryWidth }: { titleWidth: string; summaryWidth: string }) {
     return (
         <div className="surface-card flex items-center gap-3 rounded-2xl px-4 py-3.5">
             <Skeleton className="size-9 shrink-0 rounded-xl" />
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                <Skeleton className="h-4 rounded-lg" style={{ width: titleWidth }} />
-                <Skeleton className="h-3 rounded-lg" style={{ width: summaryWidth }} />
-            </div>
+            <SkeletonLines primary={titleWidth} secondary={summaryWidth} />
             <Skeleton className="size-4 shrink-0 rounded" />
         </div>
     );
@@ -70,6 +67,29 @@ export function DetailPanelSkeleton({ kind = "task" }: { kind?: "capture" | "tas
     );
 }
 
+export function AssistantMessagesSkeleton() {
+    return (
+        <>
+            <div className="flex items-start gap-2.5">
+                <Skeleton className="size-7 shrink-0 rounded-full" />
+                <div className="flex flex-1 flex-col gap-2 pt-1">
+                    <Skeleton className="h-3 w-[85%] rounded-full" />
+                    <Skeleton className="h-3 w-[70%] rounded-full" />
+                    <Skeleton className="h-3 w-[45%] rounded-full" />
+                </div>
+            </div>
+            <Skeleton className="ml-auto h-10 w-[55%] rounded-[20px] rounded-br-md" />
+            <div className="flex items-start gap-2.5">
+                <Skeleton className="size-7 shrink-0 rounded-full" />
+                <div className="flex flex-1 flex-col gap-2 pt-1">
+                    <Skeleton className="h-3 w-[78%] rounded-full" />
+                    <Skeleton className="h-3 w-[60%] rounded-full" />
+                </div>
+            </div>
+        </>
+    );
+}
+
 export function AssistantPanelSkeleton({ width }: { width?: number }) {
     return (
         <div
@@ -96,22 +116,7 @@ export function AssistantPanelSkeleton({ width }: { width?: number }) {
                 </div>
             </div>
             <div aria-hidden="true" className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden px-4 py-5">
-                <div className="flex items-start gap-2.5">
-                    <Skeleton className="size-7 shrink-0 rounded-full" />
-                    <div className="flex flex-1 flex-col gap-2 pt-1">
-                        <Skeleton className="h-3 w-[85%] rounded-full" />
-                        <Skeleton className="h-3 w-[70%] rounded-full" />
-                        <Skeleton className="h-3 w-[45%] rounded-full" />
-                    </div>
-                </div>
-                <Skeleton className="ml-auto h-10 w-[55%] rounded-[20px] rounded-br-md" />
-                <div className="flex items-start gap-2.5">
-                    <Skeleton className="size-7 shrink-0 rounded-full" />
-                    <div className="flex flex-1 flex-col gap-2 pt-1">
-                        <Skeleton className="h-3 w-[78%] rounded-full" />
-                        <Skeleton className="h-3 w-[60%] rounded-full" />
-                    </div>
-                </div>
+                <AssistantMessagesSkeleton />
             </div>
             <div aria-hidden="true" className="shrink-0 px-3 pb-3 pt-1">
                 <div className="surface-card flex flex-col gap-3 rounded-[24px] p-3">

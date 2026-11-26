@@ -20,3 +20,12 @@ function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 export { Skeleton };
+
+export function SkeletonLines({ primary, secondary }: { primary: string; secondary: string }) {
+    return (
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <Skeleton className="h-4 rounded-lg" style={{ width: primary }} />
+            <Skeleton className="h-3 rounded-lg" style={{ width: secondary }} />
+        </div>
+    );
+}
