@@ -11,7 +11,7 @@ export const saidSchema = z
     .object({ priority: quote.optional(), effort: quote.optional() })
     .optional()
     .describe(
-        "Exact words they typed that set priority or effort, ≤80 characters each. No quote, no value. Words read from an image go in `fromImage`, not here.",
+        "Exact words they typed that set priority or effort, ≤80 characters each. No quote, no value. Words read from a photo or PDF go in `fromImage`, not here.",
     );
 
 const fold = (text: string) => text.toLowerCase().replace(/\s+/g, " ").trim();
@@ -51,7 +51,7 @@ export function checkSaid<T extends { priority?: number | null; effort?: number 
     const ignored: string[] = [];
     if (out.priority && !imagePriority && !quoted("priority", said?.priority, texts, answeredField === "priority")) {
         delete out.priority;
-        ignored.push("priority: not in their words (an image's words go in fromImage on create_tasks)");
+        ignored.push("priority: not in their words (words from a photo or PDF go in fromImage on create_tasks)");
     }
     let effortOrigin: "manual" | undefined;
     if (out.effort) {

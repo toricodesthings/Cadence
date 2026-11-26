@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { aiImageKey, hydrateImages, IMAGE_STUB_TEXT, imageIdsIn } from "../../src/domains/ai/images/chat-images";
+import {
+    aiImageKey,
+    FILE_STUB_TEXT,
+    hydrateImages,
+    IMAGE_STUB_TEXT,
+    imageIdsIn,
+} from "../../src/domains/ai/images/chat-images";
 
 const ids = [
     "0b9f7a3e-2c4d-4e6f-8a1b-3c5d7e9f1a2b",
@@ -61,6 +67,33 @@ describe("hydrateImages", () => {
     it("stubs everything when storage isn't configured", async () => {
         const { messages: out } = await hydrateImages([user(file(ids[0]))], undefined, "u");
         expect(out[0].parts[0]).toEqual({ type: "text", text: IMAGE_STUB_TEXT });
+    });
+});
+
+describe("hydrateImages with a PDF", () => {
+    const pdf = (id: string) => ({ type: "file", mediaType: "application/pdf", url: `cadence-image:${id}` });
+
+    it("reads the .pdf object and inlines it with its own type; an old one gets the PDF stub", async () => {
+        const objects = new Map([[aiImageKey("u", ids[0], "application/pdf"), new Uint8Array([1, 2, 3])]]);
+        const r2 = {
+            get: async (key: string) =>
+                objects.has(key) ? { arrayBuffer: async () => objects.get(key)!.buffer } : null,
+        } as unknown as R2Bucket;
+        const { messages: out } = await hydrateImages([user(pdf(ids[0]))], r2, "u");
+        expect(out[0].parts[0]).toEqual({
+            type: "file",
+            mediaType: "application/pdf",
+            url: "data:application/pdf;base64,AQID",
+        });
+
+        const old = [
+            user(pdf(ids[1])),
+            assistant(),
+            ...Array.from({ length: 5 }, () => [user(text("a")), assistant()]).flat(),
+            user(text("now")),
+        ];
+        const { messages: stubbed } = await hydrateImages(old, r2, "u");
+        expect(stubbed[0].parts[0]).toEqual({ type: "text", text: FILE_STUB_TEXT });
     });
 });
 

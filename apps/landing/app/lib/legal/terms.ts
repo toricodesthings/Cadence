@@ -9,7 +9,7 @@ export const TERMS: LegalDoc = {
     description:
         "The plain-language rules for using Cadence: a free, pre-release planner run by one maintainer, with an honest list of what is still undecided.",
     lede: "The rules for using Cadence, written to be read. Cadence is free, pre-release and run by one person, so some things are simply not promised, and this page says which.",
-    updated: "2026-10-19",
+    updated: "2026-11-25",
     inShort: [
         "Cadence is free, in beta, and run by one person. It can change, break or go away, so keep your own copies of anything that matters.",
         "Your tasks, notes and other content stay yours. You give Cadence only the permission it needs to store, sync and show them.",
@@ -82,7 +82,7 @@ export const TERMS: LegalDoc = {
             blocks: [
                 {
                     kind: "p",
-                    text: "What you put into Cadence (tasks, notes, lists, routines, captures, events, settings, photos, what you tell the assistant) is your content, and you keep all rights in it. Cadence claims no ownership of it.",
+                    text: "What you put into Cadence (tasks, notes, lists, routines, captures, events, settings, photos, PDFs, what you tell the assistant) is your content, and you keep all rights in it. Cadence claims no ownership of it.",
                 },
                 {
                     kind: "p",
@@ -109,9 +109,9 @@ export const TERMS: LegalDoc = {
                         "It changes your data only in the way you allow. In Ask mode you confirm each change; in Auto mode it confirms only risky ones; in Full mode it acts without asking, including permanent deletes. Choose the mode you are comfortable with.",
                         "You are responsible for what you approve, and for changes made in a mode you chose. Trash and Undo help, but permanent deletes cannot be undone.",
                         "It is not professional advice of any kind, and is no substitute for your own judgement.",
-                        "Do not send it anything you would not be comfortable sharing with its AI providers. Photos and text you send can contain other people's information, so only share what you are entitled to share.",
+                        "Do not send it anything you would not be comfortable sharing with its AI providers. Photos, PDFs and text you send can contain other people's information, so only share what you are entitled to share.",
                         "Memory is yours to set: Basic is on until you choose, and Off or Full is one tap away, with everything it keeps visible and removable. What it keeps comes from your own words and, in Full, your own changes, read by an AI model that can be wrong. Remembering something does not give the assistant permission to act on it.",
-                        "Use is capped per account (by default 150 replies per 5 hours and 1,500 per week, plus photo limits). These limits can change, and the assistant can be paused, changed or removed at any time.",
+                        "Use is capped per account (by default 150 replies per 5 hours and 1,500 per week, plus a daily limit on photos and PDFs). These limits can change, and the assistant can be paused, changed or removed at any time.",
                     ],
                 },
             ],
@@ -122,7 +122,7 @@ export const TERMS: LegalDoc = {
             blocks: [
                 {
                     kind: "p",
-                    text: "You can connect an outside assistant, such as Claude, to your Cadence. When you approve it, it can act as you within the access you granted: read your data, add to Capture, or change your data including permanent deletes. It cannot change your settings.",
+                    text: "You can connect an outside assistant, such as Claude, to your Cadence. When you approve it, it can act as you within the access you granted: read your data, add to Capture, or change your data including permanent deletes. It can change some settings, like reminders and routine streaks, but never your privacy, sign-in or memory settings.",
                 },
                 {
                     kind: "list",

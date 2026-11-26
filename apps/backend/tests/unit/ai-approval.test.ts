@@ -26,13 +26,13 @@ async function runTurn(
     mode: ApprovalMode,
     messages: UIMessage[],
     call: { name: string; input: unknown },
-    hasImages = false,
+    hasAttachments = false,
 ) {
     const execute = vi.fn(async () => ({ ok: true }));
     const agent = new ToolLoopAgent({
         model: scriptedModel(call.name, call.input),
         tools: { [call.name]: tool({ inputSchema: z.object({ name: z.string() }).passthrough(), execute }) },
-        toolApproval: approvalFor(mode, { hasImages: () => hasImages }),
+        toolApproval: approvalFor(mode, { hasAttachments: () => hasAttachments }),
         experimental_toolApprovalSecret: SECRET,
     });
     const last = messages.at(-1)!;
@@ -121,14 +121,30 @@ describe("approval on the server", () => {
         expect(toolPart(message).state).toBe(runs ? "output-available" : "approval-requested");
     });
 
-    it("Full still waits before a permanent delete while an image is in context, and only then", async () => {
+    it("Full waits like Auto while a photo or PDF is in context, and only then", async () => {
         const input = { name: "x", tasks: [{ taskId: "t", title: "x" }] };
         const withImage = await runTurn("full", [user], { name: "delete_tasks", input }, true);
         expect(withImage.execute).not.toHaveBeenCalled();
         expect(toolPart(withImage.message).state).toBe("approval-requested");
 
+        const many = { name: "x", tasks: Array.from({ length: 6 }, (_, i) => ({ title: `t${i}` })) };
+        const six = await runTurn("full", [user], { name: "create_tasks", input: many }, true);
+        expect(six.execute).not.toHaveBeenCalled();
+
         const otherWrite = await runTurn("full", [user], { name: "create_tag", input: { name: "Errands" } }, true);
         expect(otherWrite.execute).toHaveBeenCalledTimes(1);
+
+        const noFile = await runTurn("full", [user], { name: "delete_tasks", input }, false);
+        expect(noFile.execute).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(["ask", "auto", "full"] as const)("update_settings waits in %s", async (mode) => {
+        const { execute, message } = await runTurn(mode, [user], {
+            name: "update_settings",
+            input: { name: "x", patch: { tasks: { showStreaks: false } } },
+        });
+        expect(execute).not.toHaveBeenCalled();
+        expect(toolPart(message).state).toBe("approval-requested");
     });
 
     it("an approval left unanswered when the user moves on replays as declined", async () => {

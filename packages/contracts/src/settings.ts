@@ -471,7 +471,7 @@ export const userSettingsSchema = z.object({
 export type UserSettings = z.infer<typeof userSettingsSchema>;
 
 /** The revision of the Terms and Privacy Policy people accept (their `updated` date on cadenceapp.cloud). Bumping it asks everyone to accept again. */
-export const LEGAL_VERSION = "2026-10-12";
+export const LEGAL_VERSION = "2026-11-25";
 
 // ── Deep-partial utility (Zod 4 removed .deepPartial()) ──
 
@@ -558,6 +558,72 @@ const patchSource = userSettingsSchema.extend({
         .optional(),
 });
 export const settingsPatchSchema = deepPartial(patchSource) as z.ZodType<DeepPartial<UserSettings>>;
+
+// What the assistant (chat and MCP) may change: task defaults and smart features, reminders, its own voice.
+// Never: email/browser notifications (a device permission), custom instructions (a document could plant a
+// standing prompt), memory, privacy, profile, sign-in, location, time zone, appearance, shortcuts, integrations.
+const tasksSettings = userSettingsSchema.shape.tasks.unwrap();
+const assistantPatchSource = z
+    .object({
+        tasks: tasksSettings
+            .pick({
+                showStreaks: true,
+                hideCompleted: true,
+                hideTrash: true,
+                showDoneCelebration: true,
+                newTaskPlacement: true,
+                defaultView: true,
+                defaultDueDate: true,
+                defaultPriority: true,
+                autoTag: true,
+            })
+            .extend({
+                intelligence: tasksSettings.shape.intelligence
+                    .unwrap()
+                    .pick({ nlpEnabled: true, effortSuggestions: true, smartPlacement: true, focusViewsEnabled: true })
+                    .strict()
+                    .optional(),
+            })
+            .strict()
+            .optional(),
+        notifications: userSettingsSchema.shape.notifications
+            .unwrap()
+            .omit({ email: true, browser: true })
+            .strict()
+            .optional(),
+        assistant: userSettingsSchema.shape.assistant
+            .unwrap()
+            .pick({
+                persona: true,
+                assistantName: true,
+                nickname: true,
+                emoji: true,
+                proactiveSuggestions: true,
+                adaptiveTone: true,
+                resumeLastChat: true,
+            })
+            .strict()
+            .optional(),
+    })
+    .strict();
+
+/** A strict deep-partial of the allowlist, and it must change something. */
+export const assistantSettingsPatchSchema = (
+    deepPartial(assistantPatchSource) as z.ZodType<DeepPartial<UserSettings>>
+).refine(
+    (patch) => Object.values(patch).some((section) => section && Object.keys(section).length > 0),
+    "Change at least one setting",
+);
+
+/** Dotted path of every setting the assistant may change (`tasks.showStreaks`, `tasks.intelligence.nlpEnabled`, …). */
+export const ASSISTANT_SETTING_PATHS: readonly string[] = (function paths(schema: z.ZodType, prefix = ""): string[] {
+    if (schema instanceof z.ZodOptional || schema instanceof z.ZodNullable)
+        return paths(schema.unwrap() as z.ZodType, prefix);
+    if (!(schema instanceof z.ZodObject)) return [prefix];
+    return Object.entries(schema.shape).flatMap(([key, value]) =>
+        paths(value as z.ZodType, prefix ? `${prefix}.${key}` : key),
+    );
+})(assistantPatchSource);
 
 // ── Canonical settings defaults — single source of truth ──
 

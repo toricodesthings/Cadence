@@ -94,7 +94,7 @@ export const taskDraftSchema = insertTaskSchema
                 note: quote,
             })
             .optional()
-            .describe("Field → the exact words the image shows for it."),
+            .describe("Field → the exact words from a photo or PDF the user sent for it."),
     });
 
 export const taskPatchSchema = updateTaskSchema

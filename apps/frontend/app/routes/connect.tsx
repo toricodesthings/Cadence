@@ -203,7 +203,7 @@ function ConnectAsk({ client, email, chosen, setScopes, leaving, failed, respond
                 <ShieldCheck size={14} className="mt-px shrink-0 text-twilight-text-soft" aria-hidden />
                 <span>
                     {
-                        "Your assistant asks you before each change. It can't change your settings. Disconnect anytime in Settings › Integrations; that stops new access, not what it already read."
+                        "Your assistant asks you before each change. It can change some settings, like reminders and routine streaks, never privacy, sign-in or memory. Disconnect anytime in Settings › Integrations; that stops new access, not what it already read."
                     }
                 </span>
             </motion.p>

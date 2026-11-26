@@ -27,7 +27,7 @@ function setup(isTouch = false, accepted = true) {
                     setInputNotice={vi.fn()}
                     usageNotice={null}
                     perMessage={3}
-                    imageAllowance={{ left: 20, blocked: false, label: "Attach an image" }}
+                    imageAllowance={{ left: 20, blocked: false, label: "Attach a photo or PDF" }}
                     images={{
                         attachments: [],
                         readyImages: [],

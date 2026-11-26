@@ -7,6 +7,7 @@ import { Markdown } from "./Markdown";
 import { MessageActions } from "./MessageActions";
 import { AssistantSigil } from "./AssistantSigil";
 import { ChatImages } from "./ChatImage";
+import type { ChatFileRef } from "../../lib/ai/messages";
 import { bubbleIn } from "../../lib/constants/motion";
 import { useShellMode } from "../../hooks/ui/use-shell-mode";
 
@@ -95,7 +96,7 @@ export function ChatMessage({
     userImage?: string | null;
     userInitial?: string;
     /** Ids of the photos the user sent with this turn. */
-    images?: string[];
+    images?: ChatFileRef[];
 }) {
     const reduceMotion = useReducedMotion();
     const { isTouch } = useShellMode();
@@ -133,7 +134,7 @@ export function ChatMessage({
 
     const body = isUser ? (
         <div className="flex max-w-[85%] flex-col items-end gap-1.5">
-            {images.length > 0 ? <ChatImages ids={images} /> : null}
+            {images.length > 0 ? <ChatImages files={images} /> : null}
             {text ? (
                 <div className="max-w-full whitespace-pre-wrap break-words rounded-[20px] rounded-br-md border border-accent-primary/20 bg-accent-primary/18 px-4 py-2.5 text-[14px] leading-relaxed text-twilight-text shadow-[0_10px_30px_-18px_color-mix(in_srgb,var(--accent-primary)_60%,transparent)]">
                     {text}

@@ -34,7 +34,7 @@ const COMPLEX_CUE =
 
 /**
  * Picks the chat model for one turn from the new message. The cheap model
- * (`AI_CHAT_MODEL_BASIC`) takes only a short, single-line, image-free greeting or
+ * (`AI_CHAT_MODEL_BASIC`) takes only a short, single-line, attachment-free greeting or
  * how-to question ({@link BASIC_INTENT}) that trips no {@link COMPLEX_CUE}, and only
  * while the thread has used nothing else (`previousModel`, the conversation's model:
  * none or the basic one). Everything else goes to the standard model, and once a
@@ -44,7 +44,7 @@ const COMPLEX_CUE =
  */
 export function pickChatModel(
     env: Env,
-    turn: { text: string; imageCount: number },
+    turn: { text: string; attachmentCount: number },
     previousModel?: string | null,
 ): string {
     const basic = env.AI_CHAT_MODEL_BASIC?.trim();
@@ -54,7 +54,7 @@ export function pickChatModel(
         !!basic &&
         (!previousModel || previousModel === basic) &&
         !!text &&
-        turn.imageCount === 0 &&
+        turn.attachmentCount === 0 &&
         !text.includes("\n") &&
         text.split(/\s+/).length <= BASIC_MAX_WORDS &&
         BASIC_INTENT.some((intent) => intent.test(text)) &&

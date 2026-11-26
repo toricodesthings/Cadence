@@ -2,8 +2,9 @@
  * Which tool calls wait for the user's tap, decided on the server (AI SDK
  * `toolApproval`). Reads and capture never wait. Ask waits on every other tool,
  * so a new write tool waits by default. Auto waits only on what `needsTap` flags.
- * Full waits only for a permanent delete while the recent context holds an image
- * (text in a screenshot is someone else's words, and could be steering the turn).
+ * Full waits like Auto while the recent context holds a photo or PDF (text in a file
+ * is someone else's words, and could be steering the turn). `update_settings` waits in
+ * every mode: a silenced reminder can't be un-missed, and the card is the preview.
  */
 import type { ApprovalMode } from "@cadence/contracts/ai";
 import { TOOL_CATALOG, type ToolName } from "@cadence/contracts/ai-tools";
@@ -40,12 +41,15 @@ export function needsTap(toolName: string, input: unknown): boolean {
     return (args.taskIds?.length ?? args.tasks?.length ?? args.items?.length ?? 0) > AUTO_TASK_LIMIT;
 }
 
-/** The agent's `toolApproval` for one turn's approval mode. `hasImages` is read at call time: images hydrate after the agent is built. */
-export function approvalFor(mode: ApprovalMode, { hasImages = () => false }: { hasImages?: () => boolean } = {}) {
+/** The agent's `toolApproval` for one turn's approval mode. `hasAttachments` is read at call time: files hydrate after the agent is built. */
+export function approvalFor(
+    mode: ApprovalMode,
+    { hasAttachments = () => false }: { hasAttachments?: () => boolean } = {},
+) {
     return ({ toolCall }: { toolCall: { toolName: string; input: unknown } }) => {
         if (isFree(toolCall.toolName)) return undefined;
-        if (mode === "full")
-            return toolCall.toolName.startsWith("delete_") && hasImages() ? ("user-approval" as const) : undefined;
+        if (toolCall.toolName === "update_settings") return "user-approval" as const;
+        if (mode === "full" && !hasAttachments()) return undefined;
         if (mode === "ask" || needsTap(toolCall.toolName, toolCall.input)) return "user-approval" as const;
         return undefined;
     };

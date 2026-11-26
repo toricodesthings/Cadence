@@ -64,7 +64,7 @@ describe("assistant task draft", () => {
         expect(screen.getByText("Fixed")).toBeTruthy();
         expect(screen.getByText("Perfume")).toBeTruthy();
         expect(screen.getByLabelText("Tag Errands")).toBeTruthy();
-        expect(screen.getAllByText(/^From your image/)).toHaveLength(1);
+        expect(screen.getAllByText(/^From what you sent/)).toHaveLength(1);
         expect(screen.getByText("Title: “Rabica checklist”")).toBeTruthy();
         expect(screen.getByText("Note: “Amouage”")).toBeTruthy();
     });

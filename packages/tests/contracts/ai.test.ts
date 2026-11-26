@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+    aiImageRowSchema,
     chatImageUrl,
     chatRequestSchema,
     parseChatImageUrl,
@@ -97,5 +98,32 @@ describe("chat image urls", () => {
         expect(parseChatImageUrl("data:image/webp;base64,AAAA")).toBeNull();
         expect(parseChatImageUrl("cadence-image:../../etc")).toBeNull();
         expect(parseChatImageUrl(undefined)).toBeNull();
+    });
+});
+
+describe("aiImageRowSchema", () => {
+    const base = {
+        id: "0b9f7a3e-2c4d-4e6f-8a1b-3c5d7e9f1a2b",
+        userId: "0b9f7a3e-2c4d-4e6f-8a1b-3c5d7e9f1a2c",
+        conversationId: "0b9f7a3e-2c4d-4e6f-8a1b-3c5d7e9f1a2d",
+        contentHash: "h",
+        bytes: 10,
+        createdAt: "2026-06-05T09:00:00.000Z",
+        sentAt: null,
+        lastUsedAt: "2026-06-05T09:00:00.000Z",
+        diagnosticsSharedAt: null,
+    };
+    it("parses a photo and a PDF", () => {
+        expect(
+            aiImageRowSchema.safeParse({ ...base, mediaType: "image/webp", pages: null, width: 10, height: 10 })
+                .success,
+        ).toBe(true);
+        expect(
+            aiImageRowSchema.safeParse({ ...base, mediaType: "application/pdf", pages: 12, width: null, height: null })
+                .success,
+        ).toBe(true);
+        expect(
+            aiImageRowSchema.safeParse({ ...base, mediaType: "image/png", pages: null, width: 1, height: 1 }).success,
+        ).toBe(false);
     });
 });

@@ -308,8 +308,12 @@ export const aiImages = pgTable(
         conversationId: uuid("conversation_id").notNull(),
         contentHash: text("content_hash").notNull(), // sha256 of the stored bytes; dedup only
         bytes: integer("bytes").notNull(),
-        width: integer("width").notNull(),
-        height: integer("height").notNull(),
+        mediaType: text("media_type", { enum: ["image/webp", "application/pdf"] })
+            .default("image/webp")
+            .notNull(),
+        pages: integer("pages"), // PDFs only, when the page tree could be read
+        width: integer("width"), // photos only
+        height: integer("height"),
         createdAt: createdAt(),
         sentAt: timestamptz("sent_at"), // null = attached, not sent yet
         lastUsedAt: timestamptz("last_used_at")
@@ -318,6 +322,10 @@ export const aiImages = pgTable(
         diagnosticsSharedAt: timestamptz("diagnostics_shared_at"), // the user shared it with an error report
     },
     (table) => ({
+        mediaTypeCheck: check(
+            "ai_images_media_type_check",
+            sql`${table.mediaType} in ('image/webp','application/pdf')`,
+        ),
         dedupUnique: uniqueIndex("ai_images_user_convo_hash_unique").on(
             table.userId,
             table.conversationId,

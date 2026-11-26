@@ -92,15 +92,15 @@ export async function compressBackgroundImage(file: File): Promise<File> {
  * and drops EXIF/GPS; the server strips again.
  */
 export async function compressChatImage(file: File): Promise<File> {
-    if (file.size > CHAT_IMAGE_LIMITS.maxOriginalBytes) throw new Error("That image is too large (25 MB at most).");
+    if (file.size > CHAT_IMAGE_LIMITS.maxOriginalBytes) throw new Error("That photo is too large (25 MB at most).");
     let blob: Blob;
     try {
         blob = await encodeWebp(file, CHAT_IMAGE_LIMITS.maxDimension, [0.82, 0.7, 0.55], CHAT_IMAGE_LIMITS.maxBytes);
     } catch (error) {
         log.error("image", `Couldn’t prepare a chat image (${file.type || "unknown type"})`, error);
-        throw new Error("Couldn’t read that image.");
+        throw new Error("Couldn’t read that photo.");
     }
-    if (blob.size > CHAT_IMAGE_LIMITS.maxBytes) throw new Error("That image is too detailed to send. Try a crop.");
+    if (blob.size > CHAT_IMAGE_LIMITS.maxBytes) throw new Error("That photo is too detailed to send. Try a crop.");
     return new File([blob], "image.webp", { type: "image/webp" });
 }
 

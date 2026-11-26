@@ -145,9 +145,14 @@ export function requireBucket(env: Env, what: string): R2Bucket {
 }
 
 /** A stored WebP as a sandboxed response; a conditional request that still matches gets 304. */
-export function webpResponse(object: R2ObjectBody | R2Object, cacheControl: string): Response {
+export function webpResponse(
+    object: R2ObjectBody | R2Object,
+    cacheControl: string,
+    contentType = "image/webp",
+): Response {
     const headers = {
-        "Content-Type": "image/webp",
+        "Content-Type": contentType,
+        ...(contentType === "application/pdf" && { "Content-Disposition": "attachment" }),
         "Cache-Control": cacheControl,
         ETag: object.httpEtag,
         "Content-Security-Policy": "default-src 'none'; sandbox",

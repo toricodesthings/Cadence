@@ -4,7 +4,7 @@ import type { Env } from "../../src/types/env";
 
 const env = (overrides: Partial<Env> = {}) =>
     ({ AI_CHAT_MODEL: "std/model", AI_CHAT_MODEL_BASIC: "basic/model", ...overrides }) as Env;
-const pick = (text: string, imageCount = 0, e = env()) => pickChatModel(e, { text, imageCount });
+const pick = (text: string, attachmentCount = 0, e = env()) => pickChatModel(e, { text, attachmentCount });
 
 describe("pickChatModel", () => {
     it.each([
@@ -60,7 +60,7 @@ describe("pickChatModel", () => {
     });
 
     it("never switches a thread back once anything but the basic model has run", () => {
-        const turn = { text: "thanks!", imageCount: 0 };
+        const turn = { text: "thanks!", attachmentCount: 0 };
         expect(pickChatModel(env(), turn, null)).toBe("basic/model");
         expect(pickChatModel(env(), turn, "basic/model")).toBe("basic/model");
         expect(pickChatModel(env(), turn, "std/model")).toBe("std/model");

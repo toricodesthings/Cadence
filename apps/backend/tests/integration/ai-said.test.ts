@@ -60,7 +60,7 @@ describe("said check", () => {
     it("drops an invented priority and says why", async () => {
         const result = await run(["dentist Friday"], "create_tasks", { tasks: [{ title: "Dentist", priority: 3 }] });
         expect(result.ignored).toEqual([
-            "Dentist: priority: not in their words (an image's words go in fromImage on create_tasks)",
+            "Dentist: priority: not in their words (words from a photo or PDF go in fromImage on create_tasks)",
         ]);
         expect((await row(result.created[0].taskId)).priority).toBe(0);
     });

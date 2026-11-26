@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { AiUsage } from "@cadence/contracts/ai";
+import { CHAT_FILE_LIMITS, CHAT_IMAGE_MEDIA_TYPE, CHAT_PDF_MEDIA_TYPE, type AiUsage } from "@cadence/contracts/ai";
 import { useApiClient } from "../auth/use-api-client";
 import { unwrapResponse } from "../../lib/api/helpers";
 import { queryKeys } from "../../lib/api/query-keys";
 import { compressChatImage } from "../../lib/utils/image";
 import type { ImageAllowance } from "../../lib/ai/usage";
 
-/** A photo on the composer. It uploads as soon as it's attached; Send waits for it. */
+/** A photo or PDF on the composer. It uploads as soon as it's attached; Send waits for it. */
 type AttachmentPreview = {
     id: string;
     /** Local preview (object URL of the original). */
@@ -16,6 +16,9 @@ type AttachmentPreview = {
     name: string;
     /** Original size, then the compressed size that's actually sent. */
     bytes: number;
+    mediaType: typeof CHAT_IMAGE_MEDIA_TYPE | typeof CHAT_PDF_MEDIA_TYPE;
+    /** PDF page count once uploaded, when the server could read it. */
+    pages?: number | null;
 };
 
 export type Attachment = AttachmentPreview &
@@ -63,7 +66,9 @@ export function useChatAttachments({
     // Compress and upload right away, so the upload hides behind typing.
     const uploadAttachment = async (localId: string, file: File) => {
         try {
-            const compressed = await compressChatImage(file);
+            const isPdf = file.type === CHAT_PDF_MEDIA_TYPE;
+            if (isPdf && file.size > CHAT_FILE_LIMITS.pdfMaxBytes) throw new Error("That PDF is larger than 5 MB.");
+            const compressed = isPdf ? file : await compressChatImage(file);
             const res = await client.api.ai.images.$post({
                 form: { file: compressed, conversationId: conversationIdRef.current! },
             });
@@ -79,7 +84,7 @@ export function useChatAttachments({
                 if (self) {
                     URL.revokeObjectURL(self.url);
                     setAttachments((prev) => prev.filter((a) => a.id !== localId));
-                    onNotice("That image is already attached.");
+                    onNotice("That file is already attached.");
                 } else if (!duplicate && !data.reused) {
                     discardImage(data.id);
                 }
@@ -88,7 +93,14 @@ export function useChatAttachments({
             setAttachments((prev) =>
                 prev.map((a) =>
                     a.id === localId
-                        ? { ...a, status: "ready", imageId: data.id, blob: compressed, bytes: compressed.size }
+                        ? {
+                              ...a,
+                              status: "ready",
+                              imageId: data.id,
+                              blob: compressed,
+                              bytes: compressed.size,
+                              pages: data.pages,
+                          }
                         : a,
                 ),
             );
@@ -98,12 +110,12 @@ export function useChatAttachments({
                     a.id === localId ? { ...a, status: "failed", imageId: undefined, blob: undefined } : a,
                 ),
             );
-            onNotice(error instanceof Error && error.message ? error.message : "Couldn’t attach that image.");
+            onNotice(error instanceof Error && error.message ? error.message : "Couldn’t attach that file.");
         }
     };
 
     const addImages = (files: Iterable<File>) => {
-        const images = [...files].filter((f) => f.type.startsWith("image/"));
+        const images = [...files].filter((f) => f.type.startsWith("image/") || f.type === CHAT_PDF_MEDIA_TYPE);
         if (images.length === 0) return;
         if (imageAllowance.blocked) {
             onNotice(imageAllowance.label);
@@ -112,7 +124,7 @@ export function useChatAttachments({
         const cap = Math.min(perMessage, imageAllowance.left);
         const room = Math.max(0, cap - attachments.length);
         if (images.length > room) {
-            onNotice(cap < perMessage ? imageAllowance.label : `Up to ${perMessage} images per message.`);
+            onNotice(cap < perMessage ? imageAllowance.label : `Up to ${perMessage} files per message.`);
         }
         const added = images.slice(0, room).map((file) => ({ file, id: crypto.randomUUID() }));
         setAttachments((prev) => [
@@ -120,8 +132,11 @@ export function useChatAttachments({
             ...added.map(({ file, id }) => ({
                 id,
                 url: URL.createObjectURL(file),
-                name: file.name || "Pasted image",
+                name: file.name || "Pasted photo",
                 bytes: file.size,
+                mediaType: (file.type === CHAT_PDF_MEDIA_TYPE
+                    ? CHAT_PDF_MEDIA_TYPE
+                    : CHAT_IMAGE_MEDIA_TYPE) as Attachment["mediaType"],
                 status: "uploading" as const,
             })),
         ]);

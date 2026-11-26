@@ -48,11 +48,22 @@ describe("ChatImages", () => {
         const id = "33333333-3333-4333-8333-333333333333";
         const queryClient = testQueryClient();
         queryClient.setQueryData(queryKeys.ai.image(id), new Blob(["x"], { type: "image/webp" }));
-        render(<ChatImages ids={[id]} />, { wrapper: withClient(queryClient) });
+        render(<ChatImages files={[{ id, mediaType: "image/webp" }]} />, { wrapper: withClient(queryClient) });
 
-        fireEvent.click(await screen.findByRole("button", { name: "View image full size" }));
+        fireEvent.click(await screen.findByRole("button", { name: "View photo full size" }));
         const dialog = await screen.findByRole("dialog");
         expect(dialog.querySelector("img")?.getAttribute("src")).toBe("blob:x");
         expect(screen.getByText("Photo you sent")).toBeTruthy();
+    });
+
+    it("shows a PDF as a chip, and a quiet tile once it expired", async () => {
+        const id = "44444444-4444-4444-8444-444444444444";
+        const queryClient = testQueryClient();
+        queryClient.setQueryData(queryKeys.ai.image(id), new Blob(["x"], { type: "application/pdf" }));
+        const open = vi.spyOn(window, "open").mockReturnValue(null);
+        render(<ChatImages files={[{ id, mediaType: "application/pdf" }]} />, { wrapper: withClient(queryClient) });
+
+        fireEvent.click(await screen.findByRole("button", { name: "Open PDF" }));
+        expect(open).toHaveBeenCalledWith("blob:x", "_blank", "noopener");
     });
 });

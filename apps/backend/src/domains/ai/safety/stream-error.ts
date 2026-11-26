@@ -23,9 +23,9 @@ import { AppError } from "../../../platform/errors";
 export const AI_ERROR_MESSAGES: Record<AiErrorCode, string> = {
     INVALID_REQUEST: "That request couldn't be processed. Please adjust it and try again.",
     AI_RATE_LIMITED: "The assistant is busy right now. Give it a moment, then try again.",
-    AI_IMAGE_LIMITED: "You've sent all the images you can for today. Your text can still go on its own.",
+    AI_IMAGE_LIMITED: "You've sent all the photos and PDFs you can for today. Your text can still go on its own.",
     AI_SPEND_CAPPED: "The assistant is resting until tomorrow. Everything else works.",
-    IMAGE_NOT_FOUND: "That image is no longer available.",
+    IMAGE_NOT_FOUND: "That file is no longer available.",
     AI_TIMEOUT: "That took longer than expected. Please try again.",
     AI_ABORTED: "Generation stopped.",
     AI_UPSTREAM_UNAVAILABLE: "The assistant is briefly unavailable. Please try again in a moment.",

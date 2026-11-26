@@ -267,6 +267,10 @@ export const CHAT_IMAGE_LIMITS = {
 
 export const CHAT_IMAGE_SCHEME = "cadence-image:";
 export const CHAT_IMAGE_MEDIA_TYPE = "image/webp";
+export const CHAT_PDF_MEDIA_TYPE = "application/pdf";
+
+/** A PDF is stored as sent (the provider reads its text); these bound what the API accepts. */
+export const CHAT_FILE_LIMITS = { pdfMaxBytes: 5 * 1024 * 1024, pdfMaxPages: 30 } as const;
 
 export function chatImageUrl(id: string): string {
     return `${CHAT_IMAGE_SCHEME}${id}`;
@@ -293,6 +297,9 @@ export const chatImageUploadResponseSchema = z.object({
     id: z.uuid(),
     /** True when this conversation already had the same image; nothing new was stored. */
     reused: z.boolean(),
+    mediaType: z.enum([CHAT_IMAGE_MEDIA_TYPE, CHAT_PDF_MEDIA_TYPE]),
+    /** PDF page count when it could be read, else null (always null for photos). */
+    pages: z.number().int().nullable(),
     images: aiImageUsageSchema.omit({ perMessage: true }),
 });
 export type ChatImageUpload = z.infer<typeof chatImageUploadResponseSchema>;
@@ -305,8 +312,10 @@ export const aiImageRowSchema = z.object({
     conversationId: z.uuid(),
     contentHash: z.string(),
     bytes: z.number(),
-    width: z.number(),
-    height: z.number(),
+    mediaType: z.enum([CHAT_IMAGE_MEDIA_TYPE, CHAT_PDF_MEDIA_TYPE]),
+    pages: z.number().int().nullable(),
+    width: z.number().nullable(),
+    height: z.number().nullable(),
     createdAt: instantSchema,
     sentAt: instantSchema.nullable(),
     lastUsedAt: instantSchema,

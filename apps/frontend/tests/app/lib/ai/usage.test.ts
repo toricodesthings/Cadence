@@ -103,7 +103,7 @@ describe("describeImageAllowance", () => {
     it("stays quiet while there's plenty", () => {
         expect(describeImageAllowance(usage({ images: { used: 10 } }), NOW)).toMatchObject({
             blocked: false,
-            label: "Attach an image",
+            label: "Attach a photo or PDF",
         });
         expect(describeImageAllowance(undefined, NOW).blocked).toBe(false);
     });
@@ -112,7 +112,7 @@ describe("describeImageAllowance", () => {
         expect(describeImageAllowance(usage({ images: { used: 17, resetEpoch: reset } }), NOW)).toEqual({
             left: 3,
             blocked: false,
-            label: "3 images left · resets in 7h",
+            label: "3 files left · resets in 7h",
         });
     });
 
@@ -120,7 +120,7 @@ describe("describeImageAllowance", () => {
         expect(describeImageAllowance(usage({ images: { used: 20, resetEpoch: reset } }), NOW)).toEqual({
             left: 0,
             blocked: true,
-            label: "Image limit reached · resets in 7h",
+            label: "File limit reached · resets in 7h",
         });
     });
 });

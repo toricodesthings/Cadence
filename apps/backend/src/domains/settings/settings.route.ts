@@ -7,18 +7,16 @@ import type { Env } from "../../types/env";
 import type { AuthVariables } from "../../platform/auth";
 import { apiValidator } from "../../platform/validation";
 import { throwIfNotFound } from "../../platform/errors";
-import { sanitizeBackgroundPatch } from "./background-image";
 import { ensureFocusPresets, hideOrDeleteFocusView } from "./focus-presets";
+import { normalizeSettings, patchSettings } from "./settings.service";
 import {
     deepMerge,
     savedFocusViewInputSchema,
     savedFocusViewPatchSchema,
     settingsPatchSchema,
-    SETTINGS_DEFAULTS,
     type SavedFocusView,
     type SavedFocusViewRow,
     type SettingsView,
-    type LocationMode,
 } from "@cadence/contracts/settings";
 import {
     upsertNotificationStateSchema,
@@ -26,61 +24,6 @@ import {
     type NotificationStateRow,
 } from "@cadence/contracts/notification";
 import { uuidParamSchema } from "@cadence/contracts/common";
-import { isZone } from "@cadence/domain/time";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
-function isPlainObject(value: unknown): value is Record<string, any> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/**
- * Lift the location fields that used to live under `calendar.holidays`
- * (`usePreciseLocation`, `locationMode`, `countryCode`, `subdivisionCode`,
- * `promptDismissedAt`) into `location`. Runs on stored settings before they are
- * merged over defaults. The legacy keys are left in place so older clients keep
- * reading them; the parsers ignore them.
- */
-export function migrateLegacySettings<T>(stored: T): T {
-    if (!isPlainObject(stored) || stored.location !== undefined) return stored;
-    const holidays = isPlainObject(stored.calendar) ? stored.calendar.holidays : undefined;
-    if (!isPlainObject(holidays)) return stored;
-
-    const mode: LocationMode =
-        holidays.locationMode === "manual"
-            ? "manual"
-            : holidays.usePreciseLocation === true
-              ? "precise"
-              : "approximate";
-
-    return {
-        ...stored,
-        location: {
-            mode,
-            countryCode: typeof holidays.countryCode === "string" ? holidays.countryCode : null,
-            subdivisionCode: typeof holidays.subdivisionCode === "string" ? holidays.subdivisionCode : null,
-            city: null,
-            promptDismissedAt: typeof holidays.promptDismissedAt === "string" ? holidays.promptDismissedAt : null,
-        },
-    };
-}
-
-/**
- * Normalize stored settings against canonical defaults.
- * - Merges in missing sections/keys from defaults
- * - Migrates legacy `preferredView` into `tasks.defaultView`
- * - Migrates legacy `calendar.holidays` location fields into `location`
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
-export function normalizeSettings(stored: Record<string, any>): SettingsView {
-    const merged = deepMerge<SettingsView>(SETTINGS_DEFAULTS, migrateLegacySettings(stored));
-
-    // Migrate legacy preferredView → tasks.defaultView
-    if (stored.preferredView && !stored.tasks?.defaultView) {
-        merged.tasks = { ...merged.tasks, defaultView: stored.preferredView };
-    }
-
-    return merged;
-}
 
 // Writes validate these columns (focus-view definition, reminder object type), so reads narrow them.
 const toSavedFocusView = (row: SavedFocusViewRow): SavedFocusView => ({
@@ -216,33 +159,8 @@ export const settingsRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables
     .patch("/", apiValidator("json", settingsPatchSchema), async (c) => {
         const body = c.req.valid("json");
 
-        const [updated] = await withCallerRls(c, async (tx, userId) => {
-            const [user] = await tx
-                .select({ settings: users.settings })
-                .from(users)
-                .where(eq(users.id, userId))
-                .limit(1)
-                .for("update"); // concurrent patches (and assistant event writes) must not drop each other's change
-
-            // Normalize stored settings first, then merge in patch
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
-            const normalized = normalizeSettings((user?.settings || {}) as Record<string, any>);
-            const merged = deepMerge<SettingsView>(normalized, sanitizeBackgroundPatch(normalized, body));
-
-            return tx
-                .update(users)
-                .set({
-                    settings: merged,
-                    // Pinning a zone makes it the user's zone at once, while "device" waits for the client's next sync.
-                    ...(isZone(merged.dateTime?.timezone) && { timeZone: merged.dateTime.timezone }),
-                })
-                .where(eq(users.id, userId))
-                .returning({ settings: users.settings });
-        });
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- untyped JSON / Hono generic boundary
-        const normalizedResult = normalizeSettings((updated?.settings ?? {}) as Record<string, any>);
-        return c.json({ data: normalizedResult });
+        const { after } = await withCallerRls(c, (tx, userId) => patchSettings(tx, userId, body));
+        return c.json({ data: after });
     })
     .patch(
         "/focus-views/:id",

@@ -16,14 +16,14 @@ vi.mock("../../../../app/lib/utils/image", () => ({ compressChatImage: mocks.com
 vi.mock("../../../../app/lib/api/helpers", () => ({ unwrapResponse: async (data: unknown) => data }));
 
 const file = () => new File(["image"], "photo.png", { type: "image/png" });
-const uploaded = { id: "image-1", reused: false, images: { used: 1 } };
+const uploaded = { id: "image-1", reused: false, mediaType: "image/webp", pages: null, images: { used: 1 } };
 
 function setup(perMessage = 3) {
     const onNotice = vi.fn();
     const hook = renderHook(() =>
         useChatAttachments({
             conversationId: "conv-1",
-            imageAllowance: { left: 10, blocked: false, label: "Attach an image" },
+            imageAllowance: { left: 10, blocked: false, label: "Attach a photo or PDF" },
             perMessage,
             onNotice,
         }),
@@ -38,6 +38,28 @@ beforeEach(() => {
     mocks.compress.mockResolvedValue(new Blob(["webp"], { type: "image/webp" }));
     mocks.upload.mockResolvedValue(uploaded);
     mocks.discard.mockResolvedValue(undefined);
+});
+
+describe("PDF attachments", () => {
+    it("uploads a PDF as-is without compressing, and keeps its page count", async () => {
+        mocks.upload.mockResolvedValue({ ...uploaded, mediaType: "application/pdf", pages: 12 });
+        const { result } = setup();
+        const pdf = new File(["%PDF-1.4"], "syllabus.pdf", { type: "application/pdf" });
+        act(() => result.current.addImages([pdf]));
+        await waitFor(() => expect(result.current.readyImages).toHaveLength(1));
+        expect(mocks.compress).not.toHaveBeenCalled();
+        expect(mocks.upload).toHaveBeenCalledWith({ form: { file: pdf, conversationId: "conv-1" } });
+        expect(result.current.readyImages[0]).toMatchObject({ mediaType: "application/pdf", pages: 12 });
+    });
+
+    it("refuses a PDF over 5 MB before uploading", async () => {
+        const { result, onNotice } = setup();
+        const big = new File([new Uint8Array(6 * 1024 * 1024)], "big.pdf", { type: "application/pdf" });
+        act(() => result.current.addImages([big]));
+        await waitFor(() => expect(result.current.attachments[0].status).toBe("failed"));
+        expect(mocks.upload).not.toHaveBeenCalled();
+        expect(onNotice).toHaveBeenCalledWith("That PDF is larger than 5 MB.");
+    });
 });
 
 describe("chat attachment ownership", () => {
@@ -92,7 +114,7 @@ describe("chat attachment ownership", () => {
         act(() => result.current.addImages([file()]));
         await waitFor(() => expect(result.current.readyImages).toHaveLength(1));
         act(() => result.current.addImages([file()]));
-        await waitFor(() => expect(onNotice).toHaveBeenCalledWith("That image is already attached."));
+        await waitFor(() => expect(onNotice).toHaveBeenCalledWith("That file is already attached."));
         expect(result.current.attachments).toHaveLength(1);
         expect(mocks.discard).not.toHaveBeenCalled();
         act(() => result.current.clearAttachments(true));
@@ -103,7 +125,7 @@ describe("chat attachment ownership", () => {
         mocks.compress.mockRejectedValueOnce(new Error("Couldn’t compress the image"));
         const { result, onNotice, unmount } = setup(1);
         act(() => result.current.addImages([file(), file()]));
-        expect(onNotice).toHaveBeenCalledWith("Up to 1 images per message.");
+        expect(onNotice).toHaveBeenCalledWith("Up to 1 files per message.");
         await waitFor(() => expect(result.current.attachments[0].status).toBe("failed"));
         expect(result.current.readyImages).toHaveLength(0);
         expect(onNotice).toHaveBeenCalledWith("Couldn’t compress the image");

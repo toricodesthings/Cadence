@@ -429,13 +429,12 @@ export async function getConversation(
     return row ?? null;
 }
 
-/** Ids of the images attached in a thread (to delete their stored bytes first). */
-export async function listConversationImageIds(tx: Tx, userId: string, conversationId: string): Promise<string[]> {
-    const rows = await tx
-        .select({ id: aiImages.id })
+/** Ids and kinds of the images and PDFs attached in a thread (to delete their stored bytes first). */
+export async function listConversationImageIds(tx: Tx, userId: string, conversationId: string) {
+    return tx
+        .select({ id: aiImages.id, mediaType: aiImages.mediaType })
         .from(aiImages)
         .where(and(eq(aiImages.userId, userId), eq(aiImages.conversationId, conversationId)));
-    return rows.map((row) => row.id);
 }
 
 /** The caller's archived threads, as a subquery. */
@@ -446,12 +445,11 @@ const archivedIds = (tx: Tx, userId: string) =>
         .where(and(eq(aiConversations.userId, userId), eq(aiConversations.archived, true)));
 
 /** Ids of the images in every archived thread (to delete their stored bytes first). */
-export async function listArchivedImageIds(tx: Tx, userId: string): Promise<string[]> {
-    const rows = await tx
-        .select({ id: aiImages.id })
+export async function listArchivedImageIds(tx: Tx, userId: string) {
+    return tx
+        .select({ id: aiImages.id, mediaType: aiImages.mediaType })
         .from(aiImages)
         .where(and(eq(aiImages.userId, userId), inArray(aiImages.conversationId, archivedIds(tx, userId))));
-    return rows.map((row) => row.id);
 }
 
 /**

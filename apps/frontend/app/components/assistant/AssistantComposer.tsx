@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
     X,
     ArrowUp,
+    FileText,
     ImagePlus,
     Slash,
     Zap,
@@ -12,7 +13,7 @@ import {
     LoaderCircle,
     CircleAlert,
 } from "lucide-react";
-import type { ApprovalMode } from "@cadence/contracts/ai";
+import { CHAT_PDF_MEDIA_TYPE, type ApprovalMode } from "@cadence/contracts/ai";
 import { Tip, DropdownMenu } from "../primitives";
 import { ImageViewer } from "../shared/ImageViewer";
 import { useAssistantStore } from "../../stores/assistant-store";
@@ -240,7 +241,10 @@ export function AssistantComposer({
                     onPaste={(e) => {
                         // Office apps put the text and a picture of it on the clipboard: keep the text.
                         const data = e.clipboardData;
-                        if (data.getData("text/plain") || ![...data.files].some((f) => f.type.startsWith("image/")))
+                        if (
+                            data.getData("text/plain") ||
+                            ![...data.files].some((f) => f.type.startsWith("image/") || f.type === "application/pdf")
+                        )
                             return;
                         e.preventDefault();
                         addImages(e.clipboardData.files);
@@ -256,7 +260,7 @@ export function AssistantComposer({
                     <input
                         ref={fileInputRef}
                         type="file"
-                        accept="image/*"
+                        accept="image/*,application/pdf"
                         multiple
                         hidden
                         onChange={(e) => {
@@ -326,23 +330,37 @@ function AttachmentStrip({ images }: { images: ChatAttachments }) {
         <div className="flex gap-2 overflow-x-auto px-3 pt-3">
             {attachments.map((a, i) => (
                 <div key={a.id} className="relative shrink-0">
-                    <button
-                        type="button"
-                        onClick={() => setViewing(i)}
-                        aria-label={`View attached image ${i + 1}`}
-                        className="block cursor-zoom-in rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
-                    >
-                        <img
-                            src={a.url}
-                            alt={`Attachment ${i + 1}`}
-                            className={`h-16 w-16 rounded-xl object-cover ring-1 ${a.status === "failed" ? "ring-feedback-error/60 opacity-50" : "ring-white/10"}`}
+                    {a.mediaType === "application/pdf" ? (
+                        <div
+                            className={`flex h-16 w-24 flex-col items-center justify-center gap-1 rounded-xl bg-panel/60 text-[11px] text-twilight-text-soft ring-1 ${a.status === "failed" ? "ring-feedback-error/60 opacity-50" : "ring-white/10"}`}
+                        >
+                            <FileText size={18} aria-hidden />
+                            {a.pages ? `PDF · ${a.pages} page${a.pages === 1 ? "" : "s"}` : "PDF"}
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => setViewing(i)}
+                            aria-label={`View attached image ${i + 1}`}
+                            className="block cursor-zoom-in rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                        >
+                            <img
+                                src={a.url}
+                                alt={`Attachment ${i + 1}`}
+                                className={`h-16 w-16 rounded-xl object-cover ring-1 ${a.status === "failed" ? "ring-feedback-error/60 opacity-50" : "ring-white/10"}`}
+                            />
+                        </button>
+                    )}
+                    {a.status !== "ready" ? (
+                        <AttachmentStatus
+                            uploading={a.status === "uploading"}
+                            kind={a.mediaType === CHAT_PDF_MEDIA_TYPE ? "PDF" : "photo"}
                         />
-                    </button>
-                    {a.status !== "ready" ? <AttachmentStatus uploading={a.status === "uploading"} /> : null}
+                    ) : null}
                     <button
                         type="button"
                         onClick={() => removeAttachment(a.id)}
-                        aria-label={`Remove attached image ${i + 1}`}
+                        aria-label={`Remove attachment ${i + 1}`}
                         className="glass-none absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-twilight-deep text-twilight-text-soft ring-1 ring-white/15 transition-colors hover:text-twilight-text cursor-pointer"
                     >
                         <X size={12} aria-hidden />
@@ -350,7 +368,12 @@ function AttachmentStrip({ images }: { images: ChatAttachments }) {
                 </div>
             ))}
             <ImageViewer
-                images={attachments.map((a) => ({ key: a.id, title: a.name, src: a.url, bytes: a.bytes }))}
+                images={attachments.map((a) => ({
+                    key: a.id,
+                    title: a.name,
+                    src: a.mediaType === "application/pdf" ? null : a.url,
+                    bytes: a.bytes,
+                }))}
                 index={viewing !== null && viewing < attachments.length ? viewing : null}
                 onIndexChange={setViewing}
             />
@@ -358,12 +381,12 @@ function AttachmentStrip({ images }: { images: ChatAttachments }) {
     );
 }
 
-function AttachmentStatus({ uploading }: { uploading: boolean }) {
+function AttachmentStatus({ uploading, kind }: { uploading: boolean; kind: "PDF" | "photo" }) {
     return (
         <span
             className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-twilight-deep/45"
             role="status"
-            aria-label={uploading ? "Uploading image" : "Image didn’t attach"}
+            aria-label={uploading ? `Uploading ${kind}` : `${kind === "PDF" ? "PDF" : "Photo"} didn’t attach`}
         >
             {uploading ? (
                 <LoaderCircle size={18} className="animate-spin text-twilight-text" aria-hidden />
@@ -438,7 +461,7 @@ function SendButton({
         );
     }
     return (
-        <Tip label={uploading ? "Waiting for images to attach" : "Send message"} side="top">
+        <Tip label={uploading ? "Waiting for files to attach" : "Send message"} side="top">
             <button
                 type="submit"
                 disabled={disabled}

@@ -18,9 +18,9 @@ export const AI_SECTIONS: LegalDoc["sections"] = [
                 kind: "list",
                 items: [
                     "Your message and up to the last 40 turns of that conversation. Older lookup results are shrunk to counts and ids.",
-                    "Photos attached to your message and to the last 6 messages, sent as image data.",
+                    "Photos and PDFs attached to your message and to the last 6 messages. Photos go as image data. For a PDF, OpenRouter reads the text out of the file and passes that text to the model.",
                     "A snapshot taken before each reply: today's schedule, up to 5 overdue tasks, today's routines, your 5 newest captures, and events in the next 7 days.",
-                    "Anything the assistant looks up while answering: tasks, notes (cut off after 1,000 characters), lists, tags, routines, events, saved views.",
+                    "Anything the assistant looks up while answering: tasks, notes (cut off after 1,000 characters), lists, tags, routines, events, saved views, and the settings it can change.",
                     "Your assistant settings: its name, your nickname, voice, emoji and suggestion choices, your custom instructions, and your approval mode.",
                     "Your time zone, language, week start, the current local time, and a high-workload flag when adaptive tone is on.",
                     "A short fingerprint of your user id (the first 16 characters of a SHA-256 hash). Your email and account name are not sent.",
@@ -51,8 +51,8 @@ export const AI_SECTIONS: LegalDoc["sections"] = [
             {
                 kind: "list",
                 items: [
-                    "Conversations are saved in the database with replies, the lookups and changes made, which model answered, and token counts and cost. Delete one from History, or archive conversations and clear the archive. Deleting removes its messages and photos.",
-                    "Photos you attach are re-encoded in your browser (which drops camera data such as location), checked again by the server, and stored privately. They are deleted 30 days after last use, or when you delete the conversation.",
+                    "Conversations are saved in the database with replies, the lookups and changes made, which model answered, and token counts and cost. Delete one from History, or archive conversations and clear the archive. Deleting removes its messages, photos and PDFs.",
+                    "Photos you attach are re-encoded in your browser (which drops camera data such as location), checked again by the server, and stored privately. PDFs (up to 5 MB and 30 pages, not password-protected) are checked by the server and stored privately as you sent them, so details inside the file, such as its author, are kept. Both are deleted 30 days after last use, or when you delete the conversation.",
                     "A temporary copy of a reply in progress sits in Redis so a reload can resume it, for up to an hour, and about a minute after it finishes.",
                     "Logs record one line per reply: model, outcome, steps, token counts, cost, timing and a hashed user id. They do not record your message text. Shortened error details from the model provider can be logged when a request fails.",
                 ],
@@ -75,7 +75,7 @@ export const AI_SECTIONS: LegalDoc["sections"] = [
             { kind: "sub", title: "Limits and safety" },
             {
                 kind: "p",
-                text: "Usage is capped per account (by default 150 replies per 5 hours and 1,500 per week, plus photo limits) using counters in Redis. You choose whether the assistant asks before each change, asks only for risky ones, or acts on its own. Approvals are cryptographically signed so a forged one fails.",
+                text: "Usage is capped per account (by default 150 replies per 5 hours and 1,500 per week, plus a daily limit on photos and PDFs) using counters in Redis. You choose whether the assistant asks before each change, asks only for risky ones, or acts on its own. Approvals are cryptographically signed so a forged one fails.",
             },
         ],
     },

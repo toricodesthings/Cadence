@@ -26,7 +26,7 @@ import {
     backgroundPrefix,
 } from "./background-image";
 import type { SettingsView } from "@cadence/contracts/settings";
-import { normalizeSettings } from "./settings.route";
+import { normalizeSettings } from "./settings.service";
 
 /**
  * The user's photo background. One photo per account: an upload replaces the

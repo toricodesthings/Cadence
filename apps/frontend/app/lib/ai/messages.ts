@@ -1,5 +1,8 @@
 import type { ChatStatus, UIMessage } from "ai";
-import { CHAT_IMAGE_MEDIA_TYPE, chatImageUrl, parseChatImageUrl } from "@cadence/contracts/ai";
+import { CHAT_IMAGE_MEDIA_TYPE, CHAT_PDF_MEDIA_TYPE, chatImageUrl, parseChatImageUrl } from "@cadence/contracts/ai";
+
+/** A photo or PDF a message carries, by id and kind. */
+export type ChatFileRef = { id: string; mediaType: typeof CHAT_IMAGE_MEDIA_TYPE | typeof CHAT_PDF_MEDIA_TYPE };
 
 /** Image ids a message's file parts reference. */
 export function imageIdsOf(message: UIMessage): string[] {
@@ -9,10 +12,28 @@ export function imageIdsOf(message: UIMessage): string[] {
     });
 }
 
-/** The file part a chat turn carries for an uploaded image: a reference, never bytes or a filename. */
-export const imageFilePart = (id: string) => ({
+/** The photos and PDFs a message's file parts reference. */
+export function fileRefsOf(message: UIMessage): ChatFileRef[] {
+    return message.parts.flatMap((part) => {
+        const id = part.type === "file" ? parseChatImageUrl(part.url) : null;
+        return id
+            ? [
+                  {
+                      id,
+                      mediaType:
+                          part.type === "file" && part.mediaType === CHAT_PDF_MEDIA_TYPE
+                              ? CHAT_PDF_MEDIA_TYPE
+                              : CHAT_IMAGE_MEDIA_TYPE,
+                  },
+              ]
+            : [];
+    });
+}
+
+/** The file part a chat turn carries for an uploaded photo or PDF: a reference, never bytes or a filename. */
+export const imageFilePart = (id: string, mediaType: ChatFileRef["mediaType"] = CHAT_IMAGE_MEDIA_TYPE) => ({
     type: "file" as const,
-    mediaType: CHAT_IMAGE_MEDIA_TYPE,
+    mediaType,
     url: chatImageUrl(id),
 });
 

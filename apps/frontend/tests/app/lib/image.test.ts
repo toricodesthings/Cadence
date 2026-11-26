@@ -107,7 +107,7 @@ describe("Assistant image preparation", () => {
                 removeAttribute = removeAttribute;
             },
         );
-        await expect(compressChatImage(file())).rejects.toThrow("Couldn’t read that image.");
+        await expect(compressChatImage(file())).rejects.toThrow("Couldn’t read that photo.");
         expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:picked-image");
         expect(removeAttribute).toHaveBeenCalledWith("src");
     });
@@ -130,7 +130,7 @@ describe("Assistant image preparation", () => {
             canvases.push(this);
             callback(null);
         });
-        await expect(compressChatImage(file())).rejects.toThrow("Couldn’t read that image.");
+        await expect(compressChatImage(file())).rejects.toThrow("Couldn’t read that photo.");
         expect(bitmap.close).toHaveBeenCalledOnce();
         expect(canvases[0].width).toBe(0);
         expect(canvases[0].height).toBe(0);

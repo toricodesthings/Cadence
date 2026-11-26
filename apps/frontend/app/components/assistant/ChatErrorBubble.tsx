@@ -83,7 +83,7 @@ export function ChatErrorBubble({
                             className="h-8 min-h-8 gap-1.5 rounded-lg px-3 text-xs font-semibold"
                         >
                             <Send size={12} />
-                            Send without images
+                            Send without files
                         </Button>
                     ) : null}
                     <button
@@ -109,7 +109,7 @@ export function ChatErrorBubble({
                             ? "Shared with the report. Thank you."
                             : shared === "failed"
                               ? "Couldn’t share it. Try again?"
-                              : "Share this image with the report"}
+                              : "Share this photo with the report"}
                     </button>
                 ) : null}
 

@@ -123,7 +123,7 @@ export interface AiLimits {
     tokens7d: number;
     maxConcurrent: number;
     reserve: number;
-    /** Images sent per 24h window. */
+    /** Files (photos and PDFs, one shared count) sent per 24h window. */
     images24h: number;
     /** Images per message (the client's chip limit follows it). */
     imagesPerMessage: number;
@@ -190,7 +190,7 @@ export function resolveLimits(env: Env): AiLimits {
         tokens7d: intEnv(env.AI_RL_TOKENS_7D, 6_000_000),
         maxConcurrent: intEnv(env.AI_RL_MAX_CONCURRENT, 3),
         reserve: intEnv(env.AI_RL_RESERVE_TOKENS, 6_000),
-        images24h: intEnv(env.AI_RL_IMAGES_24H, 20),
+        images24h: intEnv(env.AI_RL_IMAGES_24H, 40),
         imagesPerMessage: intEnv(env.AI_IMAGES_PER_MESSAGE, CHAT_IMAGE_LIMITS.perMessage),
         imagesMaxPending: intEnv(env.AI_IMAGES_MAX_PENDING, 8),
         failClosed: failMode ? failMode === "closed" : getDeploymentStage(env) === "production",

@@ -58,7 +58,7 @@ export type TaskDraft = Partial<
     fromImage?: Partial<Record<Quoted, string>>;
 };
 
-/** How each quoted field is named in the "From your image" block, in reading order. */
+/** How each quoted field is named in the "From what you sent" block, in reading order. */
 const QUOTE_LABELS: Array<[Quoted, string]> = [
     ["title", "Title"],
     ["dueDate", "Due"],
@@ -91,7 +91,9 @@ export function DraftQuotes({ draft, compact = false }: { draft: TaskDraft; comp
         return (
             <p className="flex items-center gap-1 text-[10px] text-twilight-text-muted">
                 <ImageIcon size={10} className="shrink-0" aria-hidden="true" />
-                <span className="line-clamp-1">From your image: {quotes.map((q) => `“${q.quote}”`).join(" · ")}</span>
+                <span className="line-clamp-1">
+                    From what you sent: {quotes.map((q) => `“${q.quote}”`).join(" · ")}
+                </span>
             </p>
         );
     }
@@ -99,7 +101,7 @@ export function DraftQuotes({ draft, compact = false }: { draft: TaskDraft; comp
         <div className="rounded-lg border border-white/[0.05] px-2.5 py-1.5 text-[11px] text-twilight-text-muted">
             <p className="mb-0.5 flex items-center gap-1 font-medium text-twilight-text-soft">
                 <ImageIcon size={11} className="shrink-0" aria-hidden="true" />
-                From your image
+                From what you sent
             </p>
             {quotes.map(({ label, quote }) => (
                 <p key={label} className="line-clamp-2">

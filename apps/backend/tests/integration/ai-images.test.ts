@@ -60,9 +60,9 @@ describe("chat images", () => {
         env = { USER_ASSETS: bucket, AI_IMAGES_MAX_PENDING: "2" };
     });
 
-    async function upload(as = userId, bytes = webp(), convo = conversationId) {
+    async function upload(as = userId, bytes: Uint8Array = webp(), convo = conversationId, type = "image/webp") {
         const form = new FormData();
-        form.set("file", new File([bytes], "IMG_0001.webp", { type: "image/webp" }));
+        form.set("file", new File([bytes], "IMG_0001.webp", { type }));
         form.set("conversationId", convo);
         const res = await createTestApp("/ai/images", aiImageRoutes, as).request(
             "/ai/images",
@@ -78,7 +78,7 @@ describe("chat images", () => {
         const elsewhere = await upload(userId, webp(), crypto.randomUUID());
 
         expect(first.status).toBe(201);
-        expect(first.body.data).toMatchObject({ reused: false, images: { used: 0, limit: 20 } });
+        expect(first.body.data).toMatchObject({ reused: false, images: { used: 0, limit: 40 } });
         expect(again).toMatchObject({ status: 200, body: { data: { id: first.body.data.id, reused: true } } });
         expect(elsewhere.body.data.id).not.toBe(first.body.data.id);
         expect(bucket.put).toHaveBeenCalledTimes(2);
@@ -205,6 +205,72 @@ describe("chat images", () => {
         expect((await ai("DELETE", "/conversations/archived")).body.data).toEqual({ deleted: 1 });
         expect(bucket.objects.size).toBe(1);
         expect((await rows(userId)).map((r) => r.conversation_id)).not.toContain(conversationId);
+    });
+
+    describe("PDFs", () => {
+        const pdf = (pages = 3, extra = "") =>
+            new TextEncoder().encode(
+                `%PDF-1.4\n1 0 obj\n<< /Type /Pages /Kids [] /Count ${pages} >>\nendobj\n${extra}`,
+            );
+        const uploadPdf = (bytes: Uint8Array, as = userId, convo = conversationId) =>
+            upload(as, bytes, convo, "application/pdf");
+
+        it("stores a PDF with its page count, dedups it, and serves it as a download", async () => {
+            const first = await uploadPdf(pdf(3));
+            const again = await uploadPdf(pdf(3));
+
+            expect(first).toMatchObject({ status: 201, body: { data: { mediaType: "application/pdf", pages: 3 } } });
+            expect(again).toMatchObject({
+                status: 200,
+                body: { data: { id: first.body.data.id, reused: true, pages: 3 } },
+            });
+            expect([...bucket.objects.keys()]).toEqual([
+                `ai-images/${await hashIdentifier(userId)}/${first.body.data.id}.pdf`,
+            ]);
+            const [row] = await rows(userId);
+            expect(row).toMatchObject({ media_type: "application/pdf", pages: 3, width: null, height: null });
+
+            const got = await apiAs(userId, "/ai/images", aiImageRoutes, env)("GET", `/${first.body.data.id}`);
+            expect(got.response.headers.get("Content-Type")).toBe("application/pdf");
+            expect(got.response.headers.get("Content-Disposition")).toBe("attachment");
+            expect(got.response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+        });
+
+        it("refuses locked, too-long, oversized and non-PDF files", async () => {
+            expect((await uploadPdf(pdf(2, "<< /Encrypt 4 0 R >>"))).body.error.code).toBe("FILE_LOCKED");
+            expect((await uploadPdf(pdf(31))).body.error.code).toBe("FILE_TOO_LONG");
+            expect((await uploadPdf(new TextEncoder().encode("not a pdf"))).status).toBe(415);
+            const big = new Uint8Array(6 * 1024 * 1024);
+            big.set(pdf(1));
+            expect((await uploadPdf(big)).status).toBe(413);
+            expect(bucket.put).not.toHaveBeenCalled();
+        });
+
+        it("another user gets 404; delete while unsent removes the object; a part can't change its type", async () => {
+            const { body } = await uploadPdf(pdf(2));
+            const other = await createUser();
+            expect((await apiAs(other, "/ai/images", aiImageRoutes, env)("GET", `/${body.data.id}`)).status).toBe(404);
+
+            const ids = [body.data.id];
+            const db = getTestDb();
+            await expect(
+                withRls(db, userId, (tx) =>
+                    resolveTurnImages(tx, userId, conversationId, ids, new Map([[body.data.id, "image/webp"]])),
+                ),
+            ).rejects.toMatchObject({ code: "IMAGE_NOT_FOUND" });
+
+            expect((await apiAs(userId, "/ai/images", aiImageRoutes, env)("DELETE", `/${body.data.id}`)).status).toBe(
+                200,
+            );
+            expect(bucket.objects.size).toBe(0);
+        });
+
+        it("deleting the conversation removes the .pdf object", async () => {
+            await withRls(getTestDb(), userId, (tx) => resolveOrCreateConversation(tx, userId, { conversationId }));
+            await uploadPdf(pdf(2));
+            await apiAs(userId, "/ai", aiRoutes, env)("DELETE", `/conversations/${conversationId}`);
+            expect(bucket.objects.size).toBe(0);
+        });
     });
 
     it("the cron sweeps unsent uploads after a day and images unused for 30 days", async () => {

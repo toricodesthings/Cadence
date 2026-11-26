@@ -9,7 +9,7 @@ import { ReadReceipt } from "./ReadReceipt";
 import { ChatErrorBubble } from "./ChatErrorBubble";
 import { ToolActivityChip } from "./ToolActivityChip";
 import { ToolPart, buildSegments } from "./tool-registry";
-import { imageIdsOf, messageStatus, describeThread } from "../../lib/ai/messages";
+import { fileRefsOf, messageStatus, describeThread } from "../../lib/ai/messages";
 import { EASE_OUT_EXPO } from "../../lib/constants/motion";
 import type { AssistantConversation } from "../../hooks/ai/use-assistant-conversation";
 
@@ -207,7 +207,7 @@ function ThreadMessage({
                 receipt={receipt}
                 userImage={userImage}
                 userInitial={userInitial}
-                images={isUser ? imageIdsOf(message) : undefined}
+                images={isUser ? fileRefsOf(message) : undefined}
             >
                 {segments.map((seg, i) => (
                     <MessageSegment

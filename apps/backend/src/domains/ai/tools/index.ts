@@ -19,6 +19,7 @@ import { focusViewTools } from "./focus-views";
 import { helpTools } from "./help";
 import { askTools } from "./ask";
 import { memoryTools } from "./memory";
+import { settingsTools } from "./settings";
 
 /**
  * Runtime context captured per request when the tool registry is built.
@@ -211,6 +212,7 @@ export const coreTools = (env: Env, userId: string, ctx: AgentContext) => ({
     ...metricTools(env, userId, ctx),
     ...focusViewTools(env, userId, ctx),
     ...helpTools(),
+    ...settingsTools(env, userId),
     ...memoryTools(env, userId, ctx),
 });
 

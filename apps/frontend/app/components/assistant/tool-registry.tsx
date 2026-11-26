@@ -38,6 +38,7 @@ import {
     UpdateTagCard,
 } from "./widgets/OrganizeCards";
 import { outcomeOf, type RetiredRenderContext, type ToolRenderContext } from "./widgets/ApprovalCard";
+import { SettingsCard } from "./widgets/SettingsCard";
 import { AskCard } from "./widgets/AskCard";
 import { RememberReceipt } from "./widgets/RememberReceipt";
 import { FindTimeCard, FitDayCard } from "./widgets/PlanCards";
@@ -84,6 +85,7 @@ const TOOL_REGISTRY: { [N in ToolName]: { label: string; render?: (ctx: ToolRend
     get_events: { label: "Looked at your events" },
     get_focus_views: { label: "Looked at your focus views" },
     get_cadence_help: { label: "Checked the Cadence guide" },
+    get_settings: { label: "Checked your settings" },
     find_time: { label: "Looked for a gap", render: card(FindTimeCard) },
     fit_day: { label: "Laid out your day", render: card(FitDayCard) },
     recall: { label: "Thought back to what you told me" },
@@ -124,6 +126,8 @@ const TOOL_REGISTRY: { [N in ToolName]: { label: string; render?: (ctx: ToolRend
             ctx.part?.input?.focusViewId ? <UpdateFocusViewCard ctx={ctx} /> : <CreateFocusViewCard ctx={ctx} />,
     },
     delete_focus_view: { label: "Deleted a focus view", render: card(DeleteFocusViewCard) },
+
+    update_settings: { label: "Changed settings", render: card(SettingsCard) },
 
     // ── remember → one-line receipt with Undo, never an approval ───────────
     remember: { label: "Remembered", render: card(RememberReceipt) },

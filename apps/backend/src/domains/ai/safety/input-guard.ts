@@ -11,6 +11,7 @@
 import {
     CHAT_IMAGE_LIMITS,
     CHAT_IMAGE_MEDIA_TYPE,
+    CHAT_PDF_MEDIA_TYPE,
     MAX_MESSAGE_CHARS as SHARED_MAX_MESSAGE_CHARS,
     MAX_PARTS_PER_MESSAGE as SHARED_MAX_PARTS_PER_MESSAGE,
     parseChatImageUrl,
@@ -57,16 +58,16 @@ function byteSizeOfPart(part: unknown): number {
 }
 
 /**
- * A file part may only be a `cadence-image:` reference to a WebP, with nothing
+ * A file part may only be a `cadence-image:` reference to a WebP or PDF, with nothing
  * else on it (no filename: names leak). The provider is never pointed at an
  * arbitrary URL or handed an inline data URL.
  */
-function isImageReference(part: unknown): boolean {
+function isAttachmentReference(part: unknown): boolean {
     if (!part || typeof part !== "object") return false;
     const { type, mediaType, url, ...rest } = part as Record<string, unknown>;
     return (
         type === "file" &&
-        mediaType === CHAT_IMAGE_MEDIA_TYPE &&
+        (mediaType === CHAT_IMAGE_MEDIA_TYPE || mediaType === CHAT_PDF_MEDIA_TYPE) &&
         parseChatImageUrl(url) !== null &&
         Object.keys(rest).length === 0
     );
@@ -74,8 +75,8 @@ function isImageReference(part: unknown): boolean {
 
 /**
  * Throw `AppError(400, "INVALID_REQUEST")` when a message exceeds the AI-specific
- * char / parts-count / per-part-size / image caps, or carries a file part that
- * isn't an image reference. Sums text-part lengths for the char cap. A message
+ * char / parts-count / per-part-size / attachment caps, or carries a file part that
+ * isn't an attachment reference. Sums text-part lengths for the char cap. A message
  * without `parts` (legacy `content`-only shape) passes — the schema layer handles
  * that surface.
  */
@@ -87,11 +88,11 @@ export function assertMessageWithinCaps(
     if (!parts) return;
 
     const files = parts.filter((part) => (part as { type?: unknown } | null)?.type === "file");
-    if (!files.every(isImageReference)) {
-        throw new AppError(400, "INVALID_REQUEST", "Only attached images can be sent.");
+    if (!files.every(isAttachmentReference)) {
+        throw new AppError(400, "INVALID_REQUEST", "Only attached files can be sent.");
     }
     if (files.length > maxImages) {
-        throw new AppError(400, "INVALID_REQUEST", `Up to ${maxImages} images per message.`);
+        throw new AppError(400, "INVALID_REQUEST", `Up to ${maxImages} files per message.`);
     }
 
     if (parts.length > MAX_PARTS_PER_MESSAGE) {

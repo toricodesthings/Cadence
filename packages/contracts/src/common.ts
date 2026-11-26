@@ -66,6 +66,9 @@ export const ERROR_CODES = [
     // Images and storage
     "IMAGE_NOT_FOUND",
     "IMAGE_TOO_LARGE",
+    "FILE_UNSUPPORTED",
+    "FILE_LOCKED",
+    "FILE_TOO_LONG",
     "UNSUPPORTED_IMAGE",
     "STORAGE_UNAVAILABLE",
     "STORAGE_FULL",

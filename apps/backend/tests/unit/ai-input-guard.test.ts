@@ -75,6 +75,10 @@ describe("assertMessageWithinCaps — image file parts", () => {
         expect(send(image(), image(), image(), image(), { type: "text", text: "hi" })).not.toThrow();
     });
 
+    it("accepts a PDF reference alongside photos", () => {
+        expect(send(image({ mediaType: "application/pdf" }), image())).not.toThrow();
+    });
+
     it.each([
         ["a data URL", image({ url: "data:image/webp;base64,AAAA" })],
         ["an https URL", image({ url: "https://evil.example/x.webp" })],

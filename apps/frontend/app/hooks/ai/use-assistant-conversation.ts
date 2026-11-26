@@ -22,7 +22,7 @@ import { makeChatTransport } from "../../lib/ai/chat-transport";
 import { firstOpenFor, liveChat, liveChatHandlers } from "../../lib/ai/live-chat";
 import { checkMessageText } from "../../lib/ai/input-guard";
 import { parseStreamErrorText, streamErrorFromError, type StreamError } from "../../lib/ai/stream-error";
-import { imageIdsOf, imageFilePart, isAssistantToolPart, lastMessageIndex } from "../../lib/ai/messages";
+import { imageIdsOf, imageFilePart, fileRefsOf, isAssistantToolPart, lastMessageIndex } from "../../lib/ai/messages";
 import { authenticatedFetch } from "../../lib/api/client";
 import { queryKeys } from "../../lib/api/query-keys";
 import { unwrapResponse } from "../../lib/api/helpers";
@@ -478,7 +478,9 @@ export function useAssistantConversation({
                     : deriveFallbackTitle(text, imageIds.length > 0),
             );
         }
-        const files = imageIds.map(imageFilePart);
+        const files = [...new Map(readyImages.map((a) => [a.imageId, a])).values()].map((a) =>
+            imageFilePart(a.imageId, a.mediaType),
+        );
         sendLocal(text ? { text, files } : { files });
         clearAttachments(false);
         requestAnimationFrame(onTurnSubmitted);
@@ -504,7 +506,7 @@ export function useAssistantConversation({
         clientMessageIdRef.current = crypto.randomUUID();
         const editAnchorId = index > 0 ? (messages[index - 1]?.id ?? null) : null;
         // The edited turn keeps its photos (already sent, so they cost nothing again).
-        const files = imageIdsOf(messages[index]).map(imageFilePart);
+        const files = fileRefsOf(messages[index]).map((f) => imageFilePart(f.id, f.mediaType));
         setMessages((prev) => prev.slice(0, index));
         sendLocal({ text: nextText, files }, { body: { editAnchorId } });
         requestAnimationFrame(onTurnSubmitted);
@@ -552,7 +554,7 @@ export function useAssistantConversation({
             .trim();
         setMessages((prev) => prev.slice(0, lastUserIndex));
         if (!text) {
-            onNotice("There were only images in that message.");
+            onNotice("There were only photos or PDFs in that message.");
             return;
         }
         clientMessageIdRef.current = crypto.randomUUID();

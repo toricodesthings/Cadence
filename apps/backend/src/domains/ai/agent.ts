@@ -71,6 +71,8 @@ export function chatModelSettings(
     return {
         models: [...new Set([modelId, getModelId(env), FALLBACK_CHAT_MODEL])],
         reasoning: { effort: REASONING_EFFORT },
+        // PDFs: text only (free, ≈500–800 tokens a page); a scanned PDF yields none and the prompt says so.
+        plugins: [{ id: "file-parser", pdf: { engine: "pdf-text" } }],
         provider: { order: [breakpoints ? "Anthropic" : "DeepInfra"], allow_fallbacks: true },
         user: userHash,
         ...(breakpoints && { cache_control: cacheVariant === "1h-1h" ? HOUR_CACHE_BREAKPOINT : TURN_CACHE_BREAKPOINT }),
@@ -109,7 +111,7 @@ export interface AgentBuildOptions {
     currentDate: string; // the client's current instant, ISO-8601 (usually UTC "Z")
     locale?: string;
     approvalMode: ApprovalMode;
-    hasImages?: () => boolean; // the turn's recent context holds an image (read at tool-call time): Full still asks before a permanent delete
+    hasAttachments?: () => boolean; // the turn's recent context holds a photo or PDF (read at tool-call time): Full waits like Auto
     surface?: ChatSurface; // an embedded chat (the Weekly Reset's): its own instructions and the week ahead instead of today
     modelId?: string; // the router's pick for this turn (model-router.ts); default the standard model
     nonce: string; // per-request data-fence nonce (safety/injection-policy)
@@ -405,7 +407,7 @@ export async function getAgentInstance(
         maxOutputTokens: MAX_OUTPUT_TOKENS,
         // Writes run here on the server; this decides which wait for the user's tap.
         // Approvals are HMAC-signed at issue, so an edited or forged one fails closed.
-        toolApproval: approvalFor(opts.approvalMode, { hasImages: opts.hasImages }),
+        toolApproval: approvalFor(opts.approvalMode, { hasAttachments: opts.hasAttachments }),
         experimental_toolApprovalSecret: env.TOOL_APPROVAL_SECRET,
         ...opts.diagnostics?.hooks,
     });

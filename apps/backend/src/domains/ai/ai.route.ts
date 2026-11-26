@@ -99,6 +99,7 @@ import {
     deleteImageObjects,
     hydrateImages,
     imageIdsIn,
+    imageTypesIn,
     markSent,
     resolveTurnImages,
 } from "./images/chat-images";
@@ -174,9 +175,15 @@ type AiContext = Context<{ Bindings: Env; Variables: AuthVariables }>;
  */
 function readIncoming(message: unknown, imagesPerMessage: number) {
     const incoming = message as ChatMessage | undefined;
-    if (!incoming) return { incoming, incomingText: "", imageIds: [] as string[] };
+    if (!incoming)
+        return { incoming, incomingText: "", imageIds: [] as string[], imageTypes: new Map<string, string>() };
     assertMessageWithinCaps(incoming, imagesPerMessage); // AI-specific caps → 400 INVALID_REQUEST
-    return { incoming, incomingText: extractText(incoming.parts), imageIds: imageIdsIn(incoming.parts) };
+    return {
+        incoming,
+        incomingText: extractText(incoming.parts),
+        imageIds: imageIdsIn(incoming.parts),
+        imageTypes: imageTypesIn(incoming.parts),
+    };
 }
 
 /** The user's zone and settings for this turn, and what recall looks up: this message plus the one before it, so "yes, do that" keeps its subject. */
@@ -210,10 +217,15 @@ async function turnSettings(
  * Images: ownership check (400 IMAGE_NOT_FOUND) + how many are new sends; a
  * regenerate/retry/edit re-sends images already sent, which count zero.
  */
-async function newImageCount(c: AiContext, conversationId: string | undefined, imageIds: string[]) {
+async function newImageCount(
+    c: AiContext,
+    conversationId: string | undefined,
+    imageIds: string[],
+    imageTypes: Map<string, string>,
+) {
     if (!imageIds.length) return 0;
     const { newCount } = await withCallerRls(c, (tx) =>
-        resolveTurnImages(tx, c.get("userId"), conversationId, imageIds),
+        resolveTurnImages(tx, c.get("userId"), conversationId, imageIds, imageTypes),
     );
     return newCount;
 }
@@ -222,7 +234,7 @@ async function newImageCount(c: AiContext, conversationId: string | undefined, i
 async function pickTurnModel(
     c: AiContext,
     conversationId: string | undefined,
-    routed: { text: string; imageCount: number },
+    routed: { text: string; attachmentCount: number },
 ) {
     const modelId = pickChatModel(c.env, routed);
     if (!conversationId || modelId === getModelId(c.env)) return modelId;
@@ -354,12 +366,16 @@ function continuationOf(kept: boolean, edited: boolean, isRerun: boolean) {
 // ── Create: the streaming chat turn ──────────────────────────────────
 
 /** Removes these chat images from storage (a no-op without storage). Callers do this before deleting rows, so a failure leaves them to retry. */
-async function deleteStoredImages(env: Env, userId: string, imageIds: string[]) {
-    if (imageIds.length === 0 || !env.USER_ASSETS) return;
+async function deleteStoredImages(
+    env: Env,
+    userId: string,
+    images: { id: string; mediaType: "image/webp" | "application/pdf" }[],
+) {
+    if (images.length === 0 || !env.USER_ASSETS) return;
     const userKey = await hashIdentifier(userId);
     await deleteImageObjects(
         env.USER_ASSETS,
-        imageIds.map((imageId) => aiImageKey(userKey, imageId)),
+        images.map((image) => aiImageKey(userKey, image.id, image.mediaType)),
     );
 }
 
@@ -380,12 +396,12 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
             () => diagnosticArrivalOffset + performance.now() - diagnosticClockStart,
         );
         const turnTiming: TurnTiming = {};
-        const { incoming, incomingText, imageIds } = readIncoming(body.message, limits.imagesPerMessage);
+        const { incoming, incomingText, imageIds, imageTypes } = readIncoming(body.message, limits.imagesPerMessage);
 
         const nonce = makeFenceNonce();
         const modelId = await pickTurnModel(c, body.conversationId, {
             text: incomingText,
-            imageCount: imageIds.length,
+            attachmentCount: imageIds.length,
         });
         const clientMessageId = body.clientMessageId ?? getIdempotencyKey(c);
 
@@ -401,7 +417,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         // hold now; reconcile to actual in onFinish. Layered on top of the per-turn caps
         // + CF short-window limiters — a Redis blip degrades, never bricks chat (§9.5).
         const endAdmission = diagnostics.beginPhase("admission");
-        const newImages = await newImageCount(c, body.conversationId, imageIds);
+        const newImages = await newImageCount(c, body.conversationId, imageIds, imageTypes);
         const rlRedis = getRateLimitRedis(c.env);
         const reserved = estimateReserve(incomingText.length, limits, imageIds.length);
         // Budget headers echoed on the SUCCESS response so the client holds its own
@@ -577,7 +593,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                 );
             });
             reusedContext.catch(() => {});
-            // Set once images hydrate (before the model runs); Full asks before a permanent delete while one is in context.
+            // Set once images hydrate (before the model runs); Full waits like Auto while a photo or PDF is in context.
             let imageCount = 0;
             const agentReady = settingsReady.then(({ timezone, settings, queryText, userTexts, answeredField }) =>
                 getAgentInstance(c.env, userId, {
@@ -592,7 +608,7 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
                     currentDate: body.currentDate,
                     locale: body.locale,
                     approvalMode: body.approvalMode,
-                    hasImages: () => imageCount > 0,
+                    hasAttachments: () => imageCount > 0,
                     surface: body.surface,
                     modelId,
                     nonce,
@@ -1050,8 +1066,8 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         const userId = c.get("userId");
 
         // Storage first, as for one thread: if it fails, the rows stay and the clear can be retried.
-        const imageIds = await withCallerRls(c, (tx) => listArchivedImageIds(tx, userId));
-        await deleteStoredImages(c.env, userId, imageIds);
+        const stored = await withCallerRls(c, (tx) => listArchivedImageIds(tx, userId));
+        await deleteStoredImages(c.env, userId, stored);
         const deleted = await withCallerRls(c, (tx) => deleteArchivedConversations(tx, userId));
 
         return c.json({ data: { deleted } });
@@ -1062,8 +1078,8 @@ export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVariables }>()
         const { id } = c.req.valid("param");
 
         // Its images go with it. Storage first: if that fails, the rows stay and the delete can be retried.
-        const imageIds = await withCallerRls(c, (tx) => listConversationImageIds(tx, userId, id));
-        await deleteStoredImages(c.env, userId, imageIds);
+        const stored = await withCallerRls(c, (tx) => listConversationImageIds(tx, userId, id));
+        await deleteStoredImages(c.env, userId, stored);
         await withCallerRls(c, (tx) => deleteConversation(tx, userId, id));
 
         return c.json({ data: { id, deleted: true } });

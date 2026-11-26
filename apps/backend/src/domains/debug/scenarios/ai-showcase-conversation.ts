@@ -602,7 +602,7 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
             parts: [
                 text(
                     "Housekeeping: copy the slides task for next week, put the launch announcement at the top, remind me about Acme at 4, " +
-                        "rename Home Reset to Home, drop Spring Semester but keep its tasks, rename Follow-up to Chase, delete the Admin tag, " +
+                        "rename Home Reset to Home, drop Spring Semester but keep its tasks, rename Follow-up to Chase, turn off routine streaks, delete the Admin tag, " +
                         "keep the teardown deck as a note, bin the Maya capture for good, delete Hydrate for good, " +
                         "save a view of my urgent work, pin Overdue Review and drop the This Week view.",
                 ),
@@ -615,6 +615,7 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                 step,
                 read("get_focus_views", {}, { views: views.map(toMinimalFocusView) }),
                 read("get_tags", { query: "follow" }, { tags: [toMinimalTag(followUp)] }),
+                read("get_settings", {}, { settings: { tasks: { showStreaks: true } } }),
                 read(
                     "get_cadence_help",
                     { topic: "organizing" },
@@ -639,6 +640,7 @@ export async function seedAiShowcaseConversation(db: Tx, userId: string, refs: S
                     tasks: "keep",
                 }),
                 waiting("update_tag", { tagId: followUp.id, patch: { name: "Chase" } }),
+                waiting("update_settings", { patch: { tasks: { showStreaks: false } } }),
                 waiting("delete_tag", { tagId: admin.id, name: admin.name }),
                 waiting("update_captures", { items: [{ inboxItemId: teardown.id, action: "note" }] }),
                 waiting("delete_captures", { items: [{ inboxItemId: askMaya.id, text: askMaya.rawText }] }),

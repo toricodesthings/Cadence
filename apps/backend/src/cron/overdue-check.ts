@@ -114,7 +114,7 @@ export async function pruneAiImages(env: Env, now: Date = new Date()) {
 
     return forEachUser(db, await cronUserIds(db, now), async (tx, userId) => {
         const rows = await tx
-            .select({ id: aiImages.id })
+            .select({ id: aiImages.id, mediaType: aiImages.mediaType })
             .from(aiImages)
             .where(
                 and(
@@ -129,7 +129,7 @@ export async function pruneAiImages(env: Env, now: Date = new Date()) {
         const userKey = await hashIdentifier(userId);
         await deleteImageObjects(
             bucket,
-            rows.map((row) => aiImageKey(userKey, row.id)),
+            rows.map((row) => aiImageKey(userKey, row.id, row.mediaType)),
         );
         await tx.delete(aiImages).where(
             and(

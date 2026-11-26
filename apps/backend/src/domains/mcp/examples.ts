@@ -20,6 +20,7 @@ export const EXAMPLES: Record<PublishedTool, object[]> = {
     fit_day: [{ day: "2026-09-22" }, { day: "2026-09-22", through: "2026-09-25", includeUnscheduled: true }],
     get_projects: [{ query: "University" }, { projectId: ID, offset: 200 }],
     get_tags: [{ query: "errands" }],
+    get_settings: [{}],
     get_inbox_items: [{ limit: 20 }],
     get_habits: [{}],
     get_habit_status_today: [{}],
@@ -73,6 +74,7 @@ export const EXAMPLES: Record<PublishedTool, object[]> = {
     delete_section: [{ sectionId: ID, confirm: true, operationKey: KEY }],
     create_tag: [{ name: "errands", color: "teal", operationKey: KEY }],
     update_tag: [{ tagId: ID, patch: { color: "blue" }, operationKey: KEY }],
+    update_settings: [{ patch: { tasks: { showStreaks: false } }, operationKey: KEY }],
     delete_tag: [{ tagId: ID, name: "old", confirm: true, operationKey: KEY }],
     create_habit: [
         {

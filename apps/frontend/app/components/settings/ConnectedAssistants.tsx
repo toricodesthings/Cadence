@@ -19,7 +19,7 @@ export function ConnectedAssistants() {
                 <code className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[13px] text-twilight-text">
                     {CADENCE_MCP_URL}
                 </code>{" "}
-                as a connector there, then approve it here. It can't change your settings.
+                as a connector there, then approve it here. It can change some settings, like reminders and routine streaks, never privacy, sign-in or memory.
             </p>
             {isError && <p className="text-sm text-twilight-text-soft">Couldn't load your connections.</p>}
             {!isPending && connections?.length === 0 && (

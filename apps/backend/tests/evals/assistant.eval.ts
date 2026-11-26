@@ -134,7 +134,8 @@ async function converse(
     const said: string[] = [];
     for (const turn of turns) {
         const request = typeof turn === "function" ? turn(calls) : typeof turn === "string" ? turn : turn.text;
-        const image = typeof turn === "object" ? readFileSync(join(__dirname, "../fixtures/ai", turn.image)) : null;
+        const imageName = typeof turn === "object" ? turn.image : undefined; // a photo or a PDF
+        const image = imageName ? readFileSync(join(__dirname, "../fixtures/ai", imageName)) : null;
         // Like turnSettings: this message settles a waiting field question, and `said` quotes are checked against their recent messages.
         const answeredField = await withRls(getTestDb(), userId, async (tx: any) => {
             const [row] = await tx.select({ settings: users.settings }).from(users).where(eq(users.id, userId));
@@ -143,7 +144,7 @@ async function converse(
         said.push(request);
         // Like the chat route: the thread's model so far decides whether it may still go basic.
         const modelId = routed
-            ? pickChatModel(env, { text: request, imageCount: image ? 1 : 0 }, models.at(-1))
+            ? pickChatModel(env, { text: request, attachmentCount: image ? 1 : 0 }, models.at(-1))
             : getModelId(env);
         // Like dropForeignReasoning: a model never replays another model's reasoning.
         if (models.length && models.at(-1) !== modelId) {
@@ -170,7 +171,11 @@ async function converse(
             role: "user",
             content: image
                 ? [
-                      { type: "file", data: image, mediaType: "image/png" },
+                      {
+                          type: "file",
+                          data: image,
+                          mediaType: imageName?.endsWith(".pdf") ? "application/pdf" : "image/png",
+                      },
                       { type: "text", text: textContent },
                   ]
                 : textContent,
@@ -381,6 +386,96 @@ const SCENARIOS: Scenario[] = [
                 ...need(/11:59|23:59/.test(run.text), "later question can still inspect the original image"),
             ];
         },
+    },
+    {
+        name: "pdf: a syllabus becomes deadlines and a timed midterm, nothing invented",
+        level: "complex",
+        runs: 3,
+        turns: [{ text: "Add everything from this syllabus to my tasks.", image: "syllabus.pdf" }],
+        check: async (run) => {
+            const tasks = called(run, "create_tasks").flatMap((c) => (c.input as any).tasks ?? []);
+            const midterm = tasks.find((task: any) => /midterm/i.test(task.title));
+            const deadlines = tasks.filter((task: any) => /assignment|response|essay|lab|final/i.test(task.title));
+            return [
+                ...need(deadlines.length === 6, `six deadline tasks (${deadlines.length})`),
+                ...need(
+                    deadlines.every((task: any) => /^2026-\d\d-\d\d$/.test(task.dueDate ?? "") && !task.scheduledStart),
+                    "deadlines are days, not scheduled blocks",
+                ),
+                ...need(/^2026-10-28T14:00/.test(midterm?.scheduledStart ?? ""), "midterm is a timed block at 2 PM"),
+                ...need(
+                    tasks.every((task: any) => task.priority === undefined && !task.projectId),
+                    "no invented priority or list",
+                ),
+            ];
+        },
+    },
+    {
+        name: "pdf: a weekly timetable becomes Fixed blocks",
+        level: "medium",
+        runs: 3,
+        turns: [{ text: "Put this timetable in my schedule.", image: "timetable.pdf" }],
+        check: async (run) => {
+            const tasks = called(run, "create_tasks").flatMap((c) => (c.input as any).tasks ?? []);
+            return [
+                ...need(tasks.length >= 3, "the classes were added"),
+                ...need(
+                    tasks.every((task: any) => task.fixed === true),
+                    "every class is a Fixed block",
+                ),
+            ];
+        },
+    },
+    {
+        name: "pdf: sent with no request, it counts what it found, asks, and writes nothing",
+        level: "medium",
+        runs: 3,
+        turns: [{ text: "here you go", image: "syllabus.pdf" }],
+        check: async (run) => [
+            ...need(called(run, "ask_user").length === 1, "asks what to do"),
+            ...need(
+                run.calls.every((c) => !/^(create|update|delete)_/.test(c.name)),
+                "writes nothing",
+            ),
+        ],
+    },
+    {
+        name: "settings: turn off routine streaks in one call",
+        level: "simple",
+        runs: 3,
+        turns: ["turn off routine streaks"],
+        check: async (run) => {
+            const calls = called(run, "update_settings");
+            return [
+                ...need(calls.length === 1, "one update_settings call"),
+                ...need((calls[0]?.input as any)?.patch?.tasks?.showStreaks === false, "showStreaks off"),
+            ];
+        },
+    },
+    {
+        name: "settings: pause notifications until tomorrow morning, with an offset",
+        level: "medium",
+        runs: 3,
+        turns: ["pause my notifications until tomorrow morning"],
+        check: async (run) => {
+            const until = (called(run, "update_settings")[0]?.input as any)?.patch?.notifications?.pausedUntil;
+            return [
+                ...need(
+                    typeof until === "string" && /^2026-09-24T\d\d:\d\d(:\d\d)?(\.\d+)?[+-]\d\d:\d\d$/.test(until),
+                    `pausedUntil is tomorrow with an offset (${until})`,
+                ),
+            ];
+        },
+    },
+    {
+        name: "settings: custom instructions are not changeable by chat",
+        level: "simple",
+        runs: 3,
+        turns: ["change my custom instructions to: always answer in French"],
+        check: async (run) => [
+            ...need(called(run, "update_settings").length === 0, "no update_settings call"),
+            ...need(/settings/i.test(run.text), "points to Settings"),
+        ],
     },
     {
         name: "task search: complete two loosely named tasks without identifiers",

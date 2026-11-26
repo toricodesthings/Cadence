@@ -91,6 +91,7 @@ describe("prompt caching on the wire", () => {
             );
             expect(body.provider).toEqual({ order: ["Anthropic"], allow_fallbacks: true });
             expect(body.reasoning).toEqual({ effort: "medium" });
+            expect(body.plugins).toEqual([{ id: "file-parser", pdf: { engine: "pdf-text" } }]);
             expect(body.tools.map((t: any) => t.function.name)).toEqual(["get_tasks"]);
             // One explicit system breakpoint, then the advancing automatic tail: long TTL precedes short TTL.
             expect(body.messages.at(-1).role).toBe("user");

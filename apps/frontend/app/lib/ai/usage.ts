@@ -122,7 +122,7 @@ export function describeUsageMeters(usage: AiUsage | undefined, nowMs: number): 
         windowMeter("7d", "Weekly limit", usage.windows["7d"], nowMs),
         {
             id: "images",
-            label: "Photos today",
+            label: "Photos and PDFs today",
             fraction: images.limit > 0 ? Math.min(1, images.used / images.limit) : 0,
             headline: `${images.used} of ${images.limit}`,
             caption: `Up to ${images.perMessage} per message`,
@@ -151,14 +151,14 @@ export interface ImageAllowance {
  */
 export function describeImageAllowance(usage: AiUsage | undefined, nowMs: number): ImageAllowance {
     const images = usage?.enabled ? usage.images : undefined;
-    if (!images) return { left: Infinity, blocked: false, label: "Attach an image" };
+    if (!images) return { left: Infinity, blocked: false, label: "Attach a photo or PDF" };
     const left = Math.max(0, images.limit - images.used);
     const reset = formatReset(images.resetEpoch, nowMs);
     const suffix = reset ? ` · resets ${reset}` : "";
-    if (left === 0) return { left, blocked: true, label: `Image limit reached${suffix}` };
+    if (left === 0) return { left, blocked: true, label: `File limit reached${suffix}` };
     if (left <= LOW_IMAGES)
-        return { left, blocked: false, label: `${left} image${left === 1 ? "" : "s"} left${suffix}` };
-    return { left, blocked: false, label: "Attach an image" };
+        return { left, blocked: false, label: `${left} file${left === 1 ? "" : "s"} left${suffix}` };
+    return { left, blocked: false, label: "Attach a photo or PDF" };
 }
 
 /**

@@ -11,11 +11,11 @@ export const PRIVACY: LegalDoc = {
     description:
         "What Cadence stores, who else handles it, how the AI assistant uses your data, and what is still unfinished. Plain language, nothing hidden.",
     lede: "What Cadence holds about you, who else touches it, and where the honest gaps are. Where something is unfinished or could not be verified, it is written down instead of smoothed over.",
-    updated: "2026-10-19",
+    updated: "2026-11-25",
     inShort: [
         "Cadence is run by one person with no company behind it. The apps contain no advertising or third-party analytics code, and your data is not sold.",
         "Your workspace lives in a Neon Postgres database, separated per account by row-level security. Cloudflare runs the servers.",
-        "If you message the assistant, that message, related tasks and notes, and any photos you attach go to AI model providers through OpenRouter. Their retention and training terms are not something this project can verify.",
+        "If you message the assistant, that message, related tasks and notes, and any photos or PDFs you attach go to AI model providers through OpenRouter. Their retention and training terms are not something this project can verify.",
         "Unless you switch it off in Settings (Suggest with an AI provider), a new capture's text, a search that found nothing, or a new task's title with titles of tasks whose Effort you chose, goes to an AI provider with your list, section and task names, to suggest where it belongs, what you meant, an Effort, or the priority its words state.",
         "The assistant remembers what you tell it, from the start (Basic is on until you choose). Full is your choice and also learns from what you do in the app. You can see all of it, forget anything with one tap, or choose Off.",
         "Usage diagnostics are on by default (you can switch them off) and record which actions you use, not your text. The Crash reports switch currently does nothing.",
@@ -112,7 +112,7 @@ export const PRIVACY: LegalDoc = {
                             "Until you delete the conversation. No automatic expiry",
                         ],
                         [
-                            "Photos you send the assistant",
+                            "Photos and PDFs you send the assistant",
                             "Let it read them",
                             "Cloudflare R2, with a link row in Postgres",
                             "Cloudflare, Neon. AI providers when sent",
@@ -416,7 +416,7 @@ export const PRIVACY: LegalDoc = {
                     kind: "list",
                     items: [
                         "Tasks go to Trash first; Empty Trash deletes them permanently. Lists, routines, captures, events and saved views can be deleted in the app.",
-                        "Assistant conversations: delete one, or clear the archive. Their photos go with them.",
+                        "Assistant conversations: delete one, or clear the archive. Their photos and PDFs go with them.",
                         "Your background photo: the bin button deletes it from storage.",
                         "Connected assistants: Disconnect. Saved location: Forget saved location. Usage diagnostics and location: switch off in Settings.",
                     ],
@@ -429,7 +429,7 @@ export const PRIVACY: LegalDoc = {
                 {
                     kind: "list",
                     items: [
-                        "It deletes your photos (background and assistant photos) from storage and disconnects every connected assistant.",
+                        "It deletes your photos (your background, and photos and PDFs sent to the assistant) from storage and disconnects every connected assistant.",
                         "It deletes your workspace in one step: tasks, notes, lists, routines, events, settings, assistant conversations, diagnostics events, export records and connection records all hang off your account and go with it.",
                         "It removes your sign-in account (email, name, profile picture, password or linked Google and GitHub login) from Neon Auth.",
                         "It clears the copy kept on the device you deleted from. Other devices keep a cached copy until they sign out or another account signs in there.",
@@ -449,7 +449,7 @@ export const PRIVACY: LegalDoc = {
                     kind: "list",
                     items: [
                         "In the file: your workspace as stored, meaning tasks, notes, subtasks, lists, sections, tags, routines and their logs, captures, saved views, settings, assistant conversations, connected-assistant records, reminder state and usage diagnostics, plus your account id and email.",
-                        "Not in the file: photos you uploaded (your background, images sent to the assistant), sign-in details held by Neon Auth (name, profile picture, password, linked logins), assistant-memory embedding vectors (memory items themselves are in the file), and the internal keys Cadence uses to avoid repeating a change.",
+                        "Not in the file: photos you uploaded (your background, photos and PDFs sent to the assistant), sign-in details held by Neon Auth (name, profile picture, password, linked logins), assistant-memory embedding vectors (memory items themselves are in the file), and the internal keys Cadence uses to avoid repeating a change.",
                         "Cadence keeps a record of each request: the address, the time, whether it was sent, and the file size. It does not keep the file. The record is erased with your account.",
                         "It is a snapshot, not a backup, and it is not meant to be re-imported into Cadence.",
                     ],
@@ -473,7 +473,7 @@ export const PRIVACY: LegalDoc = {
                         "Sign-in is handled by Neon Auth. Cadence's API checks a signed token against Neon's public keys on every request and never sees your password.",
                         "The database enforces row-level security: each request runs as your account, so another account's rows are invisible to it.",
                         "Per-IP and per-account rate limits, request size limits, input validation, and an allowlist for which websites may call the API.",
-                        "Photo storage is private with no public address. A photo can only be read back through an authenticated request from its owner. Uploads are re-encoded and stripped of metadata server-side.",
+                        "Photo and PDF storage is private with no public address. A file can only be read back through an authenticated request from its owner. Photo uploads are re-encoded and stripped of metadata server-side; PDFs are checked and stored as sent.",
                         "Cadence's own log lines use a short hash of your user id, not the id or email, and do not log successful requests. Cloudflare keeps its own request records.",
                         "Desktop: your sign-in token is kept in the OS keyring, and updates are verified with a signature before they install.",
                     ],

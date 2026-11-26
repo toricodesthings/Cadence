@@ -67,7 +67,7 @@ describe("resolveLimits", () => {
     });
 
     it("reads the three image caps, with defaults", () => {
-        expect(resolveLimits({} as Env)).toMatchObject({ images24h: 20, imagesPerMessage: 4, imagesMaxPending: 8 });
+        expect(resolveLimits({} as Env)).toMatchObject({ images24h: 40, imagesPerMessage: 4, imagesMaxPending: 8 });
         const l = resolveLimits({
             AI_RL_IMAGES_24H: "5",
             AI_IMAGES_PER_MESSAGE: "2",

@@ -100,7 +100,7 @@ describe("POST /ai/chat — usage budget", () => {
 
     it("rejects only on the image quota as AI_IMAGE_LIMITED", async () => {
         const redis = new FakeRedis();
-        redis.strings.set(keys.img24h, "20");
+        redis.strings.set(keys.img24h, "40");
         getRateLimitRedisMock.mockReturnValue(redis);
 
         const { status, body } = await chat({}, [

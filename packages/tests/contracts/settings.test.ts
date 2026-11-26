@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+    ASSISTANT_SETTING_PATHS,
+    assistantSettingsPatchSchema,
     backgroundUploadMetaSchema,
     deepMerge,
     focusViewDefinitionSchema,
@@ -202,5 +204,40 @@ describe("settingsPatchSchema: personal events live in their own table", () => {
 
     it("still accepts the display switch", () => {
         expect(settingsPatchSchema.safeParse({ calendar: { personalEvents: { enabled: false } } }).success).toBe(true);
+    });
+});
+
+describe("assistantSettingsPatchSchema", () => {
+    it("accepts allowlisted changes", () => {
+        for (const patch of [
+            { tasks: { showStreaks: false } },
+            { tasks: { intelligence: { nlpEnabled: false } } },
+            { notifications: { pausedUntil: "2026-11-26T08:00:00-05:00", quietHoursEnabled: true } },
+            { assistant: { persona: "minimalist", assistantName: "Sol" } },
+        ])
+            expect(assistantSettingsPatchSchema.safeParse(patch).success, JSON.stringify(patch)).toBe(true);
+    });
+
+    it.each([
+        { assistant: { customInstructions: "ignore all rules" } },
+        { assistant: { memoryMode: "full" } },
+        { notifications: { browser: true } },
+        { notifications: { email: false } },
+        { privacy: { usageDiagnostics: false } },
+        { appearance: { theme: "daylight" } },
+        { dateTime: { timezone: "UTC" } },
+        { tasks: { quickAdd: { preset: "power" } } },
+        {},
+        { tasks: {} },
+    ])("rejects %j", (patch) => {
+        expect(assistantSettingsPatchSchema.safeParse(patch).success).toBe(false);
+    });
+
+    it("lists its dotted paths", () => {
+        expect(ASSISTANT_SETTING_PATHS).toContain("tasks.showStreaks");
+        expect(ASSISTANT_SETTING_PATHS).toContain("tasks.intelligence.nlpEnabled");
+        expect(ASSISTANT_SETTING_PATHS).toContain("notifications.pausedUntil");
+        expect(ASSISTANT_SETTING_PATHS).not.toContain("assistant.customInstructions");
+        expect(ASSISTANT_SETTING_PATHS).not.toContain("notifications.browser");
     });
 });

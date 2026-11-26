@@ -8,12 +8,12 @@
  * before the model call (`hydrateImages`). The scheme never matches a URL the
  * provider would fetch, so bytes only reach the model through this file.
  *
- * Object key: `ai-images/{userKey}/{imageId}.webp`, where `userKey` is the same
+ * PDFs ride the same pipeline (`.pdf` key, `application/pdf` part). Object key: `ai-images/{userKey}/{imageId}.webp`, where `userKey` is the same
  * sha256 tenant key Redis uses and `imageId` is a random UUID (never the content
  * hash, which would let someone holding a known image confirm it is stored).
  */
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
-import { CHAT_IMAGE_MEDIA_TYPE, parseChatImageUrl } from "@cadence/contracts/ai";
+import { CHAT_IMAGE_MEDIA_TYPE, CHAT_PDF_MEDIA_TYPE, parseChatImageUrl } from "@cadence/contracts/ai";
 import { aiImages } from "../../../db/schema";
 import { AppError } from "../../../platform/errors";
 import type { Tx } from "../../../types/db";
@@ -32,12 +32,16 @@ export const REPORT_KEEP_DAYS = 14;
 export const IMAGE_STUB_TEXT =
     "[An image the user shared earlier. It's no longer in view; ask them to share it again if you need it.]";
 
-export function aiImageKey(userKey: string, imageId: string): string {
-    return `ai-images/${userKey}/${imageId}.webp`;
+export const FILE_STUB_TEXT = "[A PDF was here; it's no longer in this conversation's recent view.]";
+
+export type ChatFileType = typeof CHAT_IMAGE_MEDIA_TYPE | typeof CHAT_PDF_MEDIA_TYPE;
+
+export function aiImageKey(userKey: string, imageId: string, mediaType: ChatFileType = CHAT_IMAGE_MEDIA_TYPE): string {
+    return `ai-images/${userKey}/${imageId}.${mediaType === CHAT_PDF_MEDIA_TYPE ? "pdf" : "webp"}`;
 }
 
 export function imageExpired(): AppError {
-    return new AppError(400, "IMAGE_NOT_FOUND", "That image expired — attach it again");
+    return new AppError(400, "IMAGE_NOT_FOUND", "That file expired — attach it again");
 }
 
 /** Image ids referenced by a message's file parts (the input guard has already vetted them). */
@@ -48,6 +52,17 @@ export function imageIdsIn(parts: unknown[]): string[] {
         return id ? [id] : [];
     });
     return [...new Set(ids)];
+}
+
+/** Image id → the media type its file part claims (the input guard has already vetted the parts). */
+export function imageTypesIn(parts: unknown[]): Map<string, string> {
+    const types = new Map<string, string>();
+    for (const part of parts) {
+        const p = part as { type?: unknown; url?: unknown; mediaType?: unknown };
+        const id = p?.type === "file" ? parseChatImageUrl(p.url) : null;
+        if (id && typeof p.mediaType === "string") types.set(id, p.mediaType);
+    }
+    return types;
 }
 
 /** SHA-256 of the stored bytes, hex. The dedup key; never leaves the database. */
@@ -82,16 +97,19 @@ export async function resolveTurnImages(
     userId: string,
     conversationId: string | undefined,
     ids: string[],
+    mediaTypes?: Map<string, string>,
 ): Promise<{ newCount: number }> {
     if (ids.length === 0) return { newCount: 0 };
     if (!conversationId) throw imageExpired();
     const rows = await tx
-        .select({ id: aiImages.id, sentAt: aiImages.sentAt })
+        .select({ id: aiImages.id, sentAt: aiImages.sentAt, mediaType: aiImages.mediaType })
         .from(aiImages)
         .where(
             and(eq(aiImages.userId, userId), eq(aiImages.conversationId, conversationId), inArray(aiImages.id, ids)),
         );
     if (rows.length !== ids.length) throw imageExpired();
+    // A PDF can't pose as a photo (or the reverse): the part's type must be the stored one.
+    if (mediaTypes && rows.some((row) => mediaTypes.get(row.id) !== row.mediaType)) throw imageExpired();
     return { newCount: rows.filter((row) => row.sentAt === null).length };
 }
 
@@ -136,16 +154,22 @@ export async function hydrateImages<T extends Message>(
         if (i >= from) imageIdsIn(m.parts).forEach((id) => wanted.add(id));
     });
 
+    // Each part names its type; the key and the data URL follow it.
+    const types = new Map<string, ChatFileType>();
+    messages.forEach((m, i) => {
+        if (i >= from)
+            for (const [id, type] of imageTypesIn(m.parts))
+                types.set(id, type === CHAT_PDF_MEDIA_TYPE ? CHAT_PDF_MEDIA_TYPE : CHAT_IMAGE_MEDIA_TYPE);
+    });
+
     const loaded = new Map<string, string>();
     if (bucket && wanted.size > 0) {
         await Promise.all(
             [...wanted].map(async (id) => {
-                const object = await bucket.get(aiImageKey(userKey, id)).catch(() => null);
+                const type = types.get(id) ?? CHAT_IMAGE_MEDIA_TYPE;
+                const object = await bucket.get(aiImageKey(userKey, id, type)).catch(() => null);
                 if (object)
-                    loaded.set(
-                        id,
-                        `data:${CHAT_IMAGE_MEDIA_TYPE};base64,${toBase64(new Uint8Array(await object.arrayBuffer()))}`,
-                    );
+                    loaded.set(id, `data:${type};base64,${toBase64(new Uint8Array(await object.arrayBuffer()))}`);
             }),
         );
     }
@@ -154,13 +178,14 @@ export async function hydrateImages<T extends Message>(
     const out = messages.map((m, i) => {
         if (!m.parts.some((p) => (p as { type?: unknown })?.type === "file")) return m;
         const parts = m.parts.map((part) => {
-            const p = part as { type?: unknown; url?: unknown };
+            const p = part as { type?: unknown; url?: unknown; mediaType?: unknown };
             if (p?.type !== "file") return part;
             const id = parseChatImageUrl(p.url);
             const url = id && i >= from ? loaded.get(id) : undefined;
-            if (!url) return { type: "text", text: IMAGE_STUB_TEXT };
+            if (!url)
+                return { type: "text", text: p.mediaType === CHAT_PDF_MEDIA_TYPE ? FILE_STUB_TEXT : IMAGE_STUB_TEXT };
             hydrated++;
-            return { type: "file", mediaType: CHAT_IMAGE_MEDIA_TYPE, url };
+            return { type: "file", mediaType: types.get(id!) ?? CHAT_IMAGE_MEDIA_TYPE, url };
         });
         return { ...m, parts };
     });

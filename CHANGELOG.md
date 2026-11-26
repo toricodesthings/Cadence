@@ -6,6 +6,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+### Added
+
+- Send the assistant a PDF, like a syllabus, and it drafts tasks from its dates.
+- Ask the assistant to change reminders, routine streaks, task defaults or its name and voice.
+
+### Changed
+
+- In Full mode, the assistant asks first while a photo or PDF is in the chat.
+- Photos and PDFs share one daily limit for the assistant, now doubled to 40.
+- Terms and Privacy Policy updated for PDFs and settings changes by assistants.
+
 ## [2.6.0] - 2026-11-25
 
 - Settings → Date & Time → Your day sets when your day starts and ends; planning looks for time only inside it.

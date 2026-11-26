@@ -21,7 +21,7 @@ import type { PersonalEvent } from "@cadence/contracts/personal-event";
 import { withRls } from "../../platform/rls";
 import { userZone } from "../../platform/user-zone";
 import { devices, habitLogs, notificationState, pushDeliveries, taskPersonal, tasks, users } from "../../db/schema";
-import { normalizeSettings } from "../settings/settings.route";
+import { normalizeSettings } from "../settings/settings.service";
 import { listEvents } from "../personal-events/personal-events.service";
 import { loadHabitsForCaller, turnFor, turnOrderOf } from "../habits/habits.service";
 import type { PushMessage, PushOutcome } from "./web-push";

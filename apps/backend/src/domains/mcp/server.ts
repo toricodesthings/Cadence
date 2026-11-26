@@ -85,6 +85,7 @@ export const DRY_RUN_TOOLS = new Set<ToolName>([
     "delete_event",
     "save_focus_view",
     "delete_focus_view",
+    "update_settings",
 ]);
 
 const READ_ONLY = { readOnlyHint: true, openWorldHint: false } as const;
