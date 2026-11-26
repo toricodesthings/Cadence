@@ -6,6 +6,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions follo
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-11-25
+
 ### Added
 
 - Send the assistant a PDF, like a syllabus, and it drafts tasks from its dates.
